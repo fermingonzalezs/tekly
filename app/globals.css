@@ -11,8 +11,59 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Reglas globales de tablas del CRM. Sin capa => ganan sobre las utilidades
+   de Tailwind. Aplican a TODA tabla, presente y futura. */
+
+/* Encabezados: mayúscula, negrita, fuente negra y fondo azul claro. */
+th {
+  background-color: #eff4ff; /* accent-soft */
+  color: #171717; /* neutral-900 — no gris */
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* Encabezados y celdas centrados por defecto. */
+th,
+td {
+  text-align: center;
+}
+
+/* Opt-out por celda: text-left / text-start alinean el CONTENIDO a la
+   izquierda (los th igual quedan en mayúscula/negrita). */
+th.text-left,
+td.text-left,
+th.text-start,
+td.text-start {
+  text-align: left;
+}
+
 /* thin scrollbar for the sidebar / panels */
 * {
   scrollbar-width: thin;
   scrollbar-color: #d4d4d4 transparent;
+}
+
+/* Impresión: solo se imprime el recibo (.recibo-print), el resto se oculta. */
+@media print {
+  body {
+    background: #fff;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .recibo-print,
+  .recibo-print * {
+    visibility: visible !important;
+  }
+  .recibo-print {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    padding: 14mm;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible;
+  }
 }

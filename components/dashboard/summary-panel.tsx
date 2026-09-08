@@ -1,73 +1,69 @@
 import { Card } from "@/components/ui/card";
-import { monthGoal, ticketStages } from "@/lib/mock-data";
-
-const R = 52;
-const C = 2 * Math.PI * R;
+import { ChartTitle } from "@/components/ui/chart-title";
+import { RubrosPie } from "@/components/dashboard/rubros-pie";
+import { InventarioPie } from "@/components/dashboard/inventario-pie";
+import { monthGoal, ventas } from "@/lib/mock-data";
+import { fmtUsd } from "@/lib/format";
 
 export function SummaryPanel() {
-  const pct = Math.min(1, monthGoal.current / monthGoal.target);
-  const totalTickets = ticketStages.reduce((a, s) => a + s.count, 0);
+  const pct = Math.round(
+    Math.min(1, monthGoal.current / monthGoal.target) * 100,
+  );
+  const falta = Math.max(0, monthGoal.target - monthGoal.current);
+  const nVentas = ventas.filter((v) => v.tipo === "venta").length;
+  const nReparaciones = ventas.filter((v) => v.tipo === "reparacion").length;
+  const facturado = ventas.reduce((a, v) => a + v.totalUsd, 0);
 
   return (
-    <Card className="p-5">
-      <p className="text-sm font-semibold text-neutral-500">Resumen del mes</p>
+    <Card className="flex flex-col p-5">
+      <ChartTitle>Resumen del mes</ChartTitle>
 
-      <div className="mt-4 flex flex-col items-center">
-        <div className="relative h-36 w-36">
-          <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
-            <circle
-              cx="64"
-              cy="64"
-              r={R}
-              fill="none"
-              stroke="#f1f5f9"
-              strokeWidth="12"
-            />
-            <circle
-              cx="64"
-              cy="64"
-              r={R}
-              fill="none"
-              stroke="#2563eb"
-              strokeWidth="12"
-              strokeLinecap="round"
-              strokeDasharray={C}
-              strokeDashoffset={C * (1 - pct)}
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-semibold">
-              {Math.round(pct * 100)}%
-            </span>
-            <span className="text-[11px] text-neutral-400">del objetivo</span>
+      <div className="mt-4 flex flex-1 flex-col justify-between gap-6">
+        <RubrosPie />
+
+        <div className="border-t border-neutral-100 pt-6">
+          <p className="text-center text-xs font-semibold uppercase tracking-wider text-neutral-400">
+            Objetivo del mes
+          </p>
+
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-xl font-semibold tabular-nums">{pct}%</span>
+            <span className="text-xs text-neutral-400">del objetivo</span>
           </div>
-        </div>
-        <p className="mt-3 text-xs text-neutral-400">
-          USD {monthGoal.current.toLocaleString("en-US")} de{" "}
-          {monthGoal.target.toLocaleString("en-US")}
-        </p>
-      </div>
+          <div className="mt-2 h-8 overflow-hidden rounded-lg bg-neutral-100">
+            <div
+              className="h-full rounded-lg bg-gradient-to-r from-blue-400 to-accent"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="mt-2 text-center text-xs text-neutral-500">
+            <span className="font-semibold text-neutral-800">
+              {fmtUsd(monthGoal.current)}
+            </span>{" "}
+            / {fmtUsd(monthGoal.target)} · faltan {fmtUsd(falta)}
+          </p>
 
-      <div className="mt-5 border-t border-neutral-100 pt-4">
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-neutral-500">Tickets activos</span>
-          <span className="font-semibold">{totalTickets}</span>
-        </div>
-        <ul className="mt-3 space-y-2">
-          {ticketStages.map((s) => (
-            <li
-              key={s.label}
-              className="flex items-center gap-2 text-[13px] text-neutral-600"
-            >
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ background: s.color }}
-              />
-              <span className="flex-1">{s.label}</span>
-              <span className="font-semibold text-neutral-800">{s.count}</span>
+          <ul className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
+            <li>
+              <span className="font-semibold tabular-nums">{nVentas}</span>{" "}
+              <span className="text-neutral-500">Ventas</span>
             </li>
-          ))}
-        </ul>
+            <li>
+              <span className="font-semibold tabular-nums">{nReparaciones}</span>{" "}
+              <span className="text-neutral-500">Reparac.</span>
+            </li>
+            <li>
+              <span className="font-semibold tabular-nums">
+                {fmtUsd(facturado)}
+              </span>{" "}
+              <span className="text-neutral-500">Facturado</span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="border-t border-neutral-100 pt-6">
+          <InventarioPie />
+        </div>
       </div>
     </Card>
   );

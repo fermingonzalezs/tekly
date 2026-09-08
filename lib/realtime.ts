@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
+import { fmtUsd } from "@/lib/format";
 
 /**
  * Pub/sub de eventos entre sesiones de browser.
@@ -77,7 +78,7 @@ export function describe(e: AppEvent): ToastView {
       return {
         icon: "sale",
         title: `${e.actor} confirmó una venta`,
-        detail: `+USD ${e.amountUsd.toLocaleString("en-US")} · ${e.ref}`,
+        detail: `+${fmtUsd(e.amountUsd)} · ${e.ref}`,
         tone: "success",
       };
     case "ticket_ready":
@@ -91,7 +92,7 @@ export function describe(e: AppEvent): ToastView {
       return {
         icon: "check",
         title: `Presupuesto aprobado · Ticket #${e.ticket}`,
-        detail: `USD ${e.amountUsd.toLocaleString("en-US")} · ${e.actor}`,
+        detail: `${fmtUsd(e.amountUsd)} · ${e.actor}`,
         tone: "success",
       };
     case "appointment_arrived":

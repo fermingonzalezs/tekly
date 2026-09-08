@@ -11,12 +11,12 @@ export function Sidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-neutral-200 bg-white">
-      <div className="flex h-16 items-center gap-2 px-5">
+      <div className="flex items-center gap-2 px-5 pb-4 pt-8">
         <div className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-white">
           <Smartphone className="h-5 w-5" />
         </div>
         <div className="leading-tight">
-          <p className="text-sm font-semibold">TallerCRM</p>
+          <p className="text-sm font-semibold">Tekly</p>
           <p className="text-xs text-neutral-400">Sucursal Centro</p>
         </div>
       </div>
