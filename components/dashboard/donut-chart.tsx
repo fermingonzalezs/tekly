@@ -34,7 +34,7 @@ export function DonutChart({ slices }: { slices: DonutSlice[] }) {
   return (
     <div className="w-full">
       <div className="flex justify-center">
-        <svg viewBox="0 0 128 128" className="h-52 w-52">
+        <svg viewBox="0 0 128 128" className="h-44 w-44">
           <g transform="rotate(-90 64 64)">
             <circle
               cx={CXY}
@@ -76,7 +76,7 @@ export function DonutChart({ slices }: { slices: DonutSlice[] }) {
         </svg>
       </div>
 
-      <ul className="mx-auto mt-3 grid max-w-[300px] grid-cols-2 gap-x-5 gap-y-1.5 text-xs">
+      <ul className="mx-auto mt-2 grid max-w-[300px] grid-cols-2 gap-x-5 gap-y-1 text-xs">
         {slices.map((s, i) => (
           <li key={i} className="flex items-center gap-1.5">
             <span

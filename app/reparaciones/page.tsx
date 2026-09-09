@@ -12,6 +12,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { ServiciosCatalogo } from "@/components/servicios-catalogo";
 import { RepairsChart } from "@/components/dashboard/repairs-chart";
+import { ReparacionesSplit } from "@/components/dashboard/reparaciones-split";
 import {
   ReciboDialog,
   ReciboCampos,
@@ -211,7 +212,10 @@ export default function ReparacionesPage() {
           </table>
         </Card>
 
-        <RepairsChart />
+        <div className="grid gap-5 xl:grid-cols-2">
+          <ReparacionesSplit />
+          <RepairsChart />
+        </div>
           </div>
         )}
       </div>

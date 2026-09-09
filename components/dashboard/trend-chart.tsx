@@ -3,202 +3,193 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
-import { salesDaily } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
+import { salesTrend3w } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 
-const VB_W = 720;
-const VB_H = 200;
-const TOP = 10;
-const BOT = 2;
+const SCALE = 78; // alto de la barra más alta, en % de la banda
+const LINE = "#84cc16"; // lima — línea de tendencia
 
-export function TrendChart() {
+// 3 colores sólidos, corte directo de uno a otro (sin degradé)
+const BAR_FILL =
+  "linear-gradient(to top, #7c3aed 0%, #7c3aed 33.33%, #3b82f6 33.33%, #3b82f6 66.66%, #22c55e 66.66%, #22c55e 100%)";
+
+type Pt = { x: number; y: number };
+
+// spline Catmull-Rom -> curva Bézier suave que pasa por todos los puntos
+function smoothPath(pts: Pt[]): string {
+  if (pts.length < 2) return "";
+  const d = [`M ${pts[0].x} ${pts[0].y}`];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d.push(`C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`);
+  }
+  return d.join(" ");
+}
+
+export function TrendChart({ className }: { className?: string }) {
   const [hover, setHover] = useState<number | null>(null);
 
-  const rows = salesDaily;
-  const n = rows.length;
-  const totals = rows.map((d) => d.ventas + d.reparaciones);
-  const total = totals.reduce((a, b) => a + b, 0);
-  const gananciaTotal = rows.reduce((a, d) => a + d.ganancia, 0);
-  const max = Math.max(...totals);
+  const data = salesTrend3w;
+  const n = data.length;
+  const max = Math.max(...data);
+  const avg = data.reduce((a, b) => a + b, 0) / n;
+  const mom = n > 1 ? ((data[n - 1] - data[n - 2]) / data[n - 2]) * 100 : 0;
 
-  const slot = VB_W / n;
-  const baseW = slot * 0.62;
-  const y = (v: number) => VB_H - BOT - (v / max) * (VB_H - BOT - TOP);
-  const cx = (i: number) => i * slot + slot / 2;
-
-  const linePts = rows.map((d, i) => `${cx(i)},${y(d.ganancia)}`).join(" ");
-  const hd = hover !== null ? rows[hover] : null;
-  const tipLeft =
-    hover === null ? 50 : Math.min(86, Math.max(14, (cx(hover) / VB_W) * 100));
+  const pts: Pt[] = data.map((v, i) => ({
+    x: ((i + 0.5) / n) * 100,
+    y: 100 - (v / max) * SCALE,
+  }));
+  const curve = smoothPath(pts);
+  const area = `${curve} L ${pts[n - 1].x} 100 L ${pts[0].x} 100 Z`;
+  const avgY = 100 - (avg / max) * SCALE;
 
   return (
-    <Card className="p-5">
-      <ChartTitle align="left">Tendencia de ventas</ChartTitle>
-      <div className="mt-3 flex items-start justify-between">
-        <div>
-          <p className="text-3xl font-semibold tracking-tight tabular-nums">
-            {fmtUsd(total)}
-          </p>
-          <p className="text-xs text-neutral-400">
-            14 días · ganancia {fmtUsd(gananciaTotal)}
-          </p>
-        </div>
-        <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600">
-          +18,3 %
+    <Card className={cn("flex flex-col p-4", className)}>
+      <div className="flex items-start justify-between gap-2">
+        <ChartTitle align="left">Tendencia de ventas</ChartTitle>
+        <span
+          className={cn(
+            "shrink-0 rounded-md px-2 py-1 text-xs font-semibold",
+            mom >= 0
+              ? "bg-emerald-50 text-emerald-600"
+              : "bg-red-50 text-red-600",
+          )}
+        >
+          {mom >= 0 ? "+" : ""}
+          {mom.toFixed(1).replace(".", ",")} %
         </span>
       </div>
+      <p className="mt-1 text-[11px] text-neutral-400">
+        Últimas 3 semanas · promedio {fmtUsd(Math.round(avg))}
+      </p>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-[3px] bg-accent" /> Ventas
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-[3px] bg-violet-400" /> Reparaciones
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-0.5 w-3.5 rounded bg-amber-500" /> Ganancia
-        </span>
-      </div>
-
-      <div className="relative mt-3">
-        <svg
-          viewBox={`0 0 ${VB_W} ${VB_H}`}
-          className="w-full"
+      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1.5">
+        <div
+          className="relative flex flex-1 items-end gap-1.5"
           onMouseLeave={() => setHover(null)}
         >
-          {rows.map((d, i) => {
-            const t = d.ventas + d.reparaciones;
-            const isH = hover === i;
-            const dim = hover !== null && !isH;
-            const w = isH ? baseW * 1.28 : baseW;
-            const x = cx(i) - w / 2;
-            const yTop = y(t);
-            const ySplit = y(d.ventas);
-            const vPct = Math.round((d.ventas / t) * 100);
+          {data.map((v, i) => {
+            const dim = hover !== null && hover !== i;
             return (
-              <g
+              <div
                 key={i}
-                className="cursor-pointer"
+                className="flex h-full flex-1 flex-col items-center justify-end"
                 onMouseEnter={() => setHover(i)}
               >
-                <rect
-                  x={i * slot}
-                  y={0}
-                  width={slot}
-                  height={VB_H}
-                  fill="transparent"
+                <span
+                  className={cn(
+                    "mb-1 text-[9px] tabular-nums transition-opacity",
+                    dim ? "text-neutral-300" : "text-neutral-400",
+                    i % 2 === 0 || hover === i ? "" : "invisible",
+                  )}
+                >
+                  {v}
+                </span>
+                <div
+                  className={cn(
+                    "w-full rounded-t-[5px] transition-opacity",
+                    dim && "opacity-40",
+                  )}
+                  style={{
+                    height: `${(v / max) * SCALE}%`,
+                    backgroundImage: BAR_FILL,
+                  }}
                 />
-                {isH && (
-                  <rect
-                    x={i * slot}
-                    y={0}
-                    width={slot}
-                    height={VB_H}
-                    fill="#2563eb"
-                    opacity="0.035"
-                  />
-                )}
-                <rect
-                  className="transition-all duration-150"
-                  x={x}
-                  y={ySplit}
-                  width={w}
-                  height={VB_H - BOT - ySplit}
-                  rx="4"
-                  fill="#2563eb"
-                  opacity={dim ? 0.55 : 1}
-                />
-                <rect
-                  className="transition-all duration-150"
-                  x={x}
-                  y={yTop}
-                  width={w}
-                  height={Math.max(0, ySplit - yTop)}
-                  rx="4"
-                  fill="#a78bfa"
-                  opacity={dim ? 0.55 : 1}
-                />
-                {isH && (
-                  <>
-                    <text
-                      x={cx(i)}
-                      y={(ySplit + (VB_H - BOT)) / 2 + 4}
-                      textAnchor="middle"
-                      fontSize="11"
-                      fontWeight="700"
-                      fill="#fff"
-                    >
-                      {vPct}%
-                    </text>
-                    {ySplit - yTop > 18 && (
-                      <text
-                        x={cx(i)}
-                        y={(yTop + ySplit) / 2 + 4}
-                        textAnchor="middle"
-                        fontSize="11"
-                        fontWeight="700"
-                        fill="#fff"
-                      >
-                        {100 - vPct}%
-                      </text>
-                    )}
-                  </>
-                )}
-              </g>
+              </div>
             );
           })}
 
-          <polyline
-            points={linePts}
-            fill="none"
-            stroke="#f59e0b"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={hover === null ? 1 : 0.6}
-          />
-          {rows.map((d, i) => (
-            <circle
-              key={i}
-              className="transition-all duration-150"
-              cx={cx(i)}
-              cy={y(d.ganancia)}
-              r={hover === i ? 4.5 : 3.5}
-              fill="#fff"
-              stroke="#f59e0b"
+          {/* línea de promedio */}
+          <div
+            className="pointer-events-none absolute inset-x-0 z-10"
+            style={{ top: `${avgY}%` }}
+          >
+            <div className="border-t border-dashed border-neutral-400" />
+            <span className="absolute -top-2.5 left-0 rounded bg-neutral-900 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+              Avg
+            </span>
+          </div>
+
+          {/* curva de tendencia */}
+          <svg
+            className="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={LINE} stopOpacity="0.22" />
+                <stop offset="100%" stopColor={LINE} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={area} fill="url(#trendFill)" />
+            <path
+              d={curve}
+              fill="none"
+              stroke={LINE}
               strokeWidth="2"
-              opacity={hover === null || hover === i ? 1 : 0.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              opacity={hover === null ? 1 : 0.6}
+            />
+          </svg>
+
+          {/* marcadores */}
+          {pts.map((p, i) => (
+            <span
+              key={i}
+              className={cn(
+                "pointer-events-none absolute z-10 -translate-x-1/2 translate-y-1/2 rounded-full border-2 bg-white transition-all",
+                hover === i ? "h-3 w-3" : "h-2 w-2",
+              )}
+              style={{
+                left: `${p.x}%`,
+                bottom: `${100 - p.y}%`,
+                borderColor: LINE,
+                opacity: hover === null || hover === i ? 1 : 0.5,
+              }}
             />
           ))}
-        </svg>
 
-        {hd && (
-          <div
-            className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg bg-neutral-900 px-3 py-2 text-xs leading-relaxed text-white shadow-lg"
-            style={{ left: `${tipLeft}%` }}
-          >
-            <p className="font-semibold">
-              {hover === n - 1 ? "Hoy" : `Hace ${n - 1 - (hover ?? 0)} días`}
-            </p>
-            <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
-              Ventas {fmtUsd(hd.ventas)}
-            </p>
-            <p className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
-              Reparac. {fmtUsd(hd.reparaciones)}
-            </p>
-            <p className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-              Ganancia {fmtUsd(hd.ganancia)}
-            </p>
-          </div>
-        )}
-      </div>
+          {hover !== null && (
+            <div
+              className="pointer-events-none absolute -top-1 z-20 -translate-x-1/2 rounded-lg bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg"
+              style={{ left: `${((hover + 0.5) / n) * 100}%` }}
+            >
+              <p className="whitespace-nowrap font-semibold">
+                {hover === n - 1 ? "Hoy" : `Hace ${n - 1 - hover} días`}
+              </p>
+              <p className="mt-0.5 whitespace-nowrap tabular-nums">
+                {fmtUsd(data[hover])}
+              </p>
+              <p className="mt-0.5 whitespace-nowrap text-[11px] text-neutral-300">
+                {data[hover] >= avg ? "+" : "−"}
+                {Math.abs(Math.round(((data[hover] - avg) / avg) * 100))}% vs
+                promedio
+              </p>
+            </div>
+          )}
+        </div>
 
-      <div className="mt-1.5 flex justify-between text-xs text-neutral-400">
-        <span>hace 14 días</span>
-        <span>hoy</span>
+        <div className="flex gap-1.5">
+          {data.map((_, i) => (
+            <span
+              key={i}
+              className="flex-1 text-center text-[10px] tabular-nums text-neutral-400"
+            >
+              {i % 3 === 0 ? i + 1 : ""}
+            </span>
+          ))}
+        </div>
       </div>
     </Card>
   );

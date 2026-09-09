@@ -1,17 +1,18 @@
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
+import { cn } from "@/lib/utils";
 import { tickets } from "@/lib/mock-data";
 
 const TERMINADAS = ["listo", "entregado"];
 
-export function ReparacionesSplit() {
+export function ReparacionesSplit({ className }: { className?: string }) {
   const terminadas = tickets.filter((t) => TERMINADAS.includes(t.estado)).length;
   const enCurso = tickets.length - terminadas;
   const total = terminadas + enCurso || 1;
   const pct = (terminadas / total) * 100;
 
   return (
-    <Card className="p-5">
+    <Card className={cn("p-5", className)}>
       <ChartTitle align="left">Reparaciones</ChartTitle>
 
       <div className="relative mt-6 h-8">

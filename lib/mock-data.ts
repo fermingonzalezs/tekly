@@ -19,6 +19,8 @@ export const dashboardMetrics = [
   { key: "margen", label: "Margen promedio", value: "34,2 %", delta: 2.1 },
   { key: "abiertos", label: "Tickets abiertos", value: "17", delta: -8.0 },
   { key: "revision", label: "Equipos en revisión", value: "9", delta: 4.0 },
+  { key: "ticket", label: "Ticket promedio", value: "U$ 615", delta: 3.2 },
+  { key: "turnos", label: "Turnos hoy", value: "6", delta: 20.0 },
 ];
 
 // ventas diarias últimos 14 días (USD)
@@ -39,6 +41,19 @@ export const salesDaily = salesTrend.map((total, i) => {
   );
   return { ventas, reparaciones, ganancia };
 });
+
+// ventas diarias últimas 3 semanas (USD) — gráfico de tendencia del dashboard
+export const salesTrend3w = [
+  980, 1180, 1420, 1650, 1240, 1520, 890, 1350, 1780, 2010, 1670, 2180, 1930,
+  1120, 1890, 2280, 2450, 2120, 2760, 2380, 3100,
+];
+
+// facturación mensual por rubro (USD) — gráfico de tendencia (barras apiladas)
+export const salesByMonth = [
+  { mes: "Jul", equipos: 17000, reparaciones: 11500, accesorios: 3800, otros: 2200 },
+  { mes: "Ago", equipos: 20500, reparaciones: 13500, accesorios: 4500, otros: 2500 },
+  { mes: "Sep", equipos: 24500, reparaciones: 15250, accesorios: 5500, otros: 3000 },
+];
 
 export const usdArs = { value: 1465, delta: 0.7, label: "Dólar blue" };
 

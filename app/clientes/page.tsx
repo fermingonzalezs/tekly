@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/field";
 import { DemografiaClientes } from "@/components/clientes/demografia";
+import { FuenteClientes } from "@/components/clientes/fuente-clientes";
 import { ticketStatus, medioPago } from "@/lib/status";
 import { clientes as seed, ventas, tickets } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
@@ -47,6 +48,8 @@ export default function ClientesPage() {
         </div>
 
         <DemografiaClientes />
+
+        <FuenteClientes />
 
         <Card className="overflow-hidden">
           <table className="w-full text-sm">

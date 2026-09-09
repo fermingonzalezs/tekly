@@ -13,6 +13,7 @@ import {
 } from "@/lib/mock-data";
 import { equipoStatus, medioPago as medioPagoCfg } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
+import { TendenciaRubros } from "@/components/analiticas/tendencia-rubros";
 
 type Row = { label: string; value: number };
 
@@ -109,6 +110,9 @@ export default function AnaliticasPage() {
   return (
     <Section title="Analíticas">
       <div className="space-y-6">
+        {/* Guardado para retomar más adelante */}
+        <TendenciaRubros className="min-h-[340px]" />
+
         <div className="grid gap-6 xl:grid-cols-2">
           <Card className="p-5">
             <ChartTitle>Ventas por mes (U$)</ChartTitle>
