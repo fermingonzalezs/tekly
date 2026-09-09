@@ -48,6 +48,13 @@ export const salesTrend3w = [
   1120, 1890, 2280, 2450, 2120, 2760, 2380, 3100,
 ];
 
+// ganancia diaria de esas 3 semanas (USD) — es lo que traza la línea de
+// tendencia (la barra sigue siendo la venta bruta). Margen determinístico
+// sobre la venta del día, sin random, para SSR estable.
+export const salesTrend3wGanancia = salesTrend3w.map((venta, i) =>
+  Math.round(venta * (0.24 + 0.13 * Math.abs(Math.cos(i * 1.4)))),
+);
+
 // facturación mensual por rubro (USD) — gráfico de tendencia (barras apiladas)
 export const salesByMonth = [
   { mes: "Jul", equipos: 17000, reparaciones: 11500, accesorios: 3800, otros: 2200 },
@@ -68,11 +75,11 @@ export const ticketStages = [
 ];
 
 export const recentSales = [
-  { id: "V-4821", cliente: "Juan Pérez", item: "iPhone 13 128GB", vendedor: "Caro", procedencia: "Local", monto: 735, fecha: "Hoy 14:20" },
-  { id: "V-4820", cliente: "Sofía Ramos", item: "Cambio de batería 12", vendedor: "Meli", procedencia: "WhatsApp", monto: 55, fecha: "Hoy 12:05" },
-  { id: "V-4819", cliente: "Marco Díaz", item: "iPhone 15 Pro 256GB", vendedor: "Caro", procedencia: "Instagram", monto: 1240, fecha: "Ayer 18:40" },
-  { id: "V-4818", cliente: "Lucía V.", item: "Vidrio templado + funda", vendedor: "Meli", procedencia: "Local", monto: 22, fecha: "Ayer 17:10" },
-  { id: "V-4817", cliente: "Diego F.", item: "iPhone 11 64GB", vendedor: "Caro", procedencia: "MercadoLibre", monto: 410, fecha: "Ayer 11:30" },
+  { id: "V-4821", cliente: "Juan Pérez", item: "iPhone 13 128GB", categoria: "Equipos", vendedor: "Caro", procedencia: "Local", monto: 735, fecha: "Hoy 14:20" },
+  { id: "V-4820", cliente: "Sofía Ramos", item: "Cambio de batería 12", categoria: "Reparaciones", vendedor: "Meli", procedencia: "WhatsApp", monto: 55, fecha: "Hoy 12:05" },
+  { id: "V-4819", cliente: "Marco Díaz", item: "iPhone 15 Pro 256GB", categoria: "Equipos", vendedor: "Caro", procedencia: "Instagram", monto: 1240, fecha: "Ayer 18:40" },
+  { id: "V-4818", cliente: "Lucía V.", item: "Vidrio templado + funda", categoria: "Accesorios", vendedor: "Meli", procedencia: "Local", monto: 22, fecha: "Ayer 17:10" },
+  { id: "V-4817", cliente: "Diego F.", item: "iPhone 11 64GB", categoria: "Equipos", vendedor: "Caro", procedencia: "MercadoLibre", monto: 410, fecha: "Ayer 11:30" },
 ];
 
 // ───────────────────────── Usuarios ─────────────────────────

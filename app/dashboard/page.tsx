@@ -6,8 +6,7 @@ import { RubrosPie } from "@/components/dashboard/rubros-pie";
 import { ObjetivoPanel } from "@/components/dashboard/objetivo-panel";
 import { InventarioBar } from "@/components/dashboard/inventario-bar";
 import { TurnosGauge } from "@/components/dashboard/turnos-gauge";
-import { recentSales } from "@/lib/mock-data";
-import { fmtUsd } from "@/lib/format";
+import { RecentSales } from "@/components/dashboard/recent-sales";
 
 export default function DashboardPage() {
   return (
@@ -22,7 +21,7 @@ export default function DashboardPage() {
 
         <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:grid-rows-1">
           {/* Columna izquierda: tendencia de ventas */}
-          <TrendChart className="min-h-0" />
+          <TrendChart className="min-h-0 xl:max-h-[300px] xl:self-start" />
 
           {/* Columna derecha: rubros + objetivo arriba, ventas recientes al fondo */}
           <div className="flex min-h-0 flex-col gap-3">
@@ -33,45 +32,7 @@ export default function DashboardPage() {
               <ObjetivoPanel />
             </div>
 
-            <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="flex shrink-0 items-center justify-between px-4 pt-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                  Ventas recientes
-                </p>
-                <span className="text-xs text-neutral-400">Últimas 5</span>
-              </div>
-              <div className="mt-1.5 min-h-0 flex-1 overflow-auto">
-                <table className="h-full w-full text-[13px]">
-                  <thead>
-                    <tr className="text-xs text-neutral-400">
-                      <th className="px-4 py-1.5 font-medium">Venta</th>
-                      <th className="px-4 py-1.5 font-medium">Cliente</th>
-                      <th className="px-4 py-1.5 font-medium">Ítem</th>
-                      <th className="px-4 py-1.5 font-medium">Vendedor</th>
-                      <th className="px-4 py-1.5 font-medium">Monto</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentSales.map((s) => (
-                      <tr
-                        key={s.id}
-                        className="border-t border-neutral-100 last:border-b-0"
-                      >
-                        <td className="px-4 py-3 font-medium text-neutral-500">
-                          {s.id}
-                        </td>
-                        <td className="px-4 py-3">{s.cliente}</td>
-                        <td className="px-4 py-3 text-neutral-500">{s.item}</td>
-                        <td className="px-4 py-3">{s.vendedor}</td>
-                        <td className="px-4 py-3 font-semibold">
-                          {fmtUsd(s.monto)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            <RecentSales className="flex-1" />
           </div>
         </div>
 

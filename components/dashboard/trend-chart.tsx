@@ -4,15 +4,15 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import { salesTrend3w } from "@/lib/mock-data";
+import { salesTrend3w, salesTrend3wGanancia } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 
 const SCALE = 78; // alto de la barra más alta, en % de la banda
-const LINE = "#84cc16"; // lima — línea de tendencia
-
-// 3 colores sólidos, corte directo de uno a otro (sin degradé)
-const BAR_FILL =
-  "linear-gradient(to top, #7c3aed 0%, #7c3aed 33.33%, #3b82f6 33.33%, #3b82f6 66.66%, #22c55e 66.66%, #22c55e 100%)";
+const LINE = "#84cc16"; // lima — línea de ganancia
+const BAR_HOVER = "#2563eb"; // accent — barra activa (venta del día)
+// barra en reposo: sin color, rayado diagonal gris visible
+const BAR_GHOST =
+  "repeating-linear-gradient(45deg, #d4d4d8 0 4px, #ededf0 4px 8px)";
 
 type Pt = { x: number; y: number };
 
@@ -37,13 +37,15 @@ function smoothPath(pts: Pt[]): string {
 export function TrendChart({ className }: { className?: string }) {
   const [hover, setHover] = useState<number | null>(null);
 
-  const data = salesTrend3w;
+  const data = salesTrend3w; // barra = venta bruta del día
+  const profit = salesTrend3wGanancia; // línea = ganancia del día
   const n = data.length;
   const max = Math.max(...data);
-  const avg = data.reduce((a, b) => a + b, 0) / n;
-  const mom = n > 1 ? ((data[n - 1] - data[n - 2]) / data[n - 2]) * 100 : 0;
+  const avg = profit.reduce((a, b) => a + b, 0) / n;
+  const mom =
+    n > 1 ? ((profit[n - 1] - profit[n - 2]) / profit[n - 2]) * 100 : 0;
 
-  const pts: Pt[] = data.map((v, i) => ({
+  const pts: Pt[] = profit.map((v, i) => ({
     x: ((i + 0.5) / n) * 100,
     y: 100 - (v / max) * SCALE,
   }));
@@ -68,39 +70,47 @@ export function TrendChart({ className }: { className?: string }) {
         </span>
       </div>
       <p className="mt-1 text-[11px] text-neutral-400">
-        Últimas 3 semanas · promedio {fmtUsd(Math.round(avg))}
+        Ganancia diaria · últimas 3 semanas · promedio {fmtUsd(Math.round(avg))}
       </p>
 
-      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1.5">
+      <div className="mt-1.5 flex items-center gap-3 text-[10px] text-neutral-400">
+        <span className="flex items-center gap-1.5">
+          <span
+            className="h-2.5 w-2.5 rounded-[3px] border border-neutral-300"
+            style={{ background: BAR_GHOST }}
+          />
+          Venta
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="h-[3px] w-3.5 rounded-full"
+            style={{ background: LINE }}
+          />
+          Ganancia
+        </span>
+      </div>
+
+      <div className="mt-2 flex min-h-0 flex-1 flex-col gap-1.5">
         <div
           className="relative flex flex-1 items-end gap-1.5"
           onMouseLeave={() => setHover(null)}
         >
           {data.map((v, i) => {
-            const dim = hover !== null && hover !== i;
+            const on = hover === i;
             return (
               <div
                 key={i}
-                className="flex h-full flex-1 flex-col items-center justify-end"
+                className="flex h-full flex-1 flex-col justify-end"
                 onMouseEnter={() => setHover(i)}
               >
-                <span
-                  className={cn(
-                    "mb-1 text-[9px] tabular-nums transition-opacity",
-                    dim ? "text-neutral-300" : "text-neutral-400",
-                    i % 2 === 0 || hover === i ? "" : "invisible",
-                  )}
-                >
-                  {v}
-                </span>
                 <div
                   className={cn(
-                    "w-full rounded-t-[5px] transition-opacity",
-                    dim && "opacity-40",
+                    "w-full rounded-t-[5px] border transition-colors",
+                    on ? "border-transparent" : "border-neutral-300",
                   )}
                   style={{
                     height: `${(v / max) * SCALE}%`,
-                    backgroundImage: BAR_FILL,
+                    background: on ? BAR_HOVER : BAR_GHOST,
                   }}
                 />
               </div>
@@ -168,13 +178,16 @@ export function TrendChart({ className }: { className?: string }) {
               <p className="whitespace-nowrap font-semibold">
                 {hover === n - 1 ? "Hoy" : `Hace ${n - 1 - hover} días`}
               </p>
-              <p className="mt-0.5 whitespace-nowrap tabular-nums">
-                {fmtUsd(data[hover])}
+              <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap tabular-nums">
+                <span className="h-2 w-2 rounded-sm bg-white/80" />
+                Venta {fmtUsd(data[hover])}
               </p>
-              <p className="mt-0.5 whitespace-nowrap text-[11px] text-neutral-300">
-                {data[hover] >= avg ? "+" : "−"}
-                {Math.abs(Math.round(((data[hover] - avg) / avg) * 100))}% vs
-                promedio
+              <p className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap tabular-nums">
+                <span
+                  className="h-2 w-2 rounded-sm"
+                  style={{ background: LINE }}
+                />
+                Ganancia {fmtUsd(profit[hover])}
               </p>
             </div>
           )}
