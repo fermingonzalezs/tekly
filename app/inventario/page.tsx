@@ -10,6 +10,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { InventarioValor } from "@/components/inventario-valor";
 import { equipoStatus, otroCategoria, repuestoEstado } from "@/lib/status";
 import {
   equipos as equiposSeed,
@@ -80,6 +81,12 @@ export default function InventarioPage() {
       title="Inventario"
     >
       <div className="space-y-5">
+        <InventarioValor
+          equipos={equipos}
+          repuestos={repuestos}
+          otros={otros}
+        />
+
         <Tabs
           value={tab}
           onChange={switchTab}
@@ -153,9 +160,9 @@ export default function InventarioPage() {
                   <th className="px-5 py-3">IMEI</th>
                   <th className="px-5 py-3">Batería</th>
                   <th className="px-5 py-3">Condición</th>
-                  <th className="px-5 py-3">Costo</th>
-                  <th className="px-5 py-3">Precio</th>
-                  <th className="px-5 py-3">Margen</th>
+                  <th className="px-5 py-3 text-end">Costo</th>
+                  <th className="px-5 py-3 text-end">Precio</th>
+                  <th className="px-5 py-3 text-end">Margen</th>
                   <th className="px-5 py-3">Estado</th>
                 </tr>
               </thead>
@@ -176,13 +183,13 @@ export default function InventarioPage() {
                     <td className="px-5 py-3 text-neutral-500">{e.imei}</td>
                     <td className="px-5 py-3 tabular-nums">{e.bateria}%</td>
                     <td className="px-5 py-3 text-neutral-500">{e.condicion}</td>
-                    <td className="px-5 py-3 text-neutral-500">
+                    <td className="px-5 py-3 text-end tabular-nums text-neutral-500">
                       {fmtUsd(e.costoUsd)}
                     </td>
-                    <td className="px-5 py-3 font-semibold">
+                    <td className="px-5 py-3 text-end font-semibold tabular-nums">
                       {fmtUsd(e.precioUsd)}
                     </td>
-                    <td className="px-5 py-3 text-emerald-600">
+                    <td className="px-5 py-3 text-end tabular-nums text-emerald-600">
                       {(
                         ((e.precioUsd - e.costoUsd) / e.precioUsd) *
                         100

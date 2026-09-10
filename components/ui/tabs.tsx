@@ -6,10 +6,13 @@ export function Tabs<T extends string>({
   value,
   onChange,
   options,
+  accent,
 }: {
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: string; count?: number }[];
+  /** Color del estado activo (hex). Default: el `accent` de Tailwind. */
+  accent?: string;
 }) {
   return (
     <div className="inline-flex flex-wrap items-center gap-2">
@@ -22,9 +25,16 @@ export function Tabs<T extends string>({
             className={cn(
               "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
               active
-                ? "border-accent text-accent"
+                ? accent
+                  ? ""
+                  : "border-accent text-accent"
                 : "border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800",
             )}
+            style={
+              active && accent
+                ? { borderColor: accent, color: accent }
+                : undefined
+            }
           >
             {o.label}
             {o.count !== undefined && (

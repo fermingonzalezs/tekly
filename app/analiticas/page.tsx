@@ -115,7 +115,7 @@ export default function AnaliticasPage() {
 
         <div className="grid gap-6 xl:grid-cols-2">
           <Card className="p-5">
-            <ChartTitle>Ventas por mes (U$)</ChartTitle>
+            <ChartTitle align="left" divider>Ventas por mes (U$)</ChartTitle>
             <div className="mt-5 flex items-end gap-3">
               {ventasPorMes.map((m) => (
                 <div
@@ -136,7 +136,7 @@ export default function AnaliticasPage() {
           </Card>
 
           <Card className="p-5">
-            <ChartTitle>Margen por tipo de operación</ChartTitle>
+            <ChartTitle align="left" divider>Margen por tipo de operación</ChartTitle>
             <table className="mt-3 w-full text-sm">
               <thead>
                 <tr className="text-xs text-neutral-400">
@@ -168,7 +168,7 @@ export default function AnaliticasPage() {
 
         <div className="grid gap-6 xl:grid-cols-2">
           <Card className="p-5">
-            <ChartTitle>Tiempo promedio por tipo de falla</ChartTitle>
+            <ChartTitle align="left" divider>Tiempo promedio por tipo de falla</ChartTitle>
             <ul className="mt-4 space-y-3">
               {tiempoPorFalla.map((f) => (
                 <li key={f.falla}>
@@ -193,7 +193,7 @@ export default function AnaliticasPage() {
           </Card>
 
           <Card className="p-5">
-            <ChartTitle>Rendimiento por técnico</ChartTitle>
+            <ChartTitle align="left" divider>Rendimiento por técnico</ChartTitle>
             <table className="mt-3 w-full text-sm">
               <thead>
                 <tr className="text-xs text-neutral-400">
@@ -224,28 +224,28 @@ export default function AnaliticasPage() {
         {/* ── Nuevos ── */}
         <div className="grid gap-6 xl:grid-cols-2">
           <Card className="p-5">
-            <ChartTitle>Facturación por vendedor</ChartTitle>
+            <ChartTitle align="left" divider>Facturación por vendedor</ChartTitle>
             <BarRows rows={porVendedor} fmt={fmtUsd} />
           </Card>
           <Card className="p-5">
-            <ChartTitle>Ingresos por medio de pago</ChartTitle>
+            <ChartTitle align="left" divider>Ingresos por medio de pago</ChartTitle>
             <BarRows rows={porMedio} fmt={fmtUsd} />
           </Card>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
           <Card className="p-5">
-            <ChartTitle>Ventas por canal</ChartTitle>
+            <ChartTitle align="left" divider>Ventas por canal</ChartTitle>
             <BarRows rows={porCanal} fmt={fmtUsd} />
           </Card>
           <Card className="p-5">
-            <ChartTitle>Inventario · equipos por estado</ChartTitle>
+            <ChartTitle align="left" divider>Inventario · equipos por estado</ChartTitle>
             <BarRows rows={equiposPorEstado} />
           </Card>
         </div>
 
         <Card className="p-5">
-          <ChartTitle sub="últimos 14 días">Facturación acumulada</ChartTitle>
+          <ChartTitle align="left" divider sub="últimos 14 días">Facturación acumulada</ChartTitle>
           <div className="mt-4 flex items-end justify-between">
             <span className="text-2xl font-semibold tabular-nums">
               {fmtUsd(maxAcum)}
@@ -258,15 +258,15 @@ export default function AnaliticasPage() {
           >
             <defs>
               <linearGradient id="acumFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
-                <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+                <stop offset="0%" stopColor="#4f49bd" stopOpacity="0.18" />
+                <stop offset="100%" stopColor="#4f49bd" stopOpacity="0" />
               </linearGradient>
             </defs>
             <path d={area} fill="url(#acumFill)" />
             <path
               d={line}
               fill="none"
-              stroke="#2563eb"
+              stroke="#4f49bd"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"

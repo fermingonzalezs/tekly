@@ -142,8 +142,8 @@ export default function VentasPage() {
                 <th className="px-5 py-3">Detalle</th>
                 <th className="px-5 py-3">Vendedor</th>
                 <th className="px-5 py-3">Pago</th>
-                <th className="px-5 py-3">Margen</th>
-                <th className="px-5 py-3">Total</th>
+                <th className="px-5 py-3 text-end">Margen</th>
+                <th className="px-5 py-3 text-end">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +165,7 @@ export default function VentasPage() {
                   </td>
                   <td className="px-5 py-3">{v.vendedor}</td>
                   <td className="px-5 py-3">
-                    <div className="flex flex-wrap justify-center gap-1">
+                    <div className="flex flex-wrap gap-1">
                       {v.pagos.map((p, i) => (
                         <Badge key={i} tone={medioPagoCfg[p.medio].tone}>
                           {medioPagoCfg[p.medio].label}
@@ -176,10 +176,12 @@ export default function VentasPage() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-neutral-500">
+                  <td className="px-5 py-3 text-end tabular-nums text-neutral-500">
                     {v.margenPct.toFixed(1)}%
                   </td>
-                  <td className="px-5 py-3 font-semibold">{fmtUsd(v.totalUsd)}</td>
+                  <td className="px-5 py-3 text-end font-semibold tabular-nums">
+                    {fmtUsd(v.totalUsd)}
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (

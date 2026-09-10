@@ -55,20 +55,38 @@ Páginas server por defecto; `"use client"` solo donde hay interacción
 ## Sistema de diseño
 
 Referencia visual: "Cocos CRM" — limpio, mucho whitespace, esquinas
-redondeadas, paleta neutra + un acento azul.
+redondeadas, paleta neutra + un acento **índigo**.
 
 ### Color
 
 | Token | Valor | Uso |
 |---|---|---|
-| `accent` | `#2563eb` | marca + interacción (links activos, botón primario, foco) |
-| `accent-soft` | `#eff4ff` | fondo de estado activo / hover suave |
+| `accent` | `#4f49bd` (índigo) | marca + interacción (links activos, botón primario, foco, avatar) — **toda la app** |
+| `accent-soft` | `#edecf8` | fondo de estado activo / hover suave |
 | `neutral-50` | fondo de la app (`body`) |
 | `neutral-200` | bordes de card / divisores |
 | `neutral-400` | labels, captions, texto placeholder |
 | `neutral-500/600` | texto secundario |
 | `neutral-900` | texto principal |
 | emerald / red | positivo / negativo (deltas, ingresos/egresos) |
+
+#### Paleta de gráficos (`lib/chart.ts`) — monocromática índigo
+
+Un solo hue, de oscuro a claro; **mayor valor = tono más oscuro**. Vale para
+todo gráfico de la app (dashboard, analíticas, …).
+
+| Constante | Valor | Uso |
+|---|---|---|
+| `CHART_COLORS` | 5 pasos `#211d52 → #948dde` | categorías (dona, barras apiladas, pipeline). Ordenadas |
+| `chartColor(i)` | — | cicla `CHART_COLORS` |
+| `CHART_ACCENT` | `#4f49bd` | líneas y rellenos con presencia (= `accent`) |
+| `HEAT_SCALE` | 6 pasos `#e9e8f9 → #211d52` | rampa de heatmaps (claro→oscuro) |
+| `CHART_TRACK` | `#e9e8f9` | pista de arcos / fondo "fantasma" |
+| `GHOST_STRIPES` | rayado gris 45° | barra en reposo / tramo no cumplido |
+
+`heatCell(v, min, max, scale?)` toma la escala como 4º arg opcional (default
+`HEAT_SCALE`). `DASH_COLORS` / `dashColor` / `DASH_ACCENT` / `DASH_HEAT` son
+**aliases** de las de arriba (se estrenaron en el dashboard; ya son globales).
 
 **Estados y badges:** nunca hardcodear colores de estado. Usar `Badge` +
 el map de `lib/status.ts` (`ticketStatus`, `equipoStatus`, `turnoStatus`,
@@ -83,7 +101,7 @@ el componente.
 | Clase | px | Uso |
 |---|---|---|
 | `text-2xl` | 24 | valor grande de `StatCard`, número hero de un gráfico |
-| `text-lg` | 18 | título de página (`Topbar` h1, **en mayúscula**) |
+| `text-lg` | 18 | contadores medianos / encabezados grandes de card (el `Topbar` ya **no** tiene h1) |
 | `text-sm` | 14 | body, celdas de tabla, cuerpo de card |
 | `text-[13px]` | 13 | texto secundario denso (listas, filas compactas) |
 | `text-xs` | 12 | labels, captions, `ChartTitle`, `Badge` |
@@ -91,6 +109,12 @@ el componente.
 
 Pesos: `font-semibold` para valores y títulos; `font-medium` para labels.
 Números (montos, contadores, IMEI): **siempre `tabular-nums`**.
+
+**Números hero** (valor de `StatCard` / `MetricCards`, número grande de un
+gráfico): fuente **Space Grotesk** vía la utilidad `font-grotesk` (cargada con
+`next/font` en `app/layout.tsx`, variable `--font-space-grotesk`; el resto de la
+UI usa `system-ui`). `StatCard` ya la aplica → una fila de KPIs con `StatCard`
+sale sola. El `MetricCards` del dashboard (card compacta propia) también.
 
 **Labels y eyebrows en MAYÚSCULA**: el `Label` de `components/ui/field.tsx` ya
 sale `text-[11px] font-semibold uppercase tracking-wider`. Para separadores de
@@ -117,17 +141,21 @@ modal de Nueva venta). Va en línea con `ChartTitle` y los headers de tabla.
 
 ### Reglas globales de tablas (`app/globals.css`, sin capa → ganan sobre Tailwind)
 
-Aplican a **toda tabla, presente y futura**:
+Aplica a **toda tabla, presente y futura** (menos los recibos/PDF):
 
-- **Encabezados (`th`)**: mayúscula (`text-transform`), negrita (`font-weight:600`),
-  **fuente negra** (`color:#171717`, nunca gris) y **fondo azul claro**
-  (`#eff4ff`, = `accent-soft`). No hace falta poner clases de estilo en los `th`.
-- **Celdas y encabezados centrados** por defecto (`text-align:center`).
-- **Opt-out de alineación**: `text-left` o `text-start` en una celda alinea su
-  **contenido** a la izquierda; el `th` igual queda mayúscula/negrita/centrado.
-  Ej: columna "Detalle" en Ventas usa `<td className="text-start">`.
-- Fuera de tablas, alinear a la izquierda con `text-start` (ej. labels de barras
-  en `RepairsChart`).
+- **Encabezado (`th`)**: banda **índigo oscuro** (`#352f86`), texto **blanco,
+  negrita, MAYÚSCULA**. No hace falta poner clases de estilo en los `th`
+  (igual conviene el `<tr>` del thead con `text-xs`).
+- **Filas cebra**: `tr` par en índigo muy claro (`#f0eff9`), impar blanca.
+  Regla en `@layer base` para que el `hover:bg-*` de cada fila siga ganando.
+  Los `.recibo-print` van sin cebra.
+- **Todo alineado a la izquierda** por defecto (`th, td { text-align:left }`).
+- **Opt-out por celda**: `text-end` / `text-right` alinea a la derecha
+  (columnas de plata / números: `Monto`, `Total`, `Precio`, `Costo`, `Margen`);
+  `text-center` centra (ej. celda vacía "sin resultados"). `text-start` sigue.
+- Números en columnas → `tabular-nums`. Texto de las celdas: peso normal (dejar
+  `font-semibold` solo para el dato que tiene que destacar, ej. Total).
+- Fuera de tablas, alinear a la izquierda con `text-start`.
 
 ## Componentes reutilizables — usar SIEMPRE estos
 
@@ -150,28 +178,77 @@ Props: `label`, `value` (ReactNode), `delta?`, `deltaHint?` (default
 `onClick?` + `active?` (card clickeable como filtro, ej. el pipeline de
 Reparaciones). `Delta` se exporta aparte por si hace falta suelto.
 
+El `value` sale en **`font-grotesk`** (Space Grotesk) — es la fuente de todo
+número hero de la app (ver Tipografía). No hace falta pasarlo a mano.
+
 ### `ChartTitle` — `components/ui/chart-title.tsx`
 
 Título de gráfico / encabezado de card: **siempre en mayúscula**. Centrado por
-defecto; `align="left"` para alinear a la izquierda. `sub` para una línea de
-contexto abajo.
+defecto; `align="left"` para alinear a la izquierda. `sub` = línea de contexto
+abajo. `divider` = línea fina abajo (`border-b border-neutral-100 pb-3 mb-3`) —
+el patrón "título + subtítulo + línea" del dashboard. **Todo encabezado de card
+que ya tenía un título usa `<ChartTitle align="left" divider>`.**
 
 ```tsx
-<ChartTitle>Resumen del mes</ChartTitle>
-<ChartTitle align="left">Tendencia de ventas</ChartTitle>
-<ChartTitle sub={`${total} tickets en el taller`}>Reparaciones mes</ChartTitle>
+<ChartTitle align="left" divider>Resumen del mes</ChartTitle>
+<ChartTitle align="left" divider sub={`${n} tickets`}>Reparaciones mes</ChartTitle>
 ```
+
+### Gráficos — reglas
+
+Valen para **todo gráfico de la app** (dashboard, analíticas, clientes, …).
+Método: `dataviz` skill.
+
+**Header** — siempre `<ChartTitle align="left" divider sub="…">` (título +
+subtítulo + línea fina antes del cuerpo). Nada de subtítulos sueltos abajo de
+la línea. En los widgets del dashboard la línea puede estar en el contenedor del
+cuerpo (`border-t border-neutral-100 pt-3`) — mismo resultado.
+
+**Tipografía / color de texto**
+- Número hero del gráfico → `font-grotesk` (ver Tipografía). Labels y ejes →
+  `text-neutral-400`, captions en `text-[10px]/[11px]`. Dígitos → `tabular-nums`.
+- El texto **nunca** lleva el color de la serie: valores/labels/leyenda van en
+  tinta (`neutral-*`); el color lo lleva solo el cuadradito/línea al lado.
+- Verde/rojo = **colores de estado** (componente `Delta`). Reservados: no se
+  usan como color de serie.
+
+**Marcas**
+- Líneas: `strokeWidth 2`, `strokeLinecap/Linejoin round`. Área bajo la línea:
+  gradiente del color a `opacity 0`.
+- Marcadores de la línea: círculo ≥ 8px, `bg-white` + borde 2px del color.
+- Barras: `rounded-t-xl`, ancladas a la base; la más alta llena la banda
+  (`SCALE = 100`). Barra en reposo / tramo no cumplido = `GHOST_STRIPES`
+  (rayado gris de `lib/chart.ts`).
+- Promedio → línea `border-dashed border-neutral-400` con pill `Avg`.
+
+**Dona** (`components/dashboard/donut-chart.tsx`): anillo grueso, **separadores
+blancos radiales** (líneas de `stroke="#fff"` de borde interno a externo) — nunca
+gaps de `strokeDasharray` (quedan inclinados). `%` de cada segmento en chip
+`rgba(255,255,255,.25)` + texto blanco. Leyenda debajo.
+
+**Heatmap** (Turnos): números **siempre `text-white`**; celda coloreada por
+`heatCell(count, 0, max)` (usa `HEAT_SCALE` índigo). Celdas cuadradas
+(`aspect-square`), columnas de ancho fijo para que queden pegadas.
+
+**Tooltip de hover** (Tendencia, Turnos): caja `bg-neutral-900` texto blanco,
+`rounded-lg`, `shadow-lg`, `pointer-events-none`. Título centrado; cada fila
+`label` a la izquierda y valor a la derecha (`ml-auto`). Se ancla al **borde** de
+la barra/celda + gap, y salta al otro lado cerca del borde derecho.
+
+**Leyenda**: obligatoria si hay ≥ 2 series. Con ≤ 4 series, además etiqueta
+directa (ej. el `%` dentro del segmento de la dona) — identidad nunca solo por
+color.
 
 ### Otros primitivos
 
 | Componente | Archivo | Notas |
 |---|---|---|
-| `Section` | `components/section.tsx` | `{ title, children }` — wrapper de toda página. **Sin `actions`**: el header solo lleva el título (ver regla abajo) |
+| `Section` | `components/section.tsx` | `{ title, children, mainClassName?, toolbar? }` — wrapper de toda página. El `Topbar` **ya no muestra `title`** (se mantiene por compat); `toolbar` = control opcional en la Topbar (ej. selector de período del dashboard). **Sin `actions`** |
 | `Card` | `components/ui/card.tsx` | contenedor base (`rounded-2xl border shadow-sm`) |
 | `Button` | `components/ui/button.tsx` | `variant: primary \| outline \| ghost`, `size: sm \| md` |
 | `Badge` | `components/ui/badge.tsx` | `{ tone, dot?, className? }` — forma ÚNICA cuadrada (`rounded-md`); no hay prop de forma. Colores por `lib/status.ts` |
 | `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg }` — **centrado vertical**, con scroll propio si el contenido es alto; cierra con Esc / click fuera. Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
-| `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }] }` |
+| `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }], accent? }` — `accent` (hex) para teñir el estado activo con otro color; por defecto usa `accent` |
 | `Field` / `Input` / `Select` / `Textarea` / `Label` | `components/ui/field.tsx` | inputs con estilo consistente; `Field` = `Label` + control |
 
 ## Convenciones al agregar una sección

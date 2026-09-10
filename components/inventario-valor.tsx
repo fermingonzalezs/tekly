@@ -1,12 +1,26 @@
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import { equipos, repuestos, otros } from "@/lib/mock-data";
+import {
+  equipos as equiposSeed,
+  repuestos as repuestosSeed,
+  otros as otrosSeed,
+} from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+import { CHART_COLORS as COLORS } from "@/lib/chart";
+import type { Equipo, OtroItem, Repuesto } from "@/lib/types";
 
-const COLORS = ["#10b981", "#f59e0b", "#3b82f6"];
-
-export function InventarioBar({ className }: { className?: string }) {
+export function InventarioValor({
+  className,
+  equipos = equiposSeed,
+  repuestos = repuestosSeed,
+  otros = otrosSeed,
+}: {
+  className?: string;
+  equipos?: Equipo[];
+  repuestos?: Repuesto[];
+  otros?: OtroItem[];
+}) {
   const valEquipos = equipos
     .filter((e) => e.estado !== "vendido")
     .reduce((a, e) => a + e.costoUsd, 0);
@@ -43,7 +57,7 @@ export function InventarioBar({ className }: { className?: string }) {
           ))}
         </div>
 
-        <ul className="mt-3 space-y-2 text-[13px]">
+        <ul className="mt-3 grid gap-2 text-[13px] sm:grid-cols-3">
           {rows.map((r, i) => (
             <li key={r.label} className="flex items-center gap-2">
               <span

@@ -19,9 +19,9 @@ export function Button({
         "disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none",
         size === "sm" ? "h-8 px-3.5 text-[11px]" : "h-9 px-4 text-xs",
         variant === "primary" && [
-          "text-white bg-[linear-gradient(180deg,#4b91f7,#2563eb)]",
-          "hover:bg-[linear-gradient(180deg,#3f88f5,#1f56dd)]",
-          "active:bg-[linear-gradient(180deg,#2f74e6,#1c4fce)]",
+          "text-white bg-[linear-gradient(180deg,#6a63d4,#4f49bd)]",
+          "hover:bg-[linear-gradient(180deg,#5f58cc,#453fb0)]",
+          "active:bg-[linear-gradient(180deg,#544dbe,#3b3799)]",
         ],
         variant === "outline" &&
           "border border-neutral-200 bg-white text-neutral-600 shadow-sm hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-900",

@@ -8,10 +8,18 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        grotesk: [
+          "var(--font-space-grotesk)",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
+      },
       colors: {
         accent: {
-          DEFAULT: "#2563eb",
-          soft: "#eff4ff",
+          DEFAULT: "#4f49bd", // índigo — marca + interacción (toda la app)
+          soft: "#edecf8",
         },
       },
       keyframes: {

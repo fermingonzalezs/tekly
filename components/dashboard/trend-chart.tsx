@@ -4,15 +4,22 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import { salesTrend3w, salesTrend3wGanancia } from "@/lib/mock-data";
+import { salesTrend3w, salesTrend3wGanancia, ventasPorRubro } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+import { dashColor, DASH_ACCENT, GHOST_STRIPES } from "@/lib/chart";
 
-const SCALE = 78; // alto de la barra más alta, en % de la banda
-const LINE = "#84cc16"; // lima — línea de ganancia
-const BAR_HOVER = "#2563eb"; // accent — barra activa (venta del día)
+const SCALE = 100; // la barra más alta ocupa todo el alto de la banda
+const LINE = DASH_ACCENT; // índigo — línea de ganancia
 // barra en reposo: sin color, rayado diagonal gris visible
-const BAR_GHOST =
-  "repeating-linear-gradient(45deg, #d4d4d8 0 4px, #ededf0 4px 8px)";
+const BAR_GHOST = GHOST_STRIPES;
+
+// al hacer hover, la barra del día se parte según el mix de rubros del mes
+// (mismos colores y orden que la dona "Rubros más vendidos").
+const RUBRO_MIX = (() => {
+  const r = ventasPorRubro.mes;
+  const t = r.reduce((a, x) => a + x.value, 0) || 1;
+  return r.map((x) => ({ label: x.label, pct: (x.value / t) * 100 }));
+})();
 
 type Pt = { x: number; y: number };
 
@@ -34,16 +41,25 @@ function smoothPath(pts: Pt[]): string {
   return d.join(" ");
 }
 
-export function TrendChart({ className }: { className?: string }) {
+export function TrendChart({
+  className,
+  venta = salesTrend3w,
+  ganancia = salesTrend3wGanancia,
+  sub = "Valores de las últimas tres semanas",
+}: {
+  className?: string;
+  venta?: number[];
+  ganancia?: number[];
+  sub?: string;
+}) {
   const [hover, setHover] = useState<number | null>(null);
 
-  const data = salesTrend3w; // barra = venta bruta del día
-  const profit = salesTrend3wGanancia; // línea = ganancia del día
+  const data = venta; // barra = venta bruta del día
+  const profit = ganancia; // línea = ganancia del día
   const n = data.length;
   const max = Math.max(...data);
-  const avg = profit.reduce((a, b) => a + b, 0) / n;
-  const mom =
-    n > 1 ? ((profit[n - 1] - profit[n - 2]) / profit[n - 2]) * 100 : 0;
+  const avg = profit.reduce((a, b) => a + b, 0) / n; // ganancia promedio
+  const avgVenta = data.reduce((a, b) => a + b, 0) / n;
 
   const pts: Pt[] = profit.map((v, i) => ({
     x: ((i + 0.5) / n) * 100,
@@ -55,25 +71,31 @@ export function TrendChart({ className }: { className?: string }) {
 
   return (
     <Card className={cn("flex flex-col p-4", className)}>
-      <div className="flex items-start justify-between gap-2">
-        <ChartTitle align="left">Tendencia de ventas</ChartTitle>
-        <span
-          className={cn(
-            "shrink-0 rounded-md px-2 py-1 text-xs font-semibold",
-            mom >= 0
-              ? "bg-emerald-50 text-emerald-600"
-              : "bg-red-50 text-red-600",
-          )}
-        >
-          {mom >= 0 ? "+" : ""}
-          {mom.toFixed(1).replace(".", ",")} %
-        </span>
+      <div className="flex items-start justify-between gap-3">
+        <ChartTitle align="left" sub={sub}>
+          Tendencia de ventas
+        </ChartTitle>
+        <div className="flex shrink-0 gap-4 text-right">
+          <div>
+            <p className="text-sm font-semibold tabular-nums">
+              {fmtUsd(Math.round(avgVenta))}
+            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              Venta prom.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold tabular-nums">
+              {fmtUsd(Math.round(avg))}
+            </p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              Ganancia prom.
+            </p>
+          </div>
+        </div>
       </div>
-      <p className="mt-1 text-[11px] text-neutral-400">
-        Ganancia diaria · últimas 3 semanas · promedio {fmtUsd(Math.round(avg))}
-      </p>
 
-      <div className="mt-1.5 flex items-center gap-3 text-[10px] text-neutral-400">
+      <div className="mt-3 flex items-center gap-3 border-t border-neutral-100 pt-3 text-[10px] text-neutral-400">
         <span className="flex items-center gap-1.5">
           <span
             className="h-2.5 w-2.5 rounded-[3px] border border-neutral-300"
@@ -90,7 +112,7 @@ export function TrendChart({ className }: { className?: string }) {
         </span>
       </div>
 
-      <div className="mt-2 flex min-h-0 flex-1 flex-col gap-1.5">
+      <div className="mt-2 flex aspect-[5/2] w-full flex-col gap-1.5 xl:aspect-auto xl:min-h-0 xl:flex-1">
         <div
           className="relative flex flex-1 items-end gap-1.5"
           onMouseLeave={() => setHover(null)}
@@ -105,14 +127,25 @@ export function TrendChart({ className }: { className?: string }) {
               >
                 <div
                   className={cn(
-                    "w-full rounded-t-[5px] border transition-colors",
+                    "flex w-full flex-col overflow-hidden rounded-t-xl border transition-colors",
                     on ? "border-transparent" : "border-neutral-300",
                   )}
                   style={{
                     height: `${(v / max) * SCALE}%`,
-                    background: on ? BAR_HOVER : BAR_GHOST,
+                    background: on ? undefined : BAR_GHOST,
                   }}
-                />
+                >
+                  {on &&
+                    RUBRO_MIX.map((r, ri) => (
+                      <div
+                        key={r.label}
+                        style={{
+                          height: `${r.pct}%`,
+                          background: dashColor(ri),
+                        }}
+                      />
+                    ))}
+                </div>
               </div>
             );
           })}
@@ -172,23 +205,53 @@ export function TrendChart({ className }: { className?: string }) {
 
           {hover !== null && (
             <div
-              className="pointer-events-none absolute -top-1 z-20 -translate-x-1/2 rounded-lg bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg"
-              style={{ left: `${((hover + 0.5) / n) * 100}%` }}
+              className={cn(
+                "pointer-events-none absolute top-1/2 z-20 -translate-y-1/2 rounded-lg bg-neutral-900 px-3 py-2 text-xs text-white shadow-lg",
+                hover >= n - 3 ? "-translate-x-full -ml-3" : "ml-3",
+              )}
+              style={{
+                // desde el borde de la barra (no el centro) + gap, para no taparla
+                left: `${((hover + (hover >= n - 3 ? 0 : 1)) / n) * 100}%`,
+              }}
             >
-              <p className="whitespace-nowrap font-semibold">
+              <p className="whitespace-nowrap text-center font-semibold">
                 {hover === n - 1 ? "Hoy" : `Hace ${n - 1 - hover} días`}
               </p>
               <p className="mt-1 flex items-center gap-1.5 whitespace-nowrap tabular-nums">
                 <span className="h-2 w-2 rounded-sm bg-white/80" />
-                Venta {fmtUsd(data[hover])}
+                Venta
+                <span className="ml-auto pl-3 font-semibold">
+                  {fmtUsd(data[hover])}
+                </span>
               </p>
               <p className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap tabular-nums">
                 <span
                   className="h-2 w-2 rounded-sm"
                   style={{ background: LINE }}
                 />
-                Ganancia {fmtUsd(profit[hover])}
+                Ganancia
+                <span className="ml-auto pl-3 font-semibold">
+                  {fmtUsd(profit[hover])}
+                </span>
               </p>
+
+              <div className="mt-1.5 space-y-0.5 border-t border-white/15 pt-1.5">
+                {RUBRO_MIX.map((r, ri) => (
+                  <p
+                    key={r.label}
+                    className="flex items-center gap-1.5 whitespace-nowrap tabular-nums"
+                  >
+                    <span
+                      className="h-2 w-2 rounded-sm"
+                      style={{ background: dashColor(ri) }}
+                    />
+                    <span className="text-white/70">{r.label}</span>
+                    <span className="ml-auto pl-3 font-semibold">
+                      {Math.round(r.pct)}%
+                    </span>
+                  </p>
+                ))}
+              </div>
             </div>
           )}
         </div>

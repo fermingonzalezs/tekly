@@ -6,10 +6,12 @@ function MetricCard({
   label,
   value,
   delta,
+  deltaHint,
 }: {
   label: string;
   value: string;
   delta: number;
+  deltaHint: string;
 }) {
   return (
     <Card className="p-3">
@@ -17,10 +19,15 @@ function MetricCard({
         {label}
       </p>
       <div className="mt-1 flex items-end justify-between gap-2">
-        <span className="text-xl font-semibold leading-none tracking-tight tabular-nums">
+        <span className="font-grotesk text-3xl font-semibold leading-none tracking-tight tabular-nums">
           {value}
         </span>
-        <Delta value={delta} />
+        <div className="flex shrink-0 flex-col items-end gap-1 leading-none">
+          <Delta value={delta} className="px-1.5 py-0.5 text-[10px]" />
+          <span className="whitespace-nowrap text-[10px] text-neutral-400">
+            {deltaHint}
+          </span>
+        </div>
       </div>
     </Card>
   );
@@ -35,6 +42,7 @@ export function MetricCards() {
           label={m.label}
           value={m.value}
           delta={m.delta}
+          deltaHint={m.deltaHint}
         />
       ))}
     </div>

@@ -12,25 +12,48 @@ body {
 }
 
 /* Reglas globales de tablas del CRM. Sin capa => ganan sobre las utilidades
-   de Tailwind. Aplican a TODA tabla, presente y futura. */
+   de Tailwind. Aplican a TODA tabla, presente y futura.
 
-/* Encabezados: mayúscula, negrita, fuente negra y fondo azul claro. */
+   Encabezado: banda índigo oscuro, texto blanco/negrita/mayúscula.
+   Filas: cebra (blanca / índigo muy claro) para que resalten. Todo a la
+   izquierda salvo opt-out. */
+
 th {
-  background-color: #eff4ff; /* accent-soft */
-  color: #171717; /* neutral-900 — no gris */
+  background-color: #352f86; /* índigo oscuro (CHART_COLORS[1]) */
+  color: #ffffff;
+  font-weight: 700;
   text-transform: uppercase;
-  font-weight: 600;
   letter-spacing: 0.03em;
 }
 
-/* Encabezados y celdas centrados por defecto. */
 th,
 td {
-  text-align: center;
+  text-align: left;
 }
 
-/* Opt-out por celda: text-left / text-start alinean el CONTENIDO a la
-   izquierda (los th igual quedan en mayúscula/negrita). */
+/* Cebra: fila par en índigo muy claro. En @layer base para que el
+   `hover:bg-*` de cada fila (capa utilities, va después) siga ganando. */
+@layer base {
+  tbody tr:nth-child(even) {
+    background-color: #f0eff9;
+  }
+  /* los recibos/PDF van sin cebra */
+  .recibo-print tbody tr:nth-child(even) {
+    background-color: transparent;
+  }
+}
+
+/* Opt-out por celda para números / acciones: centrar o alinear a la derecha. */
+th.text-center,
+td.text-center {
+  text-align: center;
+}
+th.text-right,
+td.text-right,
+th.text-end,
+td.text-end {
+  text-align: right;
+}
 th.text-left,
 td.text-left,
 th.text-start,

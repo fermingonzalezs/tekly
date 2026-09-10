@@ -14,13 +14,14 @@ import type {
 
 // ───────────────────────── Dashboard ─────────────────────────
 
+// `deltaHint` = contra qué se compara el `delta` (se muestra bajo el valor).
 export const dashboardMetrics = [
-  { key: "ventas", label: "Ventas del mes", value: "U$ 48.250", delta: 12.4 },
-  { key: "margen", label: "Margen promedio", value: "34,2 %", delta: 2.1 },
-  { key: "abiertos", label: "Tickets abiertos", value: "17", delta: -8.0 },
-  { key: "revision", label: "Equipos en revisión", value: "9", delta: 4.0 },
-  { key: "ticket", label: "Ticket promedio", value: "U$ 615", delta: 3.2 },
-  { key: "turnos", label: "Turnos hoy", value: "6", delta: 20.0 },
+  { key: "ventas", label: "Ventas del mes", value: "U$ 48.250", delta: 12.4, deltaHint: "vs promedio mensual" },
+  { key: "margen", label: "Margen promedio", value: "34,2 %", delta: 2.1, deltaHint: "vs promedio 3 meses" },
+  { key: "abiertos", label: "Tickets abiertos", value: "17", delta: -8.0, deltaHint: "vs promedio semanal" },
+  { key: "revision", label: "Equipos en revisión", value: "9", delta: 4.0, deltaHint: "vs promedio semanal" },
+  { key: "ticket", label: "Ticket promedio", value: "U$ 615", delta: 3.2, deltaHint: "vs promedio mensual" },
+  { key: "turnos", label: "Turnos hoy", value: "6", delta: 20.0, deltaHint: "vs promedio diario" },
 ];
 
 // ventas diarias últimos 14 días (USD)
@@ -55,6 +56,71 @@ export const salesTrend3wGanancia = salesTrend3w.map((venta, i) =>
   Math.round(venta * (0.24 + 0.13 * Math.abs(Math.cos(i * 1.4)))),
 );
 
+// ── Dashboard · selector de período ────────────────────────────
+// El selector arriba (al lado de "DASHBOARD") cambia la data de
+// "Tendencia de ventas" y "Categorías más vendidas".
+
+export type DashPeriodo = "mes" | "mesPrevio" | "quince";
+
+export const DASH_PERIODOS: {
+  value: DashPeriodo;
+  label: string;
+  trendSub: string;
+  rubroKey: "mes" | "semana" | "historico";
+}[] = [
+  {
+    value: "mes",
+    label: "Este mes",
+    trendSub: "Valores de este mes",
+    rubroKey: "mes",
+  },
+  {
+    value: "mesPrevio",
+    label: "Último mes",
+    trendSub: "Valores del último mes",
+    rubroKey: "historico",
+  },
+  {
+    value: "quince",
+    label: "Últimos quince días",
+    trendSub: "Valores de los últimos quince días",
+    rubroKey: "semana",
+  },
+];
+
+// series diarias por período — deterministas (sin random) para SSR estable.
+function mkVenta(len: number, seed: number) {
+  return Array.from({ length: len }, (_, i) =>
+    Math.round(
+      950 +
+        1350 * Math.abs(Math.sin(i * 0.7 + seed)) +
+        480 * Math.abs(Math.cos(i * 0.31 + seed * 1.7)),
+    ),
+  );
+}
+const mkGanancia = (venta: number[]) =>
+  venta.map((v, i) =>
+    Math.round(v * (0.24 + 0.13 * Math.abs(Math.cos(i * 1.4)))),
+  );
+
+export const salesTrendByPeriod: Record<
+  DashPeriodo,
+  { venta: number[]; ganancia: number[] }
+> = {
+  mes: (() => {
+    const venta = mkVenta(30, 0.4);
+    return { venta, ganancia: mkGanancia(venta) };
+  })(),
+  mesPrevio: (() => {
+    const venta = mkVenta(30, 2.1);
+    return { venta, ganancia: mkGanancia(venta) };
+  })(),
+  quince: (() => {
+    const venta = mkVenta(15, 3.3);
+    return { venta, ganancia: mkGanancia(venta) };
+  })(),
+};
+
 // facturación mensual por rubro (USD) — gráfico de tendencia (barras apiladas)
 export const salesByMonth = [
   { mes: "Jul", equipos: 17000, reparaciones: 11500, accesorios: 3800, otros: 2200 },
@@ -64,12 +130,21 @@ export const salesByMonth = [
 
 export const usdArs = { value: 1465, delta: 0.7, label: "Dólar blue" };
 
-export const monthGoal = { current: 48250, target: 65000 };
+// `current` = facturado en lo que va del mes; se asume que hoy es el día
+// `dayOfMonth` de un mes de `daysInMonth` días (para proyección y ritmo).
+export const monthGoal = {
+  current: 48250,
+  target: 65000,
+  dayOfMonth: 22,
+  daysInMonth: 30,
+};
 
+// Pipeline de tickets: progreso en índigo (claro→oscuro); "Esperando repuesto"
+// y "Listo" quedan en ámbar / verde porque son estados (warning / done).
 export const ticketStages = [
-  { label: "Recibido", count: 4, color: "#93c5fd" },
-  { label: "Diagnosticado", count: 3, color: "#60a5fa" },
-  { label: "En reparación", count: 5, color: "#2563eb" },
+  { label: "Recibido", count: 4, color: "#948dde" },
+  { label: "Diagnosticado", count: 3, color: "#7269d4" },
+  { label: "En reparación", count: 5, color: "#4f49bd" },
   { label: "Esperando repuesto", count: 2, color: "#f59e0b" },
   { label: "Listo", count: 3, color: "#10b981" },
 ];

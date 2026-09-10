@@ -1,11 +1,14 @@
 import { DonutChart } from "@/components/dashboard/donut-chart";
+import { ChartTitle } from "@/components/ui/chart-title";
 import { ventasPorRubro, monthGoal } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+import { DASH_COLORS as COLORS } from "@/lib/chart";
 
-const COLORS = ["#93c5fd", "#c4b5fd", "#fcd34d", "#6ee7b7"];
-
-export function RubrosPie() {
-  const data = ventasPorRubro.mes;
+export function RubrosPie({
+  data = ventasPorRubro.mes,
+}: {
+  data?: { label: string; value: number }[];
+}) {
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
 
   const slices = data.map((d, i) => ({
@@ -17,10 +20,10 @@ export function RubrosPie() {
 
   return (
     <div className="w-full">
-      <p className="text-center text-xs font-semibold uppercase tracking-wider text-neutral-400">
-        Rubros más vendidos
-      </p>
-      <div className="mt-3">
+      <ChartTitle align="left" sub="Facturación del mes por categoría">
+        Categorías más vendidas
+      </ChartTitle>
+      <div className="mt-3 border-t border-neutral-100 pt-3">
         <DonutChart slices={slices} />
       </div>
     </div>

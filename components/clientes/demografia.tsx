@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { clientesDemografia } from "@/lib/mock-data";
+import { CHART_ACCENT } from "@/lib/chart";
 import { cn } from "@/lib/utils";
 
 const PERIODOS = [
@@ -25,7 +26,7 @@ export function DemografiaClientes() {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between gap-2">
-        <ChartTitle align="left">Demografía de clientes · edad</ChartTitle>
+        <ChartTitle align="left" divider>Demografía de clientes · edad</ChartTitle>
         <div className="inline-flex rounded-lg bg-neutral-100 p-0.5">
           {PERIODOS.map((p) => (
             <button
@@ -48,10 +49,13 @@ export function DemografiaClientes() {
         {rows.map((r) => (
           <div key={r.rango} className="flex items-center gap-3 text-sm">
             <span className="w-14 shrink-0 text-neutral-500">{r.rango}</span>
-            <div className="h-6 flex-1 rounded-md bg-neutral-100">
+            <div className="h-6 flex-1 overflow-hidden rounded-md bg-neutral-100">
               <div
-                className="h-full rounded-md bg-gradient-to-r from-amber-200 to-amber-400"
-                style={{ width: `${(r.pct / axisMax) * 100}%` }}
+                className="h-full rounded-md"
+                style={{
+                  width: `${(r.pct / axisMax) * 100}%`,
+                  background: CHART_ACCENT,
+                }}
               />
             </div>
             <span className="w-10 shrink-0 text-right font-semibold tabular-nums">
