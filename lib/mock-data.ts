@@ -141,12 +141,13 @@ export const monthGoal = {
 
 // Pipeline de tickets: progreso en índigo (claro→oscuro); "Esperando repuesto"
 // y "Listo" quedan en ámbar / verde porque son estados (warning / done).
+// Mismo hue índigo que CHART_COLORS (lib/chart.ts): más oscuro = más avanzado.
 export const ticketStages = [
   { label: "Recibido", count: 4, color: "#948dde" },
   { label: "Diagnosticado", count: 3, color: "#7269d4" },
   { label: "En reparación", count: 5, color: "#4f49bd" },
-  { label: "Esperando repuesto", count: 2, color: "#f59e0b" },
-  { label: "Listo", count: 3, color: "#10b981" },
+  { label: "Esperando repuesto", count: 2, color: "#352f86" },
+  { label: "Listo", count: 3, color: "#2e2a5f" },
 ];
 
 export const recentSales = [
@@ -202,7 +203,7 @@ export const tickets: Ticket[] = [
   {
     id: 231, clienteId: "c-2", cliente: "Sofía Ramos", equipo: "iPhone 12", imei: "356789101234567",
     falla: "No enciende, cayó al agua", tecnicoId: "u-4", tecnico: "Nico", estado: "en_reparacion",
-    ingreso: "Hoy 09:40", presupuestoUsd: 200,
+    ingreso: "Hoy 09:40", fechaISO: "2026-09-07", presupuestoUsd: 200,
     servicios: [
       { servicioId: "s-7", nombre: "Diagnóstico", precioUsd: 15 },
       { servicioId: "s-4", nombre: "Reparación de placa", precioUsd: 160 },
@@ -212,25 +213,25 @@ export const tickets: Ticket[] = [
   {
     id: 230, clienteId: "c-5", cliente: "Diego Fernández", equipo: "iPhone 13 Pro", imei: "356789101299881",
     falla: "Pantalla rota, táctil funciona", tecnicoId: "u-4", tecnico: "Nico", estado: "esperando_repuesto",
-    ingreso: "Hoy 08:15", presupuestoUsd: 90,
+    ingreso: "Hoy 08:15", fechaISO: "2026-09-07", presupuestoUsd: 90,
     servicios: [{ servicioId: "s-1", nombre: "Cambio de pantalla", precioUsd: 90 }],
     nota: "Pantalla pedida a Tecno Import, llega mañana.",
   },
   {
     id: 229, clienteId: "c-6", cliente: "Paula Giménez", equipo: "iPhone 11", imei: "356789101245512",
     falla: "Batería dura poco, se apaga al 30%", tecnicoId: "u-5", tecnico: "Dani", estado: "presupuestado",
-    ingreso: "Hoy 10:20", presupuestoUsd: 45,
+    ingreso: "Hoy 10:20", fechaISO: "2026-09-07", presupuestoUsd: 45,
     servicios: [{ servicioId: "s-2", nombre: "Cambio de batería", precioUsd: 45 }],
   },
   {
     id: 228, clienteId: "c-1", cliente: "Juan Pérez", equipo: "iPhone 14", imei: "356789101278890",
     falla: "No carga, prueba con varios cables", tecnicoId: null, tecnico: null, estado: "recibido",
-    ingreso: "Hoy 11:05", presupuestoUsd: 0, servicios: [],
+    ingreso: "Hoy 11:05", fechaISO: "2026-09-07", presupuestoUsd: 0, servicios: [],
   },
   {
     id: 227, clienteId: "c-8", cliente: "Valentina Cruz", equipo: "iPhone 12 mini", imei: "356789101201123",
     falla: "Cámara trasera borrosa", tecnicoId: "u-4", tecnico: "Nico", estado: "aprobado",
-    ingreso: "Ayer 16:30", presupuestoUsd: 85,
+    ingreso: "Ayer 16:30", fechaISO: "2026-09-06", presupuestoUsd: 85,
     servicios: [
       { servicioId: "s-5", nombre: "Cambio de cámara trasera", precioUsd: 70 },
       { servicioId: "s-7", nombre: "Diagnóstico", precioUsd: 15 },
@@ -239,32 +240,32 @@ export const tickets: Ticket[] = [
   {
     id: 226, clienteId: "c-7", cliente: "Andrés Molina", equipo: "iPhone 13", imei: "356789101266734",
     falla: "Vidrio trasero estallado", tecnicoId: "u-5", tecnico: "Dani", estado: "diagnosticado",
-    ingreso: "Ayer 14:10", presupuestoUsd: 0,
+    ingreso: "Ayer 14:10", fechaISO: "2026-09-06", presupuestoUsd: 0,
     servicios: [{ servicioId: "s-6", nombre: "Cambio de vidrio trasero", precioUsd: 55 }],
   },
   {
     id: 225, clienteId: "c-3", cliente: "Marco Díaz", equipo: "iPhone 15 Pro", imei: "356789101255690",
     falla: "Micrófono bajo en llamadas", tecnicoId: "u-4", tecnico: "Nico", estado: "listo",
-    ingreso: "Ayer 09:00", presupuestoUsd: 60,
+    ingreso: "Ayer 09:00", fechaISO: "2026-09-06", presupuestoUsd: 60,
     servicios: [{ servicioId: "s-3", nombre: "Cambio de pin de carga", precioUsd: 40 }, { servicioId: "s-7", nombre: "Diagnóstico", precioUsd: 15 }],
     nota: "Listo para entregar, avisar por WhatsApp.",
   },
   {
     id: 224, clienteId: "c-4", cliente: "Lucía Vera", equipo: "iPhone SE 2020", imei: "356789101233440",
     falla: "Cambio de batería preventivo", tecnicoId: "u-5", tecnico: "Dani", estado: "entregado",
-    ingreso: "Lun 12:30", presupuestoUsd: 45,
+    ingreso: "Lun 12:30", fechaISO: "2026-09-04", presupuestoUsd: 45,
     servicios: [{ servicioId: "s-2", nombre: "Cambio de batería", precioUsd: 45 }],
   },
   {
     id: 223, clienteId: "c-2", cliente: "Sofía Ramos", equipo: "iPhone XR", imei: "356789101222001",
     falla: "No toma señal", tecnicoId: "u-4", tecnico: "Nico", estado: "en_reparacion",
-    ingreso: "Lun 10:00", presupuestoUsd: 160,
+    ingreso: "Lun 10:00", fechaISO: "2026-09-04", presupuestoUsd: 160,
     servicios: [{ servicioId: "s-4", nombre: "Reparación de placa", precioUsd: 160 }],
   },
   {
     id: 222, clienteId: "c-1", cliente: "Juan Pérez", equipo: "iPhone 13", imei: "356789101211975",
     falla: "Pantalla con líneas verdes", tecnicoId: "u-5", tecnico: "Dani", estado: "entregado",
-    ingreso: "Dom 15:20", presupuestoUsd: 90,
+    ingreso: "Dom 15:20", fechaISO: "2026-09-03", presupuestoUsd: 90,
     servicios: [{ servicioId: "s-1", nombre: "Cambio de pantalla", precioUsd: 90 }],
   },
 ];
@@ -339,18 +340,18 @@ export const proveedores: Proveedor[] = [
 // ───────────────────────── Ventas / historial ─────────────────────────
 
 export const ventas: Venta[] = [
-  { id: "V-4821", fecha: "Hoy 14:20", fechaISO: "2026-09-07", clienteId: "c-1", cliente: "Juan Pérez", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "iPhone 13 128GB Azul", cantidad: 1, precioUsd: 735 }], totalUsd: 735, pagos: [{ medio: "transferencia", montoUsd: 735 }], margenPct: 23.8, tipo: "venta" },
-  { id: "V-4820", fecha: "Hoy 12:05", fechaISO: "2026-09-07", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-3", vendedor: "Meli", procedencia: "WhatsApp", items: [{ detalle: "Cambio de batería iPhone 12", cantidad: 1, precioUsd: 45 }, { detalle: "Vidrio templado", cantidad: 1, precioUsd: 10 }], totalUsd: 55, pagos: [{ medio: "tarjeta", montoUsd: 55 }], margenPct: 61.0, tipo: "reparacion" },
-  { id: "V-4819", fecha: "Ayer 18:40", fechaISO: "2026-09-06", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 15 Pro 256GB", cantidad: 1, precioUsd: 1240 }], totalUsd: 1240, pagos: [{ medio: "cripto", montoUsd: 1240 }], margenPct: 20.2, tipo: "venta" },
-  { id: "V-4818", fecha: "Ayer 17:10", fechaISO: "2026-09-06", clienteId: "c-4", cliente: "Lucía Vera", vendedorId: "u-3", vendedor: "Meli", procedencia: "Local", items: [{ detalle: "Vidrio templado", cantidad: 1, precioUsd: 10 }, { detalle: "Funda silicona", cantidad: 1, precioUsd: 12 }], totalUsd: 22, pagos: [{ medio: "pesos", montoUsd: 22 }], margenPct: 55.0, tipo: "venta" },
-  { id: "V-4817", fecha: "Ayer 11:30", fechaISO: "2026-09-06", clienteId: "c-5", cliente: "Diego Fernández", vendedorId: "u-2", vendedor: "Caro", procedencia: "MercadoLibre", items: [{ detalle: "iPhone 11 64GB", cantidad: 1, precioUsd: 410 }], totalUsd: 410, pagos: [{ medio: "canje", montoUsd: 250 }, { medio: "pesos", montoUsd: 160 }], margenPct: 26.8, tipo: "venta" },
-  { id: "V-4816", fecha: "Ayer 10:05", fechaISO: "2026-09-06", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "WhatsApp", items: [{ detalle: "Cambio de pantalla iPhone 13", cantidad: 1, precioUsd: 90 }], totalUsd: 90, pagos: [{ medio: "transferencia", montoUsd: 90 }], margenPct: 24.4, tipo: "reparacion" },
-  { id: "V-4815", fecha: "Lun 19:20", fechaISO: "2026-09-04", clienteId: "c-8", cliente: "Valentina Cruz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Referido", items: [{ detalle: "iPhone 13 mini 128GB", cantidad: 1, precioUsd: 570 }, { detalle: "AppleCare no oficial 6m", cantidad: 1, precioUsd: 30 }], totalUsd: 600, pagos: [{ medio: "transferencia", montoUsd: 400 }, { medio: "pesos", montoUsd: 200 }], margenPct: 22.5, tipo: "venta" },
-  { id: "V-4814", fecha: "Lun 15:40", fechaISO: "2026-09-04", clienteId: "c-1", cliente: "Juan Pérez", vendedorId: "u-3", vendedor: "Meli", procedencia: "Local", items: [{ detalle: "Reparación de placa iPhone XR", cantidad: 1, precioUsd: 160 }], totalUsd: 160, pagos: [{ medio: "pesos", montoUsd: 160 }], margenPct: 40.0, tipo: "reparacion" },
-  { id: "V-4813", fecha: "Lun 12:10", fechaISO: "2026-09-04", clienteId: "c-6", cliente: "Paula Giménez", vendedorId: "u-2", vendedor: "Caro", procedencia: "WhatsApp", items: [{ detalle: "Cambio de batería iPhone 11", cantidad: 1, precioUsd: 45 }], totalUsd: 45, pagos: [{ medio: "pesos", montoUsd: 45 }], margenPct: 62.2, tipo: "reparacion" },
-  { id: "V-4812", fecha: "Dom 16:30", fechaISO: "2026-09-03", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 14 128GB", cantidad: 1, precioUsd: 860 }], totalUsd: 860, pagos: [{ medio: "cripto", montoUsd: 600 }, { medio: "transferencia", montoUsd: 260 }], margenPct: 20.9, tipo: "venta" },
-  { id: "V-4811", fecha: "Dom 13:15", fechaISO: "2026-09-03", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "MercadoLibre", items: [{ detalle: "iPhone SE 2020 64GB", cantidad: 1, precioUsd: 195 }], totalUsd: 195, pagos: [{ medio: "dolares", montoUsd: 195 }], margenPct: 33.3, tipo: "venta" },
-  { id: "V-4810", fecha: "Sáb 11:50", fechaISO: "2026-09-02", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "Cambio de pantalla iPhone XR", cantidad: 1, precioUsd: 75 }], totalUsd: 75, pagos: [{ medio: "transferencia", montoUsd: 75 }], margenPct: 28.0, tipo: "reparacion" },
+  { id: "V-4821", fecha: "Hoy 14:20", fechaISO: "2026-09-07", clienteId: "c-1", cliente: "Juan Pérez", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "iPhone 13 128GB Azul", cantidad: 1, costoUsd: 560, precioUsd: 735 }], totalUsd: 735, pagos: [{ medio: "transferencia", montoUsd: 735 }], margenPct: 23.8, tipo: "venta" },
+  { id: "V-4820", fecha: "Hoy 12:05", fechaISO: "2026-09-07", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-3", vendedor: "Meli", procedencia: "WhatsApp", items: [{ detalle: "Cambio de batería iPhone 12", cantidad: 1, costoUsd: 17, precioUsd: 45 }, { detalle: "Vidrio templado", cantidad: 1, costoUsd: 4, precioUsd: 10 }], totalUsd: 55, pagos: [{ medio: "tarjeta", montoUsd: 55 }], margenPct: 61.0, tipo: "reparacion" },
+  { id: "V-4819", fecha: "Ayer 18:40", fechaISO: "2026-09-06", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 15 Pro 256GB", cantidad: 1, costoUsd: 990, precioUsd: 1240 }], totalUsd: 1240, pagos: [{ medio: "cripto", montoUsd: 1240 }], margenPct: 20.2, tipo: "venta" },
+  { id: "V-4818", fecha: "Ayer 17:10", fechaISO: "2026-09-06", clienteId: "c-4", cliente: "Lucía Vera", vendedorId: "u-3", vendedor: "Meli", procedencia: "Local", items: [{ detalle: "Vidrio templado", cantidad: 1, costoUsd: 5, precioUsd: 10 }, { detalle: "Funda silicona", cantidad: 1, costoUsd: 5, precioUsd: 12 }], totalUsd: 22, pagos: [{ medio: "pesos", montoUsd: 22 }], margenPct: 55.0, tipo: "venta" },
+  { id: "V-4817", fecha: "Ayer 11:30", fechaISO: "2026-09-06", clienteId: "c-5", cliente: "Diego Fernández", vendedorId: "u-2", vendedor: "Caro", procedencia: "MercadoLibre", items: [{ detalle: "iPhone 11 64GB", cantidad: 1, costoUsd: 300, precioUsd: 410 }], totalUsd: 410, pagos: [{ medio: "canje", montoUsd: 250 }, { medio: "pesos", montoUsd: 160 }], margenPct: 26.8, tipo: "venta" },
+  { id: "V-4816", fecha: "Ayer 10:05", fechaISO: "2026-09-06", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "WhatsApp", items: [{ detalle: "Cambio de pantalla iPhone 13", cantidad: 1, costoUsd: 68, precioUsd: 90 }], totalUsd: 90, pagos: [{ medio: "transferencia", montoUsd: 90 }], margenPct: 24.4, tipo: "reparacion" },
+  { id: "V-4815", fecha: "Lun 19:20", fechaISO: "2026-09-04", clienteId: "c-8", cliente: "Valentina Cruz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Referido", items: [{ detalle: "iPhone 13 mini 128GB", cantidad: 1, costoUsd: 442, precioUsd: 570 }, { detalle: "AppleCare no oficial 6m", cantidad: 1, costoUsd: 23, precioUsd: 30 }], totalUsd: 600, pagos: [{ medio: "transferencia", montoUsd: 400 }, { medio: "pesos", montoUsd: 200 }], margenPct: 22.5, tipo: "venta" },
+  { id: "V-4814", fecha: "Lun 15:40", fechaISO: "2026-09-04", clienteId: "c-1", cliente: "Juan Pérez", vendedorId: "u-3", vendedor: "Meli", procedencia: "Local", items: [{ detalle: "Reparación de placa iPhone XR", cantidad: 1, costoUsd: 96, precioUsd: 160 }], totalUsd: 160, pagos: [{ medio: "pesos", montoUsd: 160 }], margenPct: 40.0, tipo: "reparacion" },
+  { id: "V-4813", fecha: "Lun 12:10", fechaISO: "2026-09-04", clienteId: "c-6", cliente: "Paula Giménez", vendedorId: "u-2", vendedor: "Caro", procedencia: "WhatsApp", items: [{ detalle: "Cambio de batería iPhone 11", cantidad: 1, costoUsd: 17, precioUsd: 45 }], totalUsd: 45, pagos: [{ medio: "pesos", montoUsd: 45 }], margenPct: 62.2, tipo: "reparacion" },
+  { id: "V-4812", fecha: "Dom 16:30", fechaISO: "2026-09-03", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 14 128GB", cantidad: 1, costoUsd: 680, precioUsd: 860 }], totalUsd: 860, pagos: [{ medio: "cripto", montoUsd: 600 }, { medio: "transferencia", montoUsd: 260 }], margenPct: 20.9, tipo: "venta" },
+  { id: "V-4811", fecha: "Dom 13:15", fechaISO: "2026-09-03", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "MercadoLibre", items: [{ detalle: "iPhone SE 2020 64GB", cantidad: 1, costoUsd: 130, precioUsd: 195 }], totalUsd: 195, pagos: [{ medio: "dolares", montoUsd: 195 }], margenPct: 33.3, tipo: "venta" },
+  { id: "V-4810", fecha: "Sáb 11:50", fechaISO: "2026-09-02", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "Cambio de pantalla iPhone XR", cantidad: 1, costoUsd: 54, precioUsd: 75 }], totalUsd: 75, pagos: [{ medio: "transferencia", montoUsd: 75 }], margenPct: 28.0, tipo: "reparacion" },
 ];
 
 // ───────────────────────── Cajas ─────────────────────────

@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { ticketStages } from "@/lib/mock-data";
+import { GHOST_STRIPES } from "@/lib/chart";
 
 export function RepairsChart() {
   const total = ticketStages.reduce((a, s) => a + s.count, 0);
@@ -8,7 +9,7 @@ export function RepairsChart() {
 
   return (
     <Card className="p-5">
-      <ChartTitle sub={`${total} tickets en el taller`}>
+      <ChartTitle align="left" divider sub={`${total} tickets en el taller`}>
         Reparaciones mes
       </ChartTitle>
 
@@ -18,9 +19,12 @@ export function RepairsChart() {
             <span className="w-40 shrink-0 text-start text-[13px] text-neutral-600">
               {s.label}
             </span>
-            <div className="h-6 flex-1 overflow-hidden rounded-md bg-neutral-100">
+            <div
+              className="h-6 flex-1 overflow-hidden rounded-full"
+              style={{ background: GHOST_STRIPES }}
+            >
               <div
-                className="h-full rounded-md"
+                className="h-full rounded-full"
                 style={{
                   width: `${(s.count / max) * 100}%`,
                   background: s.color,

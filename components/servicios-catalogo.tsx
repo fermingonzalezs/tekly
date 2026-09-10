@@ -39,9 +39,13 @@ export function ServiciosCatalogo() {
         <p className="text-sm text-neutral-400">
           {list.length} servicios · precio y garantía
         </p>
-        <Button size="sm" onClick={() => setEditing(blank)}>
-          <Plus className="h-4 w-4" /> Nuevo servicio
-        </Button>
+        <button
+          onClick={() => setEditing(blank)}
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+        >
+          <Plus className="h-4 w-4" />
+          Nuevo servicio
+        </button>
       </div>
 
       <Card className="overflow-hidden">

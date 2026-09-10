@@ -71,10 +71,12 @@ export function StatCard({
         className,
       )}
     >
-      <p className="text-xs font-medium text-neutral-400">{label}</p>
+      <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        {label}
+      </p>
       <p
         className={cn(
-          "mt-2 font-grotesk text-2xl font-semibold tracking-tight tabular-nums",
+          "mt-2 font-grotesk text-3xl font-semibold tracking-tight tabular-nums",
           valueClassName,
         )}
       >

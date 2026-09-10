@@ -4,10 +4,9 @@ import { useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Lock } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/ui/stat-card";
-import { medioPago as medioPagoCfg } from "@/lib/status";
+import { Tabs } from "@/components/ui/tabs";
+import { medioPago as medioPagoCfg, dotClass } from "@/lib/status";
 import {
   movimientosHoy,
   movimientosTodos,
@@ -16,6 +15,7 @@ import {
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
 import { cn } from "@/lib/utils";
+import { thDivider } from "@/lib/ui-styles";
 import type { MedioPago, MovimientoCaja } from "@/lib/types";
 
 const MEDIOS: MedioPago[] = [
@@ -63,13 +63,18 @@ export default function CajasPage() {
     <Section title="Cajas">
       <div className="space-y-6">
         <div className="flex justify-end">
-          <Button
-            variant={cerrada ? "outline" : "primary"}
+          <button
             onClick={() => setCerrada((v) => !v)}
+            className={cn(
+              "flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors",
+              cerrada
+                ? "border-neutral-200 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
+                : "border-accent/40 text-accent hover:border-accent/70 hover:bg-accent-soft",
+            )}
           >
             <Lock className="h-4 w-4" />
             {cerrada ? "Reabrir caja" : "Cerrar caja del día"}
-          </Button>
+          </button>
         </div>
 
         {cerrada && (
@@ -80,18 +85,21 @@ export default function CajasPage() {
 
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard
+            align="left"
             label="Caja USD"
             value={fmtUsd(netoUsd)}
             hint="neto del día"
             valueClassName={netoUsd < 0 ? "text-red-500" : undefined}
           />
           <StatCard
+            align="left"
             label="Caja ARS"
             value={fmtArs(netoArs)}
             hint="neto del día"
             valueClassName={netoArs < 0 ? "text-red-500" : undefined}
           />
           <StatCard
+            align="left"
             label="Total (ARS)"
             value={fmtArs(totalArs)}
             hint={`consolidado al dólar ${fmtArs(RATE)}`}
@@ -106,37 +114,36 @@ export default function CajasPage() {
                   ? "Movimientos del día"
                   : "Historial de movimientos"}
               </p>
-              <div className="flex rounded-lg border border-neutral-200 p-0.5">
-                {(
-                  [
-                    ["dia", "Del día"],
-                    ["historial", "Historial"],
-                  ] as const
-                ).map(([v, label]) => (
-                  <button
-                    key={v}
-                    onClick={() => setVista(v)}
-                    className={cn(
-                      "rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors",
-                      vista === v
-                        ? "bg-accent-soft text-accent"
-                        : "text-neutral-400 hover:text-neutral-600",
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <Tabs
+                value={vista}
+                onChange={setVista}
+                options={[
+                  { value: "dia", label: "Del día" },
+                  { value: "historial", label: "Historial" },
+                ]}
+              />
             </div>
             <table className="mt-3 w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                  {vista === "historial" && <th className="px-5 py-2">Fecha</th>}
-                  <th className="px-5 py-2">Hora</th>
-                  <th className="px-5 py-2">Concepto</th>
-                  <th className="px-5 py-2">Caja</th>
-                  <th className="px-5 py-2">Medio</th>
-                  <th className="px-5 py-2">Monto</th>
+                  {vista === "historial" && (
+                    <th className={cn("px-5 py-2 text-center", thDivider)}>
+                      Fecha
+                    </th>
+                  )}
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>
+                    Hora
+                  </th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>
+                    Concepto
+                  </th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>
+                    Caja
+                  </th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>
+                    Medio
+                  </th>
+                  <th className="px-5 py-2 text-center">Monto</th>
                 </tr>
               </thead>
               <tbody>
@@ -146,10 +153,14 @@ export default function CajasPage() {
                     className="border-t border-neutral-100 first:border-t-0"
                   >
                     {vista === "historial" && (
-                      <td className="px-5 py-3 text-neutral-400">{m.fecha}</td>
+                      <td className="px-5 py-2 text-center text-neutral-400">
+                        {m.fecha}
+                      </td>
                     )}
-                    <td className="px-5 py-3 text-neutral-400">{m.hora}</td>
-                    <td className="px-5 py-3 text-start">
+                    <td className="px-5 py-2 text-center text-neutral-400">
+                      {m.hora}
+                    </td>
+                    <td className="max-w-[220px] truncate px-5 py-2 text-start">
                       <span className="inline-flex items-center gap-2">
                         {m.tipo === "ingreso" ? (
                           <ArrowDownLeft className="h-4 w-4 shrink-0 text-emerald-500" />
@@ -159,19 +170,31 @@ export default function CajasPage() {
                         {m.concepto}
                       </span>
                     </td>
-                    <td className="px-5 py-3">
-                      <Badge tone={m.moneda === "usd" ? "blue" : "green"}>
+                    <td className="px-5 py-2 text-center">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            m.moneda === "usd" ? dotClass.blue : dotClass.green,
+                          )}
+                        />
                         {m.moneda.toUpperCase()}
-                      </Badge>
+                      </span>
                     </td>
-                    <td className="px-5 py-3">
-                      <Badge tone={medioPagoCfg[m.medioPago].tone}>
+                    <td className="px-5 py-2 text-center">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            dotClass[medioPagoCfg[m.medioPago].tone],
+                          )}
+                        />
                         {medioPagoCfg[m.medioPago].label}
-                      </Badge>
+                      </span>
                     </td>
                     <td
                       className={cn(
-                        "px-5 py-3 font-semibold tabular-nums",
+                        "px-5 py-2 text-center font-semibold tabular-nums",
                         m.tipo === "ingreso"
                           ? "text-emerald-600"
                           : "text-red-500",
@@ -198,7 +221,13 @@ export default function CajasPage() {
                     key={p.medio}
                     className="flex items-center justify-between"
                   >
-                    <span className="text-neutral-600">
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          dotClass[medioPagoCfg[p.medio].tone],
+                        )}
+                      />
                       {medioPagoCfg[p.medio].label}
                     </span>
                     <span className="font-semibold tabular-nums">

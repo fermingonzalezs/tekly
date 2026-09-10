@@ -5,31 +5,29 @@ import { Link2, Check, X } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
-import { turnoTipo, turnoStatus, type Tone } from "@/lib/status";
+import { turnoTipo, turnoStatus, dotClass } from "@/lib/status";
 import { turnos as seed } from "@/lib/mock-data";
 import { publish } from "@/lib/realtime";
 import { cn } from "@/lib/utils";
+import { thDivider } from "@/lib/ui-styles";
 import type { Turno, TurnoTipo } from "@/lib/types";
 
-const HORAS = Array.from(
-  { length: 12 },
-  (_, i) => `${String(9 + i).padStart(2, "0")}:00`,
-); // 09:00 … 20:00
+const HORAS = Array.from({ length: 23 }, (_, i) => {
+  const min = 9 * 60 + i * 30;
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(
+    min % 60,
+  ).padStart(2, "0")}`;
+}); // 09:00 … 20:00 cada 30 min
 const DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const TIPOS: TurnoTipo[] = ["compra", "deja", "retira", "cotizar"];
 
-const blockClass: Record<Tone, string> = {
-  green: "bg-emerald-100 text-emerald-800 ring-emerald-600/20 hover:bg-emerald-200",
-  blue: "bg-blue-100 text-blue-800 ring-blue-600/20 hover:bg-blue-200",
-  violet: "bg-violet-100 text-violet-800 ring-violet-600/20 hover:bg-violet-200",
-  amber: "bg-amber-100 text-amber-800 ring-amber-600/20 hover:bg-amber-200",
-  gray: "bg-neutral-100 text-neutral-700 ring-neutral-500/20 hover:bg-neutral-200",
-  red: "bg-red-100 text-red-800 ring-red-600/20 hover:bg-red-200",
-};
+const ZEBRA_STRIPES =
+  "repeating-linear-gradient(45deg, rgba(0,0,0,0.025) 0 4px, rgba(0,0,0,0) 4px 8px)";
+
+type ChipState = "normal" | "highlight" | "hidden";
 
 export default function TurnosPage() {
   const [list, setList] = useState<Turno[]>(seed);
@@ -37,6 +35,24 @@ export default function TurnosPage() {
   const [slot, setSlot] = useState<{ dayOffset: number; hora: string } | null>(
     null,
   );
+  const [tipoState, setTipoState] = useState<Record<TurnoTipo, ChipState>>(
+    () =>
+      Object.fromEntries(TIPOS.map((t) => [t, "normal"])) as Record<
+        TurnoTipo,
+        ChipState
+      >,
+  );
+
+  function cycleTipo(tp: TurnoTipo) {
+    setTipoState((prev) => {
+      const cur = prev[tp];
+      const next: ChipState =
+        cur === "normal" ? "highlight" : cur === "highlight" ? "hidden" : "normal";
+      return { ...prev, [tp]: next };
+    });
+  }
+
+  const anyHighlighted = TIPOS.some((tp) => tipoState[tp] === "highlight");
 
   const days = useMemo(() => {
     const base = new Date();
@@ -93,19 +109,36 @@ export default function TurnosPage() {
   return (
     <Section title="Turnos">
       <div className="space-y-4">
-        {/* Referencia de colores */}
+        {/* Referencia de colores: click resalta, click de nuevo oculta, click de nuevo vuelve a normal */}
         <div className="flex flex-wrap items-center gap-2">
-          {TIPOS.map((tp) => (
-            <span
-              key={tp}
-              className={cn(
-                "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
-                blockClass[turnoTipo[tp].tone],
-              )}
-            >
-              {turnoTipo[tp].label}
-            </span>
-          ))}
+          {TIPOS.map((tp) => {
+            const state = tipoState[tp];
+            return (
+              <button
+                key={tp}
+                onClick={() => cycleTipo(tp)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+                  state === "hidden" &&
+                    "bg-neutral-50 text-neutral-300 line-through",
+                  state === "highlight" &&
+                    "bg-accent-soft text-accent ring-1 ring-inset ring-accent/30",
+                  state === "normal" &&
+                    "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    state === "hidden"
+                      ? "bg-neutral-300"
+                      : dotClass[turnoTipo[tp].tone],
+                  )}
+                />
+                {turnoTipo[tp].label}
+              </button>
+            );
+          })}
           <span className="ml-auto text-xs text-neutral-400">
             Próximos 7 días · 09 a 20 h · tocá un hueco para agendar
           </span>
@@ -115,22 +148,25 @@ export default function TurnosPage() {
           <div className="min-w-[760px]">
             {/* Encabezado de días */}
             <div
-              className="grid border-b border-neutral-200 bg-accent-soft"
+              className="grid bg-[#352f86]"
               style={{ gridTemplateColumns: "3.25rem repeat(7, 1fr)" }}
             >
-              <div />
+              <div className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-white/50">
+                Hora
+              </div>
               {days.map((d, i) => (
                 <div
                   key={i}
                   className={cn(
-                    "border-l border-neutral-200 px-2 py-2 text-center",
-                    i === 0 && "bg-accent/10",
+                    "px-2 py-2 text-center",
+                    i < 6 && thDivider,
+                    i === 0 && "bg-white/10",
                   )}
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-white/60">
                     {DOW[d.getDay()]}
                   </p>
-                  <p className="text-sm font-semibold text-neutral-800">
+                  <p className="text-sm font-semibold text-white">
                     {d.getDate()} {MES[d.getMonth()]}
                   </p>
                 </div>
@@ -138,11 +174,14 @@ export default function TurnosPage() {
             </div>
 
             {/* Filas de horas */}
-            {HORAS.map((h) => (
+            {HORAS.map((h, hi) => (
               <div
                 key={h}
                 className="grid border-b border-neutral-100 last:border-b-0"
-                style={{ gridTemplateColumns: "3.25rem repeat(7, 1fr)" }}
+                style={{
+                  gridTemplateColumns: "3.25rem repeat(7, 1fr)",
+                  backgroundImage: hi % 2 === 1 ? ZEBRA_STRIPES : undefined,
+                }}
               >
                 <div className="py-2 pr-2 text-right text-[11px] font-medium tabular-nums text-neutral-400">
                   {h}
@@ -157,6 +196,15 @@ export default function TurnosPage() {
                         className="min-h-[46px] border-l border-neutral-100 transition-colors hover:bg-accent-soft"
                       />
                     );
+                  if (tipoState[t.tipo] === "hidden")
+                    return (
+                      <div
+                        key={dayOffset}
+                        className="min-h-[46px] border-l border-neutral-100"
+                      />
+                    );
+                  const dimmed =
+                    anyHighlighted && tipoState[t.tipo] !== "highlight";
                   return (
                     <div
                       key={dayOffset}
@@ -165,16 +213,24 @@ export default function TurnosPage() {
                       <button
                         onClick={() => setSel(t)}
                         className={cn(
-                          "block h-full w-full rounded-md px-2 py-1.5 text-left ring-1 ring-inset transition-colors",
-                          blockClass[turnoTipo[t.tipo].tone],
+                          "flex h-full w-full items-start gap-1.5 rounded-md bg-neutral-100 px-2 py-1.5 text-left transition-colors hover:bg-neutral-200",
                           t.estado === "cancelado" && "line-through opacity-50",
+                          dimmed && "opacity-30",
                         )}
                       >
-                        <span className="block truncate text-xs font-semibold">
-                          {t.cliente}
-                        </span>
-                        <span className="block truncate text-[11px] opacity-80">
-                          {turnoTipo[t.tipo].label}
+                        <span
+                          className={cn(
+                            "mt-1 h-1.5 w-1.5 shrink-0 rounded-full",
+                            dotClass[turnoTipo[t.tipo].tone],
+                          )}
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-semibold text-neutral-900">
+                            {t.cliente}
+                          </span>
+                          <span className="block truncate text-[11px] text-neutral-500">
+                            {turnoTipo[t.tipo].label}
+                          </span>
                         </span>
                       </button>
                     </div>
@@ -219,12 +275,24 @@ export default function TurnosPage() {
         {sel && (
           <div className="space-y-3 text-sm">
             <div className="flex flex-wrap gap-2">
-              <Badge tone={turnoTipo[sel.tipo].tone}>
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    dotClass[turnoTipo[sel.tipo].tone],
+                  )}
+                />
                 {turnoTipo[sel.tipo].label}
-              </Badge>
-              <Badge tone={turnoStatus[sel.estado].tone}>
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    dotClass[turnoStatus[sel.estado].tone],
+                  )}
+                />
                 {turnoStatus[sel.estado].label}
-              </Badge>
+              </span>
             </div>
             {sel.ticketId ? (
               <p className="inline-flex items-center gap-1.5 text-accent">

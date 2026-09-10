@@ -81,6 +81,7 @@ export type Ticket = {
   tecnico: string | null;
   estado: TicketStatus;
   ingreso: string;
+  fechaISO: string;
   presupuestoUsd: number;
   servicios: TicketServicio[];
   nota?: string;

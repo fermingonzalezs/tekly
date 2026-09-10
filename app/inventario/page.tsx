@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ClipboardCheck } from "lucide-react";
+import { Plus, ClipboardCheck, Search } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { InventarioValor } from "@/components/inventario-valor";
-import { equipoStatus, otroCategoria, repuestoEstado } from "@/lib/status";
+import {
+  equipoStatus,
+  otroCategoria,
+  repuestoEstado,
+  dotClass,
+} from "@/lib/status";
+import { filterPill, thDivider } from "@/lib/ui-styles";
+import { GHOST_STRIPES } from "@/lib/chart";
 import {
   equipos as equiposSeed,
   repuestos as repuestosSeed,
@@ -39,6 +45,7 @@ export default function InventarioPage() {
 
   const [recuento, setRecuento] = useState(false);
   const [draft, setDraft] = useState<Record<string, number>>({});
+  const [q, setQ] = useState("");
 
   const [addEquipo, setAddEquipo] = useState(false);
   const [addRepuesto, setAddRepuesto] = useState(false);
@@ -54,8 +61,29 @@ export default function InventarioPage() {
 
   function switchTab(t: Tab) {
     setRecuento(false);
+    setQ("");
     setTab(t);
   }
+
+  const needle = q.trim().toLowerCase();
+  const equiposFiltrados = equipos.filter(
+    (e) =>
+      !needle ||
+      e.modelo.toLowerCase().includes(needle) ||
+      e.color.toLowerCase().includes(needle) ||
+      e.imei.toLowerCase().includes(needle),
+  );
+  const repuestosFiltrados = repuestos.filter(
+    (r) =>
+      !needle ||
+      r.nombre.toLowerCase().includes(needle) ||
+      r.sku.toLowerCase().includes(needle) ||
+      r.modelo.toLowerCase().includes(needle) ||
+      r.proveedor.toLowerCase().includes(needle),
+  );
+  const otrosFiltrados = otros.filter(
+    (o) => !needle || o.nombre.toLowerCase().includes(needle),
+  );
 
   function startRecuento() {
     const d: Record<string, number> = {};
@@ -87,24 +115,38 @@ export default function InventarioPage() {
           otros={otros}
         />
 
-        <Tabs
-          value={tab}
-          onChange={switchTab}
-          options={[
-            { value: "equipos", label: "Equipos para venta", count: equipos.length },
-            { value: "repuestos", label: "Repuestos", count: repuestos.length },
-            { value: "otros", label: "Otros", count: otros.length },
-          ]}
-        />
-
-        {/* toolbar: acciones alineadas sobre la última columna de la tabla */}
+        {/* tabs + filtros + acción, todo en la misma fila */}
         <div className="flex flex-wrap items-center gap-2">
+          <Tabs
+            value={tab}
+            onChange={switchTab}
+            options={[
+              { value: "equipos", label: "Equipos para venta", count: equipos.length },
+              { value: "repuestos", label: "Repuestos", count: repuestos.length },
+              { value: "otros", label: "Otros", count: otros.length },
+            ]}
+          />
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={
+                tab === "equipos"
+                  ? "Buscar por modelo, color o IMEI…"
+                  : tab === "repuestos"
+                    ? "Buscar por nombre, SKU, modelo o proveedor…"
+                    : "Buscar por nombre…"
+              }
+              className={cn("w-64 pl-9", filterPill)}
+            />
+          </div>
           <span className="text-sm text-neutral-400">
             {(tab === "equipos"
-              ? equipos.length
+              ? equiposFiltrados.length
               : tab === "repuestos"
-                ? repuestos.length
-                : otros.length)}{" "}
+                ? repuestosFiltrados.length
+                : otrosFiltrados.length)}{" "}
             {tab === "otros" ? "productos" : tab === "repuestos" ? "repuestos" : "equipos"}
           </span>
           <div className="ml-auto flex items-center gap-2">
@@ -128,8 +170,7 @@ export default function InventarioPage() {
                 </Button>
               ))}
             {!recuento && (
-              <Button
-                size="sm"
+              <button
                 onClick={() =>
                   tab === "equipos"
                     ? setAddEquipo(true)
@@ -137,6 +178,7 @@ export default function InventarioPage() {
                       ? setAddRepuesto(true)
                       : setAddOtro(true)
                 }
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
               >
                 <Plus className="h-4 w-4" />
                 {tab === "equipos"
@@ -144,7 +186,7 @@ export default function InventarioPage() {
                   : tab === "repuestos"
                     ? "Agregar / ingresar repuesto"
                     : "Agregar / ingresar producto"}
-              </Button>
+              </button>
             )}
           </div>
         </div>
@@ -155,54 +197,94 @@ export default function InventarioPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                  <th className="px-5 py-3">Equipo</th>
-                  <th className="px-5 py-3">Almacenamiento</th>
-                  <th className="px-5 py-3">IMEI</th>
-                  <th className="px-5 py-3">Batería</th>
-                  <th className="px-5 py-3">Condición</th>
-                  <th className="px-5 py-3 text-end">Costo</th>
-                  <th className="px-5 py-3 text-end">Precio</th>
-                  <th className="px-5 py-3 text-end">Margen</th>
-                  <th className="px-5 py-3">Estado</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
+                    Equipo
+                  </th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
+                    Almacenamiento
+                  </th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
+                    IMEI
+                  </th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
+                    Batería
+                  </th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
+                    Condición
+                  </th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
+                    Costo
+                  </th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
+                    Precio
+                  </th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
+                    Margen
+                  </th>
+                  <th className="px-5 py-3 text-center">Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {equipos.map((e) => (
+                {equiposFiltrados.map((e) => (
                   <tr
                     key={e.id}
                     onClick={() => setOpenEquipoId(e.id)}
                     className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                   >
-                    <td className="px-5 py-3">
+                    <td className="max-w-[160px] truncate px-5 py-2 text-center">
                       <span className="font-medium">{e.modelo}</span>
-                      <span className="block text-xs text-neutral-400">
+                      <span className="block truncate text-xs text-neutral-400">
                         {e.color}
                       </span>
                     </td>
-                    <td className="px-5 py-3 tabular-nums">{e.almacenamiento}</td>
-                    <td className="px-5 py-3 text-neutral-500">{e.imei}</td>
-                    <td className="px-5 py-3 tabular-nums">{e.bateria}%</td>
-                    <td className="px-5 py-3 text-neutral-500">{e.condicion}</td>
-                    <td className="px-5 py-3 text-end tabular-nums text-neutral-500">
+                    <td className="px-5 py-2 text-center tabular-nums">
+                      {e.almacenamiento}
+                    </td>
+                    <td className="px-5 py-2 text-center text-neutral-500">
+                      {e.imei}
+                    </td>
+                    <td className="px-5 py-2 text-center tabular-nums">
+                      {e.bateria}%
+                    </td>
+                    <td className="px-5 py-2 text-center text-neutral-500">
+                      {e.condicion}
+                    </td>
+                    <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                       {fmtUsd(e.costoUsd)}
                     </td>
-                    <td className="px-5 py-3 text-end font-semibold tabular-nums">
+                    <td className="px-5 py-2 text-center font-semibold tabular-nums">
                       {fmtUsd(e.precioUsd)}
                     </td>
-                    <td className="px-5 py-3 text-end tabular-nums text-emerald-600">
+                    <td className="px-5 py-2 text-center tabular-nums text-emerald-600">
                       {(
                         ((e.precioUsd - e.costoUsd) / e.precioUsd) *
                         100
                       ).toFixed(0)}
                       %
                     </td>
-                    <td className="px-5 py-3">
-                      <Badge tone={equipoStatus[e.estado].tone}>
+                    <td className="px-5 py-2 text-center">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            dotClass[equipoStatus[e.estado].tone],
+                          )}
+                        />
                         {equipoStatus[e.estado].label}
-                      </Badge>
+                      </span>
                     </td>
                   </tr>
                 ))}
+                {equiposFiltrados.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-5 py-10 text-center text-sm text-neutral-400"
+                    >
+                      Sin equipos para esta búsqueda.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </Card>
@@ -270,17 +352,29 @@ export default function InventarioPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                          <th className="px-5 py-3">Repuesto</th>
-                          <th className="px-5 py-3">Modelo</th>
-                          <th className="px-5 py-3">Stock</th>
-                          <th className="px-5 py-3">Costo</th>
-                          <th className="px-5 py-3">Proveedor</th>
-                          <th className="px-5 py-3">Estado</th>
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Repuesto
+                          </th>
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Modelo
+                          </th>
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Stock
+                          </th>
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Costo
+                          </th>
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Proveedor
+                          </th>
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Estado
+                          </th>
                           <th className="px-5 py-3" />
                         </tr>
                       </thead>
                       <tbody>
-                        {repuestos.map((r) => {
+                        {repuestosFiltrados.map((r) => {
                           const est = repuestoEstado(r.stock, r.stockMin);
                           const frac = Math.max(
                             0,
@@ -303,16 +397,16 @@ export default function InventarioPage() {
                                   "bg-amber-50/40",
                               )}
                             >
-                              <td className="px-5 py-3 text-start">
+                              <td className="max-w-[160px] truncate px-5 py-2 text-center">
                                 <span className="font-medium">{r.nombre}</span>
-                                <span className="block text-xs text-neutral-400">
+                                <span className="block truncate text-xs text-neutral-400">
                                   {r.sku}
                                 </span>
                               </td>
-                              <td className="px-5 py-3 text-neutral-500">
+                              <td className="max-w-[120px] truncate px-5 py-2 text-center text-neutral-500">
                                 {r.modelo}
                               </td>
-                              <td className="px-5 py-3">
+                              <td className="px-5 py-2 text-center">
                                 {recuento ? (
                                   <Input
                                     type="number"
@@ -337,7 +431,10 @@ export default function InventarioPage() {
                                         / mín {r.stockMin}
                                       </span>
                                     </p>
-                                    <div className="mt-1 h-1.5 rounded-full bg-neutral-100">
+                                    <div
+                                      className="mt-1 h-1.5 overflow-hidden rounded-full"
+                                      style={{ background: GHOST_STRIPES }}
+                                    >
                                       <div
                                         className={cn(
                                           "h-full rounded-full",
@@ -349,18 +446,24 @@ export default function InventarioPage() {
                                   </div>
                                 )}
                               </td>
-                              <td className="px-5 py-3 text-neutral-500">
+                              <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                                 {fmtUsd(r.costoUsd)}
                               </td>
-                              <td className="px-5 py-3 text-neutral-500">
+                              <td className="max-w-[120px] truncate px-5 py-2 text-center text-neutral-500">
                                 {r.proveedor}
                               </td>
-                              <td className="px-5 py-3">
-                                <Badge tone={est.tone} dot>
+                              <td className="px-5 py-2 text-center">
+                                <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                                  <span
+                                    className={cn(
+                                      "h-1.5 w-1.5 rounded-full",
+                                      dotClass[est.tone],
+                                    )}
+                                  />
                                   {est.label}
-                                </Badge>
+                                </span>
                               </td>
-                              <td className="px-5 py-3">
+                              <td className="px-5 py-2 text-center">
                                 <Button
                                   size="sm"
                                   variant={
@@ -374,6 +477,16 @@ export default function InventarioPage() {
                             </tr>
                           );
                         })}
+                        {repuestosFiltrados.length === 0 && (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="px-5 py-10 text-center text-sm text-neutral-400"
+                            >
+                              Sin repuestos para esta búsqueda.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </Card>
@@ -418,7 +531,10 @@ export default function InventarioPage() {
                                 <span className="text-xs font-semibold tabular-nums">
                                   {r.stock} / {r.stockMin}
                                 </span>
-                                <div className="h-1.5 flex-1 rounded-full bg-neutral-100">
+                                <div
+                                  className="h-1.5 flex-1 overflow-hidden rounded-full"
+                                  style={{ background: GHOST_STRIPES }}
+                                >
                                   <div
                                     className={cn(
                                       "h-full rounded-full",
@@ -456,30 +572,48 @@ export default function InventarioPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                    <th className="px-5 py-3">Producto</th>
-                    <th className="px-5 py-3">Categoría</th>
-                    <th className="px-5 py-3">Costo</th>
-                    <th className="px-5 py-3">Precio</th>
-                    <th className="px-5 py-3">Cantidad</th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Producto
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Categoría
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Costo
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Precio
+                    </th>
+                    <th className="px-5 py-3 text-center">Cantidad</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {otros.map((o) => (
+                  {otrosFiltrados.map((o) => (
                     <tr
                       key={o.id}
                       className="border-t border-neutral-100 first:border-t-0"
                     >
-                      <td className="px-5 py-3 font-medium">{o.nombre}</td>
-                      <td className="px-5 py-3">
-                        <Badge tone="gray">{otroCategoria[o.categoria]}</Badge>
+                      <td className="max-w-[180px] truncate px-5 py-2 text-center font-medium">
+                        {o.nombre}
                       </td>
-                      <td className="px-5 py-3 text-neutral-500">
+                      <td className="px-5 py-2 text-center">
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              dotClass[otroCategoria[o.categoria].tone],
+                            )}
+                          />
+                          {otroCategoria[o.categoria].label}
+                        </span>
+                      </td>
+                      <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                         {fmtUsd(o.costoUsd)}
                       </td>
-                      <td className="px-5 py-3 font-semibold">
+                      <td className="px-5 py-2 text-center font-semibold tabular-nums">
                         {fmtUsd(o.precioUsd)}
                       </td>
-                      <td className="px-5 py-3 font-semibold tabular-nums">
+                      <td className="px-5 py-2 text-center font-semibold tabular-nums">
                         {recuento ? (
                           <Input
                             type="number"
@@ -499,6 +633,16 @@ export default function InventarioPage() {
                       </td>
                     </tr>
                   ))}
+                  {otrosFiltrados.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-5 py-10 text-center text-sm text-neutral-400"
+                      >
+                        Sin productos para esta búsqueda.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </Card>
@@ -879,7 +1023,7 @@ function IngresoDialog({
                 >
                   {CATS.map((c) => (
                     <option key={c} value={c}>
-                      {otroCategoria[c]}
+                      {otroCategoria[c].label}
                     </option>
                   ))}
                 </Select>

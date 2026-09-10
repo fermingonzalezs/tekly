@@ -36,7 +36,9 @@ export function InventarioValor({
 
   return (
     <Card className={cn("flex flex-col overflow-hidden p-4", className)}>
-      <ChartTitle align="left">Valor de inventario</ChartTitle>
+      <ChartTitle align="left" divider>
+        Valor de inventario
+      </ChartTitle>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center">
         <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">
@@ -44,11 +46,11 @@ export function InventarioValor({
         </p>
         <p className="text-2xl font-semibold tabular-nums">{fmtUsd(total)}</p>
 
-        <div className="mt-3 flex gap-[3px] overflow-hidden rounded-md">
+        <div className="mt-3 flex gap-[3px] overflow-hidden rounded-full">
           {rows.map((r, i) => (
             <div
               key={r.label}
-              className="h-3.5"
+              className="h-9"
               style={{
                 width: `${(r.value / total) * 100}%`,
                 background: COLORS[i % COLORS.length],

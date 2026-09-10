@@ -2,7 +2,7 @@
 // Monocromática índigo: mayor valor = tono más oscuro. Mismo índice ⇒ mismo
 // color en cualquier card.
 export const CHART_COLORS = [
-  "#211d52",
+  "#2e2a5f",
   "#352f86",
   "#4f49bd",
   "#7269d4",
@@ -37,7 +37,7 @@ export const HEAT_SCALE = [
   "#7269d4",
   "#4f49bd",
   "#352f86",
-  "#211d52",
+  "#2e2a5f",
 ] as const;
 
 // Aliases: el dashboard estrenó estos nombres; ahora son la paleta de toda

@@ -6,20 +6,21 @@ import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
 import { salesByMonth } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+import { chartColor } from "@/lib/chart";
 
 type CatKey = "equipos" | "reparaciones" | "accesorios" | "otros";
 
 const CATS: { key: CatKey; label: string; color: string }[] = [
-  { key: "equipos", label: "Equipos", color: "#8b95f6" },
-  { key: "reparaciones", label: "Reparaciones", color: "#b57cf0" },
-  { key: "accesorios", label: "Accesorios", color: "#ef7fb0" },
-  { key: "otros", label: "Otros", color: "#f6a44c" },
+  { key: "equipos", label: "Equipos", color: chartColor(0) },
+  { key: "reparaciones", label: "Reparaciones", color: chartColor(1) },
+  { key: "accesorios", label: "Accesorios", color: chartColor(2) },
+  { key: "otros", label: "Otros", color: chartColor(3) },
 ];
 const COLOR: Record<CatKey, string> = {
-  equipos: "#8b95f6",
-  reparaciones: "#b57cf0",
-  accesorios: "#ef7fb0",
-  otros: "#f6a44c",
+  equipos: chartColor(0),
+  reparaciones: chartColor(1),
+  accesorios: chartColor(2),
+  otros: chartColor(3),
 };
 // orden de apilado, de abajo hacia arriba
 const STACK: CatKey[] = ["equipos", "reparaciones", "accesorios", "otros"];
@@ -104,7 +105,7 @@ export function TendenciaRubros({ className }: { className?: string }) {
         </span>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
         {CATS.map((c) => (
           <span key={c.key} className="inline-flex items-center gap-1.5">
             <span
@@ -162,7 +163,7 @@ export function TendenciaRubros({ className }: { className?: string }) {
                   {[...STACK].reverse().map((k) => (
                     <div
                       key={k}
-                      className="min-h-[4px] shrink-0 rounded-[7px]"
+                      className="min-h-[4px] shrink-0 rounded-md"
                       style={{
                         flexGrow: m[k],
                         flexBasis: 0,

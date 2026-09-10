@@ -104,12 +104,12 @@ export function repuestoEstado(
 
 // ── Inventario · Otros productos ───────────────────────────────
 
-export const otroCategoria: Record<OtroCategoria, string> = {
-  ipad: "iPad",
-  airpods: "AirPods",
-  tablet: "Tablet",
-  accesorio: "Accesorio",
-  otro: "Otro",
+export const otroCategoria: Record<OtroCategoria, { label: string; tone: Tone }> = {
+  ipad: { label: "iPad", tone: "blue" },
+  airpods: { label: "AirPods", tone: "violet" },
+  tablet: { label: "Tablet", tone: "green" },
+  accesorio: { label: "Accesorio", tone: "gray" },
+  otro: { label: "Otro", tone: "gray" },
 };
 
 // ── Medios de pago ─────────────────────────────────────────────

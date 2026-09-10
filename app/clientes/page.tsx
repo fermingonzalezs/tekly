@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Phone, Mail, Plus } from "lucide-react";
+import { Phone, Mail, Plus, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,8 @@ import { FuenteClientes } from "@/components/clientes/fuente-clientes";
 import { ticketStatus, medioPago } from "@/lib/status";
 import { clientes as seed, ventas, tickets } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { Cliente } from "@/lib/types";
 
 const rid = () => Math.random().toString(36).slice(2);
@@ -22,6 +24,7 @@ export default function ClientesPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Cliente | null>(null);
   const [creating, setCreating] = useState(false);
+  const [chartsOpen, setChartsOpen] = useState(true);
 
   const filtered = useMemo(
     () =>
@@ -32,36 +35,73 @@ export default function ClientesPage() {
   return (
     <Section title="Clientes">
       <div className="space-y-5">
-        <div className="flex items-center gap-2">
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar cliente…"
-            className="w-72"
-          />
-          <span className="ml-auto text-sm text-neutral-400">
-            {filtered.length} cliente{filtered.length === 1 ? "" : "s"}
-          </span>
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> Nuevo cliente
-          </Button>
+        {/* gráficos: en la misma fila, se pueden ocultar */}
+        <div>
+          <button
+            onClick={() => setChartsOpen((v) => !v)}
+            className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
+          >
+            {chartsOpen ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+            {chartsOpen ? "Ocultar gráficos" : "Mostrar gráficos"}
+          </button>
+          {chartsOpen && (
+            <div className="mt-3 grid gap-5 xl:grid-cols-2">
+              <DemografiaClientes />
+              <FuenteClientes />
+            </div>
+          )}
         </div>
 
-        <DemografiaClientes />
-
-        <FuenteClientes />
+        {/* buscador + acción, justo arriba de la tabla */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar cliente…"
+              className={cn("w-64 pl-9", filterPill)}
+            />
+          </div>
+          <span className="text-sm text-neutral-400">
+            {filtered.length} cliente{filtered.length === 1 ? "" : "s"}
+          </span>
+          <button
+            onClick={() => setCreating(true)}
+            className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo cliente
+          </button>
+        </div>
 
         <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                <th className="px-5 py-3">Cliente</th>
-                <th className="px-5 py-3">Teléfono</th>
-                <th className="px-5 py-3">Email</th>
-                <th className="px-5 py-3">Desde</th>
-                <th className="px-5 py-3">Compras</th>
-                <th className="px-5 py-3">Reparaciones</th>
-                <th className="px-5 py-3">Gastado</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Cliente
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Teléfono
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Email
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Desde
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Compras
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Reparaciones
+                </th>
+                <th className="px-5 py-3 text-center">Gastado</th>
               </tr>
             </thead>
             <tbody>
@@ -71,13 +111,25 @@ export default function ClientesPage() {
                   onClick={() => setOpen(c)}
                   className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                 >
-                  <td className="px-5 py-3 text-start font-medium">{c.nombre}</td>
-                  <td className="px-5 py-3 text-neutral-500">{c.telefono}</td>
-                  <td className="px-5 py-3 text-neutral-500">{c.email}</td>
-                  <td className="px-5 py-3 text-neutral-500">{c.desde}</td>
-                  <td className="px-5 py-3 tabular-nums">{c.compras}</td>
-                  <td className="px-5 py-3 tabular-nums">{c.reparaciones}</td>
-                  <td className="px-5 py-3 font-semibold">
+                  <td className="max-w-[160px] truncate px-5 py-2 text-center font-medium">
+                    {c.nombre}
+                  </td>
+                  <td className="px-5 py-2 text-center text-neutral-500">
+                    {c.telefono}
+                  </td>
+                  <td className="max-w-[180px] truncate px-5 py-2 text-center text-neutral-500">
+                    {c.email}
+                  </td>
+                  <td className="px-5 py-2 text-center text-neutral-500">
+                    {c.desde}
+                  </td>
+                  <td className="px-5 py-2 text-center tabular-nums">
+                    {c.compras}
+                  </td>
+                  <td className="px-5 py-2 text-center tabular-nums">
+                    {c.reparaciones}
+                  </td>
+                  <td className="px-5 py-2 text-center font-semibold tabular-nums">
                     {fmtUsd(c.gastadoUsd)}
                   </td>
                 </tr>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Check, FileText } from "lucide-react";
+import { Plus, Trash2, Check, FileText, Search } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   ReciboCampos,
   ReciboLineas,
 } from "@/components/recibos/recibo";
-import { medioPago as medioPagoCfg } from "@/lib/status";
+import { medioPago as medioPagoCfg, dotClass } from "@/lib/status";
 import {
   ventas as seed,
   vendedores,
@@ -23,9 +23,12 @@ import {
   otros,
   servicios,
 } from "@/lib/mock-data";
-import { fmtUsd } from "@/lib/format";
+import { fmtUsd, fmtArs } from "@/lib/format";
+import { useDolar } from "@/lib/dolar";
 import { publish } from "@/lib/realtime";
 import { cn } from "@/lib/utils";
+import { filterPill, thDivider } from "@/lib/ui-styles";
+import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
 import type { MedioPago, Pago, Venta, VentaItem } from "@/lib/types";
 
 const MEDIOS: MedioPago[] = [
@@ -46,13 +49,40 @@ const PROCEDENCIAS = [
   "Otro",
 ];
 
+function ventaCosto(v: Venta) {
+  return v.items.reduce((a, i) => a + i.cantidad * (i.costoUsd ?? 0), 0);
+}
+
+/** El monto de un pago se guarda siempre en USD; en pantalla, si el medio
+ * es "pesos" se muestra convertido a $ a la cotización blue vigente. */
+function fmtPago(medio: MedioPago, montoUsd: number, dolarVenta: number) {
+  return medio === "pesos" ? fmtArs(montoUsd * dolarVenta) : fmtUsd(montoUsd);
+}
+
+function matchesQuery(v: Venta, q: string) {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  if (v.cliente.toLowerCase().includes(needle)) return true;
+  return v.items.some((i) => {
+    if (i.detalle.toLowerCase().includes(needle)) return true;
+    const equipo = i.equipoId
+      ? equipos.find((e) => e.id === i.equipoId)
+      : undefined;
+    return equipo ? equipo.imei.toLowerCase().includes(needle) : false;
+  });
+}
+
 export default function VentasPage() {
+  const dolarVenta = useDolar().venta;
   const [list, setList] = useState<Venta[]>(seed);
   const [vendFilter, setVendFilter] = useState("todos");
   const [tipoFilter, setTipoFilter] = useState<"todos" | "venta" | "reparacion">(
     "todos",
   );
+  const [datePreset, setDatePreset] = useState<DatePreset>("todos");
   const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+  const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [recibo, setRecibo] = useState<{
@@ -60,15 +90,22 @@ export default function VentasPage() {
     tipo: "venta" | "canje";
   } | null>(null);
 
+  const range =
+    datePreset === "personalizado"
+      ? { desde, hasta }
+      : (presetRange(datePreset) ?? { desde: "", hasta: "" });
+
   const filtered = useMemo(
     () =>
       list.filter(
         (v) =>
           (vendFilter === "todos" || v.vendedor === vendFilter) &&
           (tipoFilter === "todos" || v.tipo === tipoFilter) &&
-          (!desde || v.fechaISO >= desde),
+          (!range.desde || v.fechaISO >= range.desde) &&
+          (!range.hasta || v.fechaISO <= range.hasta) &&
+          matchesQuery(v, q),
       ),
-    [list, vendFilter, tipoFilter, desde],
+    [list, vendFilter, tipoFilter, range.desde, range.hasta, q],
   );
 
   const open = list.find((v) => v.id === openId) ?? null;
@@ -83,20 +120,34 @@ export default function VentasPage() {
     <Section title="Ventas">
       <div className="space-y-5">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard label="Operaciones" value={filtered.length} />
-          <StatCard label="Facturado" value={fmtUsd(totalUsd)} />
-          <StatCard label="Margen promedio" value={`${margenProm.toFixed(1)}%`} />
+          <StatCard align="left" label="Operaciones" value={filtered.length} />
+          <StatCard align="left" label="Facturado" value={fmtUsd(totalUsd)} />
           <StatCard
+            align="left"
+            label="Margen promedio"
+            value={`${margenProm.toFixed(1)}%`}
+          />
+          <StatCard
+            align="left"
             label="Ticket promedio"
             value={fmtUsd(filtered.length ? totalUsd / filtered.length : 0)}
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar por cliente, serie o producto…"
+              className={cn("w-64 pl-9", filterPill)}
+            />
+          </div>
           <Select
             value={vendFilter}
             onChange={(e) => setVendFilter(e.target.value)}
-            className="w-44"
+            className={cn("w-44", filterPill)}
           >
             <option value="todos">Todos los vendedores</option>
             {vendedores.map((v) => (
@@ -108,42 +159,73 @@ export default function VentasPage() {
           <Select
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value as typeof tipoFilter)}
-            className="w-40"
+            className={cn("w-40", filterPill)}
           >
             <option value="todos">Todo</option>
             <option value="venta">Equipos</option>
             <option value="reparacion">Reparaciones</option>
           </Select>
-          <Input
-            type="date"
-            value={desde}
-            onChange={(e) => setDesde(e.target.value)}
-            className="w-40"
-          />
-          {desde && (
+          <Select
+            value={datePreset}
+            onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+            className={cn("w-44", filterPill)}
+          >
+            {DATE_PRESETS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
+          {datePreset === "personalizado" && (
+            <>
+              <Input
+                type="date"
+                value={desde}
+                onChange={(e) => setDesde(e.target.value)}
+                className={cn("w-36", filterPill)}
+              />
+              <span className="text-xs text-neutral-400">a</span>
+              <Input
+                type="date"
+                value={hasta}
+                onChange={(e) => setHasta(e.target.value)}
+                className={cn("w-36", filterPill)}
+              />
+            </>
+          )}
+          {datePreset !== "todos" && (
             <button
-              onClick={() => setDesde("")}
+              onClick={() => {
+                setDatePreset("todos");
+                setDesde("");
+                setHasta("");
+              }}
               className="text-xs text-neutral-400 hover:text-neutral-600"
             >
               limpiar fecha
             </button>
           )}
-          <Button size="sm" className="ml-auto" onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> Nueva venta
-          </Button>
+
+          <button
+            onClick={() => setCreating(true)}
+            className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+          >
+            <Plus className="h-4 w-4" />
+            Nueva venta
+          </button>
         </div>
 
         <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                <th className="px-5 py-3">Venta</th>
-                <th className="px-5 py-3">Cliente</th>
-                <th className="px-5 py-3">Detalle</th>
-                <th className="px-5 py-3">Vendedor</th>
-                <th className="px-5 py-3">Pago</th>
-                <th className="px-5 py-3 text-end">Margen</th>
-                <th className="px-5 py-3 text-end">Total</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Venta</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Cliente</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Detalle</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Pago</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Costo</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Margen</th>
+                <th className="px-5 py-3 text-center">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -153,33 +235,51 @@ export default function VentasPage() {
                   onClick={() => setOpenId(v.id)}
                   className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                 >
-                  <td className="px-5 py-3 font-medium text-neutral-500">
+                  <td className="px-5 py-2 text-center font-medium text-neutral-500">
                     {v.id}
                     <span className="block text-xs font-normal text-neutral-400">
                       {v.fecha}
                     </span>
                   </td>
-                  <td className="px-5 py-3">{v.cliente}</td>
-                  <td className="px-5 py-3 text-start text-neutral-500">
+                  <td className="max-w-[140px] truncate px-5 py-2 text-center">
+                    {v.cliente}
+                  </td>
+                  <td className="max-w-[260px] truncate px-5 py-2 text-start text-neutral-500">
                     {v.items.map((i) => i.detalle).join(" · ")}
                   </td>
-                  <td className="px-5 py-3">{v.vendedor}</td>
-                  <td className="px-5 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {v.pagos.map((p, i) => (
-                        <Badge key={i} tone={medioPagoCfg[p.medio].tone}>
-                          {medioPagoCfg[p.medio].label}
-                          {v.pagos.length > 1 && (
-                            <span className="opacity-60"> {fmtUsd(p.montoUsd)}</span>
-                          )}
-                        </Badge>
-                      ))}
+                  <td className="px-5 py-2">
+                    <div className="flex flex-col items-center gap-1">
+                      {(v.pagos.length > 3 ? v.pagos.slice(0, 2) : v.pagos).map(
+                        (p, i) => (
+                          <span
+                            key={i}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700"
+                          >
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                dotClass[medioPagoCfg[p.medio].tone],
+                              )}
+                            />
+                            {medioPagoCfg[p.medio].label}
+                            <span className="font-normal tabular-nums text-neutral-900">
+                              {fmtPago(p.medio, p.montoUsd, dolarVenta)}
+                            </span>
+                          </span>
+                        ),
+                      )}
+                      {v.pagos.length > 3 && (
+                        <span className="text-[11px] text-neutral-400">…</span>
+                      )}
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-end tabular-nums text-neutral-500">
+                  <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                    {fmtUsd(ventaCosto(v))}
+                  </td>
+                  <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                     {v.margenPct.toFixed(1)}%
                   </td>
-                  <td className="px-5 py-3 text-end font-semibold tabular-nums">
+                  <td className="px-5 py-2 text-center font-semibold tabular-nums">
                     {fmtUsd(v.totalUsd)}
                   </td>
                 </tr>
@@ -334,6 +434,7 @@ export default function VentasPage() {
 // ────────────────────── Detalle de venta ──────────────────────
 
 function VentaDetalle({ venta }: { venta: Venta }) {
+  const dolarVenta = useDolar().venta;
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -369,6 +470,7 @@ function VentaDetalle({ venta }: { venta: Venta }) {
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
                 <th className="px-4 py-2 text-start">Detalle</th>
                 <th className="px-4 py-2">Cant</th>
+                <th className="px-4 py-2">Costo</th>
                 <th className="px-4 py-2">Precio</th>
                 <th className="px-4 py-2">Subtotal</th>
               </tr>
@@ -381,6 +483,9 @@ function VentaDetalle({ venta }: { venta: Venta }) {
                 >
                   <td className="px-4 py-2.5 text-start">{i.detalle}</td>
                   <td className="px-4 py-2.5 tabular-nums">{i.cantidad}</td>
+                  <td className="px-4 py-2.5 tabular-nums text-neutral-500">
+                    {fmtUsd(i.costoUsd ?? 0)}
+                  </td>
                   <td className="px-4 py-2.5 tabular-nums">
                     {fmtUsd(i.precioUsd)}
                   </td>
@@ -390,7 +495,7 @@ function VentaDetalle({ venta }: { venta: Venta }) {
                 </tr>
               ))}
               <tr className="border-t border-neutral-100 font-semibold">
-                <td className="px-4 py-2.5 text-start" colSpan={3}>
+                <td className="px-4 py-2.5 text-start" colSpan={4}>
                   Total
                 </td>
                 <td className="px-4 py-2.5 tabular-nums">
@@ -416,17 +521,23 @@ function VentaDetalle({ venta }: { venta: Venta }) {
                 {medioPagoCfg[p.medio].label}
               </Badge>
               <span className="font-semibold tabular-nums">
-                {fmtUsd(p.montoUsd)}
+                {fmtPago(p.medio, p.montoUsd, dolarVenta)}
               </span>
             </div>
           ))}
         </div>
       </div>
 
-      <p className="text-sm">
-        <span className="text-neutral-400">Margen </span>
-        <span className="font-semibold">{venta.margenPct.toFixed(1)}%</span>
-      </p>
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        <span>
+          <span className="text-neutral-400">Costo total </span>
+          <span className="font-semibold">{fmtUsd(ventaCosto(venta))}</span>
+        </span>
+        <span>
+          <span className="text-neutral-400">Margen </span>
+          <span className="font-semibold">{venta.margenPct.toFixed(1)}%</span>
+        </span>
+      </div>
     </div>
   );
 }

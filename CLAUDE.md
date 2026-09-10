@@ -77,10 +77,10 @@ todo gráfico de la app (dashboard, analíticas, …).
 
 | Constante | Valor | Uso |
 |---|---|---|
-| `CHART_COLORS` | 5 pasos `#211d52 → #948dde` | categorías (dona, barras apiladas, pipeline). Ordenadas |
+| `CHART_COLORS` | 5 pasos `#2e2a5f → #948dde` | categorías (dona, barras apiladas, pipeline). Ordenadas |
 | `chartColor(i)` | — | cicla `CHART_COLORS` |
 | `CHART_ACCENT` | `#4f49bd` | líneas y rellenos con presencia (= `accent`) |
-| `HEAT_SCALE` | 6 pasos `#e9e8f9 → #211d52` | rampa de heatmaps (claro→oscuro) |
+| `HEAT_SCALE` | 6 pasos `#e9e8f9 → #2e2a5f` | rampa de heatmaps (claro→oscuro) |
 | `CHART_TRACK` | `#e9e8f9` | pista de arcos / fondo "fantasma" |
 | `GHOST_STRIPES` | rayado gris 45° | barra en reposo / tramo no cumplido |
 
@@ -88,24 +88,37 @@ todo gráfico de la app (dashboard, analíticas, …).
 `HEAT_SCALE`). `DASH_COLORS` / `dashColor` / `DASH_ACCENT` / `DASH_HEAT` son
 **aliases** de las de arriba (se estrenaron en el dashboard; ya son globales).
 
-**Estados y badges:** nunca hardcodear colores de estado. Usar `Badge` +
-el map de `lib/status.ts` (`ticketStatus`, `equipoStatus`, `turnoStatus`,
-`turnoTipo`, `medioPago`, `otroCategoria`), cada uno devuelve `{ label, tone }`
-(salvo `otroCategoria` que es solo label). `tone ∈ blue | amber | green | gray
-| red | violet`. **Todos los `Badge` son iguales**: forma cuadrada
-(`rounded-md`), `text-xs`. No hay variante pill — la única forma es la que trae
-el componente.
+**Estados y etiquetas:** nunca hardcodear colores de estado. Usar el map de
+`lib/status.ts` (`ticketStatus`, `equipoStatus`, `repuestoEstado`,
+`turnoStatus`, `turnoTipo`, `medioPago`, `otroCategoria`) — todos devuelven
+`{ label, tone }`, `tone ∈ blue | amber | green | gray | red | violet`, con su
+color asociado ya resuelto en `dotClass`.
+
+En **listas/tablas** (columna de estado, medio de pago, categoría, tipo) el
+patrón es un chip gris neutro (`bg-neutral-100 text-neutral-700 rounded-md
+px-2 py-0.5 text-xs`) con un punto `dotClass[tone]` (`h-1.5 w-1.5 rounded-full`)
+al lado del label — el color vive en el punto, no en el fondo del chip. Ya lo
+usan Ventas (Pago), Reparaciones (Estado), Inventario (Estado de
+equipos/repuestos, Categoría de "Otros") y Turnos (tipo/estado). Para una
+etiqueta nueva en una columna de tabla, replicar este patrón en vez de
+`Badge`.
+
+El componente `Badge` (`components/ui/badge.tsx`: fondo de color + `tone`,
+forma cuadrada `rounded-md`, `text-xs`, sin variante pill) sigue siendo válido
+para usos puntuales fuera de tablas — un badge suelto en un diálogo de
+detalle, el buscador de ítems de Nueva venta, Clientes/Cajas/Configuración
+(no migradas todavía) — pero ya no es el default para columnas de tabla.
 
 ### Tipografía (escala en uso)
 
 | Clase | px | Uso |
 |---|---|---|
-| `text-2xl` | 24 | valor grande de `StatCard`, número hero de un gráfico |
+| `text-3xl` | 30 | valor grande de `StatCard`, número hero de un gráfico |
 | `text-lg` | 18 | contadores medianos / encabezados grandes de card (el `Topbar` ya **no** tiene h1) |
 | `text-sm` | 14 | body, celdas de tabla, cuerpo de card |
 | `text-[13px]` | 13 | texto secundario denso (listas, filas compactas) |
-| `text-xs` | 12 | labels, captions, `ChartTitle`, `Badge` |
-| `text-[11px]` | 11 | micro: `Delta`, leyendas ("vs mes previo", "del objetivo") |
+| `text-xs` | 12 | `ChartTitle`, `Badge` |
+| `text-[11px]` | 11 | labels/eyebrows (incl. label de `StatCard`), micro: `Delta`, leyendas ("vs mes previo", "del objetivo") |
 
 Pesos: `font-semibold` para valores y títulos; `font-medium` para labels.
 Números (montos, contadores, IMEI): **siempre `tabular-nums`**.
@@ -216,9 +229,24 @@ cuerpo (`border-t border-neutral-100 pt-3`) — mismo resultado.
 - Líneas: `strokeWidth 2`, `strokeLinecap/Linejoin round`. Área bajo la línea:
   gradiente del color a `opacity 0`.
 - Marcadores de la línea: círculo ≥ 8px, `bg-white` + borde 2px del color.
-- Barras: `rounded-t-xl`, ancladas a la base; la más alta llena la banda
-  (`SCALE = 100`). Barra en reposo / tramo no cumplido = `GHOST_STRIPES`
-  (rayado gris de `lib/chart.ts`).
+- Barras verticales: `rounded-t-xl`, ancladas a la base; la más alta llena la
+  banda (`SCALE = 100`).
+- Barras horizontales — dos variantes, no mezclar:
+  - **Objetivo / cuota** (un valor vs. una meta o un mínimo — ej.
+    `ObjetivoPanel`, el split de `ReparacionesSplit`, las barras de stock de
+    Inventario): pista = `GHOST_STRIPES` (importado de `lib/chart.ts`, **nunca
+    reimplementado** con un `repeating-linear-gradient` a mano), `rounded-full`,
+    relleno sólido — `CHART_ACCENT` para una métrica genérica, o un color de
+    estado (verde/ámbar/rojo) cuando la barra representa una urgencia (ej.
+    stock bajo/agotado — ese uso de color semántico está bien, no es color de
+    serie).
+  - **Ranking / comparación** (varias barras, cada una independiente contra su
+    propio máximo — ej. `BarRows` de Analíticas, `RepairsChart`,
+    `demografia.tsx`): pista lisa `bg-neutral-100` (sin rayas — no hay "meta"
+    que marcar), relleno `CHART_ACCENT` (o `chartColor(i)` si las barras son
+    categorías con series propias). Alto/forma (`rounded-full` fino en listas,
+    `rounded-md` más grueso en charts) según la densidad, pero siempre pista
+    lisa + relleno único.
 - Promedio → línea `border-dashed border-neutral-400` con pill `Avg`.
 
 **Dona** (`components/dashboard/donut-chart.tsx`): anillo grueso, **separadores

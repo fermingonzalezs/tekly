@@ -13,6 +13,7 @@ import {
 } from "@/lib/mock-data";
 import { equipoStatus, medioPago as medioPagoCfg } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
+import { CHART_ACCENT } from "@/lib/chart";
 import { TendenciaRubros } from "@/components/analiticas/tendencia-rubros";
 
 type Row = { label: string; value: number };
@@ -126,7 +127,7 @@ export default function AnaliticasPage() {
                     {(m.usd / 1000).toFixed(0)}k
                   </span>
                   <div
-                    className="w-full rounded-t-md bg-accent/80"
+                    className="w-full rounded-t-xl bg-accent"
                     style={{ height: `${(m.usd / maxMes) * 140}px` }}
                   />
                   <span className="text-xs text-neutral-500">{m.mes}</span>
@@ -258,15 +259,15 @@ export default function AnaliticasPage() {
           >
             <defs>
               <linearGradient id="acumFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#4f49bd" stopOpacity="0.18" />
-                <stop offset="100%" stopColor="#4f49bd" stopOpacity="0" />
+                <stop offset="0%" stopColor={CHART_ACCENT} stopOpacity="0.18" />
+                <stop offset="100%" stopColor={CHART_ACCENT} stopOpacity="0" />
               </linearGradient>
             </defs>
             <path d={area} fill="url(#acumFill)" />
             <path
               d={line}
               fill="none"
-              stroke="#4f49bd"
+              stroke={CHART_ACCENT}
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"

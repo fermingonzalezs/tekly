@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Wrench, ArrowRight, Check, FileText } from "lucide-react";
+import {
+  Plus,
+  Wrench,
+  ArrowRight,
+  Check,
+  FileText,
+  Search,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,21 +31,45 @@ import {
   TICKET_FLOW,
   nextTicketStatus,
   ticketStatus,
+  dotClass,
 } from "@/lib/status";
 import { tickets as seed, tecnicos, clientes } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { publish } from "@/lib/realtime";
 import type { Ticket, TicketStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { filterPill, thDivider } from "@/lib/ui-styles";
+import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
+
+function matchesQuery(t: Ticket, q: string) {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  return (
+    t.cliente.toLowerCase().includes(needle) ||
+    t.equipo.toLowerCase().includes(needle) ||
+    t.falla.toLowerCase().includes(needle) ||
+    t.imei.toLowerCase().includes(needle)
+  );
+}
 
 export default function ReparacionesPage() {
   const [list, setList] = useState<Ticket[]>(seed);
   const [tecFilter, setTecFilter] = useState("todos");
   const [estFilter, setEstFilter] = useState<"todos" | TicketStatus>("todos");
+  const [datePreset, setDatePreset] = useState<DatePreset>("todos");
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
+  const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [vista, setVista] = useState<"tickets" | "servicios">("tickets");
   const [recibo, setRecibo] = useState<Ticket | null>(null);
+  const [chartsOpen, setChartsOpen] = useState(true);
+
+  const range =
+    datePreset === "personalizado"
+      ? { desde, hasta }
+      : (presetRange(datePreset) ?? { desde: "", hasta: "" });
 
   const filtered = useMemo(
     () =>
@@ -44,9 +77,12 @@ export default function ReparacionesPage() {
         (t) =>
           (tecFilter === "todos" ||
             (tecFilter === "sin" ? !t.tecnico : t.tecnico === tecFilter)) &&
-          (estFilter === "todos" || t.estado === estFilter),
+          (estFilter === "todos" || t.estado === estFilter) &&
+          (!range.desde || t.fechaISO >= range.desde) &&
+          (!range.hasta || t.fechaISO <= range.hasta) &&
+          matchesQuery(t, q),
       ),
-    [list, tecFilter, estFilter],
+    [list, tecFilter, estFilter, range.desde, range.hasta, q],
   );
 
   const open = list.find((t) => t.id === openId) ?? null;
@@ -84,7 +120,43 @@ export default function ReparacionesPage() {
   return (
     <Section title="Reparaciones">
       <div className="space-y-5">
-        <div className="flex items-center justify-between gap-3">
+        {/* gráficos: siempre visibles (tickets o servicios), se pueden ocultar */}
+        <div>
+          <button
+            onClick={() => setChartsOpen((v) => !v)}
+            className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
+          >
+            {chartsOpen ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+            {chartsOpen ? "Ocultar gráficos" : "Mostrar gráficos"}
+          </button>
+          {chartsOpen && (
+            <div className="mt-3 grid gap-5 xl:grid-cols-2">
+              <ReparacionesSplit />
+              <RepairsChart />
+            </div>
+          )}
+        </div>
+
+        {/* pipeline resumen: siempre visible */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+          {counts.map(({ s, n }) => (
+            <StatCard
+              key={s}
+              align="left"
+              label={ticketStatus[s].label}
+              value={n}
+              active={estFilter === s}
+              onClick={() => setEstFilter(estFilter === s ? "todos" : s)}
+            />
+          ))}
+        </div>
+
+        {/* tabs + filtros + acción, todo en la misma fila */}
+        <div className="flex flex-wrap items-center gap-2">
           <Tabs
             value={vista}
             onChange={setVista}
@@ -94,73 +166,117 @@ export default function ReparacionesPage() {
             ]}
           />
           {vista === "tickets" && (
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus className="h-4 w-4" /> Nuevo ticket
-            </Button>
+            <>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Buscar por cliente, equipo o IMEI…"
+                  className={cn("w-64 pl-9", filterPill)}
+                />
+              </div>
+              <Select
+                value={tecFilter}
+                onChange={(e) => setTecFilter(e.target.value)}
+                className={cn("w-52", filterPill)}
+              >
+                <option value="todos">Todos los técnicos</option>
+                <option value="sin">Sin asignar</option>
+                {tecnicos.map((t) => (
+                  <option key={t.id} value={t.alias}>
+                    {t.alias}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={estFilter}
+                onChange={(e) =>
+                  setEstFilter(e.target.value as "todos" | TicketStatus)
+                }
+                className={cn("w-52", filterPill)}
+              >
+                <option value="todos">Todos los estados</option>
+                {TICKET_FLOW.map((s) => (
+                  <option key={s} value={s}>
+                    {ticketStatus[s].label}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                value={datePreset}
+                onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+                className={cn("w-44", filterPill)}
+              >
+                {DATE_PRESETS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </Select>
+              {datePreset === "personalizado" && (
+                <>
+                  <Input
+                    type="date"
+                    value={desde}
+                    onChange={(e) => setDesde(e.target.value)}
+                    className={cn("w-36", filterPill)}
+                  />
+                  <span className="text-xs text-neutral-400">a</span>
+                  <Input
+                    type="date"
+                    value={hasta}
+                    onChange={(e) => setHasta(e.target.value)}
+                    className={cn("w-36", filterPill)}
+                  />
+                </>
+              )}
+              {datePreset !== "todos" && (
+                <button
+                  onClick={() => {
+                    setDatePreset("todos");
+                    setDesde("");
+                    setHasta("");
+                  }}
+                  className="text-xs text-neutral-400 hover:text-neutral-600"
+                >
+                  limpiar fecha
+                </button>
+              )}
+              <button
+                onClick={() => setCreating(true)}
+                className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo ticket
+              </button>
+            </>
           )}
         </div>
 
-        {vista === "servicios" && <ServiciosCatalogo />}
-
-        {vista === "tickets" && (
-          <div className="space-y-5">
-        {/* pipeline resumen */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-          {counts.map(({ s, n }) => (
-            <StatCard
-              key={s}
-              label={ticketStatus[s].label}
-              value={n}
-              active={estFilter === s}
-              onClick={() => setEstFilter(estFilter === s ? "todos" : s)}
-            />
-          ))}
-        </div>
-
-        {/* filtros */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={tecFilter}
-            onChange={(e) => setTecFilter(e.target.value)}
-            className="w-52"
-          >
-            <option value="todos">Todos los técnicos</option>
-            <option value="sin">Sin asignar</option>
-            {tecnicos.map((t) => (
-              <option key={t.id} value={t.alias}>
-                {t.alias}
-              </option>
-            ))}
-          </Select>
-          <Select
-            value={estFilter}
-            onChange={(e) =>
-              setEstFilter(e.target.value as "todos" | TicketStatus)
-            }
-            className="w-52"
-          >
-            <option value="todos">Todos los estados</option>
-            {TICKET_FLOW.map((s) => (
-              <option key={s} value={s}>
-                {ticketStatus[s].label}
-              </option>
-            ))}
-          </Select>
-          <span className="ml-auto text-sm text-neutral-400">
-            {filtered.length} ticket{filtered.length === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        <Card className="overflow-hidden">
+        {vista === "servicios" ? (
+          <ServiciosCatalogo />
+        ) : (
+          <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                <th className="px-5 py-3 font-medium">Ticket</th>
-                <th className="px-5 py-3 font-medium">Cliente</th>
-                <th className="px-5 py-3 font-medium">Equipo</th>
-                <th className="px-5 py-3 font-medium">Técnico</th>
-                <th className="px-5 py-3 font-medium">Presupuesto</th>
-                <th className="px-5 py-3 font-medium">Estado</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Ticket
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Cliente
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Equipo
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Técnico
+                </th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>
+                  Presupuesto
+                </th>
+                <th className="px-5 py-3 text-center">Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -170,31 +286,39 @@ export default function ReparacionesPage() {
                   onClick={() => setOpenId(t.id)}
                   className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                 >
-                  <td className="px-5 py-3 font-medium text-neutral-500">
+                  <td className="px-5 py-2 text-center font-medium text-neutral-500">
                     #{t.id}
-                    <span className="ml-2 text-xs font-normal text-neutral-400">
+                    <span className="block text-xs font-normal text-neutral-400">
                       {t.ingreso}
                     </span>
                   </td>
-                  <td className="px-5 py-3">{t.cliente}</td>
-                  <td className="px-5 py-3">
+                  <td className="max-w-[140px] truncate px-5 py-2 text-center">
+                    {t.cliente}
+                  </td>
+                  <td className="max-w-[220px] truncate px-5 py-2 text-start">
                     {t.equipo}
-                    <span className="block text-xs text-neutral-400">
+                    <span className="block truncate text-xs text-neutral-400">
                       {t.falla}
                     </span>
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="max-w-[110px] truncate px-5 py-2 text-center">
                     {t.tecnico ?? (
                       <span className="text-neutral-400">Sin asignar</span>
                     )}
                   </td>
-                  <td className="px-5 py-3 font-semibold">
+                  <td className="px-5 py-2 text-center font-semibold tabular-nums">
                     {t.presupuestoUsd ? fmtUsd(t.presupuestoUsd) : "—"}
                   </td>
-                  <td className="px-5 py-3">
-                    <Badge tone={ticketStatus[t.estado].tone}>
+                  <td className="px-5 py-2 text-center">
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          dotClass[ticketStatus[t.estado].tone],
+                        )}
+                      />
                       {ticketStatus[t.estado].label}
-                    </Badge>
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -211,12 +335,6 @@ export default function ReparacionesPage() {
             </tbody>
           </table>
         </Card>
-
-        <div className="grid gap-5 xl:grid-cols-2">
-          <ReparacionesSplit />
-          <RepairsChart />
-        </div>
-          </div>
         )}
       </div>
 
@@ -459,6 +577,7 @@ function NuevoTicketDialog({
                 tecnico: tecnico || null,
                 estado: "recibido",
                 ingreso: "Recién",
+                fechaISO: "2026-09-07",
                 presupuestoUsd: 0,
                 servicios: [],
               })

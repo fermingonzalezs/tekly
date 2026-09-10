@@ -31,14 +31,22 @@ td {
   text-align: left;
 }
 
-/* Cebra: fila par en índigo muy claro. En @layer base para que el
-   `hover:bg-*` de cada fila (capa utilities, va después) siga ganando. */
+/* Cebra: fila par con las mismas rayitas diagonales de GHOST_STRIPES
+   (lib/chart.ts), pero translúcidas para que quede sutil sobre blanco.
+   En @layer base para que el `hover:bg-*` de cada fila (capa utilities,
+   va después) siga ganando. */
 @layer base {
   tbody tr:nth-child(even) {
-    background-color: #f0eff9;
+    background-color: transparent;
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.012) 0 4px,
+      rgba(0, 0, 0, 0) 4px 8px
+    );
   }
   /* los recibos/PDF van sin cebra */
   .recibo-print tbody tr:nth-child(even) {
+    background-image: none;
     background-color: transparent;
   }
 }
