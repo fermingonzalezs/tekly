@@ -1,6 +1,6 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
-import type { Cliente } from "@/lib/types";
+import type { Cliente, ClienteOpcion, ClienteSeleccion } from "@/lib/types";
 import { fmtMonthYear } from "@/lib/format";
 import { demografiaClientes as demografiaClientesPura, type Periodo, type RangoEdad } from "@/lib/clientes";
 
@@ -67,9 +67,7 @@ export async function listClientes(): Promise<Cliente[]> {
 /** Lista liviana para selectores (Nuevo ticket, Nueva venta, …) -- sin las
  * queries de stats que hace `listClientes`. `telefono` es opcional para
  * quien no lo necesite (ej. el buscador de "Nueva venta" lo muestra). */
-export async function listClientesOpciones(): Promise<
-  { id: string; nombre: string; telefono: string }[]
-> {
+export async function listClientesOpciones(): Promise<ClienteOpcion[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("clientes")
@@ -98,6 +96,54 @@ export async function createCliente(data: {
     .single();
   if (error) throw error;
   return toCliente(row, { compras: 0, reparaciones: 0, gastadoUsd: 0 });
+}
+
+/** Resuelve una `ClienteSeleccion` de `ClientePicker` a un cliente real
+ * (id + nombre) -- crea el cliente recién ahora si vino como "nuevo" (nunca
+ * antes, para no dejar un cliente fantasma si el formulario que lo usa se
+ * cancela). No acepta "libre": ese caso es solo para donde el picker se usa
+ * con `allowLibre` (hoy, Turnos), que lo maneja aparte porque no requiere
+ * un cliente real. */
+export async function resolveCliente(
+  sel: Exclude<ClienteSeleccion, { tipo: "libre" }>,
+): Promise<{ id: string; nombre: string }> {
+  if (sel.tipo === "existente") return { id: sel.id, nombre: sel.nombre };
+  const nuevo = await createCliente({ nombre: sel.nombre, telefono: sel.telefono });
+  return { id: nuevo.id, nombre: nuevo.nombre };
+}
+
+/** Teléfono/email de todos los clientes de la organización -- usado por el
+ * importador de clientes para descartar filas duplicadas antes de insertar
+ * (no hay constraint de unicidad en la tabla, el dedupe es a mano). */
+export async function listClientesContacto(): Promise<{ telefono: string; email: string }[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase.from("clientes").select("telefono, email");
+  if (error) throw error;
+  return data.map((r) => ({ telefono: r.telefono ?? "", email: r.email ?? "" }));
+}
+
+/** Alta masiva (importación de clientes existentes): un solo insert. */
+export async function createClientesBulk(
+  rows: { nombre: string; telefono?: string; email?: string; fechaNacimiento?: string }[],
+): Promise<{ inserted: number; clientes: Cliente[] }> {
+  if (rows.length === 0) return { inserted: 0, clientes: [] };
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("clientes")
+    .insert(
+      rows.map((r) => ({
+        nombre: r.nombre,
+        telefono: r.telefono || null,
+        email: r.email || null,
+        fecha_nacimiento: r.fechaNacimiento || null,
+      })),
+    )
+    .select("id, nombre, telefono, email, desde, fecha_nacimiento");
+  if (error) throw error;
+  return {
+    inserted: data.length,
+    clientes: data.map((row) => toCliente(row, { compras: 0, reparaciones: 0, gastadoUsd: 0 })),
+  };
 }
 
 /** Demografía por edad real, para el widget de Clientes. Clientes sin

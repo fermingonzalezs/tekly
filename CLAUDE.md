@@ -228,9 +228,9 @@ Sigue en `lib/mock-data.ts` un puñado de datasets puntuales porque falta
 trackear el dato que los sustenta, no por falta de migrar la sección: en
 Analíticas `tiempoPorFalla` (no hay timestamp de "listo/entregado" en
 `tickets`), `rendimientoTecnicos` (no hay reingresos ni calificación en
-ningún lado) y `margenPorTipo`; y en Dashboard `ventasPorRubro` — estos
-porque `Venta.tipo` real solo distingue 'venta'/'reparacion', no hay
-categoría "Accesorios"/"Otros" separada. `monthGoal.target` (la meta del
+ningún lado) y `margenPorTipo` — porque `Venta.tipo` real solo distingue
+'venta'/'reparacion', sin categoría "Accesorios"/"Otros" separada.
+`monthGoal.target` (la meta del
 mes) tampoco es "dato falso": es un valor de negocio sin owner de
 configuración todavía (`current`, en cambio, ya es 100% real). Cada caso
 tiene un comentario en el código explicando por qué sigue en mock — agregar
@@ -470,6 +470,7 @@ color.
 | `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg, accent? }` — **centrado vertical**, con scroll propio si el contenido es alto; cierra con Esc / click fuera. Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
 | `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }], accent? }` — `accent` (hex) para teñir el estado activo con otro color; por defecto usa `accent` |
 | `Field` / `Input` / `Select` / `Textarea` / `Label` | `components/ui/field.tsx` | inputs con estilo consistente; `Field` = `Label` + control |
+| `ClientePicker` | `components/ui/cliente-picker.tsx` | `{ clientes: ClienteOpcion[], value: ClienteSeleccion \| null, onChange, allowLibre?, placeholder?, className? }` — desplegable con buscador para elegir cliente. **Usar SIEMPRE este en vez de un `<Select>`/`Input` a mano** en cualquier form que necesite un cliente (Ventas, Reparaciones, Cuentas corrientes, Turnos son los 4 casos hoy). `ClienteSeleccion` (`lib/types.ts`) = `{tipo:"existente",id,nombre} \| {tipo:"nuevo",nombre,telefono?} \| {tipo:"libre",nombre}`. La creación queda **diferida**: elegir "Crear cliente nuevo" solo arma el borrador, recién se persiste (`resolveCliente` en `lib/db/clientes.ts`) cuando la action del formulario confirma — cancelar el diálogo no deja un cliente fantasma. `allowLibre` agrega "usar sin registrar" (`tipo:"libre"`, sin fila en `clientes`) — solo Turnos lo usa (`Turno.clienteId` es nullable a propósito, para turnos de gente que aún no es cliente registrado); las acciones que sí requieren un cliente real (`createVentaAction`/`createTicketAction`/`createMovimientoCCAction`) tipan su input como `Exclude<ClienteSeleccion, {tipo:"libre"}>` y llaman `resolveCliente`. Comparte `useOutsideClick` (`components/ui/use-outside-click.ts`) con el buscador de ítems de Nueva venta (`ItemBuscador`, en `ventas-client.tsx`, que no se tocó — sigue siendo su propio combobox porque busca sobre equipos/repuestos/otros/servicios, no clientes). |
 
 ### `Dialog`: todos los de una sección son una sola familia visual
 
@@ -569,7 +570,12 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `retira` / `cotizar`). Click en bloque → detalle (+ «Cliente llegó» dispara
   `appointment_arrived`); click en hueco → agendar. Agendar con equipos
   vinculados actualiza `equipos.estado` (`retira` → vendido, resto →
-  reservado), igual criterio que Ventas.
+  reservado), igual criterio que Ventas. `Turno.clienteId` (columna
+  `cliente_id`, ya existía en la tabla desde el schema inicial, sin
+  usarse) es nullable a propósito: el `ClientePicker` de "Agendar turno"
+  tiene `allowLibre`, para turnos de alguien que todavía no está
+  registrado como cliente — en ese caso `clienteId` queda `null` y
+  `cliente` (el nombre, siempre se completa) es lo único que hay.
 - **Inventario** (`app/(app)/inventario/`, migrado): 3 tabs — **Equipos**
   (unidades únicas por IMEI, con `Equipo.almacenamiento`), **Repuestos**
   (stock por modelo) y **Otros** (`OtroItem`: iPad, AirPods, tablets,
@@ -597,7 +603,11 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   alta. Vender un ítem con `equipoId` marca ese equipo `vendido`. "Cliente
   nuevo" en el modal ahora persiste de verdad (`createCliente`) antes de
   crear la venta. El margen/restante/saldar del pago dividido usan
-  `lib/ventas.ts` (con tests), no lógica inline.
+  `lib/ventas.ts` (con tests), no lógica inline. `VentaItem.categoria`
+  (`"equipo" | "servicio" | "otro" | "libre"`) guarda el `origen` con el que
+  se agregó el ítem en el modal -- alimenta `ventasPorRubro` de
+  `lib/dashboard.ts` (ver Dashboard abajo); es opcional porque ventas
+  creadas antes de este campo no lo tienen.
 - **Clientes** (`app/(app)/clientes/`, migrado): tabla (no cards). Fila →
   ficha con historial cruzado real (ventas/tickets/turnos vía
   `lib/db/clientes.ts`); toolbar «Nuevo cliente». `compras`/`reparaciones`/
@@ -687,9 +697,14 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `target` sigue en `monthGoal` de `lib/mock-data.ts`, sin owner de
   configuración), `ventaGananciaPorPeriodo` (venta/ganancia por día para
   los 3 períodos del selector — mismo cuidado de fechas que
-  `lib/analiticas.ts`) y `ventasRecientes` (categoría derivada de
-  `Venta.tipo`). `ventasPorRubro` (mix de categorías del hover de
-  `TrendChart`/`RubrosPie`) sigue en mock, mismo motivo que en Analíticas.
+  `lib/analiticas.ts`), `ventasRecientes` (categoría derivada de
+  `Venta.tipo`) y `ventasPorRubro` (mix real Equipos/Reparaciones/
+  Accesorios/Otros del donut `RubrosPie`, a partir de `VentaItem.categoria`
+  -- el origen elegido en "Nueva venta": equipo del stock, servicio del
+  catálogo, producto de "Otros" o ítem libre; una venta de antes de este
+  campo cae en "Equipos" si tiene `equipoId`, si no en "Otros"). `TrendChart`
+  parte la barra al hover con este mismo `rubrosPorPeriodo[periodo]` (prop
+  `rubroMix`) — ya no hay un mock separado para eso.
   Los 6 widgets (`components/dashboard/*`) pasaron de importar mock-data
   directo a recibir todo por prop desde `dashboard-client.tsx`.
 - **Configuración** (`app/(app)/configuracion/`, migrado): admin-only salvo
@@ -705,7 +720,22 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `nombre` que ya existía); sin policy de `update` para `authenticated` (a
   propósito), el guardado va por `createServiceRoleClient()` +
   `requireRole("admin")` en `lib/db/configuracion.ts`, mismo criterio que
-  `signUp`/`inviteMember`.
+  `signUp`/`inviteMember`. "Importar datos" (`importar-datos.tsx`) es un
+  alta masiva vía CSV de equipos y clientes **existentes** (no ventas
+  históricas — se descartó a propósito para no lidiar con fechas
+  retroactivas ni con equipos "vendido" que ya no están en stock): parseo
+  y validación con zod puros en `lib/importacion.ts` (con test, sin
+  Supabase), dedupe explícito antes de insertar (equipos por IMEI —
+  impuesto además por el `UNIQUE (organization_id, imei)` de la tabla;
+  clientes por teléfono/email, que no tiene ningún constraint) tanto
+  dentro del archivo subido como contra lo ya existente en la org, y un
+  solo insert bulk por entidad (`createEquiposBulk`/`createClientesBulk`)
+  en vez de un loop llamando a `createEquipo`/`createCliente` fila por
+  fila. `estado` vacío en el CSV de equipos default a `en_revision`
+  (mismo criterio que el alta manual). Admin-only vía `requireRole` en
+  `importEquiposAction`/`importClientesAction` — el server revalida cada
+  fila con el mismo schema que usa el preview del navegador, nunca confía
+  en esa validación client-side.
 - **Cotización del dólar**: `lib/dolar.ts` (`useDolar()` → blue de
   `dolarapi.com`, cache en memoria, fallback `1465`). Se muestra en el
   `Topbar` vía `components/dolar-navbar.tsx`. **No está en Configuración.**

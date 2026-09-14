@@ -112,6 +112,57 @@ export async function updateEquipo(id: string, data: EquipoInput): Promise<Equip
   return toEquipo(row);
 }
 
+/** IMEIs ya cargados en la organización (sin nulos) -- usado por el
+ * importador de equipos para descartar filas con IMEI repetido antes de
+ * insertar (el bulk insert de abajo abortaría entero si alguna fila choca
+ * con el `UNIQUE (organization_id, imei)` de la tabla). */
+export async function listImeisExistentes(): Promise<Set<string>> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase.from("equipos").select("imei").not("imei", "is", null);
+  if (error) throw error;
+  return new Set(data.map((r) => r.imei as string));
+}
+
+/** Alta masiva (importación de equipos existentes): un solo insert para
+ * `equipos` + un solo insert para `movimientos_stock` -- nunca un loop de
+ * `addMovimiento`, que haría N round-trips y N `requireUser()` redundantes. */
+export async function createEquiposBulk(
+  rows: EquipoInput[],
+): Promise<{ inserted: number; equipos: Equipo[] }> {
+  if (rows.length === 0) return { inserted: 0, equipos: [] };
+  const user = await requireUser();
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("equipos")
+    .insert(
+      rows.map((r) => ({
+        modelo: r.modelo,
+        almacenamiento: r.almacenamiento || null,
+        color: r.color || null,
+        imei: r.imei === "—" ? null : r.imei || null,
+        bateria: r.bateria,
+        condicion: r.condicion || null,
+        costo_usd: r.costoUsd,
+        precio_usd: r.precioUsd,
+        estado: r.estado,
+      })),
+    )
+    .select(EQUIPO_COLS);
+  if (error) throw error;
+
+  const movimientos = data.map((row) => ({
+    item_type: "equipo" as const,
+    item_id: row.id,
+    detalle: "Importación inicial",
+    usuario_id: user.id,
+    usuario_nombre: user.nombre,
+  }));
+  const { error: movError } = await supabase.from("movimientos_stock").insert(movimientos);
+  if (movError) throw movError;
+
+  return { inserted: data.length, equipos: data.map(toEquipo) };
+}
+
 // ─────────────────────────── Repuestos ───────────────────────────
 
 type RepuestoRow = {

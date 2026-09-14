@@ -141,9 +141,10 @@ type ConciliacionRow = {
   fecha: string;
   responsable_nombre: string;
   lineas: ConciliacionLinea[];
+  comentario: string | null;
 };
 
-const CONC_COLS = "id, fecha, responsable_nombre, lineas";
+const CONC_COLS = "id, fecha, responsable_nombre, lineas, comentario";
 
 function toConciliacion(row: ConciliacionRow): Conciliacion {
   return {
@@ -152,6 +153,7 @@ function toConciliacion(row: ConciliacionRow): Conciliacion {
     hora: fmtTime(row.fecha),
     responsable: row.responsable_nombre,
     lineas: row.lineas,
+    comentario: row.comentario ?? undefined,
   };
 }
 
@@ -170,7 +172,10 @@ export async function listConciliaciones(): Promise<Conciliacion[]> {
  * diferencia del mock, que movía `movimientosHoy` a `movimientosPrevios`).
  * Dos llamadas separadas, no atómico (mismo trade-off ya documentado en
  * `lib/db/ventas.ts`). */
-export async function crearConciliacion(lineas: ConciliacionLinea[]): Promise<Conciliacion> {
+export async function crearConciliacion(
+  lineas: ConciliacionLinea[],
+  comentario?: string,
+): Promise<Conciliacion> {
   const user = await requireUser();
   const supabase = createServerClient();
   const { data: row, error } = await supabase
@@ -179,6 +184,7 @@ export async function crearConciliacion(lineas: ConciliacionLinea[]): Promise<Co
       responsable_id: user.id,
       responsable_nombre: user.nombre,
       lineas,
+      comentario: comentario?.trim() || null,
     })
     .select(CONC_COLS)
     .single();

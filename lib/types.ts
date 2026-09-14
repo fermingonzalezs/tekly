@@ -10,12 +10,7 @@ export type TicketStatus =
   | "listo"
   | "entregado";
 
-export type EquipoStatus =
-  | "en_revision"
-  | "aprobado_para_venta"
-  | "disponible"
-  | "reservado"
-  | "vendido";
+export type EquipoStatus = "en_revision" | "disponible" | "reservado" | "vendido";
 
 export type MedioPago =
   | "pesos"
@@ -60,6 +55,20 @@ export type Cliente = {
   gastadoUsd: number;
 };
 
+/** Opción liviana para los selectores de cliente (`ClientePicker`) --
+ * no trae `compras`/`reparaciones`/`gastadoUsd` (no hacen falta para elegir). */
+export type ClienteOpcion = { id: string; nombre: string; telefono: string };
+
+/** Resultado de `ClientePicker`: un cliente ya existente, uno a crear (se
+ * persiste recién cuando la acción del formulario que lo usa se confirma,
+ * nunca al elegirlo -- así cancelar el diálogo no deja un cliente
+ * fantasma), o uno "libre" (solo un nombre suelto, sin fila en `clientes`
+ * -- únicamente donde el picker se usa con `allowLibre`, hoy sólo Turnos). */
+export type ClienteSeleccion =
+  | { tipo: "existente"; id: string; nombre: string }
+  | { tipo: "nuevo"; nombre: string; telefono?: string }
+  | { tipo: "libre"; nombre: string };
+
 export type Servicio = {
   id: string;
   nombre: string;
@@ -97,6 +106,10 @@ export type Turno = {
   dayOffset: number;
   hora: string; // "HH:00", entre 09:00 y 20:00
   cliente: string;
+  /** `null` si se agendó "sin registrar" (`ClientePicker` con `allowLibre`) --
+   * `cliente` (el nombre) sigue completo igual, solo no hay fila real en
+   * `clientes`. */
+  clienteId: string | null;
   tipo: TurnoTipo;
   estado: TurnoEstado;
   ticketId: number | null;
@@ -177,6 +190,11 @@ export type VentaItem = {
   costoUsd?: number;
   /** Si el ítem sale del inventario de equipos. */
   equipoId?: string;
+  /** Origen elegido en "Nueva venta" (equipo del stock, servicio del
+   * catálogo, producto de "Otros" o ítem libre) -- alimenta el mix de
+   * categorías del dashboard (`ventasPorRubro` en `lib/dashboard.ts`).
+   * Ventas creadas antes de este campo no lo tienen. */
+  categoria?: "equipo" | "servicio" | "otro" | "libre";
 };
 
 /** Un medio de pago con su monto (pago simple o dividido) y la caja a la
@@ -253,6 +271,9 @@ export type Conciliacion = {
   hora: string;
   responsable: string;
   lineas: ConciliacionLinea[];
+  /** Comentario general de la conciliación, aparte del comentario de cada
+   * línea/caja. */
+  comentario?: string;
 };
 
 /** Movimiento de cuenta corriente ("fiado") de un cliente — `cargo` aumenta
@@ -294,8 +315,8 @@ export type Compra = {
   cotizacion?: number;
 };
 
-/** Regla que trae TODOS los equipos vendibles (disponible/aprobado p/venta)
- * de una o más condiciones — ej. "A+, A" para armar una sección de gama
+/** Regla que trae TODOS los equipos vendibles (disponible) de una o más
+ * condiciones — ej. "A+, A" para armar una sección de gama
  * alta. Vacío = todas las condiciones. Se evalúa contra el stock actual
  * cada vez que se genera el mensaje: agregar la regla una vez alcanza,
  * no hay que volver a seleccionar equipo por equipo. */

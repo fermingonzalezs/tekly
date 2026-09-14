@@ -35,7 +35,7 @@ function expandirEntrada(entrada: DifusionEntrada, equipos: Equipo[], otros: Otr
   }
   if (entrada.tipo === "equipo") {
     return equipos
-      .filter((e) => e.estado === "disponible" || e.estado === "aprobado_para_venta")
+      .filter((e) => e.estado === "disponible")
       .filter(
         (e) => entrada.condiciones.length === 0 || entrada.condiciones.includes(e.condicion),
       )

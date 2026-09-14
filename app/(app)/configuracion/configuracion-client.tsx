@@ -18,10 +18,11 @@ import {
   saveWhatsappTemplateAction,
   updateNegocioAction,
 } from "./actions";
+import { ImportarDatos } from "./importar-datos";
 import type { SessionUser, Rol } from "@/lib/auth/types";
 import type { Miembro, WhatsappTemplate, Negocio } from "@/lib/db/configuracion";
 
-type Tab = "usuarios" | "plantillas" | "negocio" | "cuenta";
+type Tab = "usuarios" | "plantillas" | "negocio" | "importar" | "cuenta";
 
 const ROLES: Rol[] = ["admin", "vendedor", "tecnico"];
 
@@ -67,6 +68,7 @@ export function ConfiguracionClient({
             { value: "usuarios", label: "Usuarios y roles" },
             { value: "plantillas", label: "Plantillas WhatsApp" },
             { value: "negocio", label: "Datos del negocio" },
+            { value: "importar", label: "Importar datos" },
             { value: "cuenta", label: "Mi cuenta" },
           ]}
         />
@@ -173,6 +175,8 @@ export function ConfiguracionClient({
         )}
 
         {tab === "negocio" && negocio && <NegocioForm negocio={negocio} />}
+
+        {tab === "importar" && <ImportarDatos />}
 
         {tab === "cuenta" && <MiCuenta user={user} />}
       </div>

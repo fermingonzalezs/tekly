@@ -2,14 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
-import { createCliente } from "@/lib/db/clientes";
+import { resolveCliente } from "@/lib/db/clientes";
 import { createVenta } from "@/lib/db/ventas";
-import type { Pago, VentaItem } from "@/lib/types";
+import type { ClienteSeleccion, Pago, VentaItem } from "@/lib/types";
 
 export async function createVentaAction(input: {
-  clienteId?: string;
-  clienteNombre?: string;
-  clienteNuevo?: { nombre: string; telefono?: string };
+  cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
   vendedorId: string;
   procedencia?: string;
   items: VentaItem[];
@@ -20,20 +18,11 @@ export async function createVentaAction(input: {
 }) {
   await requireUser();
 
-  let clienteId: string;
-  let clienteNombre: string;
-  if (input.clienteNuevo) {
-    const nuevo = await createCliente(input.clienteNuevo);
-    clienteId = nuevo.id;
-    clienteNombre = nuevo.nombre;
-  } else {
-    clienteId = input.clienteId!;
-    clienteNombre = input.clienteNombre!;
-  }
+  const cliente = await resolveCliente(input.cliente);
 
   const venta = await createVenta({
-    clienteId,
-    cliente: clienteNombre,
+    clienteId: cliente.id,
+    cliente: cliente.nombre,
     vendedorId: input.vendedorId,
     procedencia: input.procedencia,
     items: input.items,

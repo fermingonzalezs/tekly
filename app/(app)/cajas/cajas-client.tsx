@@ -365,6 +365,9 @@ export function CajasClient({
                         </p>
                       );
                     })}
+                    {c.comentario && (
+                      <p className="mt-1 text-xs italic text-neutral-500">{c.comentario}</p>
+                    )}
                   </li>
                 );
               })}
@@ -660,7 +663,11 @@ function NuevoMovimientoDialog({
           />
         </Field>
         <Field label="Caja">
-          <Select value={cajaId} onChange={(e) => setCajaId(e.target.value)}>
+          <Select
+            value={cajaId}
+            onChange={(e) => setCajaId(e.target.value)}
+            disabled={cajas.length === 0}
+          >
             {cajas.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre} · {c.moneda.toUpperCase()}
@@ -668,6 +675,12 @@ function NuevoMovimientoDialog({
             ))}
           </Select>
         </Field>
+        {cajas.length === 0 && (
+          <p className="text-xs text-red-600">
+            Todavía no hay ninguna caja creada. Abrí «Cajas» al final de la página
+            y creá una con «Nueva caja» antes de registrar un movimiento.
+          </p>
+        )}
         {caja && (
           <p className="text-xs text-neutral-400">
             Medio de pago: <span className="text-neutral-600">{medioPagoCfg[caja.medioPago].label}</span>
@@ -804,6 +817,7 @@ function ConciliarDialog({
 }) {
   const [reales, setReales] = useState<Record<string, string>>({});
   const [comentarios, setComentarios] = useState<Record<string, string>>({});
+  const [comentarioGeneral, setComentarioGeneral] = useState("");
   const [pending, startTransition] = useTransition();
 
   const valid =
@@ -821,7 +835,7 @@ function ConciliarDialog({
       comentario: (comentarios[c.id] ?? "").trim(),
     }));
     startTransition(async () => {
-      const conciliacion = await crearConciliacionAction(lineas);
+      const conciliacion = await crearConciliacionAction(lineas, comentarioGeneral.trim());
       onConfirm(conciliacion);
     });
   };
@@ -856,48 +870,80 @@ function ConciliarDialog({
         {cajas.length === 0 && (
           <p className="text-sm text-neutral-400">No hay cajas activas para conciliar.</p>
         )}
-        {cajas.map((c) => {
-          const sistema = montoSistemaDe(c.id);
-          const realStr = reales[c.id] ?? "";
-          const real = realStr.trim() === "" ? null : Number(realStr);
-          const diff = real === null ? null : real - sistema;
-          return (
-            <div key={c.id} className="rounded-xl border border-neutral-200 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-neutral-900">{c.nombre}</p>
-                <span className="text-xs text-neutral-400">Según sistema: {money(c.moneda, sistema)}</span>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <Field label={`Contado (${c.moneda.toUpperCase()})`}>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={realStr}
-                    onChange={(e) => setReales((p) => ({ ...p, [c.id]: e.target.value }))}
-                    placeholder="0"
-                  />
-                </Field>
-                <Field label="Diferencia">
-                  <p
-                    className={cn(
-                      "flex h-9 items-center text-sm font-semibold tabular-nums",
-                      diff === null ? "text-neutral-300" : diff === 0 ? "text-emerald-600" : "text-red-500",
-                    )}
-                  >
-                    {diff === null ? "—" : `${diff > 0 ? "+" : ""}${money(c.moneda, diff)}`}
-                  </p>
-                </Field>
-              </div>
-              <Field label="Comentario (opcional)" className="mt-3">
-                <Input
-                  value={comentarios[c.id] ?? ""}
-                  onChange={(e) => setComentarios((p) => ({ ...p, [c.id]: e.target.value }))}
-                  placeholder="Notas sobre esta caja…"
-                />
-              </Field>
-            </div>
-          );
-        })}
+        {cajas.length > 0 && (
+          <Card className="overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-100 text-xs text-neutral-400">
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Caja</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Sistema</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Contado</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Diferencia</th>
+                  <th className="px-5 py-2 text-center">Comentario</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cajas.map((c) => {
+                  const sistema = montoSistemaDe(c.id);
+                  const realStr = reales[c.id] ?? "";
+                  const real = realStr.trim() === "" ? null : Number(realStr);
+                  const diff = real === null ? null : real - sistema;
+                  return (
+                    <tr key={c.id} className="border-t border-neutral-100 first:border-t-0">
+                      <td className="px-5 py-2 text-center">
+                        <span className="font-medium text-neutral-900">{c.nombre}</span>
+                        <span className="ml-1.5 text-xs text-neutral-400">
+                          {c.moneda.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                        {money(c.moneda, sistema)}
+                      </td>
+                      <td className="px-5 py-2 text-center">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={realStr}
+                          onChange={(e) => setReales((p) => ({ ...p, [c.id]: e.target.value }))}
+                          placeholder="0"
+                          className="mx-auto h-8 w-28 text-center"
+                        />
+                      </td>
+                      <td
+                        className={cn(
+                          "px-5 py-2 text-center font-semibold tabular-nums",
+                          diff === null
+                            ? "text-neutral-300"
+                            : diff === 0
+                              ? "text-emerald-600"
+                              : "text-red-500",
+                        )}
+                      >
+                        {diff === null ? "—" : `${diff > 0 ? "+" : ""}${money(c.moneda, diff)}`}
+                      </td>
+                      <td className="px-5 py-2">
+                        <Input
+                          value={comentarios[c.id] ?? ""}
+                          onChange={(e) => setComentarios((p) => ({ ...p, [c.id]: e.target.value }))}
+                          placeholder="Notas sobre esta caja…"
+                          className="h-8"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        )}
+        <Field label="Comentario general (opcional)">
+          <Textarea
+            rows={2}
+            value={comentarioGeneral}
+            onChange={(e) => setComentarioGeneral(e.target.value)}
+            placeholder="Notas generales de esta conciliación…"
+          />
+        </Field>
       </div>
     </Dialog>
   );

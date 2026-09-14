@@ -4,11 +4,6 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-// `ventasPorRubro` (mix Equipos/Reparaciones/Accesorios/Otros del hover) no es
-// derivable de datos reales todavía -- `Venta.tipo` solo distingue
-// 'venta'/'reparacion', no hay categoría de rubro en el schema. Se mantiene
-// como referencia ilustrativa hasta que se trackee esa categoría.
-import { ventasPorRubro } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { dashColor, DASH_ACCENT, GHOST_STRIPES } from "@/lib/chart";
 
@@ -16,14 +11,6 @@ const SCALE = 100; // la barra más alta ocupa todo el alto de la banda
 const LINE = DASH_ACCENT; // índigo — línea de ganancia
 // barra en reposo: sin color, rayado diagonal gris visible
 const BAR_GHOST = GHOST_STRIPES;
-
-// al hacer hover, la barra del día se parte según el mix de rubros del mes
-// (mismos colores y orden que la dona "Rubros más vendidos").
-const RUBRO_MIX = (() => {
-  const r = ventasPorRubro.mes;
-  const t = r.reduce((a, x) => a + x.value, 0) || 1;
-  return r.map((x) => ({ label: x.label, pct: (x.value / t) * 100 }));
-})();
 
 type Pt = { x: number; y: number };
 
@@ -49,14 +36,23 @@ export function TrendChart({
   className,
   venta,
   ganancia,
+  rubroMix,
   sub,
 }: {
   className?: string;
   venta: number[];
   ganancia: number[];
+  /** Mix real Equipos/Reparaciones/Accesorios/Otros del período que se está
+   * mostrando (mismo dato que alimenta el donut "Categorías más vendidas",
+   * `ventasPorRubro` en `lib/dashboard.ts`) -- se parte la barra al hacer
+   * hover con esto, no con un mock fijo. */
+  rubroMix: { label: string; value: number }[];
   sub: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
+
+  const totalRubros = rubroMix.reduce((a, r) => a + r.value, 0) || 1;
+  const mix = rubroMix.map((r) => ({ label: r.label, pct: (r.value / totalRubros) * 100 }));
 
   const data = venta; // barra = venta bruta del día
   const profit = ganancia; // línea = ganancia del día
@@ -142,7 +138,7 @@ export function TrendChart({
                   }}
                 >
                   {on &&
-                    RUBRO_MIX.map((r, ri) => (
+                    mix.map((r, ri) => (
                       <div
                         key={r.label}
                         style={{
@@ -242,7 +238,7 @@ export function TrendChart({
               </p>
 
               <div className="mt-1.5 space-y-0.5 border-t border-white/15 pt-1.5">
-                {RUBRO_MIX.map((r, ri) => (
+                {mix.map((r, ri) => (
                   <p
                     key={r.label}
                     className="flex items-center gap-1.5 whitespace-nowrap tabular-nums"

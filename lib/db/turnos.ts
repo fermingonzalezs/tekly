@@ -31,6 +31,7 @@ type TurnoRow = {
   fecha: string;
   hora: string;
   cliente: string;
+  cliente_id: string | null;
   tipo: TurnoTipo;
   estado: TurnoEstado;
   ticket_id: number | null;
@@ -40,7 +41,7 @@ type TurnoRow = {
 };
 
 const TURNO_COLS =
-  "id, fecha, hora, cliente, tipo, estado, ticket_id, equipo_ids, pagos, nota";
+  "id, fecha, hora, cliente, cliente_id, tipo, estado, ticket_id, equipo_ids, pagos, nota";
 
 function toTurno(row: TurnoRow): Turno {
   return {
@@ -48,6 +49,7 @@ function toTurno(row: TurnoRow): Turno {
     dayOffset: dayOffsetDe(row.fecha),
     hora: row.hora.slice(0, 5),
     cliente: row.cliente,
+    clienteId: row.cliente_id,
     tipo: row.tipo,
     estado: row.estado,
     ticketId: row.ticket_id,
@@ -76,6 +78,7 @@ export async function createTurno(data: {
   dayOffset: number;
   hora: string;
   cliente: string;
+  clienteId: string | null;
   tipo: TurnoTipo;
   equipoIds: string[];
   pagos: Pago[];
@@ -88,6 +91,7 @@ export async function createTurno(data: {
       fecha: isoMasDias(data.dayOffset),
       hora: data.hora,
       cliente: data.cliente,
+      cliente_id: data.clienteId,
       tipo: data.tipo,
       estado: "confirmado" satisfies TurnoEstado,
       equipo_ids: data.equipoIds.length ? data.equipoIds : null,

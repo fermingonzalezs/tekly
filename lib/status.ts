@@ -82,7 +82,6 @@ export const equipoStatus: Record<
   { label: string; tone: Tone }
 > = {
   en_revision: { label: "En revisión", tone: "amber" },
-  aprobado_para_venta: { label: "Aprobado p/ venta", tone: "violet" },
   disponible: { label: "Disponible", tone: "green" },
   reservado: { label: "Reservado", tone: "blue" },
   vendido: { label: "Vendido", tone: "gray" },

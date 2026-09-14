@@ -13,7 +13,6 @@ import type {
   Repuesto,
   Servicio,
   Ticket,
-  Turno,
   Usuario,
   Venta,
 } from "@/lib/types";
@@ -72,25 +71,21 @@ export const DASH_PERIODOS: {
   value: DashPeriodo;
   label: string;
   trendSub: string;
-  rubroKey: "mes" | "semana" | "historico";
 }[] = [
   {
     value: "mes",
     label: "Este mes",
     trendSub: "Valores de este mes",
-    rubroKey: "mes",
   },
   {
     value: "mesPrevio",
     label: "Último mes",
     trendSub: "Valores del último mes",
-    rubroKey: "historico",
   },
   {
     value: "quince",
     label: "Últimos quince días",
     trendSub: "Valores de los últimos quince días",
-    rubroKey: "semana",
   },
 ];
 
@@ -265,36 +260,17 @@ export const tickets: Ticket[] = [
   },
 ];
 
-// ───────────────────────── Turnos ─────────────────────────
-
-export const turnos: Turno[] = [
-  { id: "t-1", dayOffset: 0, hora: "10:00", cliente: "Juan Pérez", tipo: "deja", estado: "llego", ticketId: 228 },
-  { id: "t-2", dayOffset: 0, hora: "11:00", cliente: "Paula Giménez", tipo: "retira", estado: "confirmado", ticketId: 229 },
-  { id: "t-3", dayOffset: 0, hora: "12:00", cliente: "Cliente WhatsApp", tipo: "cotizar", estado: "pendiente", ticketId: null },
-  { id: "t-4", dayOffset: 0, hora: "16:00", cliente: "Andrés Molina", tipo: "cotizar", estado: "confirmado", ticketId: 226 },
-  { id: "t-5", dayOffset: 0, hora: "17:00", cliente: "Marco Díaz", tipo: "retira", estado: "pendiente", ticketId: 225 },
-  { id: "t-6", dayOffset: 1, hora: "09:00", cliente: "Valentina Cruz", tipo: "deja", estado: "confirmado", ticketId: 227 },
-  { id: "t-7", dayOffset: 1, hora: "11:00", cliente: "Cliente mayorista", tipo: "compra", estado: "pendiente", ticketId: null },
-  { id: "t-8", dayOffset: 1, hora: "14:00", cliente: "Diego Fernández", tipo: "retira", estado: "cancelado", ticketId: 230 },
-  { id: "t-9", dayOffset: 2, hora: "10:00", cliente: "Sofía Ramos", tipo: "compra", estado: "confirmado", ticketId: null },
-  { id: "t-10", dayOffset: 2, hora: "15:00", cliente: "Lucía Vera", tipo: "deja", estado: "pendiente", ticketId: null },
-  { id: "t-11", dayOffset: 3, hora: "12:00", cliente: "Nicolás F.", tipo: "cotizar", estado: "pendiente", ticketId: null },
-  { id: "t-12", dayOffset: 4, hora: "09:00", cliente: "Marco Díaz", tipo: "compra", estado: "confirmado", ticketId: null },
-  { id: "t-13", dayOffset: 4, hora: "18:00", cliente: "Andrés Molina", tipo: "retira", estado: "pendiente", ticketId: 226 },
-  { id: "t-14", dayOffset: 6, hora: "11:00", cliente: "Paula Giménez", tipo: "deja", estado: "pendiente", ticketId: null },
-];
-
 // ───────────────────────── Inventario ─────────────────────────
 
 export const equipos: Equipo[] = [
   { id: "e-1", modelo: "iPhone 11", almacenamiento: "64GB", color: "Negro", imei: "356111000000011", bateria: 84, condicion: "B+", costoUsd: 300, precioUsd: 410, estado: "disponible" },
   { id: "e-2", modelo: "iPhone 13", almacenamiento: "128GB", color: "Azul", imei: "356111000000024", bateria: 91, condicion: "A", costoUsd: 560, precioUsd: 735, estado: "disponible" },
-  { id: "e-3", modelo: "iPhone 12", almacenamiento: "128GB", color: "Blanco", imei: "356111000000037", bateria: 88, condicion: "B", costoUsd: 420, precioUsd: 560, estado: "aprobado_para_venta" },
+  { id: "e-3", modelo: "iPhone 12", almacenamiento: "128GB", color: "Blanco", imei: "356111000000037", bateria: 88, condicion: "B", costoUsd: 420, precioUsd: 560, estado: "disponible" },
   { id: "e-4", modelo: "iPhone 15 Pro", almacenamiento: "256GB", color: "Titanio natural", imei: "356111000000040", bateria: 100, condicion: "A+", costoUsd: 990, precioUsd: 1240, estado: "disponible" },
   { id: "e-5", modelo: "iPhone XR", almacenamiento: "64GB", color: "Coral", imei: "356111000000053", bateria: 79, condicion: "C", costoUsd: 170, precioUsd: 250, estado: "en_revision" },
   { id: "e-6", modelo: "iPhone 14", almacenamiento: "128GB", color: "Medianoche", imei: "356111000000066", bateria: 95, condicion: "A", costoUsd: 680, precioUsd: 860, estado: "en_revision" },
   { id: "e-7", modelo: "iPhone SE 2020", almacenamiento: "64GB", color: "Rojo", imei: "356111000000079", bateria: 82, condicion: "B", costoUsd: 130, precioUsd: 195, estado: "vendido" },
-  { id: "e-8", modelo: "iPhone 13 mini", almacenamiento: "128GB", color: "Verde", imei: "356111000000082", bateria: 86, condicion: "B+", costoUsd: 430, precioUsd: 570, estado: "aprobado_para_venta" },
+  { id: "e-8", modelo: "iPhone 13 mini", almacenamiento: "128GB", color: "Verde", imei: "356111000000082", bateria: 86, condicion: "B+", costoUsd: 430, precioUsd: 570, estado: "disponible" },
   { id: "e-9", modelo: "Samsung S22", almacenamiento: "128GB", color: "Negro", imei: "356111000000095", bateria: 90, condicion: "B", costoUsd: 280, precioUsd: 380, estado: "disponible" },
   { id: "e-10", modelo: "iPhone 16", almacenamiento: "128GB", color: "Negro", imei: "356111000000108", bateria: 100, condicion: "NUEVO", costoUsd: 650, precioUsd: 790, estado: "disponible" },
   { id: "e-11", modelo: "iPhone 16", almacenamiento: "128GB", color: "Rosa", imei: "356111000000111", bateria: 100, condicion: "NUEVO", costoUsd: 650, precioUsd: 790, estado: "disponible" },
@@ -309,7 +285,7 @@ export const equipoMovimientos: Record<string, Movimiento[]> = {
   ],
   "e-3": [
     { fecha: "20 ago", hora: "10:05", detalle: "Ingresó al inventario", usuario: "Fermín G." },
-    { fecha: "5 sep", hora: "16:40", detalle: "Cambio de estado: En revisión → Aprobado p/ venta", usuario: "Nico" },
+    { fecha: "5 sep", hora: "16:40", detalle: "Cambio de estado: En revisión → Disponible", usuario: "Nico" },
   ],
   "e-4": [
     { fecha: "4 sep", hora: "12:00", detalle: "Ingresó al inventario (sellado, de fábrica)", usuario: "Fermín G." },
@@ -326,7 +302,7 @@ export const equipoMovimientos: Record<string, Movimiento[]> = {
   ],
   "e-8": [
     { fecha: "28 ago", hora: "09:00", detalle: "Ingresó al inventario", usuario: "Fermín G." },
-    { fecha: "8 sep", hora: "14:22", detalle: "Cambio de estado: En revisión → Aprobado p/ venta", usuario: "Dani" },
+    { fecha: "8 sep", hora: "14:22", detalle: "Cambio de estado: En revisión → Disponible", usuario: "Dani" },
   ],
   "e-9": [
     { fecha: "3 sep", hora: "17:05", detalle: "Ingresó al inventario", usuario: "Caro" },
@@ -584,30 +560,6 @@ export const clientesDemografia: Record<
   ],
 };
 
-// mix de rubros por período (valores ~ % de facturación)
-export const ventasPorRubro: Record<
-  "historico" | "mes" | "semana",
-  { label: string; value: number }[]
-> = {
-  historico: [
-    { label: "Equipos", value: 48 },
-    { label: "Reparaciones", value: 31 },
-    { label: "Accesorios", value: 13 },
-    { label: "Otros", value: 8 },
-  ],
-  mes: [
-    { label: "Equipos", value: 42 },
-    { label: "Reparaciones", value: 35 },
-    { label: "Accesorios", value: 15 },
-    { label: "Otros", value: 8 },
-  ],
-  semana: [
-    { label: "Equipos", value: 37 },
-    { label: "Reparaciones", value: 41 },
-    { label: "Accesorios", value: 12 },
-    { label: "Otros", value: 10 },
-  ],
-};
 
 // ───────────────────────── Cuentas corrientes ─────────────────────────
 

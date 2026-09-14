@@ -2,21 +2,28 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
+import { resolveCliente } from "@/lib/db/clientes";
 import {
   createTicket,
   saveServicio,
   setTicketEstado,
 } from "@/lib/db/reparaciones";
-import type { Servicio, TicketStatus } from "@/lib/types";
+import type { ClienteSeleccion, Servicio, TicketStatus } from "@/lib/types";
 
 export async function createTicketAction(data: {
-  clienteId: string;
+  cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
   equipo: string;
   falla: string;
   tecnicoId: string | null;
 }) {
   await requireUser();
-  const ticket = await createTicket(data);
+  const cliente = await resolveCliente(data.cliente);
+  const ticket = await createTicket({
+    clienteId: cliente.id,
+    equipo: data.equipo,
+    falla: data.falla,
+    tecnicoId: data.tecnicoId,
+  });
   revalidatePath("/reparaciones");
   return ticket;
 }

@@ -6,15 +6,14 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { ClientePicker } from "@/components/ui/cliente-picker";
 import { dotClass } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { saldoDe } from "@/lib/cuentas-corrientes";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
-import type { MovimientoCC } from "@/lib/types";
+import type { ClienteOpcion, ClienteSeleccion, MovimientoCC } from "@/lib/types";
 import { createMovimientoCCAction } from "./actions";
-
-type ClienteOpcion = { id: string; nombre: string; telefono: string };
 
 const MES_IDX: Record<string, number> = Object.fromEntries(
   ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"].map(
@@ -63,6 +62,8 @@ export function CuentasCorrientesClient({
             ultimo: movs[0] ?? null,
           };
         })
+        // Un cliente sin movimientos no tiene cuenta corriente que mostrar.
+        .filter((r) => r.movs.length > 0)
         .filter(
           (r) =>
             !q.trim() ||
@@ -293,18 +294,22 @@ function NuevoMovimientoCCDialog({
   defaultClienteId?: string;
   defaultTipo?: "cargo" | "pago";
 }) {
-  const [clienteId, setClienteId] = useState(defaultClienteId ?? clientes[0]?.id ?? "");
+  const [cliente, setCliente] = useState<ClienteSeleccion | null>(() => {
+    const c = defaultClienteId ? clientes.find((x) => x.id === defaultClienteId) : undefined;
+    return c ? { tipo: "existente", id: c.id, nombre: c.nombre } : null;
+  });
   const [tipo, setTipo] = useState<"cargo" | "pago">(defaultTipo ?? "cargo");
   const [concepto, setConcepto] = useState("");
   const [monto, setMonto] = useState(0);
   const [pending, startTransition] = useTransition();
 
-  const valid = !!clienteId && !!concepto.trim() && monto > 0;
+  const valid = !!cliente && !!concepto.trim() && monto > 0;
 
   const submit = () => {
+    if (!cliente || cliente.tipo === "libre") return;
     startTransition(async () => {
       const mov = await createMovimientoCCAction({
-        clienteId,
+        cliente,
         tipo,
         concepto: concepto.trim(),
         montoUsd: monto,
@@ -340,13 +345,7 @@ function NuevoMovimientoCCDialog({
     >
       <div className="space-y-3">
         <Field label="Cliente">
-          <Select value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </Select>
+          <ClientePicker clientes={clientes} value={cliente} onChange={setCliente} />
         </Field>
         <Field label="Tipo">
           <Select value={tipo} onChange={(e) => setTipo(e.target.value as "cargo" | "pago")}>

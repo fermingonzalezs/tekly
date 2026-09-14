@@ -1,4 +1,4 @@
-import type { Equipo, Ticket, Turno, Venta } from "@/lib/types";
+import type { Equipo, Ticket, Turno, Venta, VentaItem } from "@/lib/types";
 import type { DashPeriodo } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 
@@ -154,6 +154,45 @@ export function ventaGananciaPorPeriodo(
     };
   };
 
+  return { mes: build("mes"), mesPrevio: build("mesPrevio"), quince: build("quince") };
+}
+
+const RUBRO_LABEL: Record<NonNullable<VentaItem["categoria"]>, string> = {
+  equipo: "Equipos",
+  servicio: "Reparaciones",
+  otro: "Accesorios",
+  libre: "Otros",
+};
+const RUBRO_ORDEN = Object.keys(RUBRO_LABEL) as (keyof typeof RUBRO_LABEL)[];
+
+/** Ventas de antes de trackear `VentaItem.categoria` sólo permiten inferir
+ * con certeza el caso "equipo" (tiene `equipoId`); el resto cae en "Otros"
+ * en vez de adivinar servicio/producto/libre. */
+function categoriaDe(item: VentaItem): keyof typeof RUBRO_LABEL {
+  return item.categoria ?? (item.equipoId ? "equipo" : "libre");
+}
+
+/** Mix real Equipos/Reparaciones/Accesorios/Otros por período del selector
+ * del dashboard, a partir de `VentaItem.categoria`. */
+export function ventasPorRubro(
+  ventas: Venta[],
+  hoy = new Date(),
+): Record<DashPeriodo, { label: string; value: number }[]> {
+  const build = (periodo: DashPeriodo) => {
+    const dias = new Set(diasDelPeriodo(periodo, hoy).map(claveDia));
+    const totales = new Map<string, number>();
+    for (const v of ventas) {
+      if (!dias.has(v.fechaISO.slice(0, 10))) continue;
+      for (const item of v.items) {
+        const cat = categoriaDe(item);
+        totales.set(cat, (totales.get(cat) ?? 0) + item.precioUsd * item.cantidad);
+      }
+    }
+    return RUBRO_ORDEN.map((cat) => ({
+      label: RUBRO_LABEL[cat],
+      value: Math.round(totales.get(cat) ?? 0),
+    }));
+  };
   return { mes: build("mes"), mesPrevio: build("mesPrevio"), quince: build("quince") };
 }
 

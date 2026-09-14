@@ -30,9 +30,9 @@ export async function createMovimientoAction(data: {
   return mov;
 }
 
-export async function crearConciliacionAction(lineas: ConciliacionLinea[]) {
+export async function crearConciliacionAction(lineas: ConciliacionLinea[], comentario?: string) {
   await requireUser();
-  const conciliacion = await crearConciliacion(lineas);
+  const conciliacion = await crearConciliacion(lineas, comentario);
   revalidatePath("/cajas");
   return conciliacion;
 }

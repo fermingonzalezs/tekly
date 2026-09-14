@@ -7,6 +7,7 @@ import {
   metricasDashboard,
   objetivoDelMes,
   ventaGananciaPorPeriodo,
+  ventasPorRubro,
   ventasRecientes,
 } from "@/lib/dashboard";
 import { DashboardClient } from "./dashboard-client";
@@ -27,6 +28,7 @@ export default async function DashboardPage() {
   const metrics = metricasDashboard({ ventas, ticketsAbiertos, equiposEnRevision, turnosHoy });
   const objetivo = objetivoDelMes(ventas);
   const trendByPeriodo = ventaGananciaPorPeriodo(ventas);
+  const rubrosPorPeriodo = ventasPorRubro(ventas);
   const recentSales = ventasRecientes(ventas);
 
   return (
@@ -35,6 +37,7 @@ export default async function DashboardPage() {
       objetivo={objetivo}
       objetivoTarget={negocio.objetivoMesUsd}
       trendByPeriodo={trendByPeriodo}
+      rubrosPorPeriodo={rubrosPorPeriodo}
       recentSales={recentSales}
       turnos={turnos}
     />

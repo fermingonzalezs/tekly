@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { metricasDashboard, objetivoDelMes, ventaGananciaPorPeriodo, ventasRecientes } from "@/lib/dashboard";
-import type { Venta } from "@/lib/types";
+import {
+  metricasDashboard,
+  objetivoDelMes,
+  ventaGananciaPorPeriodo,
+  ventasPorRubro,
+  ventasRecientes,
+} from "@/lib/dashboard";
+import type { Venta, VentaItem } from "@/lib/types";
 
 function venta(fechaISO: string, totalUsd: number, margenPct = 20, extra?: Partial<Venta>): Venta {
   return {
@@ -76,6 +82,44 @@ describe("ventaGananciaPorPeriodo", () => {
     const out = ventaGananciaPorPeriodo([venta("2026-08-31", 100)], hoy).mesPrevio;
     expect(out.venta).toHaveLength(31);
     expect(out.venta[30]).toBe(100);
+  });
+});
+
+describe("ventasPorRubro", () => {
+  function item(precioUsd: number, extra?: Partial<VentaItem>): VentaItem {
+    return { detalle: "Item", cantidad: 1, precioUsd, ...extra };
+  }
+  function porLabel(out: { label: string; value: number }[]) {
+    return Object.fromEntries(out.map((r) => [r.label, r.value]));
+  }
+
+  it("agrupa por categoría del ítem, sólo ventas del período", () => {
+    const hoy = new Date(2026, 8, 14);
+    const ventas: Venta[] = [
+      venta("2026-09-05", 100, 20, {
+        items: [
+          item(60, { categoria: "equipo" }),
+          item(40, { categoria: "otro" }),
+        ],
+      }),
+      venta("2026-08-05", 999, 20, { items: [item(999, { categoria: "servicio" })] }),
+    ];
+    const mes = porLabel(ventasPorRubro(ventas, hoy).mes);
+    expect(mes.Equipos).toBe(60);
+    expect(mes.Accesorios).toBe(40);
+    expect(mes.Reparaciones).toBe(0);
+  });
+
+  it("ítem sin categoria (venta anterior a este campo): equipoId -> Equipos, si no -> Otros", () => {
+    const hoy = new Date(2026, 8, 14);
+    const ventas: Venta[] = [
+      venta("2026-09-05", 150, 20, {
+        items: [item(90, { equipoId: "eq-1" }), item(60)],
+      }),
+    ];
+    const mes = porLabel(ventasPorRubro(ventas, hoy).mes);
+    expect(mes.Equipos).toBe(90);
+    expect(mes.Otros).toBe(60);
   });
 });
 

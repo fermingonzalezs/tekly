@@ -36,12 +36,3 @@ export const fmtTime = (iso: string) => {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 };
-
-/** @deprecated Reemplazado por la sesión real (`requireUser()` de
- * `lib/auth`). Queda solo para las páginas que todavía no migraron a datos
- * reales (Cajas, Cuentas corrientes) -- sacar cuando se migren esas dos. */
-export const currentUser = {
-  nombre: "Fermín G.",
-  rol: "Admin",
-  iniciales: "FG",
-};

@@ -5,6 +5,7 @@ import { Link2, Check, X, Smartphone, Plus, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { ClientePicker } from "@/components/ui/cliente-picker";
 import {
   turnoTipo,
   turnoStatus,
@@ -17,7 +18,15 @@ import { fmtUsd } from "@/lib/format";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { thDivider } from "@/lib/ui-styles";
-import type { Turno, TurnoTipo, Equipo, MedioPago, Pago } from "@/lib/types";
+import type {
+  ClienteOpcion,
+  ClienteSeleccion,
+  Turno,
+  TurnoTipo,
+  Equipo,
+  MedioPago,
+  Pago,
+} from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
 import { createTurnoAction, setTurnoEstadoAction } from "./actions";
 
@@ -55,10 +64,12 @@ type ChipState = "normal" | "highlight" | "hidden";
 export function TurnosClient({
   initialTurnos,
   initialEquipos,
+  clientesOpciones,
   user,
 }: {
   initialTurnos: Turno[];
   initialEquipos: Equipo[];
+  clientesOpciones: ClienteOpcion[];
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
@@ -128,7 +139,7 @@ export function TurnosClient({
   }
 
   function agendar(data: {
-    cliente: string;
+    cliente: ClienteSeleccion;
     tipo: TurnoTipo;
     equipoIds: string[];
     pagos: Pago[];
@@ -142,7 +153,7 @@ export function TurnosClient({
       publish({
         type: "appointment_scheduled",
         actor,
-        client: data.cliente,
+        client: turno.cliente,
         tipoLabel: turnoTipo[data.tipo].label,
         when: `${dayLabel(dayOffset)} · ${hora}`,
       });
@@ -485,6 +496,7 @@ export function TurnosClient({
         slot={slot}
         dayLabel={slot ? `${dayLabel(slot.dayOffset)} · ${slot.hora}` : ""}
         equipos={equipos}
+        clientesOpciones={clientesOpciones}
         onClose={() => setSlot(null)}
         onSubmit={agendar}
       />
@@ -502,22 +514,24 @@ function AgendarDialog({
   slot,
   dayLabel,
   equipos,
+  clientesOpciones,
   onClose,
   onSubmit,
 }: {
   slot: { dayOffset: number; hora: string } | null;
   dayLabel: string;
   equipos: Equipo[];
+  clientesOpciones: ClienteOpcion[];
   onClose: () => void;
   onSubmit: (d: {
-    cliente: string;
+    cliente: ClienteSeleccion;
     tipo: TurnoTipo;
     equipoIds: string[];
     pagos: Pago[];
     nota: string;
   }) => void;
 }) {
-  const [cliente, setCliente] = useState("");
+  const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
   const [tipo, setTipo] = useState<TurnoTipo>("cotizar");
   const [equipoIds, setEquipoIds] = useState<string[]>([]);
   const [pagos, setPagos] = useState<DraftPago[]>([
@@ -555,8 +569,9 @@ function AgendarDialog({
     });
 
   function submit() {
+    if (!cliente) return;
     onSubmit({
-      cliente: cliente.trim(),
+      cliente,
       tipo,
       equipoIds: conEquipo ? equipoIds : [],
       pagos: conEquipo
@@ -586,7 +601,7 @@ function AgendarDialog({
           </button>
           <button
             onClick={submit}
-            disabled={!cliente.trim()}
+            disabled={!cliente}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
           >
             Agendar
@@ -601,10 +616,11 @@ function AgendarDialog({
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Cliente">
-              <Input
+              <ClientePicker
+                clientes={clientesOpciones}
                 value={cliente}
-                onChange={(e) => setCliente(e.target.value)}
-                placeholder="Nombre del cliente"
+                onChange={setCliente}
+                allowLibre
               />
             </Field>
             <Field label="Motivo">

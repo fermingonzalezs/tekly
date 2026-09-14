@@ -1,16 +1,17 @@
 import { DonutChart } from "@/components/dashboard/donut-chart";
 import { ChartTitle } from "@/components/ui/chart-title";
-import { ventasPorRubro, monthGoal } from "@/lib/mock-data";
+import { monthGoal } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { DASH_COLORS as COLORS } from "@/lib/chart";
 
 export function RubrosPie({
-  data = ventasPorRubro.mes,
+  data,
   totalFacturado = monthGoal.current,
 }: {
-  // Mix Equipos/Reparaciones/Accesorios/Otros: no derivable todavía --
-  // `Venta.tipo` no distingue esas categorías. Referencia ilustrativa.
-  data?: { label: string; value: number }[];
+  // Mix real Equipos/Reparaciones/Accesorios/Otros del período seleccionado
+  // -- ver `ventasPorRubro` en `lib/dashboard.ts` (a partir de
+  // `VentaItem.categoria`).
+  data: { label: string; value: number }[];
   // Este sí es real: facturado del mes (ver `objetivoDelMes` en
   // `lib/dashboard.ts`) -- se usa para que el $ de cada porción sea correcto
   // aunque el mix de categorías siga siendo ilustrativo.

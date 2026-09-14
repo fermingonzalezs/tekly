@@ -17,6 +17,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
+import { ClientePicker } from "@/components/ui/cliente-picker";
 import { ServiciosCatalogo } from "@/components/servicios-catalogo";
 import { RepairsChart } from "@/components/dashboard/repairs-chart";
 import { ReparacionesSplit } from "@/components/dashboard/reparaciones-split";
@@ -34,7 +35,7 @@ import {
 } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { useRealtime } from "@/components/notifications/realtime-provider";
-import type { Servicio, Ticket, TicketStatus } from "@/lib/types";
+import type { ClienteOpcion, ClienteSeleccion, Servicio, Ticket, TicketStatus } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
 import type { SessionUser } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,7 @@ export function ReparacionesClient({
   initialTickets: Ticket[];
   initialServicios: Servicio[];
   tecnicos: { id: string; nombre: string }[];
-  clientesOpciones: { id: string; nombre: string }[];
+  clientesOpciones: ClienteOpcion[];
   negocio: Negocio;
   user: SessionUser;
 }) {
@@ -710,24 +711,26 @@ function NuevoTicketDialog({
   open: boolean;
   onClose: () => void;
   onCreate: (t: Ticket) => void;
-  clientesOpciones: { id: string; nombre: string }[];
+  clientesOpciones: ClienteOpcion[];
   tecnicos: { id: string; nombre: string }[];
 }) {
-  const [clienteId, setClienteId] = useState(clientesOpciones[0]?.id ?? "");
+  const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
   const [equipo, setEquipo] = useState("");
   const [falla, setFalla] = useState("");
   const [tecnicoId, setTecnicoId] = useState("");
   const [pending, startTransition] = useTransition();
 
   function submit() {
+    if (!cliente || cliente.tipo === "libre") return;
     startTransition(async () => {
       const ticket = await createTicketAction({
-        clienteId,
+        cliente,
         equipo,
         falla,
         tecnicoId: tecnicoId || null,
       });
       onCreate(ticket);
+      setCliente(null);
       setEquipo("");
       setFalla("");
       setTecnicoId("");
@@ -747,7 +750,7 @@ function NuevoTicketDialog({
           </Button>
           <Button
             size="sm"
-            disabled={!equipo || !falla || !clienteId || pending}
+            disabled={!equipo || !falla || !cliente || pending}
             onClick={submit}
           >
             {pending ? "Creando…" : "Crear ticket"}
@@ -757,13 +760,7 @@ function NuevoTicketDialog({
     >
       <div className="space-y-3">
         <Field label="Cliente">
-          <Select value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
-            {clientesOpciones.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </Select>
+          <ClientePicker clientes={clientesOpciones} value={cliente} onChange={setCliente} />
         </Field>
         <Field label="Equipo">
           <Input

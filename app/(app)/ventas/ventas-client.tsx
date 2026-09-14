@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Plus, Trash2, Check, FileText, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,20 @@ import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
-import type { Equipo, MedioPago, OtroItem, Pago, Servicio, Venta, VentaItem } from "@/lib/types";
+import type {
+  ClienteOpcion,
+  ClienteSeleccion,
+  Equipo,
+  MedioPago,
+  OtroItem,
+  Pago,
+  Servicio,
+  Venta,
+  VentaItem,
+} from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
+import { ClientePicker } from "@/components/ui/cliente-picker";
+import { useOutsideClick } from "@/components/ui/use-outside-click";
 import { createVentaAction } from "./actions";
 
 const MEDIOS: MedioPago[] = [
@@ -74,7 +86,6 @@ function matchesQuery(v: Venta, q: string, equiposPorId: Map<string, Equipo>) {
   });
 }
 
-type ClienteOpcion = { id: string; nombre: string; telefono: string };
 type PersonaOpcion = { id: string; nombre: string };
 
 export function VentasClient({
@@ -650,18 +661,6 @@ const origenLabel: Record<Origen, string> = {
   libre: "Libre",
 };
 
-function useOutside<T extends HTMLElement>(onOut: () => void) {
-  const ref = useRef<T>(null);
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onOut();
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  });
-  return ref;
-}
-
 function Eyebrow({
   children,
   right,
@@ -675,74 +674,6 @@ function Eyebrow({
         {children}
       </p>
       {right}
-    </div>
-  );
-}
-
-// ── Buscador de cliente ─────────────────────────────────────────
-
-function ClienteBuscador({
-  clientesOpciones,
-  onPick,
-  onNuevo,
-}: {
-  clientesOpciones: ClienteOpcion[];
-  onPick: (c: { id: string; nombre: string }) => void;
-  onNuevo: (nombre: string) => void;
-}) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const ref = useOutside<HTMLDivElement>(() => setOpen(false));
-
-  const matches = clientesOpciones.filter((c) =>
-    c.nombre.toLowerCase().includes(q.toLowerCase()),
-  );
-
-  return (
-    <div ref={ref} className="relative">
-      <Input
-        placeholder="Buscar cliente por nombre…"
-        value={q}
-        onFocus={() => setOpen(true)}
-        onChange={(e) => {
-          setQ(e.target.value);
-          setOpen(true);
-        }}
-      />
-      {open && (
-        <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg">
-          {matches.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => {
-                onPick({ id: c.id, nombre: c.nombre });
-                setOpen(false);
-              }}
-              className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] hover:bg-neutral-50"
-            >
-              <span className="font-medium">{c.nombre}</span>
-              <span className="text-neutral-400">{c.telefono}</span>
-            </button>
-          ))}
-          {matches.length === 0 && (
-            <p className="px-3 py-2 text-[13px] text-neutral-400">
-              Sin coincidencias.
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              onNuevo(q.trim());
-              setOpen(false);
-            }}
-            className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2 text-left text-[13px] font-medium text-accent hover:bg-accent-soft"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Crear cliente nuevo{q.trim() ? `: «${q.trim()}»` : ""}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -766,15 +697,12 @@ function ItemBuscador({
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  const ref = useOutside<HTMLDivElement>(() => setOpen(false));
+  const ref = useOutsideClick<HTMLDivElement>(() => setOpen(false));
 
   const catalogo: CatItem[] = useMemo(
     () => [
       ...equipos
-        .filter(
-          (e) =>
-            e.estado === "disponible" || e.estado === "aprobado_para_venta",
-        )
+        .filter((e) => e.estado === "disponible")
         .map((e) => ({
           key: `e-${e.id}`,
           origen: "equipo" as const,
@@ -889,13 +817,7 @@ function NuevaVentaDialog({
   servicios: Servicio[];
   vendedores: PersonaOpcion[];
 }) {
-  const [clienteMode, setClienteMode] = useState<"buscar" | "nuevo">("buscar");
-  const [clienteSel, setClienteSel] = useState<{
-    id: string;
-    nombre: string;
-  } | null>(null);
-  const [nuevoNombre, setNuevoNombre] = useState("");
-  const [nuevoTel, setNuevoTel] = useState("");
+  const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
 
   const [vendedorId, setVendedorId] = useState(vendedores[0]?.id ?? "");
   const [procedencia, setProcedencia] = useState(PROCEDENCIAS[0]);
@@ -920,8 +842,7 @@ function NuevaVentaDialog({
     );
   }, [totalPrecio]);
 
-  const clienteNombre =
-    clienteMode === "nuevo" ? nuevoNombre.trim() : clienteSel?.nombre ?? "";
+  const clienteNombre = cliente?.nombre ?? "";
 
   const valid =
     totalPrecio > 0 &&
@@ -982,19 +903,15 @@ function NuevaVentaDialog({
   const saldar = () => setPagos((p) => saldarUltimoPago(p, restante));
 
   function submit() {
+    if (!cliente || cliente.tipo === "libre") return;
     startTransition(async () => {
       const vendedorNombre =
         vendedores.find((v) => v.id === vendedorId)?.nombre ?? "";
       const venta = await createVentaAction({
-        clienteId: clienteMode === "buscar" ? clienteSel?.id : undefined,
-        clienteNombre: clienteMode === "buscar" ? clienteSel?.nombre : undefined,
-        clienteNuevo:
-          clienteMode === "nuevo"
-            ? { nombre: nuevoNombre.trim(), telefono: nuevoTel.trim() || undefined }
-            : undefined,
+        cliente,
         vendedorId,
         procedencia,
-        items: items.map(({ _k, origen, ...i }) => i),
+        items: items.map(({ _k, origen, ...i }) => ({ ...i, categoria: origen })),
         totalUsd: totalPrecio,
         pagos: pagos.map(({ _k, ...p }) => p),
         margenPct: Math.round(margenPct * 10) / 10,
@@ -1026,58 +943,7 @@ function NuevaVentaDialog({
         {/* Cliente */}
         <section>
           <Eyebrow>Cliente</Eyebrow>
-          {clienteMode === "buscar" && !clienteSel && (
-            <ClienteBuscador
-              clientesOpciones={clientesOpciones}
-              onPick={setClienteSel}
-              onNuevo={(nombre) => {
-                setNuevoNombre(nombre);
-                setClienteMode("nuevo");
-              }}
-            />
-          )}
-          {clienteMode === "buscar" && clienteSel && (
-            <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
-              <span className="font-medium">{clienteSel.nombre}</span>
-              <button
-                type="button"
-                onClick={() => setClienteSel(null)}
-                className="text-xs font-medium text-accent hover:underline"
-              >
-                cambiar
-              </button>
-            </div>
-          )}
-          {clienteMode === "nuevo" && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Nombre" labelClassName="text-center">
-                  <Input
-                    value={nuevoNombre}
-                    onChange={(e) => setNuevoNombre(e.target.value)}
-                    placeholder="Nombre y apellido"
-                  />
-                </Field>
-                <Field label="Teléfono" labelClassName="text-center">
-                  <Input
-                    value={nuevoTel}
-                    onChange={(e) => setNuevoTel(e.target.value)}
-                    placeholder="Opcional"
-                  />
-                </Field>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setClienteMode("buscar");
-                  setNuevoNombre("");
-                }}
-                className="text-xs font-medium text-accent hover:underline"
-              >
-                ← Buscar cliente existente
-              </button>
-            </div>
-          )}
+          <ClientePicker clientes={clientesOpciones} value={cliente} onChange={setCliente} />
         </section>
 
         {/* Vendedor + Procedencia */}

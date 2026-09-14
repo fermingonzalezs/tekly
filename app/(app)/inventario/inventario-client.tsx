@@ -1154,13 +1154,7 @@ export function InventarioClient({
 
 // ─────────────────────────── Dialogs ───────────────────────────
 
-const ESTADOS: EquipoStatus[] = [
-  "en_revision",
-  "aprobado_para_venta",
-  "disponible",
-  "reservado",
-  "vendido",
-];
+const ESTADOS: EquipoStatus[] = ["en_revision", "disponible", "reservado", "vendido"];
 
 function EquipoFormDialog({
   equipo,

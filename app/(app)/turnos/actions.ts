@@ -2,20 +2,34 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
+import { resolveCliente } from "@/lib/db/clientes";
 import { createTurno, setTurnoEstado } from "@/lib/db/turnos";
-import type { Pago, TurnoEstado, TurnoTipo } from "@/lib/types";
+import type { ClienteSeleccion, Pago, TurnoEstado, TurnoTipo } from "@/lib/types";
 
 export async function createTurnoAction(data: {
   dayOffset: number;
   hora: string;
-  cliente: string;
+  cliente: ClienteSeleccion;
   tipo: TurnoTipo;
   equipoIds: string[];
   pagos: Pago[];
   nota: string;
 }) {
   await requireUser();
-  const turno = await createTurno(data);
+  const cliente =
+    data.cliente.tipo === "libre"
+      ? { id: null, nombre: data.cliente.nombre }
+      : await resolveCliente(data.cliente);
+  const turno = await createTurno({
+    dayOffset: data.dayOffset,
+    hora: data.hora,
+    cliente: cliente.nombre,
+    clienteId: cliente.id,
+    tipo: data.tipo,
+    equipoIds: data.equipoIds,
+    pagos: data.pagos,
+    nota: data.nota,
+  });
   revalidatePath("/turnos");
   return turno;
 }

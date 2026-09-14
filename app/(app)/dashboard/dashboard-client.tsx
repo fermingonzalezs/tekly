@@ -10,7 +10,7 @@ import { RubrosPie } from "@/components/dashboard/rubros-pie";
 import { ObjetivoPanel } from "@/components/dashboard/objetivo-panel";
 import { TurnosHeatmap } from "@/components/dashboard/turnos-heatmap";
 import { RecentSales } from "@/components/dashboard/recent-sales";
-import { DASH_PERIODOS, ventasPorRubro, type DashPeriodo } from "@/lib/mock-data";
+import { DASH_PERIODOS, type DashPeriodo } from "@/lib/mock-data";
 import type { MetricaDashboard, ObjetivoMes, VentaReciente } from "@/lib/dashboard";
 import type { Turno } from "@/lib/types";
 
@@ -19,6 +19,7 @@ export function DashboardClient({
   objetivo,
   objetivoTarget,
   trendByPeriodo,
+  rubrosPorPeriodo,
   recentSales,
   turnos,
 }: {
@@ -26,6 +27,7 @@ export function DashboardClient({
   objetivo: ObjetivoMes;
   objetivoTarget: number;
   trendByPeriodo: Record<DashPeriodo, { venta: number[]; ganancia: number[] }>;
+  rubrosPorPeriodo: Record<DashPeriodo, { label: string; value: number }[]>;
   recentSales: VentaReciente[];
   turnos: Turno[];
 }) {
@@ -61,12 +63,13 @@ export function DashboardClient({
               className="min-h-0 flex-1"
               venta={trend.venta}
               ganancia={trend.ganancia}
+              rubroMix={rubrosPorPeriodo[periodo]}
               sub={meta.trendSub}
             />
             <div className="grid shrink-0 gap-3 sm:grid-cols-2">
               <Card className="flex flex-col p-4">
                 <RubrosPie
-                  data={ventasPorRubro[meta.rubroKey]}
+                  data={rubrosPorPeriodo[periodo]}
                   totalFacturado={objetivo.current}
                 />
               </Card>
