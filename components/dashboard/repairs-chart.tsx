@@ -1,11 +1,17 @@
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
-import { ticketStages } from "@/lib/mock-data";
-import { GHOST_STRIPES } from "@/lib/chart";
+import { GHOST_STRIPES, chartColor } from "@/lib/chart";
+import { TICKET_FLOW, ticketStatus } from "@/lib/status";
+import type { Ticket } from "@/lib/types";
 
-export function RepairsChart() {
-  const total = ticketStages.reduce((a, s) => a + s.count, 0);
-  const max = Math.max(...ticketStages.map((s) => s.count));
+export function RepairsChart({ tickets }: { tickets: Ticket[] }) {
+  const stages = TICKET_FLOW.map((s, i) => ({
+    label: ticketStatus[s].label,
+    count: tickets.filter((t) => t.estado === s).length,
+    color: chartColor(i),
+  }));
+  const total = stages.reduce((a, s) => a + s.count, 0);
+  const max = Math.max(1, ...stages.map((s) => s.count));
 
   return (
     <Card className="p-5">
@@ -14,7 +20,7 @@ export function RepairsChart() {
       </ChartTitle>
 
       <div className="mt-5 space-y-3">
-        {ticketStages.map((s) => (
+        {stages.map((s) => (
           <div key={s.label} className="flex items-center gap-3">
             <span className="w-40 shrink-0 text-start text-[13px] text-neutral-600">
               {s.label}

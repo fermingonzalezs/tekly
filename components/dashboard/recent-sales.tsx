@@ -6,18 +6,26 @@ import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { Input, Select } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
-import { recentSales } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+import type { VentaReciente } from "@/lib/dashboard";
 
-const CATEGORIAS = ["Todas", ...Array.from(new Set(recentSales.map((s) => s.categoria)))];
-
-export function RecentSales({ className }: { className?: string }) {
+export function RecentSales({
+  className,
+  sales,
+}: {
+  className?: string;
+  sales: VentaReciente[];
+}) {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("Todas");
+  const CATEGORIAS = useMemo(
+    () => ["Todas", ...Array.from(new Set(sales.map((s) => s.categoria)))],
+    [sales],
+  );
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return recentSales.filter((s) => {
+    return sales.filter((s) => {
       if (cat !== "Todas" && s.categoria !== cat) return false;
       if (!needle) return true;
       return [s.id, s.cliente, s.item, s.vendedor]

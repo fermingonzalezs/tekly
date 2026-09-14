@@ -116,7 +116,7 @@ export function DonutChart({ slices }: { slices: DonutSlice[] }) {
               style={{ background: s.color }}
             />
             <span className="truncate text-neutral-600">{s.label}</span>
-            <span className="ml-auto shrink-0 font-medium tabular-nums text-neutral-800">
+            <span className="shrink-0 font-medium tabular-nums text-neutral-800">
               {s.valueLabel}
             </span>
           </li>

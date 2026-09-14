@@ -75,6 +75,25 @@ td.text-start {
   scrollbar-color: #d4d4d4 transparent;
 }
 
+/* scroll sin scrollbar visible (ej. nav horizontal con muchos ítems) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Nunca usar los indicadores nativos (flechas) de los inputs numéricos. */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Impresión: solo se imprime el recibo (.recibo-print), el resto se oculta. */
 @media print {
   body {

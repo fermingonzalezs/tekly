@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import { turnos } from "@/lib/mock-data";
 import { heatCell, DASH_HEAT } from "@/lib/chart";
+import type { Turno } from "@/lib/types";
 
 const DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const FRANJAS = [
@@ -15,7 +15,13 @@ const FRANJAS = [
   { label: "Noche", test: (h: number) => h >= 17 },
 ];
 
-export function TurnosHeatmap({ className }: { className?: string }) {
+export function TurnosHeatmap({
+  className,
+  turnos,
+}: {
+  className?: string;
+  turnos: Turno[];
+}) {
   const router = useRouter();
   const [hover, setHover] = useState<{ fi: number; di: number } | null>(null);
 

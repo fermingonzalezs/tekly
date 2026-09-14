@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
+// `Cliente` no guarda edad -- no hay de dónde derivar esto de datos reales
+// todavía. Queda en mock hasta que se decida si vale la pena pedir/guardar
+// fecha de nacimiento en el alta de cliente.
 import { clientesDemografia } from "@/lib/mock-data";
 import { CHART_ACCENT, GHOST_STRIPES } from "@/lib/chart";
 import { cn } from "@/lib/utils";

@@ -1,7 +1,13 @@
 import type {
+  Caja,
   Cliente,
+  Compra,
+  Conciliacion,
   Equipo,
+  ListaDifusion,
+  Movimiento,
   MovimientoCaja,
+  MovimientoCC,
   OtroItem,
   Proveedor,
   Repuesto,
@@ -138,17 +144,6 @@ export const monthGoal = {
   dayOfMonth: 22,
   daysInMonth: 30,
 };
-
-// Pipeline de tickets: progreso en índigo (claro→oscuro); "Esperando repuesto"
-// y "Listo" quedan en ámbar / verde porque son estados (warning / done).
-// Mismo hue índigo que CHART_COLORS (lib/chart.ts): más oscuro = más avanzado.
-export const ticketStages = [
-  { label: "Recibido", count: 4, color: "#948dde" },
-  { label: "Diagnosticado", count: 3, color: "#7269d4" },
-  { label: "En reparación", count: 5, color: "#4f49bd" },
-  { label: "Esperando repuesto", count: 2, color: "#352f86" },
-  { label: "Listo", count: 3, color: "#2e2a5f" },
-];
 
 export const recentSales = [
   { id: "V-4821", cliente: "Juan Pérez", item: "iPhone 13 128GB", categoria: "Equipos", vendedor: "Caro", procedencia: "Local", monto: 735, fecha: "Hoy 14:20" },
@@ -292,16 +287,57 @@ export const turnos: Turno[] = [
 // ───────────────────────── Inventario ─────────────────────────
 
 export const equipos: Equipo[] = [
-  { id: "e-1", modelo: "iPhone 11", almacenamiento: "64GB", color: "Negro", imei: "356111000000011", bateria: 84, condicion: "Muy bueno", costoUsd: 300, precioUsd: 410, estado: "disponible" },
-  { id: "e-2", modelo: "iPhone 13", almacenamiento: "128GB", color: "Azul", imei: "356111000000024", bateria: 91, condicion: "Excelente", costoUsd: 560, precioUsd: 735, estado: "disponible" },
-  { id: "e-3", modelo: "iPhone 12", almacenamiento: "128GB", color: "Blanco", imei: "356111000000037", bateria: 88, condicion: "Bueno", costoUsd: 420, precioUsd: 560, estado: "aprobado_para_venta" },
-  { id: "e-4", modelo: "iPhone 15 Pro", almacenamiento: "256GB", color: "Titanio natural", imei: "356111000000040", bateria: 100, condicion: "Sellado", costoUsd: 990, precioUsd: 1240, estado: "disponible" },
-  { id: "e-5", modelo: "iPhone XR", almacenamiento: "64GB", color: "Coral", imei: "356111000000053", bateria: 79, condicion: "Regular", costoUsd: 170, precioUsd: 250, estado: "en_revision" },
-  { id: "e-6", modelo: "iPhone 14", almacenamiento: "128GB", color: "Medianoche", imei: "356111000000066", bateria: 95, condicion: "Excelente", costoUsd: 680, precioUsd: 860, estado: "en_revision" },
-  { id: "e-7", modelo: "iPhone SE 2020", almacenamiento: "64GB", color: "Rojo", imei: "356111000000079", bateria: 82, condicion: "Bueno", costoUsd: 130, precioUsd: 195, estado: "vendido" },
-  { id: "e-8", modelo: "iPhone 13 mini", almacenamiento: "128GB", color: "Verde", imei: "356111000000082", bateria: 86, condicion: "Muy bueno", costoUsd: 430, precioUsd: 570, estado: "aprobado_para_venta" },
-  { id: "e-9", modelo: "Samsung S22", almacenamiento: "128GB", color: "Negro", imei: "356111000000095", bateria: 90, condicion: "Bueno", costoUsd: 280, precioUsd: 380, estado: "disponible" },
+  { id: "e-1", modelo: "iPhone 11", almacenamiento: "64GB", color: "Negro", imei: "356111000000011", bateria: 84, condicion: "B+", costoUsd: 300, precioUsd: 410, estado: "disponible" },
+  { id: "e-2", modelo: "iPhone 13", almacenamiento: "128GB", color: "Azul", imei: "356111000000024", bateria: 91, condicion: "A", costoUsd: 560, precioUsd: 735, estado: "disponible" },
+  { id: "e-3", modelo: "iPhone 12", almacenamiento: "128GB", color: "Blanco", imei: "356111000000037", bateria: 88, condicion: "B", costoUsd: 420, precioUsd: 560, estado: "aprobado_para_venta" },
+  { id: "e-4", modelo: "iPhone 15 Pro", almacenamiento: "256GB", color: "Titanio natural", imei: "356111000000040", bateria: 100, condicion: "A+", costoUsd: 990, precioUsd: 1240, estado: "disponible" },
+  { id: "e-5", modelo: "iPhone XR", almacenamiento: "64GB", color: "Coral", imei: "356111000000053", bateria: 79, condicion: "C", costoUsd: 170, precioUsd: 250, estado: "en_revision" },
+  { id: "e-6", modelo: "iPhone 14", almacenamiento: "128GB", color: "Medianoche", imei: "356111000000066", bateria: 95, condicion: "A", costoUsd: 680, precioUsd: 860, estado: "en_revision" },
+  { id: "e-7", modelo: "iPhone SE 2020", almacenamiento: "64GB", color: "Rojo", imei: "356111000000079", bateria: 82, condicion: "B", costoUsd: 130, precioUsd: 195, estado: "vendido" },
+  { id: "e-8", modelo: "iPhone 13 mini", almacenamiento: "128GB", color: "Verde", imei: "356111000000082", bateria: 86, condicion: "B+", costoUsd: 430, precioUsd: 570, estado: "aprobado_para_venta" },
+  { id: "e-9", modelo: "Samsung S22", almacenamiento: "128GB", color: "Negro", imei: "356111000000095", bateria: 90, condicion: "B", costoUsd: 280, precioUsd: 380, estado: "disponible" },
+  { id: "e-10", modelo: "iPhone 16", almacenamiento: "128GB", color: "Negro", imei: "356111000000108", bateria: 100, condicion: "NUEVO", costoUsd: 650, precioUsd: 790, estado: "disponible" },
+  { id: "e-11", modelo: "iPhone 16", almacenamiento: "128GB", color: "Rosa", imei: "356111000000111", bateria: 100, condicion: "NUEVO", costoUsd: 650, precioUsd: 790, estado: "disponible" },
 ];
+
+export const equipoMovimientos: Record<string, Movimiento[]> = {
+  "e-1": [
+    { fecha: "28 ago", hora: "09:14", detalle: "Ingresó al inventario", usuario: "Fermín G." },
+  ],
+  "e-2": [
+    { fecha: "1 sep", hora: "11:32", detalle: "Ingresó al inventario", usuario: "Caro" },
+  ],
+  "e-3": [
+    { fecha: "20 ago", hora: "10:05", detalle: "Ingresó al inventario", usuario: "Fermín G." },
+    { fecha: "5 sep", hora: "16:40", detalle: "Cambio de estado: En revisión → Aprobado p/ venta", usuario: "Nico" },
+  ],
+  "e-4": [
+    { fecha: "4 sep", hora: "12:00", detalle: "Ingresó al inventario (sellado, de fábrica)", usuario: "Fermín G." },
+  ],
+  "e-5": [
+    { fecha: "10 sep", hora: "15:20", detalle: "Ingresó al inventario", usuario: "Meli" },
+  ],
+  "e-6": [
+    { fecha: "11 sep", hora: "09:50", detalle: "Ingresó al inventario", usuario: "Meli" },
+  ],
+  "e-7": [
+    { fecha: "2 ago", hora: "10:00", detalle: "Ingresó al inventario", usuario: "Caro" },
+    { fecha: "20 ago", hora: "18:15", detalle: "Cambio de estado: Disponible → Vendido", usuario: "Caro" },
+  ],
+  "e-8": [
+    { fecha: "28 ago", hora: "09:00", detalle: "Ingresó al inventario", usuario: "Fermín G." },
+    { fecha: "8 sep", hora: "14:22", detalle: "Cambio de estado: En revisión → Aprobado p/ venta", usuario: "Dani" },
+  ],
+  "e-9": [
+    { fecha: "3 sep", hora: "17:05", detalle: "Ingresó al inventario", usuario: "Caro" },
+  ],
+  "e-10": [
+    { fecha: "10 sep", hora: "11:00", detalle: "Ingresó al inventario (sellado, de fábrica)", usuario: "Fermín G." },
+  ],
+  "e-11": [
+    { fecha: "10 sep", hora: "11:05", detalle: "Ingresó al inventario (sellado, de fábrica)", usuario: "Fermín G." },
+  ],
+};
 
 export const repuestos: Repuesto[] = [
   { id: "r-1", sku: "PANT-OLED-11", nombre: "Pantalla OLED", modelo: "iPhone 11", stock: 4, stockMin: 3, costoUsd: 42, proveedor: "Tecno Import" },
@@ -318,14 +354,76 @@ export const repuestos: Repuesto[] = [
 
 // Otros productos (no iPhone / no repuesto): iPad, AirPods, tablets, etc.
 export const otros: OtroItem[] = [
-  { id: "o-1", nombre: "iPad 9na gen 64GB", categoria: "ipad", cantidad: 2, costoUsd: 260, precioUsd: 330 },
-  { id: "o-2", nombre: "AirPods Pro 2", categoria: "airpods", cantidad: 5, costoUsd: 140, precioUsd: 190 },
-  { id: "o-3", nombre: "AirPods 3", categoria: "airpods", cantidad: 3, costoUsd: 110, precioUsd: 150 },
-  { id: "o-4", nombre: "Samsung Galaxy Tab A9", categoria: "tablet", cantidad: 1, costoUsd: 130, precioUsd: 180 },
-  { id: "o-5", nombre: "Cargador USB-C 20W", categoria: "accesorio", cantidad: 24, costoUsd: 4, precioUsd: 12 },
-  { id: "o-6", nombre: "Cable Lightning 1m", categoria: "accesorio", cantidad: 40, costoUsd: 2, precioUsd: 8 },
-  { id: "o-7", nombre: "Apple Watch SE 40mm", categoria: "otro", cantidad: 1, costoUsd: 190, precioUsd: 250 },
+  { id: "o-1", nombre: "iPad 9na gen 64GB", descripcion: "Wi-Fi, gris espacial", categoria: "ipad", serializado: true, unidades: [{ serial: "IPAD9-001", color: "Gris espacial", costoUsd: 260 }, { serial: "IPAD9-002", color: "Plata", costoUsd: 265 }], precioUsd: 330 },
+  { id: "o-2", nombre: "AirPods Pro 2", descripcion: "Con cancelación de ruido, USB-C", categoria: "airpods", serializado: true, unidades: [{ serial: "APP2-001", color: "Blanco", costoUsd: 140 }, { serial: "APP2-002", color: "Blanco", costoUsd: 140 }, { serial: "APP2-003", color: "Blanco", costoUsd: 145 }, { serial: "APP2-004", color: "Blanco", costoUsd: 145 }, { serial: "APP2-005", color: "Blanco", costoUsd: 145 }], precioUsd: 190 },
+  { id: "o-3", nombre: "AirPods 3", descripcion: "Estuche de carga MagSafe", categoria: "airpods", serializado: true, unidades: [{ serial: "APP3-001", color: "Blanco", costoUsd: 110 }, { serial: "APP3-002", color: "Blanco", costoUsd: 110 }, { serial: "APP3-003", color: "Blanco", costoUsd: 112 }], precioUsd: 150 },
+  { id: "o-4", nombre: "Samsung Galaxy Tab A9", descripcion: "64GB, Wi-Fi", categoria: "tablet", serializado: true, unidades: [{ serial: "TABA9-001", color: "Gris", costoUsd: 130 }], precioUsd: 180 },
+  { id: "o-5", nombre: "Cargador USB-C 20W", descripcion: "Carga rápida, sin cable", categoria: "accesorio", serializado: false, cantidad: 24, costoUsd: 4, precioUsd: 12 },
+  { id: "o-6", nombre: "Cable Lightning 1m", descripcion: "Trenzado, compatible MFi", categoria: "accesorio", serializado: false, cantidad: 40, costoUsd: 2, precioUsd: 8 },
+  { id: "o-7", nombre: "Apple Watch SE 40mm", descripcion: "GPS, caja de aluminio", categoria: "otro", serializado: true, unidades: [{ serial: "AWSE-001", color: "Medianoche", costoUsd: 190 }], precioUsd: 250 },
 ];
+
+export const repuestoMovimientos: Record<string, Movimiento[]> = {
+  "r-1": [
+    { fecha: "25 ago", hora: "10:15", detalle: "Ingreso de stock (+4)", usuario: "Nico" },
+  ],
+  "r-2": [
+    { fecha: "18 ago", hora: "09:30", detalle: "Ingreso de stock (+5)", usuario: "Fermín G." },
+    { fecha: "6 sep", hora: "13:10", detalle: "Consumo por reparación (-3)", usuario: "Nico" },
+  ],
+  "r-3": [
+    { fecha: "2 sep", hora: "11:00", detalle: "Ingreso de stock (+9)", usuario: "Fermín G." },
+  ],
+  "r-4": [
+    { fecha: "30 ago", hora: "16:20", detalle: "Ingreso de stock (+5)", usuario: "Dani" },
+    { fecha: "9 sep", hora: "10:40", detalle: "Consumo por reparación (-4)", usuario: "Dani" },
+  ],
+  "r-5": [
+    { fecha: "5 sep", hora: "12:05", detalle: "Ingreso de stock (+6)", usuario: "Nico" },
+  ],
+  "r-6": [
+    { fecha: "22 ago", hora: "15:45", detalle: "Ingreso de stock (+2)", usuario: "Fermín G." },
+  ],
+  "r-7": [
+    { fecha: "15 ago", hora: "09:00", detalle: "Ingreso de stock (+3)", usuario: "Fermín G." },
+    { fecha: "3 sep", hora: "17:30", detalle: "Consumo por reparación (-3)", usuario: "Nico" },
+  ],
+  "r-8": [
+    { fecha: "1 sep", hora: "14:15", detalle: "Ingreso de stock (+3)", usuario: "Fermín G." },
+  ],
+  "r-9": [
+    { fecha: "28 ago", hora: "11:50", detalle: "Ingreso de stock (+5)", usuario: "Dani" },
+  ],
+  "r-10": [
+    { fecha: "8 sep", hora: "10:00", detalle: "Ingreso de stock (+2)", usuario: "Nico" },
+  ],
+};
+
+export const otroMovimientos: Record<string, Movimiento[]> = {
+  "o-1": [
+    { fecha: "26 ago", hora: "10:00", detalle: "Ingreso de stock (+2 seriales)", usuario: "Fermín G." },
+  ],
+  "o-2": [
+    { fecha: "20 ago", hora: "09:15", detalle: "Ingreso de stock (+5 seriales)", usuario: "Caro" },
+  ],
+  "o-3": [
+    { fecha: "1 sep", hora: "11:40", detalle: "Ingreso de stock (+3 seriales)", usuario: "Meli" },
+  ],
+  "o-4": [
+    { fecha: "30 ago", hora: "16:00", detalle: "Ingreso de stock (+1 serial)", usuario: "Caro" },
+  ],
+  "o-5": [
+    { fecha: "10 ago", hora: "09:30", detalle: "Ingreso de stock (+30)", usuario: "Fermín G." },
+    { fecha: "5 sep", hora: "18:00", detalle: "Ventas (-6)", usuario: "Meli" },
+  ],
+  "o-6": [
+    { fecha: "12 ago", hora: "10:20", detalle: "Ingreso de stock (+50)", usuario: "Fermín G." },
+    { fecha: "6 sep", hora: "17:10", detalle: "Ventas (-10)", usuario: "Caro" },
+  ],
+  "o-7": [
+    { fecha: "3 sep", hora: "12:30", detalle: "Ingreso de stock (+1 serial)", usuario: "Fermín G." },
+  ],
+};
 
 // ───────────────────────── Proveedores ─────────────────────────
 
@@ -340,48 +438,57 @@ export const proveedores: Proveedor[] = [
 // ───────────────────────── Ventas / historial ─────────────────────────
 
 export const ventas: Venta[] = [
-  { id: "V-4821", fecha: "Hoy 14:20", fechaISO: "2026-09-07", clienteId: "c-1", cliente: "Juan Pérez", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "iPhone 13 128GB Azul", cantidad: 1, costoUsd: 560, precioUsd: 735 }], totalUsd: 735, pagos: [{ medio: "transferencia", montoUsd: 735 }], margenPct: 23.8, tipo: "venta" },
-  { id: "V-4820", fecha: "Hoy 12:05", fechaISO: "2026-09-07", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-3", vendedor: "Meli", procedencia: "WhatsApp", items: [{ detalle: "Cambio de batería iPhone 12", cantidad: 1, costoUsd: 17, precioUsd: 45 }, { detalle: "Vidrio templado", cantidad: 1, costoUsd: 4, precioUsd: 10 }], totalUsd: 55, pagos: [{ medio: "tarjeta", montoUsd: 55 }], margenPct: 61.0, tipo: "reparacion" },
-  { id: "V-4819", fecha: "Ayer 18:40", fechaISO: "2026-09-06", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 15 Pro 256GB", cantidad: 1, costoUsd: 990, precioUsd: 1240 }], totalUsd: 1240, pagos: [{ medio: "cripto", montoUsd: 1240 }], margenPct: 20.2, tipo: "venta" },
-  { id: "V-4818", fecha: "Ayer 17:10", fechaISO: "2026-09-06", clienteId: "c-4", cliente: "Lucía Vera", vendedorId: "u-3", vendedor: "Meli", procedencia: "Local", items: [{ detalle: "Vidrio templado", cantidad: 1, costoUsd: 5, precioUsd: 10 }, { detalle: "Funda silicona", cantidad: 1, costoUsd: 5, precioUsd: 12 }], totalUsd: 22, pagos: [{ medio: "pesos", montoUsd: 22 }], margenPct: 55.0, tipo: "venta" },
-  { id: "V-4817", fecha: "Ayer 11:30", fechaISO: "2026-09-06", clienteId: "c-5", cliente: "Diego Fernández", vendedorId: "u-2", vendedor: "Caro", procedencia: "MercadoLibre", items: [{ detalle: "iPhone 11 64GB", cantidad: 1, costoUsd: 300, precioUsd: 410 }], totalUsd: 410, pagos: [{ medio: "canje", montoUsd: 250 }, { medio: "pesos", montoUsd: 160 }], margenPct: 26.8, tipo: "venta" },
-  { id: "V-4816", fecha: "Ayer 10:05", fechaISO: "2026-09-06", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "WhatsApp", items: [{ detalle: "Cambio de pantalla iPhone 13", cantidad: 1, costoUsd: 68, precioUsd: 90 }], totalUsd: 90, pagos: [{ medio: "transferencia", montoUsd: 90 }], margenPct: 24.4, tipo: "reparacion" },
-  { id: "V-4815", fecha: "Lun 19:20", fechaISO: "2026-09-04", clienteId: "c-8", cliente: "Valentina Cruz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Referido", items: [{ detalle: "iPhone 13 mini 128GB", cantidad: 1, costoUsd: 442, precioUsd: 570 }, { detalle: "AppleCare no oficial 6m", cantidad: 1, costoUsd: 23, precioUsd: 30 }], totalUsd: 600, pagos: [{ medio: "transferencia", montoUsd: 400 }, { medio: "pesos", montoUsd: 200 }], margenPct: 22.5, tipo: "venta" },
-  { id: "V-4814", fecha: "Lun 15:40", fechaISO: "2026-09-04", clienteId: "c-1", cliente: "Juan Pérez", vendedorId: "u-3", vendedor: "Meli", procedencia: "Local", items: [{ detalle: "Reparación de placa iPhone XR", cantidad: 1, costoUsd: 96, precioUsd: 160 }], totalUsd: 160, pagos: [{ medio: "pesos", montoUsd: 160 }], margenPct: 40.0, tipo: "reparacion" },
-  { id: "V-4813", fecha: "Lun 12:10", fechaISO: "2026-09-04", clienteId: "c-6", cliente: "Paula Giménez", vendedorId: "u-2", vendedor: "Caro", procedencia: "WhatsApp", items: [{ detalle: "Cambio de batería iPhone 11", cantidad: 1, costoUsd: 17, precioUsd: 45 }], totalUsd: 45, pagos: [{ medio: "pesos", montoUsd: 45 }], margenPct: 62.2, tipo: "reparacion" },
-  { id: "V-4812", fecha: "Dom 16:30", fechaISO: "2026-09-03", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 14 128GB", cantidad: 1, costoUsd: 680, precioUsd: 860 }], totalUsd: 860, pagos: [{ medio: "cripto", montoUsd: 600 }, { medio: "transferencia", montoUsd: 260 }], margenPct: 20.9, tipo: "venta" },
-  { id: "V-4811", fecha: "Dom 13:15", fechaISO: "2026-09-03", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "MercadoLibre", items: [{ detalle: "iPhone SE 2020 64GB", cantidad: 1, costoUsd: 130, precioUsd: 195 }], totalUsd: 195, pagos: [{ medio: "dolares", montoUsd: 195 }], margenPct: 33.3, tipo: "venta" },
-  { id: "V-4810", fecha: "Sáb 11:50", fechaISO: "2026-09-02", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "Cambio de pantalla iPhone XR", cantidad: 1, costoUsd: 54, precioUsd: 75 }], totalUsd: 75, pagos: [{ medio: "transferencia", montoUsd: 75 }], margenPct: 28.0, tipo: "reparacion" },
+  { id: "V-4821", fecha: "Hoy 14:20", fechaISO: "2026-09-07", clienteId: "c-1", cliente: "Juan Pérez", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "iPhone 13 128GB Azul", cantidad: 1, costoUsd: 560, precioUsd: 735 }], totalUsd: 735, pagos: [{ medio: "transferencia", montoUsd: 735, caja: "usd" }], margenPct: 23.8, tipo: "venta" },
+  { id: "V-4820", fecha: "Hoy 12:05", fechaISO: "2026-09-07", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-3", vendedor: "Meli", procedencia: "WhatsApp", items: [{ detalle: "Cambio de batería iPhone 12", cantidad: 1, costoUsd: 17, precioUsd: 45 }, { detalle: "Vidrio templado", cantidad: 1, costoUsd: 4, precioUsd: 10 }], totalUsd: 55, pagos: [{ medio: "tarjeta", montoUsd: 55, caja: "usd" }], margenPct: 61.0, tipo: "reparacion" },
+  { id: "V-4819", fecha: "Ayer 18:40", fechaISO: "2026-09-06", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 15 Pro 256GB", cantidad: 1, costoUsd: 990, precioUsd: 1240 }], totalUsd: 1240, pagos: [{ medio: "cripto", montoUsd: 1240, caja: "usd" }], margenPct: 20.2, tipo: "venta" },
+  { id: "V-4818", fecha: "Ayer 17:10", fechaISO: "2026-09-06", clienteId: "c-4", cliente: "Lucía Vera", vendedorId: "u-3", vendedor: "Meli", procedencia: "Local", items: [{ detalle: "Vidrio templado", cantidad: 1, costoUsd: 5, precioUsd: 10 }, { detalle: "Funda silicona", cantidad: 1, costoUsd: 5, precioUsd: 12 }], totalUsd: 22, pagos: [{ medio: "pesos", montoUsd: 22, caja: "ars" }], margenPct: 55.0, tipo: "venta" },
+  { id: "V-4817", fecha: "Ayer 11:30", fechaISO: "2026-09-06", clienteId: "c-5", cliente: "Diego Fernández", vendedorId: "u-2", vendedor: "Caro", procedencia: "MercadoLibre", items: [{ detalle: "iPhone 11 64GB", cantidad: 1, costoUsd: 300, precioUsd: 410 }], totalUsd: 410, pagos: [{ medio: "canje", montoUsd: 250, caja: "usd" }, { medio: "pesos", montoUsd: 160, caja: "ars" }], margenPct: 26.8, tipo: "venta" },
+  { id: "V-4816", fecha: "Ayer 10:05", fechaISO: "2026-09-06", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "WhatsApp", items: [{ detalle: "Cambio de pantalla iPhone 13", cantidad: 1, costoUsd: 68, precioUsd: 90 }], totalUsd: 90, pagos: [{ medio: "transferencia", montoUsd: 90, caja: "usd" }], margenPct: 24.4, tipo: "reparacion" },
+  { id: "V-4815", fecha: "Lun 19:20", fechaISO: "2026-09-04", clienteId: "c-8", cliente: "Valentina Cruz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Referido", items: [{ detalle: "iPhone 13 mini 128GB", cantidad: 1, costoUsd: 442, precioUsd: 570 }, { detalle: "AppleCare no oficial 6m", cantidad: 1, costoUsd: 23, precioUsd: 30 }], totalUsd: 600, pagos: [{ medio: "transferencia", montoUsd: 400, caja: "usd" }, { medio: "pesos", montoUsd: 200, caja: "ars" }], margenPct: 22.5, tipo: "venta" },
+  { id: "V-4814", fecha: "Lun 15:40", fechaISO: "2026-09-04", clienteId: "c-1", cliente: "Juan Pérez", vendedorId: "u-3", vendedor: "Meli", procedencia: "Local", items: [{ detalle: "Reparación de placa iPhone XR", cantidad: 1, costoUsd: 96, precioUsd: 160 }], totalUsd: 160, pagos: [{ medio: "pesos", montoUsd: 160, caja: "ars" }], margenPct: 40.0, tipo: "reparacion" },
+  { id: "V-4813", fecha: "Lun 12:10", fechaISO: "2026-09-04", clienteId: "c-6", cliente: "Paula Giménez", vendedorId: "u-2", vendedor: "Caro", procedencia: "WhatsApp", items: [{ detalle: "Cambio de batería iPhone 11", cantidad: 1, costoUsd: 17, precioUsd: 45 }], totalUsd: 45, pagos: [{ medio: "pesos", montoUsd: 45, caja: "ars" }], margenPct: 62.2, tipo: "reparacion" },
+  { id: "V-4812", fecha: "Dom 16:30", fechaISO: "2026-09-03", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 14 128GB", cantidad: 1, costoUsd: 680, precioUsd: 860 }], totalUsd: 860, pagos: [{ medio: "cripto", montoUsd: 600, caja: "usd" }, { medio: "transferencia", montoUsd: 260, caja: "usd" }], margenPct: 20.9, tipo: "venta" },
+  { id: "V-4811", fecha: "Dom 13:15", fechaISO: "2026-09-03", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "MercadoLibre", items: [{ detalle: "iPhone SE 2020 64GB", cantidad: 1, costoUsd: 130, precioUsd: 195 }], totalUsd: 195, pagos: [{ medio: "dolares", montoUsd: 195, caja: "usd" }], margenPct: 33.3, tipo: "venta" },
+  { id: "V-4810", fecha: "Sáb 11:50", fechaISO: "2026-09-02", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "Cambio de pantalla iPhone XR", cantidad: 1, costoUsd: 54, precioUsd: 75 }], totalUsd: 75, pagos: [{ medio: "transferencia", montoUsd: 75, caja: "usd" }], margenPct: 28.0, tipo: "reparacion" },
 ];
 
 // ───────────────────────── Cajas ─────────────────────────
 
+// Cajas específicas — puede haber varias por moneda.
+export const cajas: Caja[] = [
+  { id: "caja-mostrador", nombre: "Mostrador", moneda: "ars", activa: true, descripcion: "Caja de atención al público en el local.", creadaEl: "ene 2022", medioPago: "pesos" },
+  { id: "caja-taller", nombre: "Taller", moneda: "ars", activa: true, descripcion: "Caja chica del taller: insumos y gastos del día a día.", creadaEl: "ene 2022", medioPago: "pesos" },
+  { id: "caja-usd", nombre: "Caja USD", moneda: "usd", activa: true, descripcion: "Caja principal en dólares para ventas y compras.", creadaEl: "ene 2022", medioPago: "transferencia" },
+  { id: "caja-usd-boveda", nombre: "Bóveda USD", moneda: "usd", activa: true, descripcion: "Resguardo de efectivo y equipos tomados en parte de pago.", creadaEl: "jun 2023", medioPago: "canje" },
+];
+
 // Caja USD: montos en dólares. Caja ARS: montos en pesos.
+// `usuario`: quien cargó el movimiento — manual o automático (venta/pago).
 export const movimientosHoy: MovimientoCaja[] = [
-  { id: "m-1", fecha: "07 sep", hora: "09:50", concepto: "Venta V-4820 — batería iPhone 12", medioPago: "transferencia", tipo: "ingreso", moneda: "usd", monto: 55 },
-  { id: "m-2", fecha: "07 sep", hora: "10:30", concepto: "Compra repuestos — PartsAR", medioPago: "transferencia", tipo: "egreso", moneda: "usd", monto: 120 },
-  { id: "m-3", fecha: "07 sep", hora: "11:15", concepto: "Seña reparación #229", medioPago: "pesos", tipo: "ingreso", moneda: "ars", monto: 29000 },
-  { id: "m-4", fecha: "07 sep", hora: "12:40", concepto: "Almuerzo equipo (caja chica)", medioPago: "pesos", tipo: "egreso", moneda: "ars", monto: 26000 },
-  { id: "m-5", fecha: "07 sep", hora: "14:20", concepto: "Venta V-4821 — iPhone 13", medioPago: "transferencia", tipo: "ingreso", moneda: "usd", monto: 735 },
-  { id: "m-6", fecha: "07 sep", hora: "15:05", concepto: "iPhone 11 tomado como parte de pago", medioPago: "canje", tipo: "ingreso", moneda: "usd", monto: 300 },
-  { id: "m-7", fecha: "07 sep", hora: "16:10", concepto: "Venta accesorios varios", medioPago: "tarjeta", tipo: "ingreso", moneda: "ars", monto: 44000 },
+  { id: "m-1", fecha: "07 sep", hora: "09:50", concepto: "Venta V-4820 — batería iPhone 12", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 55, usuario: "Meli" },
+  { id: "m-2", fecha: "07 sep", hora: "10:30", concepto: "Compra repuestos — PartsAR", medioPago: "transferencia", tipo: "egreso", cajaId: "caja-usd", monto: 120, usuario: "Fermín G." },
+  { id: "m-3", fecha: "07 sep", hora: "11:15", concepto: "Seña reparación #229", medioPago: "pesos", tipo: "ingreso", cajaId: "caja-mostrador", monto: 29000, usuario: "Meli" },
+  { id: "m-4", fecha: "07 sep", hora: "12:40", concepto: "Almuerzo equipo (caja chica)", medioPago: "pesos", tipo: "egreso", cajaId: "caja-taller", monto: 26000, usuario: "Fermín G." },
+  { id: "m-5", fecha: "07 sep", hora: "14:20", concepto: "Venta V-4821 — iPhone 13", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 735, usuario: "Caro" },
+  { id: "m-6", fecha: "07 sep", hora: "15:05", concepto: "iPhone 11 tomado como parte de pago", medioPago: "canje", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 300, usuario: "Caro" },
+  { id: "m-7", fecha: "07 sep", hora: "16:10", concepto: "Venta accesorios varios", medioPago: "tarjeta", tipo: "ingreso", cajaId: "caja-mostrador", monto: 44000, usuario: "Meli" },
 ];
 
 // Movimientos de días anteriores (para el historial completo).
 export const movimientosPrevios: MovimientoCaja[] = [
-  { id: "m-p1", fecha: "06 sep", hora: "18:40", concepto: "Venta V-4819 — iPhone 15 Pro", medioPago: "cripto", tipo: "ingreso", moneda: "usd", monto: 1240 },
-  { id: "m-p2", fecha: "06 sep", hora: "17:10", concepto: "Venta V-4818 — accesorios", medioPago: "pesos", tipo: "ingreso", moneda: "ars", monto: 32000 },
-  { id: "m-p3", fecha: "06 sep", hora: "12:00", concepto: "Pago proveedor Tecno Import", medioPago: "transferencia", tipo: "egreso", moneda: "usd", monto: 210 },
-  { id: "m-p4", fecha: "06 sep", hora: "10:05", concepto: "Reparación V-4816 — pantalla 13", medioPago: "transferencia", tipo: "ingreso", moneda: "usd", monto: 90 },
-  { id: "m-p5", fecha: "05 sep", hora: "16:30", concepto: "Venta iPhone 12 usado", medioPago: "dolares", tipo: "ingreso", moneda: "usd", monto: 520 },
-  { id: "m-p6", fecha: "05 sep", hora: "11:20", concepto: "Compra fundas y vidrios", medioPago: "pesos", tipo: "egreso", moneda: "ars", monto: 117000 },
-  { id: "m-p7", fecha: "04 sep", hora: "19:20", concepto: "Venta V-4815 — iPhone 13 mini", medioPago: "transferencia", tipo: "ingreso", moneda: "usd", monto: 600 },
-  { id: "m-p8", fecha: "04 sep", hora: "15:40", concepto: "Reparación V-4814 — placa XR", medioPago: "pesos", tipo: "ingreso", moneda: "ars", monto: 234000 },
-  { id: "m-p9", fecha: "04 sep", hora: "13:00", concepto: "Retiro socio", medioPago: "pesos", tipo: "egreso", moneda: "ars", monto: 293000 },
-  { id: "m-p10", fecha: "03 sep", hora: "16:30", concepto: "Venta V-4812 — iPhone 14", medioPago: "cripto", tipo: "ingreso", moneda: "usd", monto: 860 },
-  { id: "m-p11", fecha: "03 sep", hora: "13:15", concepto: "Venta V-4811 — iPhone SE", medioPago: "dolares", tipo: "ingreso", moneda: "usd", monto: 195 },
-  { id: "m-p12", fecha: "02 sep", hora: "11:50", concepto: "Reparación V-4810 — pantalla XR", medioPago: "transferencia", tipo: "ingreso", moneda: "usd", monto: 75 },
-  { id: "m-p13", fecha: "02 sep", hora: "10:00", concepto: "Compra insumos varios", medioPago: "pesos", tipo: "egreso", moneda: "ars", monto: 58000 },
+  { id: "m-p1", fecha: "06 sep", hora: "18:40", concepto: "Venta V-4819 — iPhone 15 Pro", medioPago: "cripto", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 1240, usuario: "Caro" },
+  { id: "m-p2", fecha: "06 sep", hora: "17:10", concepto: "Venta V-4818 — accesorios", medioPago: "pesos", tipo: "ingreso", cajaId: "caja-mostrador", monto: 32000, usuario: "Meli" },
+  { id: "m-p3", fecha: "06 sep", hora: "12:00", concepto: "Pago proveedor Tecno Import", medioPago: "transferencia", tipo: "egreso", cajaId: "caja-usd", monto: 210, usuario: "Fermín G." },
+  { id: "m-p4", fecha: "06 sep", hora: "10:05", concepto: "Reparación V-4816 — pantalla 13", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 90, usuario: "Meli" },
+  { id: "m-p5", fecha: "05 sep", hora: "16:30", concepto: "Venta iPhone 12 usado", medioPago: "dolares", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 520, usuario: "Caro" },
+  { id: "m-p6", fecha: "05 sep", hora: "11:20", concepto: "Compra fundas y vidrios", medioPago: "pesos", tipo: "egreso", cajaId: "caja-taller", monto: 117000, usuario: "Fermín G." },
+  { id: "m-p7", fecha: "04 sep", hora: "19:20", concepto: "Venta V-4815 — iPhone 13 mini", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 600, usuario: "Caro" },
+  { id: "m-p8", fecha: "04 sep", hora: "15:40", concepto: "Reparación V-4814 — placa XR", medioPago: "pesos", tipo: "ingreso", cajaId: "caja-mostrador", monto: 234000, usuario: "Meli" },
+  { id: "m-p9", fecha: "04 sep", hora: "13:00", concepto: "Retiro socio", medioPago: "pesos", tipo: "egreso", cajaId: "caja-mostrador", monto: 293000, usuario: "Fermín G." },
+  { id: "m-p10", fecha: "03 sep", hora: "16:30", concepto: "Venta V-4812 — iPhone 14", medioPago: "cripto", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 860, usuario: "Caro" },
+  { id: "m-p11", fecha: "03 sep", hora: "13:15", concepto: "Venta V-4811 — iPhone SE", medioPago: "dolares", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 195, usuario: "Meli" },
+  { id: "m-p12", fecha: "02 sep", hora: "11:50", concepto: "Reparación V-4810 — pantalla XR", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 75, usuario: "Caro" },
+  { id: "m-p13", fecha: "02 sep", hora: "10:00", concepto: "Compra insumos varios", medioPago: "pesos", tipo: "egreso", cajaId: "caja-taller", monto: 58000, usuario: "Fermín G." },
 ];
 
 export const movimientosTodos: MovimientoCaja[] = [
@@ -389,11 +496,33 @@ export const movimientosTodos: MovimientoCaja[] = [
   ...movimientosPrevios,
 ];
 
-export const cierresPrevios = [
-  { fecha: "06 sep", ingresos: 1980, egresos: 340, neto: 1640, responsable: "Caro" },
-  { fecha: "04 sep", ingresos: 1010, egresos: 210, neto: 800, responsable: "Meli" },
-  { fecha: "03 sep", ingresos: 1250, egresos: 0, neto: 1250, responsable: "Fermín G." },
-  { fecha: "02 sep", ingresos: 640, egresos: 95, neto: 545, responsable: "Caro" },
+// Historial de conciliaciones: por cada caja, lo que esperaba el sistema
+// (neto de movimientos desde la conciliación anterior) vs. lo contado a mano.
+export const conciliaciones: Conciliacion[] = [
+  {
+    id: "cnc-1",
+    fecha: "06 sep",
+    hora: "18:40",
+    responsable: "Caro",
+    lineas: [
+      { cajaId: "caja-mostrador", montoSistema: 66000, montoReal: 66000, comentario: "" },
+      { cajaId: "caja-taller", montoSistema: -117000, montoReal: -119000, comentario: "Faltan $2.000, revisar el vuelto de la tarde." },
+      { cajaId: "caja-usd", montoSistema: -120, montoReal: -120, comentario: "" },
+      { cajaId: "caja-usd-boveda", montoSistema: 2060, montoReal: 2060, comentario: "" },
+    ],
+  },
+  {
+    id: "cnc-2",
+    fecha: "04 sep",
+    hora: "19:05",
+    responsable: "Meli",
+    lineas: [
+      { cajaId: "caja-mostrador", montoSistema: -59000, montoReal: -59000, comentario: "" },
+      { cajaId: "caja-taller", montoSistema: 0, montoReal: 500, comentario: "Sobraron $500, sin explicación clara." },
+      { cajaId: "caja-usd", montoSistema: 600, montoReal: 600, comentario: "" },
+      { cajaId: "caja-usd-boveda", montoSistema: 860, montoReal: 860, comentario: "" },
+    ],
+  },
 ];
 
 // ───────────────────────── Analíticas ─────────────────────────
@@ -479,6 +608,96 @@ export const ventasPorRubro: Record<
     { label: "Otros", value: 10 },
   ],
 };
+
+// ───────────────────────── Cuentas corrientes ─────────────────────────
+
+// "Fiado": cargo aumenta la deuda del cliente, pago la reduce. Todo en USD.
+export const movimientosCC: MovimientoCC[] = [
+  { id: "cc-1", clienteId: "c-1", fecha: "28 ago", hora: "11:20", concepto: "iPhone 12 128GB a cuenta", tipo: "cargo", montoUsd: 560, usuario: "Caro" },
+  { id: "cc-2", clienteId: "c-1", fecha: "05 sep", hora: "17:10", concepto: "Pago parcial", tipo: "pago", montoUsd: 200, usuario: "Fermín G." },
+  { id: "cc-3", clienteId: "c-3", fecha: "01 sep", hora: "10:05", concepto: "Reparación de placa a cuenta", tipo: "cargo", montoUsd: 160, usuario: "Meli" },
+  { id: "cc-4", clienteId: "c-3", fecha: "06 sep", hora: "12:40", concepto: "Pago total", tipo: "pago", montoUsd: 160, usuario: "Fermín G." },
+  { id: "cc-5", clienteId: "c-7", fecha: "03 sep", hora: "09:30", concepto: "AirPods Pro 2 a cuenta", tipo: "cargo", montoUsd: 190, usuario: "Caro" },
+  { id: "cc-6", clienteId: "c-5", fecha: "07 sep", hora: "16:00", concepto: "Cambio de pantalla a cuenta", tipo: "cargo", montoUsd: 90, usuario: "Meli" },
+  { id: "cc-7", clienteId: "c-5", fecha: "08 sep", hora: "10:15", concepto: "Pago parcial", tipo: "pago", montoUsd: 40, usuario: "Fermín G." },
+];
+
+// ───────────────────────── Compras ─────────────────────────
+
+// El espejo de Ventas del lado del gasto: compras a proveedores.
+export const compras: Compra[] = [
+  { id: "C-101", fecha: "07 sep", fechaISO: "2026-09-07", proveedor: "PartsAR", items: [{ detalle: "Batería iPhone 12", cantidad: 10, costoUsd: 12 }, { detalle: "Batería iPhone 11", cantidad: 10, costoUsd: 11 }], totalUsd: 230, medioPago: "transferencia", estado: "recibida" },
+  { id: "C-100", fecha: "06 sep", fechaISO: "2026-09-06", proveedor: "Tecno Import", items: [{ detalle: "Pantalla OLED iPhone 13", cantidad: 5, costoUsd: 68 }], totalUsd: 340, medioPago: "transferencia", estado: "pendiente" },
+  { id: "C-099", fecha: "04 sep", fechaISO: "2026-09-04", proveedor: "MobileFix Mayorista", items: [{ detalle: "Vidrio trasero iPhone 13", cantidad: 8, costoUsd: 14 }, { detalle: "Flex de carga iPhone 13", cantidad: 6, costoUsd: 9 }], totalUsd: 166, medioPago: "pesos", estado: "recibida", montoArs: 243190, cotizacion: 1465 },
+  { id: "C-098", fecha: "02 sep", fechaISO: "2026-09-02", proveedor: "iSupply Global", items: [{ detalle: "Pantalla OLED iPhone 15 Pro", cantidad: 3, costoUsd: 145 }], totalUsd: 435, medioPago: "cripto", estado: "pendiente" },
+  { id: "C-097", fecha: "30 ago", fechaISO: "2026-08-30", proveedor: "Accesorios del Sur", items: [{ detalle: "Cargador USB-C 20W", cantidad: 30, costoUsd: 4 }, { detalle: "Cable Lightning 1m", cantidad: 50, costoUsd: 2 }], totalUsd: 220, medioPago: "transferencia", estado: "recibida" },
+  { id: "C-096", fecha: "28 ago", fechaISO: "2026-08-28", proveedor: "PartsAR", items: [{ detalle: "Batería iPhone 13 Pro", cantidad: 12, costoUsd: 15 }], totalUsd: 180, medioPago: "dolares", estado: "recibida" },
+];
+
+// ───────────────────────── Listas de difusión ─────────────────────────
+
+// Catálogos armados para copiar y pegar en WhatsApp u otro medio — no son
+// listas de contactos, son la plantilla del mensaje (ver lib/types.ts). Las
+// secciones se arman con reglas por condición/categoría, no con equipos
+// puntuales, para que la lista se mantenga vigente sola cuando cambia el
+// stock (vendé un iPhone A+ y la regla "condición A+, A" ya no lo incluye).
+export const listasDifusion: ListaDifusion[] = [
+  {
+    id: "ld-1",
+    nombre: "Disponibles",
+    mensajeInicial: "🔥 DISPONIBLES 🔥",
+    mensajeFinal: "Consultanos por más info o para coordinar una visita 😊",
+    descuentoTipo: "ninguno",
+    descuentoValor: 0,
+    creadaEl: "sep 2025",
+    secciones: [
+      {
+        id: "sec-0",
+        nombre: "EQUIPOS NUEVOS",
+        emoji: "✨",
+        entradas: [{ id: "r-0", tipo: "equipo", condiciones: ["NUEVO"] }],
+      },
+      {
+        id: "sec-1",
+        nombre: "EQUIPOS TOP GAMA",
+        emoji: "📱",
+        entradas: [{ id: "r-1", tipo: "equipo", condiciones: ["A+", "A"] }],
+      },
+      {
+        id: "sec-2",
+        nombre: "EQUIPOS GAMA MEDIA",
+        emoji: "📱",
+        entradas: [{ id: "r-2", tipo: "equipo", condiciones: ["B+", "B"] }],
+      },
+      {
+        id: "sec-3",
+        nombre: "ACCESORIOS",
+        emoji: "🎧",
+        entradas: [
+          { id: "r-3", tipo: "otro", categoria: "airpods" },
+          { id: "m-1", tipo: "manual", texto: "Funda de silicona (varios colores)", precioUsd: 12 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "ld-2",
+    nombre: "Liquidación fin de mes",
+    mensajeInicial: "⚡ LIQUIDACIÓN FIN DE MES ⚡",
+    mensajeFinal: "Precios válidos hasta fin de mes o hasta agotar stock.",
+    descuentoTipo: "porcentaje",
+    descuentoValor: 10,
+    creadaEl: "sep 2025",
+    secciones: [
+      {
+        id: "sec-4",
+        nombre: "EQUIPOS EN LIQUIDACIÓN",
+        emoji: "⚡",
+        entradas: [{ id: "r-4", tipo: "equipo", condiciones: ["B+", "B"] }],
+      },
+    ],
+  },
+];
 
 // ───────────────────────── Configuración ─────────────────────────
 

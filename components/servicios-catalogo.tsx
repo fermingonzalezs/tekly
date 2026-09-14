@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Plus, Pencil, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/field";
-import { servicios as seed } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import type { Servicio } from "@/lib/types";
 
@@ -20,17 +19,27 @@ const blank: Servicio = {
 };
 
 /** Catálogo editable de servicios de reparación. Vive dentro de Reparaciones. */
-export function ServiciosCatalogo() {
-  const [list, setList] = useState<Servicio[]>(seed);
+export function ServiciosCatalogo({
+  initialServicios,
+  onSave,
+}: {
+  initialServicios: Servicio[];
+  onSave: (s: Servicio) => Promise<Servicio>;
+}) {
+  const [list, setList] = useState<Servicio[]>(initialServicios);
   const [editing, setEditing] = useState<Servicio | null>(null);
+  const [pending, startTransition] = useTransition();
 
   function save(s: Servicio) {
-    setList((prev) =>
-      s.id
-        ? prev.map((x) => (x.id === s.id ? s : x))
-        : [...prev, { ...s, id: `s-${Date.now()}` }],
-    );
-    setEditing(null);
+    startTransition(async () => {
+      const guardado = await onSave(s);
+      setList((prev) =>
+        s.id
+          ? prev.map((x) => (x.id === guardado.id ? guardado : x))
+          : [...prev, guardado],
+      );
+      setEditing(null);
+    });
   }
 
   return (
@@ -99,6 +108,7 @@ export function ServiciosCatalogo() {
         servicio={editing}
         onClose={() => setEditing(null)}
         onSave={save}
+        pending={pending}
       />
     </div>
   );
@@ -108,10 +118,12 @@ function ServicioDialog({
   servicio,
   onClose,
   onSave,
+  pending,
 }: {
   servicio: Servicio | null;
   onClose: () => void;
   onSave: (s: Servicio) => void;
+  pending: boolean;
 }) {
   const [draft, setDraft] = useState<Servicio>(servicio ?? blank);
 
@@ -127,10 +139,10 @@ function ServicioDialog({
           </Button>
           <Button
             size="sm"
-            disabled={!draft.nombre.trim() || draft.precioUsd <= 0}
+            disabled={!draft.nombre.trim() || draft.precioUsd <= 0 || pending}
             onClick={() => onSave(draft)}
           >
-            Guardar
+            {pending ? "Guardando…" : "Guardar"}
           </Button>
         </>
       }

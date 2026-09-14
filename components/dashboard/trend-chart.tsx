@@ -4,7 +4,11 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import { salesTrend3w, salesTrend3wGanancia, ventasPorRubro } from "@/lib/mock-data";
+// `ventasPorRubro` (mix Equipos/Reparaciones/Accesorios/Otros del hover) no es
+// derivable de datos reales todavía -- `Venta.tipo` solo distingue
+// 'venta'/'reparacion', no hay categoría de rubro en el schema. Se mantiene
+// como referencia ilustrativa hasta que se trackee esa categoría.
+import { ventasPorRubro } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { dashColor, DASH_ACCENT, GHOST_STRIPES } from "@/lib/chart";
 
@@ -43,21 +47,23 @@ function smoothPath(pts: Pt[]): string {
 
 export function TrendChart({
   className,
-  venta = salesTrend3w,
-  ganancia = salesTrend3wGanancia,
-  sub = "Valores de las últimas tres semanas",
+  venta,
+  ganancia,
+  sub,
 }: {
   className?: string;
-  venta?: number[];
-  ganancia?: number[];
-  sub?: string;
+  venta: number[];
+  ganancia: number[];
+  sub: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
 
   const data = venta; // barra = venta bruta del día
   const profit = ganancia; // línea = ganancia del día
   const n = data.length;
-  const max = Math.max(...data);
+  // guard: con datos reales el período puede no tener ninguna venta todavía
+  // (org nueva) -- sin esto, dividir por 0 rompe las alturas (NaN%).
+  const max = Math.max(1, ...data);
   const avg = profit.reduce((a, b) => a + b, 0) / n; // ganancia promedio
   const avgVenta = data.reduce((a, b) => a + b, 0) / n;
 

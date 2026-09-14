@@ -1,0 +1,38 @@
+import { listVentas } from "@/lib/db/ventas";
+import { listEquipos, listRepuestos, listOtros } from "@/lib/db/inventario";
+import { listClientes } from "@/lib/db/clientes";
+import { listTurnosSemana } from "@/lib/db/turnos";
+import { listCajas, listMovimientos } from "@/lib/db/cajas";
+import { ventasPorMes, facturacionDiaria } from "@/lib/analiticas";
+import { FuenteClientes } from "@/components/clientes/fuente-clientes";
+import { AnaliticasClient } from "./analiticas-client";
+
+export default async function AnaliticasPage() {
+  const [ventas, equipos, repuestos, otros, clientes, turnos, cajas, movimientosTodos] =
+    await Promise.all([
+      listVentas(),
+      listEquipos(),
+      listRepuestos(),
+      listOtros(),
+      listClientes(),
+      listTurnosSemana(),
+      listCajas(),
+      listMovimientos(),
+    ]);
+
+  return (
+    <AnaliticasClient
+      ventas={ventas}
+      equipos={equipos}
+      repuestos={repuestos}
+      otros={otros}
+      clientes={clientes}
+      turnos={turnos}
+      cajas={cajas}
+      movimientosTodos={movimientosTodos}
+      ventasPorMes={ventasPorMes(ventas)}
+      salesTrend={facturacionDiaria(ventas)}
+      fuenteClientes={<FuenteClientes />}
+    />
+  );
+}

@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Delta } from "@/components/ui/stat-card";
-import { dashboardMetrics } from "@/lib/mock-data";
+import type { MetricaDashboard } from "@/lib/dashboard";
 
 function MetricCard({
   label,
@@ -33,10 +33,10 @@ function MetricCard({
   );
 }
 
-export function MetricCards() {
+export function MetricCards({ metrics }: { metrics: MetricaDashboard[] }) {
   return (
     <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
-      {dashboardMetrics.map((m) => (
+      {metrics.map((m) => (
         <MetricCard
           key={m.key}
           label={m.label}

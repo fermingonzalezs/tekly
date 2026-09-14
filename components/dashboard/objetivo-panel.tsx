@@ -3,28 +3,42 @@ import { ChartTitle } from "@/components/ui/chart-title";
 import { Delta } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import { GHOST_STRIPES, DASH_ACCENT } from "@/lib/chart";
-import { monthGoal, salesByMonth } from "@/lib/mock-data";
+// `target` (la meta del mes) no tiene owner de configuración todavía -- eso
+// sería tema de Configuración. current/dayOfMonth/daysInMonth/prevMes/
+// prevTotal SÍ son reales, vienen por prop (ver `objetivoDelMes` en
+// `lib/dashboard.ts`).
+import { monthGoal } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 
-export function ObjetivoPanel() {
-  const { current, target, dayOfMonth, daysInMonth } = monthGoal;
-
+export function ObjetivoPanel({
+  current,
+  dayOfMonth,
+  daysInMonth,
+  prevMes,
+  prevTotal,
+  target = monthGoal.target,
+}: {
+  current: number;
+  dayOfMonth: number;
+  daysInMonth: number;
+  prevMes: string;
+  prevTotal: number;
+  target?: number;
+}) {
   const pct = Math.round(Math.min(1, current / target) * 100);
   const falta = Math.max(0, target - current);
   const daysLeft = Math.max(0, daysInMonth - dayOfMonth);
 
   // proyección lineal al ritmo de lo que va del mes
-  const projected = Math.round((current / dayOfMonth) * daysInMonth);
+  const projected = dayOfMonth > 0 ? Math.round((current / dayOfMonth) * daysInMonth) : 0;
   const projectedPct = Math.round((projected / target) * 100);
 
   // U$/día que hace falta para cerrar el objetivo
   const perDay = daysLeft > 0 ? Math.ceil(falta / daysLeft) : falta;
 
-  // variación vs el mes anterior de salesByMonth
-  const prev = salesByMonth[salesByMonth.length - 2];
-  const prevTotal =
-    prev.equipos + prev.reparaciones + prev.accesorios + prev.otros;
-  const momPct = ((current - prevTotal) / prevTotal) * 100;
+  // variación vs el total real del mes anterior -- 0 si todavía no hay
+  // historial (org nueva), en vez de dividir por 0.
+  const momPct = prevTotal > 0 ? ((current - prevTotal) / prevTotal) * 100 : 0;
 
   return (
     <Card className="flex flex-col p-4">
@@ -79,7 +93,7 @@ export function ObjetivoPanel() {
           />
           <Stat
             className="text-right"
-            label={`vs ${prev.mes}`}
+            label={`vs ${prevMes}`}
             value={
               <Delta value={momPct} className="px-1.5 py-0.5 text-[10px]" />
             }

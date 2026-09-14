@@ -6,8 +6,15 @@ import { DASH_COLORS as COLORS } from "@/lib/chart";
 
 export function RubrosPie({
   data = ventasPorRubro.mes,
+  totalFacturado = monthGoal.current,
 }: {
+  // Mix Equipos/Reparaciones/Accesorios/Otros: no derivable todavía --
+  // `Venta.tipo` no distingue esas categorías. Referencia ilustrativa.
   data?: { label: string; value: number }[];
+  // Este sí es real: facturado del mes (ver `objetivoDelMes` en
+  // `lib/dashboard.ts`) -- se usa para que el $ de cada porción sea correcto
+  // aunque el mix de categorías siga siendo ilustrativo.
+  totalFacturado?: number;
 }) {
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
 
@@ -15,7 +22,7 @@ export function RubrosPie({
     label: d.label,
     pct: Math.round((d.value / total) * 100),
     color: COLORS[i % COLORS.length],
-    valueLabel: fmtUsd(Math.round(monthGoal.current * (d.value / total))),
+    valueLabel: fmtUsd(Math.round(totalFacturado * (d.value / total))),
   }));
 
   return (

@@ -8,6 +8,7 @@ import {
 } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { CHART_COLORS as COLORS } from "@/lib/chart";
+import { otroValorStock } from "@/lib/otros";
 import type { Equipo, OtroItem, Repuesto } from "@/lib/types";
 
 export function InventarioValor({
@@ -25,7 +26,7 @@ export function InventarioValor({
     .filter((e) => e.estado !== "vendido")
     .reduce((a, e) => a + e.costoUsd, 0);
   const valRepuestos = repuestos.reduce((a, r) => a + r.stock * r.costoUsd, 0);
-  const valOtros = otros.reduce((a, o) => a + o.cantidad * o.costoUsd, 0);
+  const valOtros = otros.reduce((a, o) => a + otroValorStock(o), 0);
 
   const rows = [
     { label: "Equipos", value: valEquipos },
@@ -50,12 +51,16 @@ export function InventarioValor({
           {rows.map((r, i) => (
             <div
               key={r.label}
-              className="h-9"
+              className="flex h-9 items-center justify-center overflow-hidden"
               style={{
                 width: `${(r.value / total) * 100}%`,
                 background: COLORS[i % COLORS.length],
               }}
-            />
+            >
+              <span className="truncate px-1 text-[11px] font-semibold text-white">
+                {fmtUsd(r.value)}
+              </span>
+            </div>
           ))}
         </div>
 
@@ -67,9 +72,6 @@ export function InventarioValor({
                 style={{ background: COLORS[i % COLORS.length] }}
               />
               <span className="text-neutral-600">{r.label}</span>
-              <span className="ml-auto font-semibold tabular-nums">
-                {fmtUsd(r.value)}
-              </span>
             </li>
           ))}
         </ul>

@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Smartphone, Settings } from "lucide-react";
-import { NAV } from "@/lib/nav";
+import { Smartphone } from "lucide-react";
+import { navForRole } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { NotificationsBell } from "@/components/notifications/bell";
 import { DolarNavbar } from "@/components/dolar-navbar";
+import { UserMenu } from "@/components/auth/user-menu";
+import type { SessionUser } from "@/lib/auth/types";
 
-export function TopNav() {
+export function TopNav({ user }: { user: SessionUser }) {
   const pathname = usePathname();
-  const items = NAV.filter((n) => n.href !== "/configuracion");
+  const items = navForRole(user.rol).filter((n) => n.href !== "/configuracion");
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-neutral-200 bg-white/90 px-5 backdrop-blur">
@@ -21,7 +23,7 @@ export function TopNav() {
         <span className="hidden text-sm font-semibold md:block">Tekly</span>
       </Link>
 
-      <nav className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto">
+      <nav className="no-scrollbar flex min-w-0 flex-1 items-center justify-center gap-1 overflow-x-auto">
         {items.map(({ href, label, icon: Icon }) => {
           const active =
             pathname === href || pathname.startsWith(href + "/");
@@ -45,17 +47,8 @@ export function TopNav() {
 
       <div className="flex shrink-0 items-center gap-2.5">
         <DolarNavbar />
-        <Link
-          href="/configuracion"
-          aria-label="Configuración"
-          className="grid h-9 w-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition-colors hover:bg-neutral-50 hover:text-neutral-700"
-        >
-          <Settings className="h-4 w-4" />
-        </Link>
         <NotificationsBell />
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-[13px] font-semibold text-white">
-          FG
-        </div>
+        <UserMenu user={user} />
       </div>
     </header>
   );

@@ -2,20 +2,23 @@
 
 import { Printer } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { negocio } from "@/lib/mock-data";
+import { negocio as negocioSeed } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+
+type Negocio = { nombre: string; direccion: string; telefono: string; cuit: string };
 
 /** Hoja del recibo, con el estilo del sistema. Es lo único que se imprime. */
 function ReciboShell({
   titulo,
   nro,
   fecha,
+  negocio = negocioSeed,
   children,
 }: {
   titulo: string;
   nro: string;
   fecha: string;
+  negocio?: Negocio;
   children: React.ReactNode;
 }) {
   return (
@@ -65,6 +68,7 @@ export function ReciboDialog({
   titulo,
   nro,
   fecha,
+  negocio,
   children,
 }: {
   open: boolean;
@@ -72,6 +76,7 @@ export function ReciboDialog({
   titulo: string;
   nro: string;
   fecha: string;
+  negocio?: Negocio;
   children: React.ReactNode;
 }) {
   return (
@@ -79,20 +84,27 @@ export function ReciboDialog({
       open={open}
       onClose={onClose}
       size="lg"
+      accent
       title={titulo}
       description={`${nro} · ${fecha}`}
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <button
+            onClick={onClose}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
             Cerrar
-          </Button>
-          <Button size="sm" onClick={() => window.print()}>
+          </button>
+          <button
+            onClick={() => window.print()}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+          >
             <Printer className="h-4 w-4" /> Imprimir / Guardar PDF
-          </Button>
+          </button>
         </>
       }
     >
-      <ReciboShell titulo={titulo} nro={nro} fecha={fecha}>
+      <ReciboShell titulo={titulo} nro={nro} fecha={fecha} negocio={negocio}>
         {children}
       </ReciboShell>
     </Dialog>

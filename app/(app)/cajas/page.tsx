@@ -1,0 +1,26 @@
+import { Section } from "@/components/section";
+import { requireUser } from "@/lib/auth";
+import { listCajas, listConciliaciones, listMovimientos } from "@/lib/db/cajas";
+import { CajasClient } from "./cajas-client";
+
+export default async function CajasPage() {
+  const user = await requireUser();
+  const [cajas, movimientosSinConciliar, movimientosTodos, conciliaciones] = await Promise.all([
+    listCajas(),
+    listMovimientos({ soloSinConciliar: true }),
+    listMovimientos(),
+    listConciliaciones(),
+  ]);
+
+  return (
+    <Section title="Cajas">
+      <CajasClient
+        initialCajas={cajas}
+        initialMovimientosSinConciliar={movimientosSinConciliar}
+        initialMovimientosTodos={movimientosTodos}
+        initialConciliaciones={conciliaciones}
+        usuarioNombre={user.nombre}
+      />
+    </Section>
+  );
+}

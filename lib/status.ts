@@ -1,7 +1,9 @@
 import type {
+  CompraEstado,
   EquipoStatus,
   MedioPago,
   OtroCategoria,
+  Role,
   TicketStatus,
   TurnoEstado,
   TurnoTipo,
@@ -25,6 +27,20 @@ export const dotClass: Record<Tone, string> = {
   gray: "bg-neutral-400",
   red: "bg-red-500",
   violet: "bg-violet-500",
+};
+
+// ── Usuarios y roles ───────────────────────────────────────────
+
+export const rolTone: Record<Role, Tone> = {
+  admin: "violet",
+  vendedor: "blue",
+  tecnico: "green",
+};
+
+export const rolLabel: Record<Role, string> = {
+  admin: "Admin / Dueño",
+  vendedor: "Vendedor",
+  tecnico: "Técnico",
 };
 
 // ── Tickets de reparación ──────────────────────────────────────
@@ -68,6 +84,7 @@ export const equipoStatus: Record<
   en_revision: { label: "En revisión", tone: "amber" },
   aprobado_para_venta: { label: "Aprobado p/ venta", tone: "violet" },
   disponible: { label: "Disponible", tone: "green" },
+  reservado: { label: "Reservado", tone: "blue" },
   vendido: { label: "Vendido", tone: "gray" },
 };
 
@@ -110,6 +127,16 @@ export const otroCategoria: Record<OtroCategoria, { label: string; tone: Tone }>
   tablet: { label: "Tablet", tone: "green" },
   accesorio: { label: "Accesorio", tone: "gray" },
   otro: { label: "Otro", tone: "gray" },
+};
+
+// ── Compras ────────────────────────────────────────────────────
+
+export const compraEstado: Record<
+  CompraEstado,
+  { label: string; tone: Tone }
+> = {
+  pendiente: { label: "Pendiente", tone: "amber" },
+  recibida: { label: "Recibida", tone: "green" },
 };
 
 // ── Medios de pago ─────────────────────────────────────────────

@@ -2,11 +2,17 @@ import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
 import { GHOST_STRIPES, CHART_ACCENT } from "@/lib/chart";
-import { tickets } from "@/lib/mock-data";
+import type { Ticket } from "@/lib/types";
 
 const TERMINADAS = ["listo", "entregado"];
 
-export function ReparacionesSplit({ className }: { className?: string }) {
+export function ReparacionesSplit({
+  tickets,
+  className,
+}: {
+  tickets: Ticket[];
+  className?: string;
+}) {
   const terminadas = tickets.filter((t) => TERMINADAS.includes(t.estado)).length;
   const enCurso = tickets.length - terminadas;
   const total = terminadas + enCurso || 1;
@@ -14,7 +20,7 @@ export function ReparacionesSplit({ className }: { className?: string }) {
 
   return (
     <Card className={cn("flex flex-col p-5", className)}>
-      <ChartTitle align="left" divider>
+      <ChartTitle align="left" divider sub={`${tickets.length} tickets en el período`}>
         Reparaciones
       </ChartTitle>
 
