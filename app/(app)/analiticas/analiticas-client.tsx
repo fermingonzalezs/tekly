@@ -29,6 +29,7 @@ import { TendenciaRubros } from "@/components/analiticas/tendencia-rubros";
 import { DemografiaClientes } from "@/components/clientes/demografia";
 import { InventarioValor } from "@/components/inventario-valor";
 import type { Caja, Cliente, Equipo, MovimientoCaja, OtroItem, Repuesto, Turno, Venta } from "@/lib/types";
+import type { Periodo, RangoEdad } from "@/lib/clientes";
 
 type Row = { label: string; value: number };
 
@@ -83,6 +84,7 @@ export function AnaliticasClient({
   movimientosTodos,
   ventasPorMes,
   salesTrend,
+  demografia,
   fuenteClientes,
 }: {
   ventas: Venta[];
@@ -95,6 +97,7 @@ export function AnaliticasClient({
   movimientosTodos: MovimientoCaja[];
   ventasPorMes: { mes: string; usd: number }[];
   salesTrend: number[];
+  demografia: Record<Periodo, RangoEdad[]>;
   fuenteClientes: React.ReactNode;
 }) {
   const [tab, setTab] = useState<Categoria>("ventas");
@@ -496,7 +499,7 @@ export function AnaliticasClient({
         {tab === "clientes" && (
           <div className="space-y-6">
             <div className="grid gap-6 xl:grid-cols-2">
-              <DemografiaClientes />
+              <DemografiaClientes data={demografia} />
               {fuenteClientes}
             </div>
             <div className="grid gap-6 xl:grid-cols-2">

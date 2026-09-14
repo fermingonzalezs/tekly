@@ -1,16 +1,18 @@
 import { Section } from "@/components/section";
+import { requireUser } from "@/lib/auth";
 import { listClientesOpciones } from "@/lib/db/clientes";
 import { listServicios, listTecnicos, listTickets } from "@/lib/db/reparaciones";
 import { getNegocio } from "@/lib/db/configuracion";
 import { ReparacionesClient } from "./reparaciones-client";
 
 export default async function ReparacionesPage() {
-  const [tickets, servicios, tecnicos, clientesOpciones, negocio] = await Promise.all([
+  const [tickets, servicios, tecnicos, clientesOpciones, negocio, user] = await Promise.all([
     listTickets(),
     listServicios(),
     listTecnicos(),
     listClientesOpciones(),
     getNegocio(),
+    requireUser(),
   ]);
 
   return (
@@ -21,6 +23,7 @@ export default async function ReparacionesPage() {
         tecnicos={tecnicos}
         clientesOpciones={clientesOpciones}
         negocio={negocio}
+        user={user}
       />
     </Section>
   );

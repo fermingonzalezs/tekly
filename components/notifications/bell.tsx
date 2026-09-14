@@ -2,12 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
-import {
-  subscribe,
-  describe,
-  type AppEvent,
-  type ToastView,
-} from "@/lib/realtime";
+import { describe, type AppEvent, type ToastView } from "@/lib/realtime";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 
 type Notif = ToastView & { id: number; ts: number };
@@ -21,6 +17,7 @@ function ago(ts: number, now: number) {
 }
 
 export function NotificationsBell() {
+  const { subscribe } = useRealtime();
   const [list, setList] = useState<Notif[]>([]);
   const [open, setOpen] = useState(false);
   const [seen, setSeen] = useState(0);
@@ -36,7 +33,7 @@ export function NotificationsBell() {
         ].slice(0, 15),
       );
     });
-  }, []);
+  }, [subscribe]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30_000);

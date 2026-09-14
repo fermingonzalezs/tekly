@@ -52,6 +52,9 @@ export type Cliente = {
   telefono: string;
   email: string;
   desde: string;
+  /** Opcional -- solo para "Demografía de clientes" en el dashboard de
+   * Clientes. Un cliente sin esto queda afuera de ese cálculo. */
+  fechaNacimiento?: string;
   compras: number;
   reparaciones: number;
   gastadoUsd: number;

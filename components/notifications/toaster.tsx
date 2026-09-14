@@ -9,7 +9,8 @@ import {
   CalendarClock,
   X,
 } from "lucide-react";
-import { subscribe, describe, type AppEvent, type ToastView } from "@/lib/realtime";
+import { describe, type AppEvent, type ToastView } from "@/lib/realtime";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 
 type Toast = ToastView & { id: number; leaving?: boolean };
@@ -25,6 +26,7 @@ const ICONS = {
 const LIFE_MS = 5000;
 
 export function Toaster() {
+  const { subscribe } = useRealtime();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -46,7 +48,7 @@ export function Toaster() {
       off();
       timers.current.forEach(clearTimeout);
     };
-  }, []);
+  }, [subscribe]);
 
   return (
     <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-3">

@@ -10,13 +10,15 @@ import {
   turnoStatus,
   equipoStatus,
   medioPago,
+  rolLabel,
   dotClass,
 } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
-import { publish } from "@/lib/realtime";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { thDivider } from "@/lib/ui-styles";
 import type { Turno, TurnoTipo, Equipo, MedioPago, Pago } from "@/lib/types";
+import type { SessionUser } from "@/lib/auth/types";
 import { createTurnoAction, setTurnoEstadoAction } from "./actions";
 
 const MEDIOS: MedioPago[] = [
@@ -53,10 +55,14 @@ type ChipState = "normal" | "highlight" | "hidden";
 export function TurnosClient({
   initialTurnos,
   initialEquipos,
+  user,
 }: {
   initialTurnos: Turno[];
   initialEquipos: Equipo[];
+  user: SessionUser;
 }) {
+  const { publish } = useRealtime();
+  const actor = `${user.nombre} (${rolLabel[user.rol].toLowerCase()})`;
   const [list, setList] = useState<Turno[]>(initialTurnos);
   const [equipos, setEquipos] = useState<Equipo[]>(initialEquipos);
   const [sel, setSel] = useState<Turno | null>(null);
@@ -105,7 +111,7 @@ export function TurnosClient({
     if (t.ticketId)
       publish({
         type: "appointment_arrived",
-        actor: "Meli (ventas)",
+        actor,
         client: t.cliente,
         ticket: t.ticketId,
       });
@@ -133,6 +139,13 @@ export function TurnosClient({
     startTransition(async () => {
       const turno = await createTurnoAction({ dayOffset, hora, ...data });
       setList((p) => [...p, turno]);
+      publish({
+        type: "appointment_scheduled",
+        actor,
+        client: data.cliente,
+        tipoLabel: turnoTipo[data.tipo].label,
+        when: `${dayLabel(dayOffset)} · ${hora}`,
+      });
       if (data.equipoIds.length) {
         const nuevoEstado = data.tipo === "retira" ? "vendido" : "reservado";
         setEquipos((p) =>

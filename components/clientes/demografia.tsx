@@ -3,23 +3,21 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
-// `Cliente` no guarda edad -- no hay de dónde derivar esto de datos reales
-// todavía. Queda en mock hasta que se decida si vale la pena pedir/guardar
-// fecha de nacimiento en el alta de cliente.
-import { clientesDemografia } from "@/lib/mock-data";
 import { CHART_ACCENT, GHOST_STRIPES } from "@/lib/chart";
 import { cn } from "@/lib/utils";
+import type { Periodo, RangoEdad } from "@/lib/clientes";
 
 const PERIODOS = [
   { key: "historico", label: "Histórico" },
   { key: "semana", label: "Semana" },
   { key: "mes", label: "Mes" },
-] as const;
-type Periodo = (typeof PERIODOS)[number]["key"];
+] as const satisfies { key: Periodo; label: string }[];
 
-export function DemografiaClientes() {
+/** `data` viene calculado real desde `lib/db/clientes.ts` (`demografiaClientes()`)
+ * -- clientes sin `fechaNacimiento` cargada quedan afuera del cálculo. */
+export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]> }) {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
-  const rows = clientesDemografia[periodo];
+  const rows = data[periodo];
   const axisMax = Math.max(
     30,
     Math.ceil(Math.max(...rows.map((r) => r.pct)) / 10) * 10,

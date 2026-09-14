@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Plus } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -74,9 +74,13 @@ export function ConfiguracionClient({
         {tab === "usuarios" && (
           <div className="space-y-3">
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => setInvitando(true)}>
+              <button
+                onClick={() => setInvitando(true)}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+              >
+                <Plus className="h-4 w-4" />
                 Invitar usuario
-              </Button>
+              </button>
             </div>
             <Card className="overflow-hidden">
               <table className="w-full text-sm">
@@ -136,9 +140,13 @@ export function ConfiguracionClient({
         {tab === "plantillas" && (
           <div className="space-y-3">
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => setEditandoTemplate("nueva")}>
+              <button
+                onClick={() => setEditandoTemplate("nueva")}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+              >
+                <Plus className="h-4 w-4" />
                 Nueva plantilla
-              </Button>
+              </button>
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               {templates.map((p) => (
@@ -213,15 +221,23 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
     <Dialog
       open={open}
       onClose={onClose}
+      accent
       title="Invitar usuario"
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <button
+            onClick={onClose}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
             Cancelar
-          </Button>
-          <Button size="sm" disabled={pending || !email.trim() || !nombre.trim()} onClick={enviar}>
+          </button>
+          <button
+            onClick={enviar}
+            disabled={pending || !email.trim() || !nombre.trim()}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          >
             {pending ? "Invitando…" : "Invitar"}
-          </Button>
+          </button>
         </>
       }
     >
@@ -277,15 +293,23 @@ function CambiarRolDialog({
     <Dialog
       open={!!miembro}
       onClose={onClose}
+      accent
       title={miembro ? `Cambiar rol · ${miembro.nombre}` : ""}
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <button
+            onClick={onClose}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
             Cancelar
-          </Button>
-          <Button size="sm" disabled={pending} onClick={guardar}>
+          </button>
+          <button
+            onClick={guardar}
+            disabled={pending}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          >
             {pending ? "Guardando…" : "Guardar"}
-          </Button>
+          </button>
         </>
       }
     >
@@ -332,15 +356,23 @@ function TemplateDialog({
     <Dialog
       open={open}
       onClose={onClose}
+      accent
       title={template ? "Editar plantilla" : "Nueva plantilla"}
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <button
+            onClick={onClose}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
             Cancelar
-          </Button>
-          <Button size="sm" disabled={pending || !nombre.trim() || !texto.trim()} onClick={guardar}>
+          </button>
+          <button
+            onClick={guardar}
+            disabled={pending || !nombre.trim() || !texto.trim()}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          >
             {pending ? "Guardando…" : "Guardar"}
-          </Button>
+          </button>
         </>
       }
     >
@@ -406,10 +438,24 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
             onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))}
           />
         </Field>
+        <Field label="Objetivo del mes (USD)">
+          <Input
+            type="number"
+            min={0}
+            value={form.objetivoMesUsd}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, objetivoMesUsd: Number(e.target.value) }))
+            }
+          />
+        </Field>
         {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
-        <Button size="sm" disabled={pending} onClick={guardar}>
+        <button
+          onClick={guardar}
+          disabled={pending}
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+        >
           {pending ? "Guardando…" : "Guardar cambios"}
-        </Button>
+        </button>
       </div>
     </Card>
   );
@@ -453,9 +499,13 @@ function MiCuenta({ user }: { user: SessionUser }) {
         {saved && !error && (
           <p className="text-xs text-emerald-600">Cambios guardados.</p>
         )}
-        <Button size="sm" disabled={pending || !nombre.trim()} onClick={guardar}>
+        <button
+          onClick={guardar}
+          disabled={pending || !nombre.trim()}
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+        >
           Guardar cambios
-        </Button>
+        </button>
       </div>
     </Card>
   );

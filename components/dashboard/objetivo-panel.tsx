@@ -3,27 +3,26 @@ import { ChartTitle } from "@/components/ui/chart-title";
 import { Delta } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import { GHOST_STRIPES, DASH_ACCENT } from "@/lib/chart";
-// `target` (la meta del mes) no tiene owner de configuración todavía -- eso
-// sería tema de Configuración. current/dayOfMonth/daysInMonth/prevMes/
-// prevTotal SÍ son reales, vienen por prop (ver `objetivoDelMes` en
-// `lib/dashboard.ts`).
-import { monthGoal } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 
+// `target` (la meta del mes) vive en `organizations.objetivo_mes_usd`,
+// editable desde Configuración → Datos del negocio (`lib/db/configuracion.ts`).
+// current/dayOfMonth/daysInMonth/prevMes/prevTotal son reales, vienen por
+// prop (ver `objetivoDelMes` en `lib/dashboard.ts`).
 export function ObjetivoPanel({
   current,
   dayOfMonth,
   daysInMonth,
   prevMes,
   prevTotal,
-  target = monthGoal.target,
+  target,
 }: {
   current: number;
   dayOfMonth: number;
   daysInMonth: number;
   prevMes: string;
   prevTotal: number;
-  target?: number;
+  target: number;
 }) {
   const pct = Math.round(Math.min(1, current / target) * 100);
   const falta = Math.max(0, target - current);

@@ -17,12 +17,14 @@ import type { Turno } from "@/lib/types";
 export function DashboardClient({
   metrics,
   objetivo,
+  objetivoTarget,
   trendByPeriodo,
   recentSales,
   turnos,
 }: {
   metrics: MetricaDashboard[];
   objetivo: ObjetivoMes;
+  objetivoTarget: number;
   trendByPeriodo: Record<DashPeriodo, { venta: number[]; ganancia: number[] }>;
   recentSales: VentaReciente[];
   turnos: Turno[];
@@ -74,6 +76,7 @@ export function DashboardClient({
                 daysInMonth={objetivo.daysInMonth}
                 prevMes={objetivo.prevMes}
                 prevTotal={objetivo.prevTotal}
+                target={objetivoTarget}
               />
             </div>
           </div>

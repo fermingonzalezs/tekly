@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { Zap, X } from "lucide-react";
-import { publish, transport, type AppEvent } from "@/lib/realtime";
+import type { AppEvent } from "@/lib/realtime";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 
 const ACTORS = ["Nico (técnico)", "Caro (ventas)", "Dueño", "Meli (ventas)"];
 const MODELS = ["iPhone 12", "iPhone 13 Pro", "iPhone 15", "Samsung S22"];
 const PARTS = ["Pantalla iPhone 13", "Batería iPhone 12", "Flex de carga 15"];
+const TIPOS_TURNO = ["Compra equipo", "Deja reparación", "Retira reparación", "Cotizar"];
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 const rnd = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min) + min);
@@ -50,6 +52,16 @@ const PRESETS: { label: string; build: () => AppEvent }[] = [
     }),
   },
   {
+    label: "Turno nuevo agendado",
+    build: () => ({
+      type: "appointment_scheduled",
+      actor: pick(ACTORS),
+      client: pick(["Juan P.", "Sofía R.", "Marco D.", "Lu V."]),
+      tipoLabel: pick(TIPOS_TURNO),
+      when: "lun 15 sep · 10:00",
+    }),
+  },
+  {
     label: "Stock bajo",
     build: () => ({
       type: "low_stock",
@@ -61,6 +73,7 @@ const PRESETS: { label: string; build: () => AppEvent }[] = [
 ];
 
 export function SimPanel() {
+  const { publish, transport } = useRealtime();
   const [open, setOpen] = useState(false);
   const [sent, setSent] = useState<string | null>(null);
 

@@ -29,12 +29,14 @@ import {
   TICKET_FLOW,
   nextTicketStatus,
   ticketStatus,
+  rolLabel,
   dotClass,
 } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
-import { publish } from "@/lib/realtime";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import type { Servicio, Ticket, TicketStatus } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
+import type { SessionUser } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
@@ -61,13 +63,17 @@ export function ReparacionesClient({
   tecnicos,
   clientesOpciones,
   negocio,
+  user,
 }: {
   initialTickets: Ticket[];
   initialServicios: Servicio[];
   tecnicos: { id: string; nombre: string }[];
   clientesOpciones: { id: string; nombre: string }[];
   negocio: Negocio;
+  user: SessionUser;
 }) {
+  const { publish } = useRealtime();
+  const actor = `${user.nombre} (${rolLabel[user.rol].toLowerCase()})`;
   const [list, setList] = useState<Ticket[]>(initialTickets);
   const [tecFilter, setTecFilter] = useState("todos");
   const [estFilter, setEstFilter] = useState<"todos" | TicketStatus>("todos");
@@ -119,11 +125,11 @@ export function ReparacionesClient({
       const actualizado = await setTicketEstadoAction(id, estado);
       setList((prev) => prev.map((t) => (t.id === id ? actualizado : t)));
       if (estado === "listo")
-        publish({ type: "ticket_ready", actor: "Nico (técnico)", ticket: id, model: actualizado.equipo });
+        publish({ type: "ticket_ready", actor, ticket: id, model: actualizado.equipo });
       if (estado === "aprobado")
         publish({
           type: "repair_approved",
-          actor: "Caro (ventas)",
+          actor,
           ticket: id,
           amountUsd: actualizado.presupuestoUsd,
         });

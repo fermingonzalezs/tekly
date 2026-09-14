@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Plus, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/field";
 import { ticketStatus, turnoStatus, dotClass, type Tone } from "@/lib/status";
@@ -292,6 +291,27 @@ function Ficha({ cliente }: { cliente: Cliente }) {
   );
 }
 
+/** "15/5/2000abc" -> "15/05/2000" mientras se escribe -- solo dígitos,
+ * inserta las barras solo, máximo 8 dígitos (DDMMAAAA). */
+function maskFechaDDMMAAAA(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  const partes = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
+  return partes.join("/");
+}
+
+/** "15/05/2000" -> "2000-05-15" (lo que espera la columna `date`).
+ * `undefined` si está incompleta o el rango no es plausible. */
+function fechaDDMMAAAAaIso(ddmmaaaa: string): string | undefined {
+  const m = ddmmaaaa.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return undefined;
+  const [, dd, mm, yyyy] = m;
+  const d = Number(dd);
+  const mo = Number(mm);
+  const y = Number(yyyy);
+  if (d < 1 || d > 31 || mo < 1 || mo > 12 || y < 1900) return undefined;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function NuevoClienteDialog({
   open,
   onClose,
@@ -304,6 +324,7 @@ function NuevoClienteDialog({
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [email, setEmail] = useState("");
+  const [fechaNacimiento, setFechaNacimiento] = useState("");
   const [pending, startTransition] = useTransition();
 
   function submit() {
@@ -312,6 +333,7 @@ function NuevoClienteDialog({
         nombre: nombre.trim(),
         telefono: telefono.trim(),
         email: email.trim(),
+        fechaNacimiento: fechaDDMMAAAAaIso(fechaNacimiento),
       });
       onCreate(cliente);
     });
@@ -321,15 +343,23 @@ function NuevoClienteDialog({
     <Dialog
       open={open}
       onClose={onClose}
+      accent
       title="Nuevo cliente"
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <button
+            onClick={onClose}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
             Cancelar
-          </Button>
-          <Button size="sm" disabled={!nombre.trim() || pending} onClick={submit}>
+          </button>
+          <button
+            onClick={submit}
+            disabled={!nombre.trim() || pending}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          >
             {pending ? "Creando…" : "Crear cliente"}
-          </Button>
+          </button>
         </>
       }
     >
@@ -345,6 +375,15 @@ function NuevoClienteDialog({
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@mail.com" />
           </Field>
         </div>
+        <Field label="Fecha de nacimiento (opcional)">
+          <Input
+            value={fechaNacimiento}
+            onChange={(e) => setFechaNacimiento(maskFechaDDMMAAAA(e.target.value))}
+            placeholder="DD/MM/AAAA"
+            inputMode="numeric"
+            maxLength={10}
+          />
+        </Field>
       </div>
     </Dialog>
   );

@@ -219,13 +219,17 @@ queries a Supabase.
 **Las 12 secciones están migradas** (Clientes, Inventario, Reparaciones,
 Ventas, Turnos, Cajas, Compras, Cuentas corrientes, Difusión, Analíticas,
 Dashboard, Configuración) — no queda ninguna página en el patrón mock viejo.
-Además, un puñado de datasets puntuales sigue en `lib/mock-data.ts` porque falta trackear el
-dato que los sustenta, no por falta de migrar la sección —
-`clientesDemografia` (`Cliente` no guarda edad); en Analíticas
-`tiempoPorFalla` (no hay timestamp de "listo/entregado" en `tickets`),
-`rendimientoTecnicos` (no hay reingresos ni calificación en ningún lado) y
-`margenPorTipo`/`salesByMonth`; y en Dashboard `ventasPorRubro` — estos
-últimos porque `Venta.tipo` real solo distingue 'venta'/'reparacion', no hay
+`clientesDemografia` también pasó a real: `clientes.fecha_nacimiento`
+(opcional, se carga en el alta) + `lib/clientes.ts` (`demografiaClientes()`,
+lógica pura con test) — un cliente sin esa fecha cargada simplemente no
+entra en el cálculo.
+
+Sigue en `lib/mock-data.ts` un puñado de datasets puntuales porque falta
+trackear el dato que los sustenta, no por falta de migrar la sección: en
+Analíticas `tiempoPorFalla` (no hay timestamp de "listo/entregado" en
+`tickets`), `rendimientoTecnicos` (no hay reingresos ni calificación en
+ningún lado) y `margenPorTipo`; y en Dashboard `ventasPorRubro` — estos
+porque `Venta.tipo` real solo distingue 'venta'/'reparacion', no hay
 categoría "Accesorios"/"Otros" separada. `monthGoal.target` (la meta del
 mes) tampoco es "dato falso": es un valor de negocio sin owner de
 configuración todavía (`current`, en cambio, ya es 100% real). Cada caso
@@ -598,6 +602,9 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   ficha con historial cruzado real (ventas/tickets/turnos vía
   `lib/db/clientes.ts`); toolbar «Nuevo cliente». `compras`/`reparaciones`/
   `gastadoUsd` son calculados, no columnas — ver "Backend y multi-tenancy".
+  «Nuevo cliente» tiene un campo opcional "Fecha de nacimiento" -- es lo
+  único que alimenta el widget de demografía por edad (`fecha_nacimiento`
+  en la tabla, `lib/clientes.ts` para el cálculo puro).
 - **Cajas** (`app/(app)/cajas/`, migrado): `Caja` (`lib/types.ts`) = `{ id, nombre,
   moneda: "usd" | "ars", activa, descripcion, creadaEl, medioPago }` — puede
   haber varias por moneda (Mostrador/Taller en ARS, Caja USD/Bóveda USD en
@@ -720,22 +727,42 @@ páginas siempre lo pasan).
 
 ## Notificaciones en tiempo real
 
-`lib/realtime.ts`:
+Split en dos módulos -- **no juntarlos de nuevo**:
 
-- `publish(e: AppEvent)` / `subscribe(fn)`. El emisor **no** recibe su propio
-  evento (son "acciones de otros").
-- Transporte: si hay `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  → Supabase Realtime Broadcast (canal `crm-events`). Si no → `BroadcastChannel`
-  nativo (cross-tab en el mismo browser). `transport` expone cuál está activo.
-- `AppEvent` (unión): `sale_confirmed`, `ticket_ready`, `repair_approved`,
-  `appointment_arrived`, `low_stock`. Agregar un tipo nuevo = extender la unión
-  **y** el `switch` de `describe()`.
-- `describe(e)` → `ToastView` que renderiza `components/notifications/toaster.tsx`.
+- `lib/realtime.ts`: solo tipos + presentación, sin transporte. `AppEvent`
+  (unión: `sale_confirmed`, `ticket_ready`, `repair_approved`,
+  `appointment_arrived`, `appointment_scheduled`, `low_stock` -- agregar un
+  tipo nuevo = extender la unión **y** el `switch` de `describe()`) y
+  `describe(e)` → `ToastView`. No toca `window`, seguro de importar desde
+  cualquier lado.
+- `components/notifications/realtime-provider.tsx`: el transporte.
+  `RealtimeProvider({ organizationId, children })` (montado en
+  `app/(app)/layout.tsx` con `user.organizationId`) + hook `useRealtime()` →
+  `{ publish, subscribe, transport }`. El canal es **`crm-events:<organizationId>`**,
+  no uno global -- sin esto, cualquier evento de una organización se vería
+  en todas las demás (bug real que hubo y se arregló). Transporte: si hay
+  `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` → Supabase
+  Realtime Broadcast; si no → `BroadcastChannel` nativo (cross-tab, mismo
+  browser). El emisor **no** recibe su propio evento (son "acciones de otros").
+
+Quien dispara un evento (`publish(...)` desde un client component, después
+de que la server action confirmó) arma `actor` con el usuario real de la
+sesión -- `` `${user.nombre} (${rolLabel[user.rol].toLowerCase()})` `` (ver
+`turnos-client.tsx`/`reparaciones-client.tsx`) o el dato real del registro
+cuando corresponde (Ventas usa `venta.vendedor`). **Nunca hardcodear un
+nombre de actor** -- eso fue un bug real que quedó de la época mock.
+
 - `components/notifications/bell.tsx` (`NotificationsBell`, en el `Topbar`)
-  también se suscribe: guarda las últimas ~15 notificaciones con timestamp y
-  las muestra en un dropdown al tocar la campanita, con contador de no leídas.
-- `components/notifications/sim-panel.tsx` es el botón flotante "Simular" para
-  disparar eventos fake y probar los toasts en otra pestaña.
+  se suscribe vía `useRealtime()`: guarda las últimas ~15 notificaciones con
+  timestamp y las muestra en un dropdown al tocar la campanita, con contador
+  de no leídas. Es en memoria del navegador -- se pierde al recargar, no hay
+  tabla de notificaciones persistida.
+- `components/notifications/sim-panel.tsx` es el botón flotante "Simular"
+  para disparar eventos fake (con actores de mock, a propósito -- es un
+  simulador) y probar los toasts en otra pestaña.
+- De los 6 tipos de `AppEvent`, `low_stock` está definido pero **nada lo
+  dispara todavía** -- ninguna sección chequea stock contra el mínimo y
+  publica el evento. Pendiente si se decide conectarlo.
 
 ## Qué NO hacer
 

@@ -9,6 +9,7 @@ export async function createClienteAction(data: {
   nombre: string;
   telefono?: string;
   email?: string;
+  fechaNacimiento?: string;
 }): Promise<Cliente> {
   await requireUser();
   const cliente = await createCliente(data);

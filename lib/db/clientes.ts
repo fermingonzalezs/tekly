@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import type { Cliente } from "@/lib/types";
 import { fmtMonthYear } from "@/lib/format";
+import { demografiaClientes as demografiaClientesPura, type Periodo, type RangoEdad } from "@/lib/clientes";
 
 type ClienteRow = {
   id: string;
@@ -9,6 +10,7 @@ type ClienteRow = {
   telefono: string | null;
   email: string | null;
   desde: string;
+  fecha_nacimiento: string | null;
 };
 
 /** compras/reparaciones/gastadoUsd no se guardan en la tabla -- se derivan
@@ -24,6 +26,7 @@ function toCliente(
     telefono: row.telefono ?? "—",
     email: row.email ?? "—",
     desde: fmtMonthYear(row.desde),
+    fechaNacimiento: row.fecha_nacimiento ?? undefined,
     compras: stats.compras,
     reparaciones: stats.reparaciones,
     gastadoUsd: stats.gastadoUsd,
@@ -34,7 +37,7 @@ export async function listClientes(): Promise<Cliente[]> {
   const supabase = createServerClient();
   const { data: rows, error } = await supabase
     .from("clientes")
-    .select("id, nombre, telefono, email, desde")
+    .select("id, nombre, telefono, email, desde, fecha_nacimiento")
     .order("desde", { ascending: false });
   if (error) throw error;
   if (!rows.length) return [];
@@ -80,6 +83,7 @@ export async function createCliente(data: {
   nombre: string;
   telefono?: string;
   email?: string;
+  fechaNacimiento?: string;
 }): Promise<Cliente> {
   const supabase = createServerClient();
   const { data: row, error } = await supabase
@@ -88,11 +92,29 @@ export async function createCliente(data: {
       nombre: data.nombre,
       telefono: data.telefono || null,
       email: data.email || null,
+      fecha_nacimiento: data.fechaNacimiento || null,
     })
-    .select("id, nombre, telefono, email, desde")
+    .select("id, nombre, telefono, email, desde, fecha_nacimiento")
     .single();
   if (error) throw error;
   return toCliente(row, { compras: 0, reparaciones: 0, gastadoUsd: 0 });
+}
+
+/** Demografía por edad real, para el widget de Clientes. Clientes sin
+ * `fecha_nacimiento` cargada quedan afuera del cálculo. */
+export async function demografiaClientes(): Promise<Record<Periodo, RangoEdad[]>> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("clientes")
+    .select("fecha_nacimiento, desde")
+    .not("fecha_nacimiento", "is", null);
+  if (error) throw error;
+  return demografiaClientesPura(
+    data.map((c) => ({
+      fechaNacimiento: c.fecha_nacimiento ?? undefined,
+      desdeISO: c.desde,
+    })),
+  );
 }
 
 export type HistorialEntry =

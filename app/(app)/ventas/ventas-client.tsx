@@ -18,7 +18,7 @@ import { fmtUsd, fmtArs } from "@/lib/format";
 import { otroCostoPromedio } from "@/lib/otros";
 import { calcularMargenPct, calcularRestante, saldarUltimoPago } from "@/lib/ventas";
 import { useDolar } from "@/lib/dolar";
-import { publish } from "@/lib/realtime";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
@@ -94,6 +94,7 @@ export function VentasClient({
   vendedores: PersonaOpcion[];
   negocio: Negocio;
 }) {
+  const { publish } = useRealtime();
   const dolarVenta = useDolar().venta;
   const [list, setList] = useState<Venta[]>(initialVentas);
   const [vendFilter, setVendFilter] = useState("todos");
