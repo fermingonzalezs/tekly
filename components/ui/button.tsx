@@ -3,18 +3,21 @@ import { cn } from "@/lib/utils";
 type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "outline" | "ghost";
   size?: "sm" | "md";
+  shape?: "rounded" | "pill";
 };
 
 export function Button({
   className,
   variant = "primary",
   size = "md",
+  shape = "rounded",
   ...props
 }: Props) {
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-bold uppercase tracking-wider transition-all duration-150",
+        "inline-flex items-center justify-center gap-1.5 whitespace-nowrap font-bold uppercase tracking-wider transition-all duration-150",
+        shape === "pill" ? "rounded-full" : "rounded-lg",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1",
         "disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none",
         size === "sm" ? "h-8 px-3.5 text-[11px]" : "h-9 px-4 text-xs",

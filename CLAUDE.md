@@ -57,7 +57,12 @@ app/(app)/<seccion>/page.tsx   server component: fetch inicial vía lib/db/
 app/(app)/<seccion>/<seccion>-client.tsx   "use client": toda la interacción
 app/(app)/<seccion>/actions.ts             "use server": mutaciones (requireUser() + revalidatePath)
 app/(app)/layout.tsx      requireUser() + TopNav con la sesión real
-app/login/, app/signup/   fuera del grupo (app) -- fondo blurreado + AuthModal
+app/(app)/loading.tsx     spinner mientras carga cualquier página del grupo
+app/(app)/error.tsx       error boundary -- "Algo salió mal" + reintentar, en vez del crash genérico de Next
+app/login/, app/signup/,
+app/forgot-password/,
+app/reset-password/       fuera del grupo (app) -- fondo blurreado + AuthModal
+app/auth/confirm/route.ts único lugar que recibe los links de mail de Supabase Auth
 middleware.ts             protege rutas (sin sesión -> /login)
 components/ui/            primitivos reutilizables (ver abajo)
 components/auth/          AuthModal, AppPreviewBackdrop, UserMenu
@@ -147,11 +152,13 @@ password protection" (pendiente, ver "Qué falta").
 
 ### `lib/auth/` — única puerta a Supabase Auth
 
-`types.ts` (`SessionUser`, `Rol`), `supabase.ts` (los tres clientes:
-`createServerClient` para Server Components/Actions, `createMiddlewareClient`
-para `middleware.ts`, `createServiceRoleClient` para altas privilegiadas —
-**server-only**, nunca en un componente cliente), `index.ts` (`requireUser()`,
-`requireRole(...)`, `signIn`/`signUp`/`signOut`/`inviteMember`,
+`types.ts` (`SessionUser`, `Rol`, `EmailLinkType`, `REMEMBER_COOKIE_NAME`),
+`supabase.ts` (los tres clientes: `createServerClient` para Server
+Components/Actions, `createMiddlewareClient` para `middleware.ts`,
+`createServiceRoleClient` para altas privilegiadas — **server-only**, nunca
+en un componente cliente), `index.ts` (`requireUser()`, `requireRole(...)`,
+`signIn`/`signUp`/`signOut`/`inviteMember`, `requestPasswordReset`/
+`verifyEmailLink`/`updatePassword` para el flujo de mail,
 `updateOwnProfile`/`setMemberRole`), `validation.ts` (schemas de `zod` para
 los forms de auth).
 
@@ -159,6 +166,15 @@ los forms de auth).
 grupo; `middleware.ts` además redirige a `/login` antes de que la página
 llegue a renderizar. Ninguna página/componente importa `@supabase/*`
 directo — todo pasa por `lib/auth` (sesión) o `lib/db/<dominio>` (datos).
+
+Los tres clientes de `supabase.ts` comparten un `fetch` custom
+(`fetchWithClockSkewRetry`) pasado vía `global.fetch`: un JWT recién emitido
+(login, signup, verificar link de mail) puede pegarle a un nodo de
+PostgREST cuyo reloj todavía está un instante atrás del que lo firmó — 401
+`PGRST303` ("JWT issued at future") aunque el token es válido. Es un
+desajuste de reloj transitorio entre nodos de Supabase (se ve en los logs
+de `auth`/`edge_logs`, no es un bug de la app) que se resuelve solo en menos
+de un segundo, así que un reintento único alcanza.
 
 ### `lib/db/<dominio>.ts` — patrón por sección migrada
 
@@ -180,22 +196,60 @@ nunca desde dentro de un `lib/db/*` o `actions.ts`.
 
 ### Auth: páginas y flujo
 
-`/login` y `/signup` están fuera del grupo `(app)`, con su propio layout:
-fondo = `AppPreviewBackdrop` (maqueta muda del shell de la app, blureada,
-`components/auth/app-preview-backdrop.tsx`) + `AuthModal`
-(`components/auth/auth-modal.tsx`, mismo header índigo que `Dialog` con
-`accent`) centrado encima. `UserMenu` (`components/topnav.tsx`) reemplaza el
-avatar simple: muestra nombre/rol y permite cerrar sesión o editar nombre/
-alias (`updateOwnProfile`).
+`/login`, `/signup`, `/forgot-password` y `/reset-password` están fuera del
+grupo `(app)`, con su propio layout: fondo = `AppPreviewBackdrop` (maqueta
+muda del shell de la app, blureada, `components/auth/app-preview-backdrop.tsx`
+— hoy muestra la tab "Ventas" con una tabla de ventas recientes, no gráficos:
+un gráfico de barras/donut blureado se lee mal, una tabla con el patrón
+cebra global se banca el blur bien) + `AuthModal`
+(`components/auth/auth-modal.tsx`, header índigo parecido al de `Dialog` con
+`accent`, pero **no** es un `Dialog` -- no le aplica su regla de pills a
+mano). El botón primario de cada form usa `<Button shape="pill">` (ver
+"Otros primitivos"): mismo gradiente/sombra del `Button` default, redondeado
+para hacer juego con el header. `UserMenu`
+(`components/topnav.tsx`) reemplaza el avatar simple: muestra nombre/rol y
+permite cerrar sesión o editar nombre/alias (`updateOwnProfile`).
 
 Signup (`lib/auth/index.ts`): crea el usuario de auth, y si algo falla
 después (org o perfil), hace **rollback** del usuario recién creado — sin
 esto queda una cuenta fantasma que bloquea reintentar con el mismo email.
+El form pide "Confirmar contraseña" (validado con `zod`,
+`password === confirmPassword`, `lib/auth/validation.ts`). Si Supabase tiene
+"Confirm email" activo, `signUp` no devuelve sesión — el form no asume login
+inmediato, muestra "revisá tu mail" en vez de mandar a `/dashboard`.
+
+**Recordarme**: `@supabase/ssr` fuerza siempre 400 días de vida en su propia
+cookie de auth, no se puede acortar por configuración. La duración real la
+controla una cookie propia (`tekly-remember`, `REMEMBER_COOKIE_NAME` en
+`lib/auth/types.ts`): tildado en `/login` → persiste (`maxAge` largo);
+destildado → cookie de sesión del navegador (sin `maxAge`). `middleware.ts`
+la usa como señal: si la sesión de Supabase sigue viva pero esa cookie ya no
+está, asume que el navegador se cerró y corta la sesión. Toda vía que deja a
+alguien logueado (login, signup sin confirmación pendiente, aceptar
+invitación, confirmar cuenta, recuperar contraseña) tiene que llamar
+`setRememberCookie` — si no, la próxima request encuentra la cookie ausente
+y `middleware.ts` cierra la sesión sola pensando que el navegador se cerró.
+
+**Flujo de mail** (`app/auth/confirm/route.ts`): único lugar de la app que
+recibe los links de Supabase Auth (confirmar cuenta, invitación, recuperar
+contraseña) — verifica el `token_hash` (`verifyEmailLink` en
+`lib/auth/index.ts`) y redirige. Los templates de Email en el dashboard de
+Supabase tienen que armar el link como
+`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=<tipo>` — nunca
+`{{ .ConfirmationURL }}` (apunta directo al servidor de Supabase, que no
+conoce las cookies de esta app). `/forgot-password` dispara el mail
+(`requestPasswordReset`, siempre "éxito" aunque el mail no exista, para no
+filtrar qué cuentas están registradas) y `/reset-password` es la pantalla
+para poner la contraseña nueva (`updatePassword`), a la que el link de
+recuperación te deja con una sesión temporal.
 
 Ambiente de desarrollo: en Supabase Dashboard → Authentication → Providers →
-Email, "Confirm email" está **desactivado** (el email service default de
-Supabase tiene rate limit muy bajo, pensado solo para pruebas puntuales) —
-ver "Qué falta" para el plan antes de producción.
+Email, "Confirm email" puede estar desactivado en local (el email service
+default de Supabase tiene rate limit muy bajo, pensado solo para pruebas
+puntuales) — ya existen las pantallas para recibirlo (arriba), así que
+activarlo es seguro cuando haga falta probar el flujo completo. Ver "Qué
+falta" para lo pendiente antes de producción (Site URL, Redirect URLs,
+Email Templates, SMTP propio).
 
 ### Variables de entorno
 
@@ -229,18 +283,24 @@ trackear el dato que los sustenta, no por falta de migrar la sección: en
 Analíticas `tiempoPorFalla` (no hay timestamp de "listo/entregado" en
 `tickets`), `rendimientoTecnicos` (no hay reingresos ni calificación en
 ningún lado) y `margenPorTipo` — porque `Venta.tipo` real solo distingue
-'venta'/'reparacion', sin categoría "Accesorios"/"Otros" separada.
-`monthGoal.target` (la meta del
-mes) tampoco es "dato falso": es un valor de negocio sin owner de
-configuración todavía (`current`, en cambio, ya es 100% real). Cada caso
+'venta'/'reparacion', sin categoría "Accesorios"/"Otros" separada. Cada caso
 tiene un comentario en el código explicando por qué sigue en mock — agregar
-esas columnas/ese owner es una decisión de producto, no algo a resolver de
-paso en una migración.
+esas columnas es una decisión de producto, no algo a resolver de paso en
+una migración. La meta del mes (`target`) ya tiene owner y es 100% real:
+`organizations.objetivo_mes_usd`, editable en Configuración → Datos del
+negocio (`getNegocio()`/`updateNegocio()` en `lib/db/configuracion.ts`).
 
 ### Qué falta antes de producción
 
-- **SMTP propio para Auth** (Resend/Postmark) y reactivar "Confirm email" —
-  el email service default de Supabase no es apto para usuarios reales.
+- **SMTP propio para Auth** (Resend/Postmark) — el email service default de
+  Supabase no es apto para volumen real de usuarios (rate limit muy bajo).
+- Configuración manual en el dashboard de Supabase, proyecto `tekly` (no hay
+  tool de MCP para Auth email templates ni Site URL, es 100% a mano):
+  Site URL + Redirect URLs (Authentication → URL Configuration), activar
+  "Confirm email" (Authentication → Providers → Email), y pegar los 3 Email
+  Templates (Confirm signup / Invite user / Reset Password) con
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=<tipo>` —
+  ver "Auth: páginas y flujo".
 - **Leaked password protection** (Authentication → Policies): desactivada
   por default, activar antes de producción.
 
@@ -465,7 +525,7 @@ color.
 |---|---|---|
 | `Section` | `components/section.tsx` | `{ title, children, mainClassName?, toolbar? }` — wrapper de toda página. El `Topbar` **ya no muestra `title`** (se mantiene por compat); `toolbar` = control opcional en la Topbar (ej. selector de período del dashboard). **Sin `actions`** |
 | `Card` | `components/ui/card.tsx` | contenedor base (`rounded-2xl border shadow-sm`) |
-| `Button` | `components/ui/button.tsx` | `variant: primary \| outline \| ghost`, `size: sm \| md` |
+| `Button` | `components/ui/button.tsx` | `variant: primary \| outline \| ghost`, `size: sm \| md`, `shape: rounded \| pill` (default `rounded`; `pill` = mismo gradiente/sombra/mayúscula pero `rounded-full` — usado en `/login` y `/signup`, cuyo `AuthModal` lleva `accent`) |
 | `Badge` | `components/ui/badge.tsx` | `{ tone, dot?, className? }` — forma ÚNICA cuadrada (`rounded-md`); no hay prop de forma. Colores por `lib/status.ts` |
 | `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg, accent? }` — **centrado vertical**, con scroll propio si el contenido es alto; cierra con Esc / click fuera. Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
 | `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }], accent? }` — `accent` (hex) para teñir el estado activo con otro color; por defecto usa `accent` |
@@ -713,8 +773,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   y conecta por primera vez `inviteMember`/`setMemberRole` de `lib/auth`
   (existían desde la Fase 0, ninguna UI los llamaba) — "Invitar usuario" y
   el pill de rol por fila (abre `CambiarRolDialog`), ambos validan admin
-  server-side adentro de esas funciones. "Plantillas WhatsApp" es CRUD real
-  contra la tabla nueva `whatsapp_templates`. "Datos del negocio" es 1:1
+  server-side adentro de esas funciones. "Datos del negocio" es 1:1
   con la organización — no es una tabla aparte, son columnas nuevas en
   `organizations` (`direccion`/`telefono`/`cuit`/`horario`, además del
   `nombre` que ya existía); sin policy de `update` para `authenticated` (a

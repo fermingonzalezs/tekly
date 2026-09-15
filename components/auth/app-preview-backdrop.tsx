@@ -2,17 +2,22 @@ import { Smartphone, ShoppingCart, Wrench, CalendarClock, Boxes } from "lucide-r
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { ChartTitle } from "@/components/ui/chart-title";
-import { CHART_ACCENT, GHOST_STRIPES } from "@/lib/chart";
+import { dotClass, type Tone } from "@/lib/status";
 
 const NAV_DECOR = [
-  { label: "Dashboard", icon: Smartphone, active: true },
-  { label: "Ventas", icon: ShoppingCart },
+  { label: "Dashboard", icon: Smartphone },
+  { label: "Ventas", icon: ShoppingCart, active: true },
   { label: "Reparaciones", icon: Wrench },
   { label: "Turnos", icon: CalendarClock },
   { label: "Inventario", icon: Boxes },
 ];
 
-const BARRAS = [62, 84, 45, 96, 70, 88, 54];
+const VENTAS_DECOR: { cliente: string; producto: string; total: string; pago: string; tone: Tone }[] = [
+  { cliente: "Marcos Díaz", producto: "iPhone 13 128GB", total: "U$ 620", pago: "Transferencia", tone: "blue" },
+  { cliente: "Lu Fernández", producto: "Cambio de batería", total: "U$ 45", pago: "Efectivo", tone: "green" },
+  { cliente: "Nico Ortega", producto: "iPhone 15 Pro 256GB", total: "U$ 1.180", pago: "Tarjeta", tone: "violet" },
+  { cliente: "Cami Suárez", producto: "AirPods Pro 2", total: "U$ 190", pago: "Efectivo", tone: "green" },
+];
 
 /**
  * Decorado puramente visual detrás del login/signup -- una versión muda del
@@ -58,30 +63,36 @@ export function AppPreviewBackdrop() {
           <StatCard label="Stock bajo" value={5} valueClassName="text-red-500" hint="repuestos" />
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
-          <Card className="p-5">
-            <ChartTitle align="left" divider sub="Últimos 7 días">
-              Tendencia de ventas
-            </ChartTitle>
-            <div className="flex h-32 items-end gap-2">
-              {BARRAS.map((h, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t-xl"
-                  style={{ height: `${h}%`, background: CHART_ACCENT }}
-                />
+        <Card className="p-5">
+          <ChartTitle align="left" divider sub="Últimas operaciones">
+            Ventas recientes
+          </ChartTitle>
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Producto</th>
+                <th className="text-end">Total</th>
+                <th>Pago</th>
+              </tr>
+            </thead>
+            <tbody>
+              {VENTAS_DECOR.map((v) => (
+                <tr key={v.cliente}>
+                  <td>{v.cliente}</td>
+                  <td>{v.producto}</td>
+                  <td className="text-end tabular-nums">{v.total}</td>
+                  <td>
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700">
+                      <span className={`h-1.5 w-1.5 rounded-full ${dotClass[v.tone]}`} />
+                      {v.pago}
+                    </span>
+                  </td>
+                </tr>
               ))}
-            </div>
-          </Card>
-          <Card className="p-5">
-            <ChartTitle align="left" divider sub="Este mes">
-              Objetivo de facturación
-            </ChartTitle>
-            <div className="h-3 w-full overflow-hidden rounded-full" style={{ background: GHOST_STRIPES }}>
-              <div className="h-full rounded-full" style={{ width: "68%", background: CHART_ACCENT }} />
-            </div>
-          </Card>
-        </div>
+            </tbody>
+          </table>
+        </Card>
       </main>
     </div>
   );

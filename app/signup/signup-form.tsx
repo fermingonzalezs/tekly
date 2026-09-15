@@ -12,7 +12,7 @@ const initialState: SignupState = { error: null };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full justify-center">
+    <Button type="submit" shape="pill" disabled={pending} className="w-full justify-center">
       {pending ? "Creando…" : "Crear organización"}
     </Button>
   );

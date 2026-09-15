@@ -82,9 +82,10 @@ export type ObjetivoMes = {
   prevTotal: number;
 };
 
-/** `current`/`prevTotal` reales (facturado del mes en curso y del anterior);
- * `target` (la meta) no tiene owner de configuración todavía -- sigue
- * viniendo de `monthGoal` en `lib/mock-data.ts`, se pasa aparte. */
+/** `current`/`prevTotal` reales (facturado del mes en curso y del anterior).
+ * `target` (la meta) también es real pero no sale de acá -- es
+ * `organizations.objetivo_mes_usd` (`getNegocio()` en
+ * `lib/db/configuracion.ts`), se pasa aparte como `objetivoTarget`. */
 export function objetivoDelMes(ventas: Venta[], hoy = new Date()): ObjetivoMes {
   const anio = hoy.getFullYear();
   const mes0 = hoy.getMonth();

@@ -1,14 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser, requireRole, inviteMember, setMemberRole } from "@/lib/auth";
+import { requireRole, inviteMember, setMemberRole } from "@/lib/auth";
 import type { AuthResult, Rol } from "@/lib/auth/types";
-import {
-  saveWhatsappTemplate,
-  updateNegocio,
-  type Negocio,
-  type WhatsappTemplate,
-} from "@/lib/db/configuracion";
+import { updateNegocio, type Negocio } from "@/lib/db/configuracion";
 import { createEquiposBulk, listImeisExistentes, type EquipoInput } from "@/lib/db/inventario";
 import { createClientesBulk, listClientesContacto } from "@/lib/db/clientes";
 import {
@@ -36,16 +31,6 @@ export async function setMemberRoleAction(
   const result = await setMemberRole(targetProfileId, nuevoRol);
   if (!result.error) revalidatePath("/configuracion");
   return result;
-}
-
-export async function saveWhatsappTemplateAction(
-  id: string | null,
-  data: { nombre: string; texto: string },
-): Promise<WhatsappTemplate> {
-  await requireUser();
-  const row = await saveWhatsappTemplate(id, data);
-  revalidatePath("/configuracion");
-  return row;
 }
 
 export async function updateNegocioAction(data: Negocio): Promise<void> {

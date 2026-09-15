@@ -1,21 +1,20 @@
 import { DonutChart } from "@/components/dashboard/donut-chart";
 import { ChartTitle } from "@/components/ui/chart-title";
-import { monthGoal } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { DASH_COLORS as COLORS } from "@/lib/chart";
 
 export function RubrosPie({
   data,
-  totalFacturado = monthGoal.current,
+  totalFacturado,
 }: {
   // Mix real Equipos/Reparaciones/Accesorios/Otros del período seleccionado
   // -- ver `ventasPorRubro` en `lib/dashboard.ts` (a partir de
   // `VentaItem.categoria`).
   data: { label: string; value: number }[];
-  // Este sí es real: facturado del mes (ver `objetivoDelMes` en
-  // `lib/dashboard.ts`) -- se usa para que el $ de cada porción sea correcto
-  // aunque el mix de categorías siga siendo ilustrativo.
-  totalFacturado?: number;
+  // Facturado del mes (ver `objetivoDelMes` en `lib/dashboard.ts`) -- se usa
+  // para que el $ de cada porción sea correcto aunque el mix de categorías
+  // siga siendo ilustrativo.
+  totalFacturado: number;
 }) {
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
 

@@ -7,34 +7,27 @@ import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, Input, Select } from "@/components/ui/field";
 import { dotClass, rolLabel, rolTone } from "@/lib/status";
 import { thDivider } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
 import { updateOwnProfileAction } from "@/app/(app)/actions";
-import {
-  inviteMemberAction,
-  setMemberRoleAction,
-  saveWhatsappTemplateAction,
-  updateNegocioAction,
-} from "./actions";
+import { inviteMemberAction, setMemberRoleAction, updateNegocioAction } from "./actions";
 import { ImportarDatos } from "./importar-datos";
 import type { SessionUser, Rol } from "@/lib/auth/types";
-import type { Miembro, WhatsappTemplate, Negocio } from "@/lib/db/configuracion";
+import type { Miembro, Negocio } from "@/lib/db/configuracion";
 
-type Tab = "usuarios" | "plantillas" | "negocio" | "importar" | "cuenta";
+type Tab = "usuarios" | "negocio" | "importar" | "cuenta";
 
 const ROLES: Rol[] = ["admin", "vendedor", "tecnico"];
 
 export function ConfiguracionClient({
   user,
   miembros,
-  templates,
   negocio,
 }: {
   user: SessionUser;
   miembros: Miembro[];
-  templates: WhatsappTemplate[];
   negocio: Negocio | null;
 }) {
   const esAdmin = user.rol === "admin";
@@ -46,9 +39,6 @@ export function ConfiguracionClient({
 
   const [invitando, setInvitando] = useState(false);
   const [cambiandoRolDe, setCambiandoRolDe] = useState<Miembro | null>(null);
-  const [editandoTemplate, setEditandoTemplate] = useState<WhatsappTemplate | "nueva" | null>(
-    null,
-  );
 
   if (!esAdmin) {
     return (
@@ -66,7 +56,6 @@ export function ConfiguracionClient({
           onChange={setTab}
           options={[
             { value: "usuarios", label: "Usuarios y roles" },
-            { value: "plantillas", label: "Plantillas WhatsApp" },
             { value: "negocio", label: "Datos del negocio" },
             { value: "importar", label: "Importar datos" },
             { value: "cuenta", label: "Mi cuenta" },
@@ -139,41 +128,6 @@ export function ConfiguracionClient({
           </div>
         )}
 
-        {tab === "plantillas" && (
-          <div className="space-y-3">
-            <div className="flex justify-end">
-              <button
-                onClick={() => setEditandoTemplate("nueva")}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
-              >
-                <Plus className="h-4 w-4" />
-                Nueva plantilla
-              </button>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              {templates.map((p) => (
-                <Card key={p.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">{p.nombre}</p>
-                    <button
-                      onClick={() => setEditandoTemplate(p)}
-                      className="text-xs font-medium text-accent hover:underline"
-                    >
-                      Editar
-                    </button>
-                  </div>
-                  <p className="mt-2 whitespace-pre-wrap rounded-lg bg-neutral-50 p-3 text-[13px] text-neutral-600">
-                    {p.texto}
-                  </p>
-                </Card>
-              ))}
-              {templates.length === 0 && (
-                <p className="text-sm text-neutral-400">Sin plantillas todavía.</p>
-              )}
-            </div>
-          </div>
-        )}
-
         {tab === "negocio" && negocio && <NegocioForm negocio={negocio} />}
 
         {tab === "importar" && <ImportarDatos />}
@@ -183,15 +137,9 @@ export function ConfiguracionClient({
 
       <InvitarUsuarioDialog open={invitando} onClose={() => setInvitando(false)} />
       <CambiarRolDialog
-        key={cambiandoRolDe?.id ?? "cerrado"}
+        key={`rol-${cambiandoRolDe?.id ?? "cerrado"}`}
         miembro={cambiandoRolDe}
         onClose={() => setCambiandoRolDe(null)}
-      />
-      <TemplateDialog
-        key={editandoTemplate === "nueva" ? "nueva" : (editandoTemplate?.id ?? "cerrado")}
-        template={editandoTemplate === "nueva" ? null : editandoTemplate}
-        open={editandoTemplate !== null}
-        onClose={() => setEditandoTemplate(null)}
       />
     </Section>
   );
@@ -327,67 +275,6 @@ function CambiarRolDialog({
         </Select>
       </Field>
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-    </Dialog>
-  );
-}
-
-function TemplateDialog({
-  template,
-  open,
-  onClose,
-}: {
-  template: WhatsappTemplate | null;
-  open: boolean;
-  onClose: () => void;
-}) {
-  const router = useRouter();
-  const [nombre, setNombre] = useState(template?.nombre ?? "");
-  const [texto, setTexto] = useState(template?.texto ?? "");
-  const [pending, startTransition] = useTransition();
-
-  function guardar() {
-    startTransition(async () => {
-      await saveWhatsappTemplateAction(template?.id ?? null, {
-        nombre: nombre.trim(),
-        texto: texto.trim(),
-      });
-      router.refresh();
-      onClose();
-    });
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      accent
-      title={template ? "Editar plantilla" : "Nueva plantilla"}
-      footer={
-        <>
-          <button
-            onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={guardar}
-            disabled={pending || !nombre.trim() || !texto.trim()}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
-          >
-            {pending ? "Guardando…" : "Guardar"}
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <Field label="Nombre">
-          <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        </Field>
-        <Field label="Texto">
-          <Textarea rows={6} value={texto} onChange={(e) => setTexto(e.target.value)} />
-        </Field>
-      </div>
     </Dialog>
   );
 }

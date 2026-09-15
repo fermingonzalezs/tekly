@@ -23,38 +23,6 @@ export async function listMiembros(): Promise<Miembro[]> {
   return data;
 }
 
-// ─────────────────────────── Plantillas WhatsApp ───────────────────────────
-
-export type WhatsappTemplate = {
-  id: string;
-  nombre: string;
-  texto: string;
-};
-
-export async function listWhatsappTemplates(): Promise<WhatsappTemplate[]> {
-  const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("whatsapp_templates")
-    .select("id, nombre, texto")
-    .order("nombre");
-  if (error) throw error;
-  return data;
-}
-
-/** Alta si `id` es `null`, edición si no. */
-export async function saveWhatsappTemplate(
-  id: string | null,
-  data: { nombre: string; texto: string },
-): Promise<WhatsappTemplate> {
-  const supabase = createServerClient();
-  const query = id
-    ? supabase.from("whatsapp_templates").update(data).eq("id", id)
-    : supabase.from("whatsapp_templates").insert(data);
-  const { data: row, error } = await query.select("id, nombre, texto").single();
-  if (error) throw error;
-  return row;
-}
-
 // ─────────────────────────── Datos del negocio ───────────────────────────
 
 export type Negocio = {

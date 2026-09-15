@@ -1,11 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import {
-  equipos as equiposSeed,
-  repuestos as repuestosSeed,
-  otros as otrosSeed,
-} from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { CHART_COLORS as COLORS } from "@/lib/chart";
 import { otroValorStock } from "@/lib/otros";
@@ -13,14 +8,14 @@ import type { Equipo, OtroItem, Repuesto } from "@/lib/types";
 
 export function InventarioValor({
   className,
-  equipos = equiposSeed,
-  repuestos = repuestosSeed,
-  otros = otrosSeed,
+  equipos,
+  repuestos,
+  otros,
 }: {
   className?: string;
-  equipos?: Equipo[];
-  repuestos?: Repuesto[];
-  otros?: OtroItem[];
+  equipos: Equipo[];
+  repuestos: Repuesto[];
+  otros: OtroItem[];
 }) {
   const valEquipos = equipos
     .filter((e) => e.estado !== "vendido")

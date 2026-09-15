@@ -131,15 +131,6 @@ export const salesByMonth = [
 
 export const usdArs = { value: 1465, delta: 0.7, label: "Dólar blue" };
 
-// `current` = facturado en lo que va del mes; se asume que hoy es el día
-// `dayOfMonth` de un mes de `daysInMonth` días (para proyección y ritmo).
-export const monthGoal = {
-  current: 48250,
-  target: 65000,
-  dayOfMonth: 22,
-  daysInMonth: 30,
-};
-
 export const recentSales = [
   { id: "V-4821", cliente: "Juan Pérez", item: "iPhone 13 128GB", categoria: "Equipos", vendedor: "Caro", procedencia: "Local", monto: 735, fecha: "Hoy 14:20" },
   { id: "V-4820", cliente: "Sofía Ramos", item: "Cambio de batería 12", categoria: "Reparaciones", vendedor: "Meli", procedencia: "WhatsApp", monto: 55, fecha: "Hoy 12:05" },
@@ -666,11 +657,4 @@ export const cotizacionHistorial = [
   { fecha: "06 sep", compra: 1440, venta: 1460 },
   { fecha: "05 sep", compra: 1430, venta: 1450 },
   { fecha: "04 sep", compra: 1435, venta: 1455 },
-];
-
-export const plantillasWhatsApp = [
-  { id: "w-1", nombre: "Presupuesto listo", texto: "Hola {cliente}! Ya tenemos el diagnóstico de tu {equipo}. El presupuesto es de USD {monto}. ¿Lo aprobás?" },
-  { id: "w-2", nombre: "Equipo listo para retirar", texto: "Hola {cliente}! Tu {equipo} ya está reparado y listo para retirar. Te esperamos en {direccion}." },
-  { id: "w-3", nombre: "Recordatorio de turno", texto: "Hola {cliente}, te recordamos tu turno hoy a las {hora}. Cualquier cambio avisanos por acá." },
-  { id: "w-4", nombre: "Esperando repuesto", texto: "Hola {cliente}, tu {equipo} está en espera de un repuesto que llega en 24-48hs. Te avisamos apenas esté." },
 ];
