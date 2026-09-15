@@ -2,37 +2,36 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import Link from "next/link";
-import { MailCheck } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { signupAction, type SignupState } from "./actions";
+import { resetPasswordAction, type ResetPasswordState } from "./actions";
 
-const initialState: SignupState = { error: null };
+const initialState: ResetPasswordState = { error: null };
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending} className="w-full justify-center">
-      {pending ? "Creando…" : "Crear organización"}
+      {pending ? "Guardando…" : "Guardar contraseña"}
     </Button>
   );
 }
 
-export function SignupForm() {
-  const [state, formAction] = useFormState(signupAction, initialState);
+export function ResetPasswordForm() {
+  const [state, formAction] = useFormState(resetPasswordAction, initialState);
 
-  if (state.sent) {
+  if (state.done) {
     return (
       <div className="space-y-4 text-center">
         <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent-soft text-accent">
-          <MailCheck className="h-6 w-6" />
+          <CheckCircle2 className="h-6 w-6" />
         </div>
         <p className="text-sm text-neutral-600">
-          Te mandamos un mail para confirmar tu cuenta. Abrí el link que te
-          llegó para poder entrar.
+          Listo, tu contraseña se actualizó.
         </p>
-        <Link href="/login" className="text-sm font-medium text-accent">
-          Volver a iniciar sesión
+        <Link href="/" className="text-sm font-medium text-accent">
+          Entrar a Tekly
         </Link>
       </div>
     );
@@ -40,22 +39,14 @@ export function SignupForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <Field label="Nombre de la empresa">
-        <Input name="organizacionNombre" required autoFocus />
-      </Field>
-      <Field label="Tu nombre">
-        <Input name="nombre" required autoComplete="name" />
-      </Field>
-      <Field label="Email">
-        <Input name="email" type="email" required autoComplete="email" />
-      </Field>
-      <Field label="Contraseña">
+      <Field label="Nueva contraseña">
         <Input
           name="password"
           type="password"
           required
           minLength={8}
           autoComplete="new-password"
+          autoFocus
         />
       </Field>
       <Field label="Confirmar contraseña">
@@ -69,12 +60,6 @@ export function SignupForm() {
       </Field>
       {state.error && <p className="text-sm text-red-500">{state.error}</p>}
       <SubmitButton />
-      <p className="text-center text-sm text-neutral-500">
-        ¿Ya tenés cuenta?{" "}
-        <Link href="/login" className="font-medium text-accent">
-          Entrá
-        </Link>
-      </p>
     </form>
   );
 }

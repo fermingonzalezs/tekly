@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { signUp } from "@/lib/auth";
 import { signupSchema } from "@/lib/auth/validation";
 
-export type SignupState = { error: string | null };
+export type SignupState = { error: string | null; sent?: boolean };
 
 export async function signupAction(
   _prev: SignupState,
@@ -15,13 +15,16 @@ export async function signupAction(
     nombre: formData.get("nombre"),
     email: formData.get("email"),
     password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
-  const { error } = await signUp(parsed.data);
+  const { error, needsEmailConfirmation } = await signUp(parsed.data);
   if (error) return { error };
+
+  if (needsEmailConfirmation) return { error: null, sent: true };
 
   redirect("/dashboard");
 }

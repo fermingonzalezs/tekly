@@ -5,21 +5,21 @@ import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
-import { signupAction, type SignupState } from "./actions";
+import { forgotPasswordAction, type ForgotPasswordState } from "./actions";
 
-const initialState: SignupState = { error: null };
+const initialState: ForgotPasswordState = { error: null };
 
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending} className="w-full justify-center">
-      {pending ? "Creando…" : "Crear organización"}
+      {pending ? "Enviando…" : "Enviar link"}
     </Button>
   );
 }
 
-export function SignupForm() {
-  const [state, formAction] = useFormState(signupAction, initialState);
+export function ForgotPasswordForm() {
+  const [state, formAction] = useFormState(forgotPasswordAction, initialState);
 
   if (state.sent) {
     return (
@@ -28,8 +28,8 @@ export function SignupForm() {
           <MailCheck className="h-6 w-6" />
         </div>
         <p className="text-sm text-neutral-600">
-          Te mandamos un mail para confirmar tu cuenta. Abrí el link que te
-          llegó para poder entrar.
+          Si ese email tiene una cuenta, te mandamos un link para elegir una
+          contraseña nueva.
         </p>
         <Link href="/login" className="text-sm font-medium text-accent">
           Volver a iniciar sesión
@@ -40,39 +40,18 @@ export function SignupForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <Field label="Nombre de la empresa">
-        <Input name="organizacionNombre" required autoFocus />
-      </Field>
-      <Field label="Tu nombre">
-        <Input name="nombre" required autoComplete="name" />
-      </Field>
+      <p className="text-sm text-neutral-500">
+        Ingresá tu email y te mandamos un link para elegir una contraseña
+        nueva.
+      </p>
       <Field label="Email">
-        <Input name="email" type="email" required autoComplete="email" />
-      </Field>
-      <Field label="Contraseña">
-        <Input
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
-      </Field>
-      <Field label="Confirmar contraseña">
-        <Input
-          name="confirmPassword"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
+        <Input name="email" type="email" required autoComplete="email" autoFocus />
       </Field>
       {state.error && <p className="text-sm text-red-500">{state.error}</p>}
       <SubmitButton />
       <p className="text-center text-sm text-neutral-500">
-        ¿Ya tenés cuenta?{" "}
         <Link href="/login" className="font-medium text-accent">
-          Entrá
+          Volver a iniciar sesión
         </Link>
       </p>
     </form>

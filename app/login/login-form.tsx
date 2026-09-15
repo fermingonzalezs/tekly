@@ -17,8 +17,9 @@ function SubmitButton() {
   );
 }
 
-export function LoginForm() {
+export function LoginForm({ initialError }: { initialError?: string }) {
   const [state, formAction] = useFormState(loginAction, initialState);
+  const error = state.error ?? initialError ?? null;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -28,9 +29,21 @@ export function LoginForm() {
       <Field label="Contraseña">
         <Input name="password" type="password" required autoComplete="current-password" />
       </Field>
-      {state.error && (
-        <p className="text-sm text-red-500">{state.error}</p>
-      )}
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 text-sm text-neutral-600">
+          <input
+            type="checkbox"
+            name="rememberMe"
+            defaultChecked
+            className="h-4 w-4 rounded border-neutral-300 text-accent"
+          />
+          Recordarme
+        </label>
+        <Link href="/forgot-password" className="text-sm font-medium text-accent">
+          ¿Olvidaste tu contraseña?
+        </Link>
+      </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
       <SubmitButton />
       <p className="text-center text-sm text-neutral-500">
         ¿No tenés cuenta?{" "}

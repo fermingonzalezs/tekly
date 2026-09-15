@@ -13,12 +13,17 @@ export async function loginAction(
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
+    rememberMe: formData.get("rememberMe") === "on",
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
-  const { error } = await signIn(parsed.data.email, parsed.data.password);
+  const { error } = await signIn(
+    parsed.data.email,
+    parsed.data.password,
+    parsed.data.rememberMe,
+  );
   if (error) return { error };
 
   redirect("/dashboard");
