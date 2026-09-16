@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   createServerClient,
   createServiceRoleClient,
@@ -33,6 +33,43 @@ export function setRememberCookie(remember: boolean) {
     secure: process.env.NODE_ENV === "production",
     ...(remember ? { maxAge: 60 * 60 * 24 * 400 } : {}),
   });
+}
+
+/** Origen público de la app -- base de los `redirectTo` que Supabase mete
+ * en los links de mail. `NEXT_PUBLIC_SITE_URL` manda si está seteada (en
+ * producción la request puede venir por un proxy); si no, se deduce de los
+ * headers de la request actual. */
+function siteOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) return configured.replace(/\/+$/, "");
+
+  const h = headers();
+  const origin = h.get("origin");
+  if (origin) return origin;
+
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  return host ? `${proto}://${host}` : "http://localhost:3100";
+}
+
+/** URL a la que Supabase Auth tiene que volver después de verificar un link
+ * de mail. Se la pasamos a mano en cada llamada (`redirectTo` /
+ * `emailRedirectTo`) en vez de depender del Site URL del dashboard: así el
+ * `{{ .ConfirmationURL }}` del template **default** ya vuelve a nuestro
+ * `/auth/confirm`, sin necesidad de editar el template. La URL tiene que
+ * estar permitida en Authentication -> URL Configuration -> Redirect URLs. */
+function authCallbackUrl(next: string): string {
+  return `${siteOrigin()}/auth/confirm?next=${encodeURIComponent(next)}`;
+}
+
+/** El `next` de un link de mail es querystring: solo se acepta una ruta
+ * interna. Sin esto, `?next=https://otro-sitio` sería un open redirect. */
+export function safeNextPath(
+  next: string | null | undefined,
+  fallback: string,
+): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return fallback;
+  return next;
 }
 
 /** Sesión actual, o `null` si no hay usuario logueado o el usuario no tiene
@@ -120,6 +157,7 @@ export async function signUp(params: {
   const { data, error } = await supabase.auth.signUp({
     email: params.email,
     password: params.password,
+    options: { emailRedirectTo: authCallbackUrl("/dashboard") },
   });
   if (error) return { error: error.message };
   if (!data.user) return { error: "No se pudo crear el usuario." };
@@ -191,7 +229,10 @@ export async function inviteMember(params: {
     params.email,
     // `data` queda disponible como `{{ .Data.organizacion }}`/`{{ .Data.nombre }}`
     // en el template de mail "Invite user" del dashboard de Supabase.
-    { data: { organizacion: caller.organizationNombre, nombre: params.nombre } },
+    {
+      data: { organizacion: caller.organizationNombre, nombre: params.nombre },
+      redirectTo: authCallbackUrl("/dashboard"),
+    },
   );
   if (error) return { error: error.message };
   if (!data.user) return { error: "No se pudo invitar al usuario." };
@@ -215,7 +256,9 @@ export async function inviteMember(params: {
  * mismo mensaje exista o no la cuenta. */
 export async function requestPasswordReset(email: string): Promise<AuthResult> {
   const supabase = createServerClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: authCallbackUrl("/reset-password"),
+  });
   return { error: error?.message ?? null };
 }
 
@@ -232,6 +275,42 @@ export async function verifyEmailLink(
   const { error } = await supabase.auth.verifyOtp({
     type,
     token_hash: tokenHash,
+  });
+  if (error) return { error: error.message };
+
+  setRememberCookie(true);
+  return { error: null };
+}
+
+/** Contraparte de `verifyEmailLink` para el template **default** de
+ * Supabase (el que no se puede editar sin SMTP propio): su
+ * `{{ .ConfirmationURL }}` no trae `token_hash`, manda al `/auth/v1/verify`
+ * del propio Supabase, que verifica el token él mismo y vuelve a nuestro
+ * `redirectTo` con un `?code=` -- el flujo PKCE, que es el que usa
+ * @supabase/ssr. Canjear ese code por una sesión necesita el `code_verifier`
+ * que quedó en una cookie cuando se pidió el mail: por eso el link tiene que
+ * abrirse en el mismo navegador desde el que se pidió. */
+export async function exchangeEmailCode(code: string): Promise<AuthResult> {
+  const supabase = createServerClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) return { error: error.message };
+
+  setRememberCookie(true);
+  return { error: null };
+}
+
+/** Igual que `exchangeEmailCode`, pero para los links que vuelven con la
+ * sesión ya emitida en el fragmento (`#access_token=...`): los que genera el
+ * admin API (invitaciones) no pasan por PKCE. El fragmento no llega nunca al
+ * server, así que los tokens los manda `app/auth/confirm/hash/`. */
+export async function setSessionFromTokens(
+  accessToken: string,
+  refreshToken: string,
+): Promise<AuthResult> {
+  const supabase = createServerClient();
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
   });
   if (error) return { error: error.message };
 

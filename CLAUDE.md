@@ -241,12 +241,34 @@ y `middleware.ts` cierra la sesión sola pensando que el navegador se cerró.
 
 **Flujo de mail** (`app/auth/confirm/route.ts`): único lugar de la app que
 recibe los links de Supabase Auth (confirmar cuenta, invitación, recuperar
-contraseña) — verifica el `token_hash` (`verifyEmailLink` en
-`lib/auth/index.ts`) y redirige. Los templates de Email en el dashboard de
-Supabase tienen que armar el link como
-`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=<tipo>` — nunca
-`{{ .ConfirmationURL }}` (apunta directo al servidor de Supabase, que no
-conoce las cookies de esta app). `/forgot-password` dispara el mail
+contraseña). **Editar los templates del dashboard es opcional** — sin SMTP
+propio el editor de templates no está disponible, así que la ruta soporta
+las tres formas en las que puede volver la credencial:
+
+1. `?token_hash=...&type=...` — template propio
+   (`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=<tipo>`);
+   lo verifica `verifyEmailLink` (`lib/auth/index.ts`).
+2. `?code=...` — template **default** (`{{ .ConfirmationURL }}`): el link va
+   al `/auth/v1/verify` de Supabase, que verifica el token él mismo y rebota
+   al `redirect_to` con el code del flujo PKCE (el que fuerza
+   `@supabase/ssr`). Lo canjea `exchangeEmailCode`. El `code_verifier` vive
+   en una cookie del navegador que pidió el mail → **el link tiene que
+   abrirse en ese mismo navegador**.
+3. Nada en la query — la sesión (o el error del link vencido) viene en el
+   fragmento `#access_token=…`, que nunca llega al server. Pasa el caso de
+   las invitaciones (`inviteUserByEmail` del admin API no usa PKCE). La ruta
+   redirige a `app/auth/confirm/hash/` (página cliente) que lee el fragmento,
+   lo borra de la barra de direcciones y le pasa los tokens a
+   `setSessionFromTokens` por server action.
+
+Lo que **sí** hay que configurar a mano (es gratis, Authentication → URL
+Configuration): Site URL y Redirect URLs con el origen de la app
+(`http://localhost:3100/**` en dev). `lib/auth` arma el `redirectTo` /
+`emailRedirectTo` de cada mail con `authCallbackUrl()` a partir de
+`NEXT_PUBLIC_SITE_URL` (o de los headers de la request si falta) — si ese
+origen no está permitido, Supabase lo ignora y manda al Site URL, que por
+default es `localhost:3000` (puerto equivocado para este repo).
+`/forgot-password` dispara el mail
 (`requestPasswordReset`, siempre "éxito" aunque el mail no exista, para no
 filtrar qué cuentas están registradas) y `/reset-password` es la pantalla
 para poner la contraseña nueva (`updatePassword`), a la que el link de
@@ -265,7 +287,9 @@ Email Templates, SMTP propio).
 `.env.local` (gitignored, ver `.env.local.example`):
 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` (públicas) +
 `SUPABASE_SERVICE_ROLE_KEY` (secreta, **nunca** con prefijo `NEXT_PUBLIC_`,
-server-only). Cambios acá requieren reiniciar `npm run dev`.
+server-only) + `NEXT_PUBLIC_SITE_URL` (origen público de la app: base de los
+links de mail de Auth, ver "Flujo de mail"; si falta se deduce de los headers
+de la request). Cambios acá requieren reiniciar `npm run dev`.
 
 ### Testing
 
@@ -308,13 +332,22 @@ cálculo de margen.
 
 - **SMTP propio para Auth** (Resend/Postmark) — el email service default de
   Supabase no es apto para volumen real de usuarios (rate limit muy bajo).
+- **SMTP propio también es lo que destraba los templates**: con el email
+  service default, Supabase solo entrega mails a direcciones que son miembros
+  de la organización del proyecto (nadie más los recibe) y el editor de Email
+  Templates no está disponible. La app no depende de los templates (ver
+  "Flujo de mail"), pero sí de esto para que el mail le llegue a un usuario
+  real.
 - Configuración manual en el dashboard de Supabase, proyecto `tekly` (no hay
   tool de MCP para Auth email templates ni Site URL, es 100% a mano):
-  Site URL + Redirect URLs (Authentication → URL Configuration), activar
-  "Confirm email" (Authentication → Providers → Email), y pegar los 3 Email
-  Templates (Confirm signup / Invite user / Reset Password) con
-  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=<tipo>` —
-  ver "Auth: páginas y flujo".
+  Site URL + Redirect URLs (Authentication → URL Configuration) — **esto es
+  obligatorio y gratis**, sin el origen de la app en Redirect URLs los links
+  de mail vuelven al Site URL default — y activar "Confirm email"
+  (Authentication → Providers → Email). Los 3 Email Templates (Confirm signup
+  / Invite user / Reset Password) con
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=<tipo>` son
+  **opcionales** (queda un link más lindo y sin la restricción de "mismo
+  navegador" del PKCE) — ver "Auth: páginas y flujo".
 - **Leaked password protection** (Authentication → Policies): desactivada
   por default, activar antes de producción.
 
