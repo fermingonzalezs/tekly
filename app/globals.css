@@ -94,26 +94,37 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
-/* Impresión: solo se imprime el recibo (.recibo-print), el resto se oculta. */
+/* Impresión: `ReciboDialog` porta el recibo a `#recibo-print-root` (hijo
+   directo de `body`, fuera del Dialog) mientras está abierto -- ver
+   `components/recibos/recibo.tsx`. Así el contenido a imprimir queda en
+   flujo normal, sin heredar el `position: fixed`/`overflow` del Dialog (que
+   recortaría cualquier hoja que no entre en un viewport). Puede haber varias
+   hojas `.recibo-print` (ej. comprobante + garantía), cada una en su propia
+   página vía `break-after: page`. */
+#recibo-print-root {
+  display: none;
+}
+
 @media print {
+  @page {
+    margin: 14mm;
+  }
   body {
     background: #fff;
   }
-  body * {
-    visibility: hidden !important;
+  body > *:not(#recibo-print-root) {
+    display: none !important;
   }
-  .recibo-print,
-  .recibo-print * {
-    visibility: visible !important;
+  #recibo-print-root {
+    display: block !important;
   }
   .recibo-print {
-    position: fixed;
-    inset: 0;
-    margin: 0;
-    padding: 14mm;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    overflow: visible;
+    break-after: page;
+  }
+  .recibo-print:last-child {
+    break-after: auto;
   }
 }

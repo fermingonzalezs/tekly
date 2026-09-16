@@ -8,15 +8,27 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { Tabs } from "@/components/ui/tabs";
 import {
   ReciboDialog,
   ReciboCampos,
   ReciboLineas,
+  ReciboGarantiaItems,
+  ReciboNota,
+  ReciboNotaLista,
+  ReciboSello,
+  type ReciboPagina,
 } from "@/components/recibos/recibo";
 import { medioPago as medioPagoCfg, dotClass } from "@/lib/status";
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { otroCostoPromedio } from "@/lib/otros";
-import { calcularMargenPct, calcularRestante, saldarUltimoPago } from "@/lib/ventas";
+import {
+  calcularMargenPct,
+  calcularRestante,
+  saldarUltimoPago,
+  categoriaDe,
+  RUBRO_LABEL,
+} from "@/lib/ventas";
 import { useDolar } from "@/lib/dolar";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
@@ -108,6 +120,7 @@ export function VentasClient({
   const { publish } = useRealtime();
   const dolarVenta = useDolar().venta;
   const [list, setList] = useState<Venta[]>(initialVentas);
+  const [vista, setVista] = useState<"ventas" | "items">("ventas");
   const [vendFilter, setVendFilter] = useState("todos");
   const [tipoFilter, setTipoFilter] = useState<"todos" | "venta" | "reparacion">(
     "todos",
@@ -146,6 +159,20 @@ export function VentasClient({
     [list, vendFilter, tipoFilter, range.desde, range.hasta, q, equiposPorId],
   );
 
+  const itemRows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return filtered.flatMap((v) =>
+      v.items
+        .filter((i) => {
+          if (!needle) return true;
+          if (i.detalle.toLowerCase().includes(needle)) return true;
+          const equipo = i.equipoId ? equiposPorId.get(i.equipoId) : undefined;
+          return equipo ? equipo.imei.toLowerCase().includes(needle) : false;
+        })
+        .map((item) => ({ venta: v, item })),
+    );
+  }, [filtered, q, equiposPorId]);
+
   const open = list.find((v) => v.id === openId) ?? null;
 
   const totalUsd = filtered.reduce((a, v) => a + v.totalUsd, 0);
@@ -153,6 +180,77 @@ export function VentasClient({
     filtered.length > 0
       ? filtered.reduce((a, v) => a + v.margenPct, 0) / filtered.length
       : 0;
+
+  const paginasVenta: ReciboPagina[] | undefined =
+    recibo?.tipo === "venta"
+      ? [
+          {
+            titulo: "Comprobante de venta",
+            children: (
+              <>
+                <ReciboCampos
+                  filas={[
+                    ["Vendedor", recibo.venta.vendedor],
+                    ["Procedencia", recibo.venta.procedencia ?? "—"],
+                  ]}
+                />
+                <ReciboLineas
+                  titulo="Detalle"
+                  lineas={recibo.venta.items.map((i) => ({
+                    detalle: i.detalle,
+                    cantidad: i.cantidad,
+                    montoUsd: i.cantidad * i.precioUsd,
+                    serial: i.equipoId ? equiposPorId.get(i.equipoId)?.imei : undefined,
+                  }))}
+                  total={recibo.venta.totalUsd}
+                />
+                <ReciboLineas
+                  titulo="Forma de pago"
+                  lineas={recibo.venta.pagos.map((p) => ({
+                    detalle: medioPagoCfg[p.medio].label,
+                    montoUsd: p.montoUsd,
+                  }))}
+                />
+              </>
+            ),
+          },
+          ...(recibo.venta.items.some((i) => i.equipoId)
+            ? [
+                {
+                  titulo: "Garantía",
+                  children: (
+                    <>
+                      <ReciboGarantiaItems
+                        items={recibo.venta.items.map((i) => ({
+                          detalle: i.detalle,
+                          serial: i.equipoId
+                            ? equiposPorId.get(i.equipoId)?.imei
+                            : undefined,
+                          garantia: i.equipoId ? negocio.garantiaTexto || "—" : "—",
+                          precioUsd: i.cantidad * i.precioUsd,
+                        }))}
+                      />
+                      <ReciboSello />
+                      <ReciboNota
+                        titulo="Condiciones de garantía"
+                        texto={negocio.garantiaCondiciones}
+                      />
+                      <ReciboNota
+                        titulo="Importante"
+                        texto={negocio.garantiaImportante}
+                        tono="warning"
+                      />
+                      <ReciboNotaLista
+                        titulo="Causales de anulación de la garantía"
+                        texto={negocio.garantiaCausales}
+                      />
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]
+      : undefined;
 
   return (
     <>
@@ -182,6 +280,14 @@ export function VentasClient({
               className={cn("w-64 pl-9", filterPill)}
             />
           </div>
+          <Tabs
+            value={vista}
+            onChange={setVista}
+            options={[
+              { value: "ventas", label: "Ventas", count: filtered.length },
+              { value: "items", label: "Ítems vendidos", count: itemRows.length },
+            ]}
+          />
           <Select
             value={vendFilter}
             onChange={(e) => setVendFilter(e.target.value)}
@@ -253,6 +359,77 @@ export function VentasClient({
           </button>
         </div>
 
+        {vista === "items" ? (
+          <Card className="overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-100 text-xs text-neutral-400">
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Venta</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Cliente</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Ítem</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Serie</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Categoría</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Cant.</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Precio</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Costo</th>
+                  <th className="px-5 py-3 text-center">Margen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itemRows.map(({ venta: v, item: i }, idx) => (
+                  <tr
+                    key={`${v.id}-${idx}`}
+                    onClick={() => setOpenId(v.id)}
+                    className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
+                  >
+                    <td className="px-5 py-2 text-center font-medium text-neutral-500">
+                      {v.id}
+                      <span className="block text-xs font-normal text-neutral-400">
+                        {v.fecha}
+                      </span>
+                    </td>
+                    <td className="max-w-[140px] truncate px-5 py-2 text-center">
+                      {v.cliente}
+                    </td>
+                    <td className="max-w-[260px] truncate px-5 py-2 text-center">
+                      {i.detalle}
+                    </td>
+                    <td className="px-5 py-2 text-center font-mono text-xs tabular-nums text-neutral-500">
+                      {i.equipoId ? (equiposPorId.get(i.equipoId)?.imei ?? "—") : "—"}
+                    </td>
+                    <td className="px-5 py-2 text-center text-neutral-500">
+                      {RUBRO_LABEL[categoriaDe(i)]}
+                    </td>
+                    <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                      {i.cantidad}
+                    </td>
+                    <td className="px-5 py-2 text-center tabular-nums">
+                      {fmtUsd(i.precioUsd)}
+                    </td>
+                    <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                      {i.costoUsd !== undefined ? fmtUsd(i.costoUsd) : "—"}
+                    </td>
+                    <td className="px-5 py-2 text-center tabular-nums font-semibold">
+                      {i.costoUsd !== undefined
+                        ? `${calcularMargenPct(i.precioUsd, i.costoUsd).toFixed(1)}%`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+                {itemRows.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-5 py-10 text-center text-sm text-neutral-400"
+                    >
+                      Sin ítems para estos filtros.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </Card>
+        ) : (
         <Card className="overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -263,7 +440,8 @@ export function VentasClient({
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Pago</th>
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Costo</th>
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Margen</th>
-                <th className="px-5 py-3 text-center">Total</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Total</th>
+                <th className="px-5 py-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -282,7 +460,7 @@ export function VentasClient({
                   <td className="max-w-[140px] truncate px-5 py-2 text-center">
                     {v.cliente}
                   </td>
-                  <td className="max-w-[260px] truncate px-5 py-2 text-start text-neutral-500">
+                  <td className="max-w-[260px] truncate px-5 py-2 text-center text-neutral-500">
                     {v.items.map((i) => i.detalle).join(" · ")}
                   </td>
                   <td className="px-5 py-2">
@@ -320,12 +498,24 @@ export function VentasClient({
                   <td className="px-5 py-2 text-center font-semibold tabular-nums">
                     {fmtUsd(v.totalUsd)}
                   </td>
+                  <td className="px-5 py-2 text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRecibo({ venta: v, tipo: "venta" });
+                      }}
+                      title="Ver recibo"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-accent-soft hover:text-accent"
+                    >
+                      <FileText className="h-4 w-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-5 py-10 text-center text-sm text-neutral-400"
                   >
                     Sin ventas para estos filtros.
@@ -335,6 +525,7 @@ export function VentasClient({
             </tbody>
           </table>
         </Card>
+        )}
       </div>
 
       <NuevaVentaDialog
@@ -400,46 +591,18 @@ export function VentasClient({
         open={!!recibo}
         onClose={() => setRecibo(null)}
         titulo={
-          recibo?.tipo === "canje"
-            ? "Recibo de equipo en parte de pago"
-            : "Comprobante de venta"
+          recibo?.tipo === "canje" ? "Recibo de equipo en parte de pago" : "Comprobante de venta"
         }
         nro={recibo?.venta.id ?? ""}
         fecha={recibo?.venta.fecha ?? ""}
+        cliente={recibo?.venta.cliente ?? ""}
         negocio={negocio}
+        paginas={paginasVenta}
       >
-        {recibo?.tipo === "venta" && (
-          <>
-            <ReciboCampos
-              filas={[
-                ["Cliente", recibo.venta.cliente],
-                ["Vendedor", recibo.venta.vendedor],
-                ["Procedencia", recibo.venta.procedencia ?? "—"],
-              ]}
-            />
-            <ReciboLineas
-              titulo="Detalle"
-              lineas={recibo.venta.items.map((i) => ({
-                detalle: i.detalle,
-                cantidad: i.cantidad,
-                montoUsd: i.cantidad * i.precioUsd,
-              }))}
-              total={recibo.venta.totalUsd}
-            />
-            <ReciboLineas
-              titulo="Forma de pago"
-              lineas={recibo.venta.pagos.map((p) => ({
-                detalle: medioPagoCfg[p.medio].label,
-                montoUsd: p.montoUsd,
-              }))}
-            />
-          </>
-        )}
         {recibo?.tipo === "canje" && (
           <>
             <ReciboCampos
               filas={[
-                ["Cliente", recibo.venta.cliente],
                 ["Aplicado a", `Venta ${recibo.venta.id}`],
                 [
                   "Valor reconocido",

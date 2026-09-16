@@ -1,6 +1,7 @@
-import type { Equipo, Ticket, Turno, Venta, VentaItem } from "@/lib/types";
+import type { Equipo, Ticket, Turno, Venta } from "@/lib/types";
 import type { DashPeriodo } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe } from "@/lib/ventas";
 
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",
@@ -156,21 +157,6 @@ export function ventaGananciaPorPeriodo(
   };
 
   return { mes: build("mes"), mesPrevio: build("mesPrevio"), quince: build("quince") };
-}
-
-const RUBRO_LABEL: Record<NonNullable<VentaItem["categoria"]>, string> = {
-  equipo: "Equipos",
-  servicio: "Reparaciones",
-  otro: "Accesorios",
-  libre: "Otros",
-};
-const RUBRO_ORDEN = Object.keys(RUBRO_LABEL) as (keyof typeof RUBRO_LABEL)[];
-
-/** Ventas de antes de trackear `VentaItem.categoria` sólo permiten inferir
- * con certeza el caso "equipo" (tiene `equipoId`); el resto cae en "Otros"
- * en vez de adivinar servicio/producto/libre. */
-function categoriaDe(item: VentaItem): keyof typeof RUBRO_LABEL {
-  return item.categoria ?? (item.equipoId ? "equipo" : "libre");
 }
 
 /** Mix real Equipos/Reparaciones/Accesorios/Otros por período del selector

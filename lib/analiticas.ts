@@ -1,4 +1,5 @@
 import type { Venta } from "@/lib/types";
+import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe } from "@/lib/ventas";
 
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",
@@ -51,4 +52,47 @@ export function facturacionDiaria(ventas: Venta[], dias = 14, hoy = new Date()):
     out.push(totales.get(claveDia(d.getFullYear(), d.getMonth(), d.getDate())) ?? 0);
   }
   return out;
+}
+
+export type MargenPorTipo = {
+  tipo: string;
+  operaciones: number;
+  margenPct: number;
+  gananciaUsd: number;
+};
+
+/** Margen real por rubro (mismo `categoriaDe` que `ventasPorRubro` del
+ * dashboard -- una sola fuente de verdad), todo el historial de ventas.
+ * `VentaItem.costoUsd` es opcional: un ítem sin costo cargado no entra en
+ * el cálculo de margen (ni en ingreso ni en ganancia), pero sí cuenta como
+ * operación -- así un rubro con costos sin cargar no queda con margen 0
+ * artificial, muestra el margen real de lo que sí tiene costo. */
+export function margenPorTipo(ventas: Venta[]): MargenPorTipo[] {
+  const operaciones = new Map<string, number>();
+  const ingreso = new Map<string, number>();
+  const ganancia = new Map<string, number>();
+
+  for (const v of ventas) {
+    for (const item of v.items) {
+      const cat = categoriaDe(item);
+      operaciones.set(cat, (operaciones.get(cat) ?? 0) + 1);
+      if (item.costoUsd === undefined) continue;
+      ingreso.set(cat, (ingreso.get(cat) ?? 0) + item.precioUsd * item.cantidad);
+      ganancia.set(
+        cat,
+        (ganancia.get(cat) ?? 0) + (item.precioUsd - item.costoUsd) * item.cantidad,
+      );
+    }
+  }
+
+  return RUBRO_ORDEN.map((cat) => {
+    const ing = ingreso.get(cat) ?? 0;
+    const gan = ganancia.get(cat) ?? 0;
+    return {
+      tipo: RUBRO_LABEL[cat],
+      operaciones: operaciones.get(cat) ?? 0,
+      margenPct: ing > 0 ? Math.round((gan / ing) * 1000) / 10 : 0,
+      gananciaUsd: Math.round(gan),
+    };
+  });
 }

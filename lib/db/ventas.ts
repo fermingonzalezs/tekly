@@ -23,6 +23,15 @@ export async function procedenciaCounts(): Promise<{ label: string; value: numbe
 
 // ─────────────────────────── Ventas ───────────────────────────
 
+type VentaItemRow = {
+  detalle: string;
+  cantidad: number;
+  precio_usd: number;
+  costo_usd: number | null;
+  equipo_id: string | null;
+  categoria: VentaItem["categoria"] | null;
+};
+
 type VentaRow = {
   id: string;
   numero: number;
@@ -32,7 +41,7 @@ type VentaRow = {
   vendedor_id: string | null;
   profiles: { nombre: string } | null;
   procedencia: string | null;
-  items: VentaItem[];
+  venta_items: VentaItemRow[];
   total_usd: number;
   pagos: Pago[];
   margen_pct: number | null;
@@ -40,7 +49,18 @@ type VentaRow = {
 };
 
 const VENTA_COLS =
-  "id, numero, fecha, cliente_id, cliente, vendedor_id, profiles(nombre), procedencia, items, total_usd, pagos, margen_pct, tipo";
+  "id, numero, fecha, cliente_id, cliente, vendedor_id, profiles(nombre), procedencia, venta_items(detalle, cantidad, precio_usd, costo_usd, equipo_id, categoria), total_usd, pagos, margen_pct, tipo";
+
+function toVentaItem(row: VentaItemRow): VentaItem {
+  return {
+    detalle: row.detalle,
+    cantidad: row.cantidad,
+    precioUsd: row.precio_usd,
+    costoUsd: row.costo_usd ?? undefined,
+    equipoId: row.equipo_id ?? undefined,
+    categoria: row.categoria ?? undefined,
+  };
+}
 
 function toVenta(row: VentaRow): Venta {
   return {
@@ -52,7 +72,7 @@ function toVenta(row: VentaRow): Venta {
     vendedorId: row.vendedor_id ?? "",
     vendedor: row.profiles?.nombre ?? "—",
     procedencia: row.procedencia ?? undefined,
-    items: row.items ?? [],
+    items: (row.venta_items ?? []).map(toVentaItem),
     totalUsd: row.total_usd,
     pagos: row.pagos ?? [],
     margenPct: row.margen_pct ?? 0,
@@ -82,30 +102,43 @@ export type CreateVentaInput = {
   tipo: "venta" | "reparacion";
 };
 
-/** Crea la venta y, si algún ítem viene del stock de equipos (`equipoId`),
- * marca esos equipos como vendidos. No es una transacción real (supabase-js
- * no las soporta desde el cliente) -- si el segundo paso fallara quedaría
- * la venta creada sin el equipo marcado; aceptable para esta escala, se
- * podría subir a una función de Postgres más adelante si hace falta
- * atomicidad estricta. */
+/** Crea la venta, sus ítems (tabla propia `venta_items`, ver
+ * "Backend y multi-tenancy" en CLAUDE.md) y, si alguno viene del stock de
+ * equipos (`equipoId`), marca esos equipos como vendidos. No es una
+ * transacción real (supabase-js no las soporta desde el cliente) -- si un
+ * paso fallara quedaría la venta creada sin sus ítems o sin el equipo
+ * marcado; aceptable para esta escala, se podría subir a una función de
+ * Postgres más adelante si hace falta atomicidad estricta. */
 export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   const supabase = createServerClient();
-  const { data: row, error } = await supabase
+  const { data: ventaRow, error } = await supabase
     .from("ventas")
     .insert({
       cliente_id: data.clienteId || null,
       cliente: data.cliente,
       vendedor_id: data.vendedorId || null,
       procedencia: data.procedencia ?? null,
-      items: data.items,
       total_usd: data.totalUsd,
       pagos: data.pagos,
       margen_pct: data.margenPct,
       tipo: data.tipo,
     })
-    .select(VENTA_COLS)
+    .select("id")
     .single();
   if (error) throw error;
+
+  const { error: itemsError } = await supabase.from("venta_items").insert(
+    data.items.map((item) => ({
+      venta_id: ventaRow.id,
+      detalle: item.detalle,
+      cantidad: item.cantidad,
+      precio_usd: item.precioUsd,
+      costo_usd: item.costoUsd ?? null,
+      equipo_id: item.equipoId ?? null,
+      categoria: item.categoria ?? null,
+    })),
+  );
+  if (itemsError) throw itemsError;
 
   const equipoIds = data.items
     .map((i) => i.equipoId)
@@ -117,6 +150,13 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       .in("id", equipoIds);
     if (updError) throw updError;
   }
+
+  const { data: row, error: selectError } = await supabase
+    .from("ventas")
+    .select(VENTA_COLS)
+    .eq("id", ventaRow.id)
+    .single();
+  if (selectError) throw selectError;
 
   return toVenta(row as unknown as VentaRow);
 }

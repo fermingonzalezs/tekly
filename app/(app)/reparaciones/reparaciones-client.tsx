@@ -616,13 +616,13 @@ export function ReparacionesClient({
         }
         nro={recibo ? `#${recibo.ticket.id}` : ""}
         fecha={recibo?.ticket.ingreso ?? ""}
+        cliente={recibo?.ticket.cliente ?? ""}
         negocio={negocio}
       >
         {recibo?.tipo === "mercaderia" && (
           <>
             <ReciboCampos
               filas={[
-                ["Cliente", recibo.ticket.cliente],
                 ["Equipo", recibo.ticket.equipo],
                 ["IMEI / Serie", recibo.ticket.imei],
                 ["Falla declarada", recibo.ticket.falla],
@@ -650,7 +650,6 @@ export function ReparacionesClient({
           <>
             <ReciboCampos
               filas={[
-                ["Cliente", recibo.ticket.cliente],
                 ["Equipo", recibo.ticket.equipo],
                 ["IMEI / Serie", recibo.ticket.imei],
                 ["Técnico", recibo.ticket.tecnico ?? "A asignar"],
@@ -674,7 +673,6 @@ export function ReparacionesClient({
           <>
             <ReciboCampos
               filas={[
-                ["Cliente", recibo.ticket.cliente],
                 ["Equipo", recibo.ticket.equipo],
                 ["IMEI / Serie", recibo.ticket.imei],
                 ["Técnico", recibo.ticket.tecnico ?? "A asignar"],

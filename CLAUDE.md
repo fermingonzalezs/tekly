@@ -97,16 +97,25 @@ Acceso vía MCP con las tools `mcp__plugin_supabase_supabase__*` (el conector
   el día de mañana, es una migración de datos acotada).
 - Una tabla por dominio de negocio (`clientes`, `equipos`, `repuestos`,
   `otros_items`, `movimientos_stock`, `proveedores`, `tickets`, `servicios`,
-  `turnos`, `ventas`, `cajas`, `movimientos_caja`, `conciliaciones`,
-  `movimientos_cc`, `compras`, `listas_difusion`), todas con
-  `organization_id` (con `DEFAULT current_user_org_id()` — un insert de la
-  app no necesita pasarlo a mano, y la policy `WITH CHECK` lo sigue validando
-  igual si alguien lo manda). Columnas en snake_case; los tipos de
+  `turnos`, `ventas`, `venta_items`, `cajas`, `movimientos_caja`,
+  `conciliaciones`, `movimientos_cc`, `compras`, `listas_difusion`), todas
+  con `organization_id` (con `DEFAULT current_user_org_id()` — un insert de
+  la app no necesita pasarlo a mano, y la policy `WITH CHECK` lo sigue
+  validando igual si alguien lo manda). Columnas en snake_case; los tipos de
   `lib/types.ts` son camelCase — el mapeo vive en cada `lib/db/<dominio>.ts`.
-- Estructuras anidadas (`Venta.items`/`pagos`, `Ticket.servicios`,
-  `Turno.pagos`, `Conciliacion.lineas`, `Compra.items`, `OtroItem.unidades`,
+- Estructuras anidadas (`Venta.pagos`, `Ticket.servicios`, `Turno.pagos`,
+  `Conciliacion.lineas`, `Compra.items`, `OtroItem.unidades`,
   `ListaDifusion.secciones`) se guardan como `jsonb` tal cual el shape de
-  `lib/types.ts` — son snapshots embebidos, no relaciones vivas.
+  `lib/types.ts` — son snapshots embebidos, no relaciones vivas. **Excepción:
+  `Venta.items` es la única estructura anidada con tabla propia
+  (`venta_items`, 1 fila por `VentaItem`, `venta_id → ventas.id on delete
+  cascade`, mismas 4 policies de RLS + `DEFAULT current_user_org_id()` que
+  cualquier tabla de negocio)** — se sacó del jsonb a propósito para poder
+  agregar en SQL por ítem/categoría en vez de traer todas las ventas a la
+  app y sumar en JS; es lo que habilita `margenPorTipo` real en Analíticas
+  (`lib/analiticas.ts`). `lib/db/ventas.ts` arma `Venta.items` con un select
+  embebido (`venta_items(...)`) — el contrato de `Venta`/`VentaItem` hacia
+  el resto de la app no cambió.
 - Contadores derivados (`Cliente.compras/reparaciones/gastadoUsd`) **no se
   guardan como columnas** — se calculan en el momento contra `ventas`/
   `tickets` en `lib/db/clientes.ts`, para que nunca puedan desincronizarse.
@@ -281,14 +290,19 @@ entra en el cálculo.
 Sigue en `lib/mock-data.ts` un puñado de datasets puntuales porque falta
 trackear el dato que los sustenta, no por falta de migrar la sección: en
 Analíticas `tiempoPorFalla` (no hay timestamp de "listo/entregado" en
-`tickets`), `rendimientoTecnicos` (no hay reingresos ni calificación en
-ningún lado) y `margenPorTipo` — porque `Venta.tipo` real solo distingue
-'venta'/'reparacion', sin categoría "Accesorios"/"Otros" separada. Cada caso
-tiene un comentario en el código explicando por qué sigue en mock — agregar
-esas columnas es una decisión de producto, no algo a resolver de paso en
-una migración. La meta del mes (`target`) ya tiene owner y es 100% real:
-`organizations.objetivo_mes_usd`, editable en Configuración → Datos del
-negocio (`getNegocio()`/`updateNegocio()` en `lib/db/configuracion.ts`).
+`tickets`) y `rendimientoTecnicos` (no hay reingresos ni calificación en
+ningún lado). Cada caso tiene un comentario en el código explicando por qué
+sigue en mock — agregar esas columnas es una decisión de producto, no algo a
+resolver de paso en una migración. La meta del mes (`target`) ya tiene owner
+y es 100% real: `organizations.objetivo_mes_usd`, editable en Configuración
+→ Datos del negocio (`getNegocio()`/`updateNegocio()` en
+`lib/db/configuracion.ts`). `margenPorTipo` pasó a real (`lib/analiticas.ts`,
+con test) desde que `VentaItem` tiene tabla propia (`venta_items`, ver
+"Backend y multi-tenancy") — mismo rubro Equipos/Reparaciones/Accesorios/
+Otros que `ventasPorRubro` del dashboard (`categoriaDe`/`RUBRO_LABEL`
+compartidos vía `lib/ventas.ts`), agregando `costoUsd`/`precioUsd` por ítem;
+un ítem sin `costoUsd` cargado cuenta como operación pero no entra en el
+cálculo de margen.
 
 ### Qué falta antes de producción
 
@@ -657,8 +671,13 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   tabla de "técnicos": son `profiles` con `rol = 'tecnico'`
   (`lib/db/reparaciones.ts` → `listTecnicos`).
 - **Ventas** (`app/(app)/ventas/`, migrado): click en una fila → detalle
-  (`VentaDetalle`) con botones **«Comprobante de venta»** y, si hay un pago
-  `canje`, **«Recibo de equipo en parte de pago»**. `VentaItem.costoUsd?` y
+  (`VentaDetalle`) con botones **«Comprobante de venta»**, si hay un pago
+  `canje` **«Recibo de equipo en parte de pago»**, y si algún ítem tiene
+  `equipoId` **«Garantía»** (ver "Recibos / PDFs"). Selector **Ventas /
+  Ítems vendidos** (`Tabs`) sobre la tabla: la segunda vista aplana
+  `Venta.items` (1 fila por ítem, con el IMEI vía `equiposPorId`), respeta
+  los mismos filtros/búsqueda que la tabla de ventas pero a nivel ítem, y
+  click en una fila abre el mismo `VentaDetalle`. `VentaItem.costoUsd?` y
   `Venta.procedencia?` existen; el costo NO se muestra ni edita en el modal de
   alta. Vender un ítem con `equipoId` marca ese equipo `vendido`. "Cliente
   nuevo" en el modal ahora persiste de verdad (`createCliente`) antes de
@@ -666,8 +685,11 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `lib/ventas.ts` (con tests), no lógica inline. `VentaItem.categoria`
   (`"equipo" | "servicio" | "otro" | "libre"`) guarda el `origen` con el que
   se agregó el ítem en el modal -- alimenta `ventasPorRubro` de
-  `lib/dashboard.ts` (ver Dashboard abajo); es opcional porque ventas
-  creadas antes de este campo no lo tienen.
+  `lib/dashboard.ts` (ver Dashboard abajo) y `margenPorTipo` de
+  `lib/analiticas.ts` (ver Analíticas abajo), vía el `categoriaDe`/
+  `RUBRO_LABEL` compartido en `lib/ventas.ts`; es opcional porque ventas
+  creadas antes de este campo no lo tienen. Persistencia: tabla propia
+  `venta_items` (ver "Backend y multi-tenancy"), no `jsonb` en `ventas`.
 - **Clientes** (`app/(app)/clientes/`, migrado): tabla (no cards). Fila →
   ficha con historial cruzado real (ventas/tickets/turnos vía
   `lib/db/clientes.ts`); toolbar «Nuevo cliente». `compras`/`reparaciones`/
@@ -745,9 +767,12 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   renderiza y lo pasa como children. Facturación por vendedor, ingresos por
   medio de pago, ventas por canal (`procedencia`), equipos por estado y
   facturación acumulada (SVG) ya eran cálculos genéricos sobre esos arrays,
-  no cambiaron. `tiempoPorFalla`, `rendimientoTecnicos`, `margenPorTipo` y
-  `TendenciaRubros` (`salesByMonth`) siguen en mock — ver "Estado de la
-  migración" arriba para el porqué de cada uno. Helper `BarRows`.
+  no cambiaron. `margenPorTipo` (`lib/analiticas.ts`, con test) es real
+  desde que `VentaItem` tiene tabla propia (`venta_items`) — ver "Backend y
+  multi-tenancy" y "Estado de la migración". `tiempoPorFalla`,
+  `rendimientoTecnicos` y `TendenciaRubros` (`salesByMonth`) siguen en mock
+  — ver "Estado de la migración" arriba para el porqué de cada uno. Helper
+  `BarRows`.
 - **Dashboard** (`app/(app)/dashboard/`, migrado): `page.tsx` (server) trae
   ventas/equipos/tickets/turnos vía los `lib/db/*` ya existentes y calcula
   todo lo derivable con `lib/dashboard.ts` (con tests):
@@ -779,7 +804,10 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `nombre` que ya existía); sin policy de `update` para `authenticated` (a
   propósito), el guardado va por `createServiceRoleClient()` +
   `requireRole("admin")` en `lib/db/configuracion.ts`, mismo criterio que
-  `signUp`/`inviteMember`. "Importar datos" (`importar-datos.tsx`) es un
+  `signUp`/`inviteMember`. "Recibos" (`RecibosForm`) es el mismo patrón
+  (columnas `garantia_*` en `organizations`, mismo `updateNegocioAction`)
+  con preview en vivo del recibo de Garantía al lado del form — ver "Recibos
+  / PDFs". "Importar datos" (`importar-datos.tsx`) es un
   alta masiva vía CSV de equipos y clientes **existentes** (no ventas
   históricas — se descartó a propósito para no lidiar con fechas
   retroactivas ni con equipos "vendido" que ya no están en stock): parseo
@@ -803,16 +831,40 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
 ### Recibos / PDFs
 
 `components/recibos/recibo.tsx`: `ReciboDialog` (Dialog + botón «Imprimir /
-Guardar PDF» → `window.print()`) que envuelve `ReciboShell` (hoja con membrete
-Tekly, N°, fecha, firmas). Helpers `ReciboCampos` (pares clave/valor) y
-`ReciboLineas` (tabla con total). La impresión se aísla con `@media print` en
-`app/globals.css`: se oculta todo salvo `.recibo-print`. 3 usos:
-recibo de mercadería (Reparaciones), comprobante de venta y recibo de canje
-(Ventas). El membrete (nombre/dirección/CUIT/teléfono) toma `negocio` real
+Guardar PDF» → `window.print()`) que envuelve `ReciboShell` (hoja: banda
+superior en `accent` con la identidad del negocio, bloque «A nombre de»
++ título/N°/fecha, cuerpo, firmas). Helpers para el cuerpo: `ReciboCampos`
+(pares clave/valor), `ReciboLineas` (tabla con total — si alguna línea trae
+`serial` pasa sola a columnas explícitas Ítem/Serial/Cant./Total con header;
+si ninguna lo trae queda el formato compacto "2× Detalle", así no rompe los
+usos sin serial), `ReciboGarantiaItems` (tabla Ítem/Serial/Garantía/Precio,
+sin fila de total) y `ReciboNota`/`ReciboNotaLista` (bloque con header
+`accent` + cuerpo gris, para texto libre/lista — `null` si el texto está
+vacío). Los headers de tabla salen con la banda índigo oscuro global
+(`app/globals.css`, `th`) sin pedirlo aparte. La impresión se aísla con
+`@media print`: se oculta todo salvo `.recibo-print`. 4 usos: recibo de
+mercadería/presupuesto/entrega (Reparaciones), comprobante de venta, recibo
+de canje y **Garantía** (Ventas — botón en el detalle de la venta, solo si
+algún ítem tiene `equipoId`; tabla de ítems con IMEI vía `equiposPorId`,
+texto de garantía y las 3 notas legales vienen de `negocio.garantia*`).
+El membrete (nombre/dirección/CUIT/teléfono) toma `negocio` real
 (`lib/db/configuracion.ts` → `getNegocio()`) pasado como prop desde cada
 `page.tsx` hasta `ReciboDialog` — el import de `lib/mock-data.ts` que queda
-en el archivo es solo el valor por default del prop, nunca se usa (ambas
+en el archivo es solo el valor por default del prop, nunca se usa (todas las
 páginas siempre lo pasan).
+
+Textos editables de garantía (`Negocio.garantiaTexto/garantiaCondiciones/
+garantiaImportante/garantiaCausales`, columnas nuevas en `organizations`,
+sin policy de `update` para `authenticated` -- mismo criterio que el resto
+de "Datos del negocio", se guarda por `service role` + `requireRole("admin")`
+en `updateNegocio`): se editan en Configuración → **Recibos**
+(`RecibosForm` en `configuracion-client.tsx`), con preview en vivo — el
+mismo `ReciboShell`/`ReciboGarantiaItems`/`ReciboNota` renderizado al lado
+del form, atado al `form` state (no al `negocio` guardado) para que el
+cambio se vea antes de guardar. Las notas legales de los otros 4 tipos de
+recibo (venta/canje/mercadería/presupuesto/entrega) siguen hardcodeadas en
+cada client component — no forman parte de esta configuración, son pocas y
+ya están afinadas por tipo.
 
 ## Notificaciones en tiempo real
 

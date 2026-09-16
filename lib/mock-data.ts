@@ -494,12 +494,6 @@ export const conciliaciones: Conciliacion[] = [
 
 // ───────────────────────── Analíticas ─────────────────────────
 
-export const margenPorTipo = [
-  { tipo: "Venta de equipos", operaciones: 42, margenPct: 23.1, gananciaUsd: 6820 },
-  { tipo: "Reparaciones", operaciones: 68, margenPct: 41.7, gananciaUsd: 3140 },
-  { tipo: "Accesorios", operaciones: 55, margenPct: 52.0, gananciaUsd: 610 },
-];
-
 export const tiempoPorFalla = [
   { falla: "Cambio de pantalla", horas: 1.2, tickets: 24 },
   { falla: "Cambio de batería", horas: 0.6, tickets: 31 },

@@ -9,12 +9,12 @@ import { Tabs } from "@/components/ui/tabs";
 import { Input, Select } from "@/components/ui/field";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
 import { filterPill } from "@/lib/ui-styles";
-// Estos 3 datasets no son derivables de las tablas reales todavía: no hay
+// Estos 2 datasets no son derivables de las tablas reales todavía: no hay
 // timestamp de "listo/entregado" en tickets (tiempoPorFalla), ni campo de
-// reingreso/calificación en ningún lado (rendimientoTecnicos), ni una
-// categoría "Accesorios" separada de venta/reparación (margenPorTipo).
-// Agregar esas columnas es una decisión de producto, no de esta migración.
-import { margenPorTipo, tiempoPorFalla, rendimientoTecnicos } from "@/lib/mock-data";
+// reingreso/calificación en ningún lado (rendimientoTecnicos). Agregar esas
+// columnas es una decisión de producto, no de esta migración.
+import { tiempoPorFalla, rendimientoTecnicos } from "@/lib/mock-data";
+import type { MargenPorTipo } from "@/lib/analiticas";
 import {
   equipoStatus,
   medioPago as medioPagoCfg,
@@ -84,6 +84,7 @@ export function AnaliticasClient({
   movimientosTodos,
   ventasPorMes,
   salesTrend,
+  margenPorTipo,
   demografia,
   fuenteClientes,
 }: {
@@ -97,6 +98,7 @@ export function AnaliticasClient({
   movimientosTodos: MovimientoCaja[];
   ventasPorMes: { mes: string; usd: number }[];
   salesTrend: number[];
+  margenPorTipo: MargenPorTipo[];
   demografia: Record<Periodo, RangoEdad[]>;
   fuenteClientes: React.ReactNode;
 }) {

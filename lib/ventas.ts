@@ -2,7 +2,29 @@
  * red. Extraída de `app/ventas/page.tsx` (antes vivía inline en el
  * componente del modal). */
 
+import type { VentaItem } from "@/lib/types";
+
 export type PagoDraft = { montoUsd: number };
+
+export type Rubro = NonNullable<VentaItem["categoria"]>;
+
+export const RUBRO_LABEL: Record<Rubro, string> = {
+  equipo: "Equipos",
+  servicio: "Reparaciones",
+  otro: "Accesorios",
+  libre: "Otros",
+};
+
+export const RUBRO_ORDEN = Object.keys(RUBRO_LABEL) as Rubro[];
+
+/** Ventas de antes de trackear `VentaItem.categoria` sólo permiten inferir
+ * con certeza el caso "equipo" (tiene `equipoId`); el resto cae en "Otros"
+ * en vez de adivinar servicio/producto/libre. Compartida entre
+ * `ventasPorRubro` (dashboard) y `margenPorTipo` (analíticas) -- una sola
+ * fuente de verdad para el rubro de un ítem. */
+export function categoriaDe(item: VentaItem): Rubro {
+  return item.categoria ?? (item.equipoId ? "equipo" : "libre");
+}
 
 /** % de margen sobre precio -- 0 si no hay precio (evita división por 0). */
 export function calcularMargenPct(totalPrecio: number, totalCosto: number): number {

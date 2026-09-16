@@ -7,17 +7,24 @@ import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { dotClass, rolLabel, rolTone } from "@/lib/status";
 import { thDivider } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
 import { updateOwnProfileAction } from "@/app/(app)/actions";
 import { inviteMemberAction, setMemberRoleAction, updateNegocioAction } from "./actions";
 import { ImportarDatos } from "./importar-datos";
+import {
+  ReciboShell,
+  ReciboGarantiaItems,
+  ReciboNota,
+  ReciboNotaLista,
+  ReciboSello,
+} from "@/components/recibos/recibo";
 import type { SessionUser, Rol } from "@/lib/auth/types";
 import type { Miembro, Negocio } from "@/lib/db/configuracion";
 
-type Tab = "usuarios" | "negocio" | "importar" | "cuenta";
+type Tab = "usuarios" | "negocio" | "recibos" | "importar" | "cuenta";
 
 const ROLES: Rol[] = ["admin", "vendedor", "tecnico"];
 
@@ -57,6 +64,7 @@ export function ConfiguracionClient({
           options={[
             { value: "usuarios", label: "Usuarios y roles" },
             { value: "negocio", label: "Datos del negocio" },
+            { value: "recibos", label: "Recibos" },
             { value: "importar", label: "Importar datos" },
             { value: "cuenta", label: "Mi cuenta" },
           ]}
@@ -129,6 +137,8 @@ export function ConfiguracionClient({
         )}
 
         {tab === "negocio" && negocio && <NegocioForm negocio={negocio} />}
+
+        {tab === "recibos" && negocio && <RecibosForm negocio={negocio} />}
 
         {tab === "importar" && <ImportarDatos />}
 
@@ -349,6 +359,114 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
         </button>
       </div>
     </Card>
+  );
+}
+
+/** Textos del recibo de garantía (Ítem "Garantía" en Ventas) -- el resto de
+ * los recibos (comprobante de venta, canje, mercadería/presupuesto/entrega
+ * de Reparaciones) tienen su nota legal fija en el código, ya afinada por
+ * tipo; acá solo se edita lo que sí varía por negocio: cuánto dura la
+ * garantía y las condiciones/causales propias de cada empresa. */
+function RecibosForm({ negocio }: { negocio: Negocio }) {
+  const router = useRouter();
+  const [form, setForm] = useState(negocio);
+  const [saved, setSaved] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function guardar() {
+    setSaved(false);
+    startTransition(async () => {
+      await updateNegocioAction(form);
+      setSaved(true);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,22rem)_1fr]">
+      <Card className="h-fit p-5">
+        <div className="space-y-3">
+          <Field label="Texto de garantía por ítem">
+            <Input
+              value={form.garantiaTexto}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, garantiaTexto: e.target.value }))
+              }
+              placeholder="Ej: Garantía oficial Apple (12 meses)"
+            />
+          </Field>
+          <Field label="Condiciones de garantía">
+            <Textarea
+              rows={5}
+              value={form.garantiaCondiciones}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, garantiaCondiciones: e.target.value }))
+              }
+              placeholder="Párrafos separados por una línea en blanco."
+            />
+          </Field>
+          <Field label="Importante">
+            <Textarea
+              rows={4}
+              value={form.garantiaImportante}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, garantiaImportante: e.target.value }))
+              }
+              placeholder="Párrafos separados por una línea en blanco."
+            />
+          </Field>
+          <Field label="Causales de anulación">
+            <Textarea
+              rows={4}
+              value={form.garantiaCausales}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, garantiaCausales: e.target.value }))
+              }
+              placeholder="Una causal por línea."
+            />
+          </Field>
+          {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
+          <button
+            onClick={guardar}
+            disabled={pending}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          >
+            {pending ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </div>
+      </Card>
+
+      <div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          Preview
+        </p>
+        <ReciboShell
+          titulo="Garantía"
+          nro="V-123"
+          fecha="15/09/2026"
+          cliente="Cliente de ejemplo"
+          negocio={negocio}
+        >
+          <ReciboGarantiaItems
+            items={[
+              {
+                detalle: "iPhone 13 128GB Azul",
+                serial: "358240051111110",
+                garantia: form.garantiaTexto || "—",
+                precioUsd: 450,
+              },
+            ]}
+          />
+          <ReciboSello />
+          <ReciboNota titulo="Condiciones de garantía" texto={form.garantiaCondiciones} />
+          <ReciboNota titulo="Importante" texto={form.garantiaImportante} tono="warning" />
+          <ReciboNotaLista
+            titulo="Causales de anulación de la garantía"
+            texto={form.garantiaCausales}
+          />
+        </ReciboShell>
+      </div>
+    </div>
   );
 }
 

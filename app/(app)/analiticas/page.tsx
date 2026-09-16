@@ -3,7 +3,7 @@ import { listEquipos, listRepuestos, listOtros } from "@/lib/db/inventario";
 import { listClientes, demografiaClientes } from "@/lib/db/clientes";
 import { listTurnosSemana } from "@/lib/db/turnos";
 import { listCajas, listMovimientos } from "@/lib/db/cajas";
-import { ventasPorMes, facturacionDiaria } from "@/lib/analiticas";
+import { ventasPorMes, facturacionDiaria, margenPorTipo } from "@/lib/analiticas";
 import { FuenteClientes } from "@/components/clientes/fuente-clientes";
 import { AnaliticasClient } from "./analiticas-client";
 
@@ -33,6 +33,7 @@ export default async function AnaliticasPage() {
       movimientosTodos={movimientosTodos}
       ventasPorMes={ventasPorMes(ventas)}
       salesTrend={facturacionDiaria(ventas)}
+      margenPorTipo={margenPorTipo(ventas)}
       demografia={demografia}
       fuenteClientes={<FuenteClientes />}
     />
