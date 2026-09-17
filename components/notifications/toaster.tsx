@@ -51,7 +51,7 @@ export function Toaster() {
   }, [subscribe]);
 
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-3">
+    <div className="pointer-events-none fixed right-6 top-20 z-50 flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-3">
       {toasts.map((t) => {
         const Icon = ICONS[t.icon];
         return (

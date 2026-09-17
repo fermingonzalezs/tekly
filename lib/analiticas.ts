@@ -1,10 +1,12 @@
 import type { Venta } from "@/lib/types";
-import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe } from "@/lib/ventas";
+import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, type Rubro } from "@/lib/ventas";
 
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",
   "jul", "ago", "sep", "oct", "nov", "dic",
 ];
+
+const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]; // orden de Date#getDay()
 
 function claveDia(y: number, m0: number, d: number): string {
   return `${y}-${String(m0 + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -52,6 +54,63 @@ export function facturacionDiaria(ventas: Venta[], dias = 14, hoy = new Date()):
     out.push(totales.get(claveDia(d.getFullYear(), d.getMonth(), d.getDate())) ?? 0);
   }
   return out;
+}
+
+export type RubroMes = { mes: string } & Record<Rubro, number>;
+
+/** Facturación real por mes y por rubro, últimos `meses` meses (incluye el
+ * actual) -- mismo `categoriaDe` que `margenPorTipo`/`ventasPorRubro`
+ * (dashboard), una sola fuente de verdad para qué es cada rubro. Alimenta
+ * `TendenciaRubros`. Mismo cuidado de husos horarios que `ventasPorMes`
+ * (`fechaISO` se lee con `.slice()`, nunca con `new Date(iso)`). */
+export function ventasPorRubroMes(
+  ventas: Venta[],
+  meses = 6,
+  hoy = new Date(),
+): RubroMes[] {
+  const vacio = (): Record<Rubro, number> => ({ equipo: 0, servicio: 0, otro: 0, libre: 0 });
+  const totales = new Map<string, Record<Rubro, number>>();
+  for (const v of ventas) {
+    const clave = v.fechaISO.slice(0, 7); // "YYYY-MM"
+    const acc = totales.get(clave) ?? vacio();
+    for (const item of v.items) {
+      const cat = categoriaDe(item);
+      acc[cat] += item.precioUsd * item.cantidad;
+    }
+    totales.set(clave, acc);
+  }
+  const out: RubroMes[] = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+    const clave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    out.push({ mes: MESES[d.getMonth()], ...(totales.get(clave) ?? vacio()) });
+  }
+  return out;
+}
+
+export type VentaDia = { dia: string; usd: number; operaciones: number };
+
+/** Facturación real por día de la semana (Lun a Dom), sobre el conjunto de
+ * ventas que se le pase (respeta el filtro de fecha de la pestaña Ventas
+ * si se lo llama con `ventasFiltradas`). `fechaISO` se arma en `Date(y, m-1,
+ * d)` -- construcción local a propósito, nunca `new Date(iso).getDay()`
+ * (ese constructor parsea la fecha como UTC medianoche, y `getDay()` la lee
+ * en hora local -- mismo bug de huso horario que ya nos mordió en
+ * `ventasPorMes`/`facturacionDiaria`). */
+export function ventasPorDiaSemana(ventas: Venta[]): VentaDia[] {
+  const totales = Array.from({ length: 7 }, () => ({ usd: 0, operaciones: 0 }));
+  for (const v of ventas) {
+    const [y, m, d] = v.fechaISO.split("-").map(Number);
+    const dow = new Date(y, m - 1, d).getDay();
+    totales[dow].usd += v.totalUsd;
+    totales[dow].operaciones += 1;
+  }
+  const orden = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dom
+  return orden.map((i) => ({
+    dia: DIAS_SEMANA[i],
+    usd: Math.round(totales[i].usd),
+    operaciones: totales[i].operaciones,
+  }));
 }
 
 export type MargenPorTipo = {

@@ -38,6 +38,7 @@ export async function listClientes(): Promise<Cliente[]> {
   const { data: rows, error } = await supabase
     .from("clientes")
     .select("id, nombre, telefono, email, desde, fecha_nacimiento")
+    .eq("activo", true)
     .order("desde", { ascending: false });
   if (error) throw error;
   if (!rows.length) return [];
@@ -72,6 +73,7 @@ export async function listClientesOpciones(): Promise<ClienteOpcion[]> {
   const { data, error } = await supabase
     .from("clientes")
     .select("id, nombre, telefono")
+    .eq("activo", true)
     .order("nombre");
   if (error) throw error;
   return data.map((c) => ({ id: c.id, nombre: c.nombre, telefono: c.telefono ?? "—" }));
@@ -98,6 +100,50 @@ export async function createCliente(data: {
   return toCliente(row, { compras: 0, reparaciones: 0, gastadoUsd: 0 });
 }
 
+export async function updateCliente(
+  id: string,
+  data: {
+    nombre: string;
+    telefono?: string;
+    email?: string;
+    fechaNacimiento?: string;
+  },
+): Promise<Cliente> {
+  const supabase = createServerClient();
+  const { data: row, error } = await supabase
+    .from("clientes")
+    .update({
+      nombre: data.nombre,
+      telefono: data.telefono || null,
+      email: data.email || null,
+      fecha_nacimiento: data.fechaNacimiento || null,
+    })
+    .eq("id", id)
+    .select("id, nombre, telefono, email, desde, fecha_nacimiento")
+    .single();
+  if (error) throw error;
+
+  const [{ data: ventasPorCliente }, { data: ticketsPorCliente }] = await Promise.all([
+    supabase.from("ventas").select("total_usd").eq("cliente_id", id),
+    supabase.from("tickets").select("id").eq("cliente_id", id),
+  ]);
+  return toCliente(row, {
+    compras: ventasPorCliente?.length ?? 0,
+    reparaciones: ticketsPorCliente?.length ?? 0,
+    gastadoUsd: (ventasPorCliente ?? []).reduce((a, v) => a + v.total_usd, 0),
+  });
+}
+
+/** Baja lógica -- nunca `DELETE` real: `ventas.cliente_id`,
+ * `tickets.cliente_id`, `turnos.cliente_id` y `movimientos_cc.cliente_id`
+ * referencian `clientes.id` con `NO ACTION`, así que un cliente con
+ * cualquier historial rompería el borrado en duro. */
+export async function deleteCliente(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const { error } = await supabase.from("clientes").update({ activo: false }).eq("id", id);
+  if (error) throw error;
+}
+
 /** Resuelve una `ClienteSeleccion` de `ClientePicker` a un cliente real
  * (id + nombre) -- crea el cliente recién ahora si vino como "nuevo" (nunca
  * antes, para no dejar un cliente fantasma si el formulario que lo usa se
@@ -114,7 +160,9 @@ export async function resolveCliente(
 
 /** Teléfono/email de todos los clientes de la organización -- usado por el
  * importador de clientes para descartar filas duplicadas antes de insertar
- * (no hay constraint de unicidad en la tabla, el dedupe es a mano). */
+ * (no hay constraint de unicidad en la tabla, el dedupe es a mano). A
+ * propósito sin filtrar por `activo`: un cliente desactivado que se
+ * reimporta tiene que seguir contando como duplicado. */
 export async function listClientesContacto(): Promise<{ telefono: string; email: string }[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase.from("clientes").select("telefono, email");

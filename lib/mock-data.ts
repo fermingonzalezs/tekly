@@ -1,12 +1,9 @@
 import type {
-  Caja,
   Cliente,
   Compra,
-  Conciliacion,
   Equipo,
   ListaDifusion,
   Movimiento,
-  MovimientoCaja,
   MovimientoCC,
   OtroItem,
   Proveedor,
@@ -121,13 +118,6 @@ export const salesTrendByPeriod: Record<
     return { venta, ganancia: mkGanancia(venta) };
   })(),
 };
-
-// facturación mensual por rubro (USD) — gráfico de tendencia (barras apiladas)
-export const salesByMonth = [
-  { mes: "Jul", equipos: 17000, reparaciones: 11500, accesorios: 3800, otros: 2200 },
-  { mes: "Ago", equipos: 20500, reparaciones: 13500, accesorios: 4500, otros: 2500 },
-  { mes: "Sep", equipos: 24500, reparaciones: 15250, accesorios: 5500, otros: 3000 },
-];
 
 export const usdArs = { value: 1465, delta: 0.7, label: "Dólar blue" };
 
@@ -417,79 +407,6 @@ export const ventas: Venta[] = [
   { id: "V-4812", fecha: "Dom 16:30", fechaISO: "2026-09-03", clienteId: "c-3", cliente: "Marco Díaz", vendedorId: "u-2", vendedor: "Caro", procedencia: "Instagram", items: [{ detalle: "iPhone 14 128GB", cantidad: 1, costoUsd: 680, precioUsd: 860 }], totalUsd: 860, pagos: [{ medio: "cripto", montoUsd: 600, caja: "usd" }, { medio: "transferencia", montoUsd: 260, caja: "usd" }], margenPct: 20.9, tipo: "venta" },
   { id: "V-4811", fecha: "Dom 13:15", fechaISO: "2026-09-03", clienteId: "c-7", cliente: "Andrés Molina", vendedorId: "u-3", vendedor: "Meli", procedencia: "MercadoLibre", items: [{ detalle: "iPhone SE 2020 64GB", cantidad: 1, costoUsd: 130, precioUsd: 195 }], totalUsd: 195, pagos: [{ medio: "dolares", montoUsd: 195, caja: "usd" }], margenPct: 33.3, tipo: "venta" },
   { id: "V-4810", fecha: "Sáb 11:50", fechaISO: "2026-09-02", clienteId: "c-2", cliente: "Sofía Ramos", vendedorId: "u-2", vendedor: "Caro", procedencia: "Local", items: [{ detalle: "Cambio de pantalla iPhone XR", cantidad: 1, costoUsd: 54, precioUsd: 75 }], totalUsd: 75, pagos: [{ medio: "transferencia", montoUsd: 75, caja: "usd" }], margenPct: 28.0, tipo: "reparacion" },
-];
-
-// ───────────────────────── Cajas ─────────────────────────
-
-// Cajas específicas — puede haber varias por moneda.
-export const cajas: Caja[] = [
-  { id: "caja-mostrador", nombre: "Mostrador", moneda: "ars", activa: true, descripcion: "Caja de atención al público en el local.", creadaEl: "ene 2022", medioPago: "pesos" },
-  { id: "caja-taller", nombre: "Taller", moneda: "ars", activa: true, descripcion: "Caja chica del taller: insumos y gastos del día a día.", creadaEl: "ene 2022", medioPago: "pesos" },
-  { id: "caja-usd", nombre: "Caja USD", moneda: "usd", activa: true, descripcion: "Caja principal en dólares para ventas y compras.", creadaEl: "ene 2022", medioPago: "transferencia" },
-  { id: "caja-usd-boveda", nombre: "Bóveda USD", moneda: "usd", activa: true, descripcion: "Resguardo de efectivo y equipos tomados en parte de pago.", creadaEl: "jun 2023", medioPago: "canje" },
-];
-
-// Caja USD: montos en dólares. Caja ARS: montos en pesos.
-// `usuario`: quien cargó el movimiento — manual o automático (venta/pago).
-export const movimientosHoy: MovimientoCaja[] = [
-  { id: "m-1", fecha: "07 sep", hora: "09:50", concepto: "Venta V-4820 — batería iPhone 12", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 55, usuario: "Meli" },
-  { id: "m-2", fecha: "07 sep", hora: "10:30", concepto: "Compra repuestos — PartsAR", medioPago: "transferencia", tipo: "egreso", cajaId: "caja-usd", monto: 120, usuario: "Fermín G." },
-  { id: "m-3", fecha: "07 sep", hora: "11:15", concepto: "Seña reparación #229", medioPago: "pesos", tipo: "ingreso", cajaId: "caja-mostrador", monto: 29000, usuario: "Meli" },
-  { id: "m-4", fecha: "07 sep", hora: "12:40", concepto: "Almuerzo equipo (caja chica)", medioPago: "pesos", tipo: "egreso", cajaId: "caja-taller", monto: 26000, usuario: "Fermín G." },
-  { id: "m-5", fecha: "07 sep", hora: "14:20", concepto: "Venta V-4821 — iPhone 13", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 735, usuario: "Caro" },
-  { id: "m-6", fecha: "07 sep", hora: "15:05", concepto: "iPhone 11 tomado como parte de pago", medioPago: "canje", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 300, usuario: "Caro" },
-  { id: "m-7", fecha: "07 sep", hora: "16:10", concepto: "Venta accesorios varios", medioPago: "tarjeta", tipo: "ingreso", cajaId: "caja-mostrador", monto: 44000, usuario: "Meli" },
-];
-
-// Movimientos de días anteriores (para el historial completo).
-export const movimientosPrevios: MovimientoCaja[] = [
-  { id: "m-p1", fecha: "06 sep", hora: "18:40", concepto: "Venta V-4819 — iPhone 15 Pro", medioPago: "cripto", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 1240, usuario: "Caro" },
-  { id: "m-p2", fecha: "06 sep", hora: "17:10", concepto: "Venta V-4818 — accesorios", medioPago: "pesos", tipo: "ingreso", cajaId: "caja-mostrador", monto: 32000, usuario: "Meli" },
-  { id: "m-p3", fecha: "06 sep", hora: "12:00", concepto: "Pago proveedor Tecno Import", medioPago: "transferencia", tipo: "egreso", cajaId: "caja-usd", monto: 210, usuario: "Fermín G." },
-  { id: "m-p4", fecha: "06 sep", hora: "10:05", concepto: "Reparación V-4816 — pantalla 13", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 90, usuario: "Meli" },
-  { id: "m-p5", fecha: "05 sep", hora: "16:30", concepto: "Venta iPhone 12 usado", medioPago: "dolares", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 520, usuario: "Caro" },
-  { id: "m-p6", fecha: "05 sep", hora: "11:20", concepto: "Compra fundas y vidrios", medioPago: "pesos", tipo: "egreso", cajaId: "caja-taller", monto: 117000, usuario: "Fermín G." },
-  { id: "m-p7", fecha: "04 sep", hora: "19:20", concepto: "Venta V-4815 — iPhone 13 mini", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 600, usuario: "Caro" },
-  { id: "m-p8", fecha: "04 sep", hora: "15:40", concepto: "Reparación V-4814 — placa XR", medioPago: "pesos", tipo: "ingreso", cajaId: "caja-mostrador", monto: 234000, usuario: "Meli" },
-  { id: "m-p9", fecha: "04 sep", hora: "13:00", concepto: "Retiro socio", medioPago: "pesos", tipo: "egreso", cajaId: "caja-mostrador", monto: 293000, usuario: "Fermín G." },
-  { id: "m-p10", fecha: "03 sep", hora: "16:30", concepto: "Venta V-4812 — iPhone 14", medioPago: "cripto", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 860, usuario: "Caro" },
-  { id: "m-p11", fecha: "03 sep", hora: "13:15", concepto: "Venta V-4811 — iPhone SE", medioPago: "dolares", tipo: "ingreso", cajaId: "caja-usd-boveda", monto: 195, usuario: "Meli" },
-  { id: "m-p12", fecha: "02 sep", hora: "11:50", concepto: "Reparación V-4810 — pantalla XR", medioPago: "transferencia", tipo: "ingreso", cajaId: "caja-usd", monto: 75, usuario: "Caro" },
-  { id: "m-p13", fecha: "02 sep", hora: "10:00", concepto: "Compra insumos varios", medioPago: "pesos", tipo: "egreso", cajaId: "caja-taller", monto: 58000, usuario: "Fermín G." },
-];
-
-export const movimientosTodos: MovimientoCaja[] = [
-  ...movimientosHoy,
-  ...movimientosPrevios,
-];
-
-// Historial de conciliaciones: por cada caja, lo que esperaba el sistema
-// (neto de movimientos desde la conciliación anterior) vs. lo contado a mano.
-export const conciliaciones: Conciliacion[] = [
-  {
-    id: "cnc-1",
-    fecha: "06 sep",
-    hora: "18:40",
-    responsable: "Caro",
-    lineas: [
-      { cajaId: "caja-mostrador", montoSistema: 66000, montoReal: 66000, comentario: "" },
-      { cajaId: "caja-taller", montoSistema: -117000, montoReal: -119000, comentario: "Faltan $2.000, revisar el vuelto de la tarde." },
-      { cajaId: "caja-usd", montoSistema: -120, montoReal: -120, comentario: "" },
-      { cajaId: "caja-usd-boveda", montoSistema: 2060, montoReal: 2060, comentario: "" },
-    ],
-  },
-  {
-    id: "cnc-2",
-    fecha: "04 sep",
-    hora: "19:05",
-    responsable: "Meli",
-    lineas: [
-      { cajaId: "caja-mostrador", montoSistema: -59000, montoReal: -59000, comentario: "" },
-      { cajaId: "caja-taller", montoSistema: 0, montoReal: 500, comentario: "Sobraron $500, sin explicación clara." },
-      { cajaId: "caja-usd", montoSistema: 600, montoReal: 600, comentario: "" },
-      { cajaId: "caja-usd-boveda", montoSistema: 860, montoReal: 860, comentario: "" },
-    ],
-  },
 ];
 
 // ───────────────────────── Analíticas ─────────────────────────

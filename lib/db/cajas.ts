@@ -91,6 +91,7 @@ function toMovimiento(row: MovimientoRow): MovimientoCaja {
     cajaId: row.caja_id,
     monto: row.monto,
     usuario: row.usuario_nombre,
+    conciliacionId: row.conciliacion_id ?? null,
   };
 }
 
@@ -132,6 +133,25 @@ export async function createMovimiento(data: {
     .single();
   if (error) throw error;
   return toMovimiento(row as unknown as MovimientoRow);
+}
+
+/** No se puede eliminar un movimiento ya archivado bajo una conciliación
+ * (`conciliacion_id` no nulo) -- la diferencia de esa conciliación pasada
+ * ya se calculó contra él, borrarlo la desincronizaría en silencio. */
+export async function deleteMovimiento(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const { data: row, error: readError } = await supabase
+    .from("movimientos_caja")
+    .select("conciliacion_id")
+    .eq("id", id)
+    .single();
+  if (readError) throw readError;
+  if (row.conciliacion_id) {
+    throw new Error("Ese movimiento ya está conciliado y no se puede eliminar.");
+  }
+
+  const { error } = await supabase.from("movimientos_caja").delete().eq("id", id);
+  if (error) throw error;
 }
 
 // ─────────────────────────── Conciliaciones ───────────────────────────

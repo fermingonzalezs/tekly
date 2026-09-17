@@ -1,4 +1,5 @@
 import { Section } from "@/components/section";
+import { requireUser } from "@/lib/auth";
 import { listClientesOpciones } from "@/lib/db/clientes";
 import { listEquipos, listOtros } from "@/lib/db/inventario";
 import { listServicios } from "@/lib/db/reparaciones";
@@ -7,7 +8,7 @@ import { getNegocio } from "@/lib/db/configuracion";
 import { VentasClient } from "./ventas-client";
 
 export default async function VentasPage() {
-  const [ventas, clientesOpciones, equipos, otros, servicios, vendedores, negocio] =
+  const [ventas, clientesOpciones, equipos, otros, servicios, vendedores, negocio, user] =
     await Promise.all([
       listVentas(),
       listClientesOpciones(),
@@ -16,6 +17,7 @@ export default async function VentasPage() {
       listServicios(),
       listVendedores(),
       getNegocio(),
+      requireUser(),
     ]);
 
   return (
@@ -28,6 +30,7 @@ export default async function VentasPage() {
         servicios={servicios}
         vendedores={vendedores}
         negocio={negocio}
+        user={user}
       />
     </Section>
   );

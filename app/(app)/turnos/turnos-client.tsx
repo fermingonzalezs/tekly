@@ -6,12 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ClientePicker } from "@/components/ui/cliente-picker";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import {
   turnoTipo,
   turnoStatus,
   equipoStatus,
   medioPago,
-  rolLabel,
   dotClass,
 } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
@@ -28,7 +28,7 @@ import type {
   Pago,
 } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
-import { createTurnoAction, setTurnoEstadoAction } from "./actions";
+import { createTurnoAction, setTurnoEstadoAction, deleteTurnoAction } from "./actions";
 
 const MEDIOS: MedioPago[] = [
   "pesos",
@@ -73,7 +73,8 @@ export function TurnosClient({
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
-  const actor = `${user.nombre} (${rolLabel[user.rol].toLowerCase()})`;
+  const actor = user.nombre;
+  const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Turno[]>(initialTurnos);
   const [equipos, setEquipos] = useState<Equipo[]>(initialEquipos);
   const [sel, setSel] = useState<Turno | null>(null);
@@ -113,21 +114,6 @@ export function TurnosClient({
   const at = (dayOffset: number, hora: string) =>
     list.find((t) => t.dayOffset === dayOffset && t.hora === hora);
 
-  function llego(t: Turno) {
-    setList((p) => p.map((x) => (x.id === t.id ? { ...x, estado: "llego" } : x)));
-    setSel(null);
-    startTransition(async () => {
-      await setTurnoEstadoAction(t.id, "llego");
-    });
-    if (t.ticketId)
-      publish({
-        type: "appointment_arrived",
-        actor,
-        client: t.cliente,
-        ticket: t.ticketId,
-      });
-  }
-
   function cancelar(t: Turno) {
     setList((p) =>
       p.map((x) => (x.id === t.id ? { ...x, estado: "cancelado" } : x)),
@@ -135,6 +121,14 @@ export function TurnosClient({
     setSel(null);
     startTransition(async () => {
       await setTurnoEstadoAction(t.id, "cancelado");
+    });
+  }
+
+  function eliminar(t: Turno) {
+    setList((p) => p.filter((x) => x.id !== t.id));
+    setSel(null);
+    startTransition(async () => {
+      await deleteTurnoAction(t.id);
     });
   }
 
@@ -317,27 +311,26 @@ export function TurnosClient({
         footer={
           sel && (
             <>
+              {esAdmin && (
+                <ConfirmButton
+                  label="Eliminar turno"
+                  onConfirm={() => eliminar(sel)}
+                  className="mr-auto"
+                />
+              )}
               <button
                 onClick={() => setSel(null)}
                 className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
               >
                 Cerrar
               </button>
-              {sel.estado !== "cancelado" && sel.estado !== "llego" && (
-                <>
-                  <button
-                    onClick={() => cancelar(sel)}
-                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
-                  >
-                    <X className="h-4 w-4" /> Cancelar turno
-                  </button>
-                  <button
-                    onClick={() => llego(sel)}
-                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90"
-                  >
-                    <Check className="h-4 w-4" /> Cliente llegó
-                  </button>
-                </>
+              {sel.estado !== "cancelado" && (
+                <button
+                  onClick={() => cancelar(sel)}
+                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                >
+                  <X className="h-4 w-4" /> Cancelar turno
+                </button>
               )}
             </>
           )

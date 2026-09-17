@@ -72,6 +72,13 @@ export async function createCompra(data: {
   return toCompra(row as unknown as CompraRow);
 }
 
+export async function deleteCompra(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const numero = Number(id.replace(/^C-/, ""));
+  const { error } = await supabase.from("compras").delete().eq("numero", numero);
+  if (error) throw error;
+}
+
 export async function marcarRecibida(id: string): Promise<Compra> {
   const supabase = createServerClient();
   const numero = Number(id.replace(/^C-/, ""));

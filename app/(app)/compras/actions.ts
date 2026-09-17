@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
-import { createCompra, marcarRecibida } from "@/lib/db/compras";
+import { requireUser, requireRole } from "@/lib/auth";
+import { createCompra, marcarRecibida, deleteCompra } from "@/lib/db/compras";
 import type { CompraItem, MedioPago } from "@/lib/types";
 
 export async function createCompraAction(data: {
@@ -24,4 +24,10 @@ export async function marcarRecibidaAction(id: string) {
   const compra = await marcarRecibida(id);
   revalidatePath("/compras");
   return compra;
+}
+
+export async function deleteCompraAction(id: string) {
+  await requireRole("admin");
+  await deleteCompra(id);
+  revalidatePath("/compras");
 }

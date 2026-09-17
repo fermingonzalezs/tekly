@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
-import { createVenta } from "@/lib/db/ventas";
+import { createVenta, deleteVenta } from "@/lib/db/ventas";
 import type { ClienteSeleccion, Pago, VentaItem } from "@/lib/types";
 
 export async function createVentaAction(input: {
@@ -33,4 +33,11 @@ export async function createVentaAction(input: {
   });
   revalidatePath("/ventas");
   return venta;
+}
+
+export async function deleteVentaAction(id: string) {
+  await requireRole("admin");
+  await deleteVenta(id);
+  revalidatePath("/ventas");
+  revalidatePath("/inventario");
 }

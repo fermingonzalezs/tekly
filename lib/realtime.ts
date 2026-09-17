@@ -9,10 +9,9 @@ import { fmtUsd } from "@/lib/format";
  */
 
 export type AppEvent =
-  | { type: "sale_confirmed"; actor: string; amountUsd: number; ref: string }
+  | { type: "sale_confirmed"; actor: string; amountUsd: number; ref: string; cliente: string }
   | { type: "ticket_ready"; actor: string; ticket: number; model: string }
   | { type: "low_stock"; actor: string; part: string; qty: number }
-  | { type: "appointment_arrived"; actor: string; client: string; ticket: number }
   | { type: "appointment_scheduled"; actor: string; client: string; tipoLabel: string; when: string }
   | { type: "repair_approved"; actor: string; ticket: number; amountUsd: number };
 
@@ -28,8 +27,8 @@ export function describe(e: AppEvent): ToastView {
     case "sale_confirmed":
       return {
         icon: "sale",
-        title: `${e.actor} confirmó una venta`,
-        detail: `+${fmtUsd(e.amountUsd)} · ${e.ref}`,
+        title: `${e.actor} realizó una venta por ${fmtUsd(e.amountUsd)}`,
+        detail: `${e.ref} · ${e.cliente}`,
         tone: "success",
       };
     case "ticket_ready":
@@ -44,13 +43,6 @@ export function describe(e: AppEvent): ToastView {
         icon: "check",
         title: `Presupuesto aprobado · Ticket #${e.ticket}`,
         detail: `${fmtUsd(e.amountUsd)} · ${e.actor}`,
-        tone: "success",
-      };
-    case "appointment_arrived":
-      return {
-        icon: "calendar",
-        title: `${e.client} llegó a su turno`,
-        detail: `Vinculado al ticket #${e.ticket}`,
         tone: "success",
       };
     case "appointment_scheduled":

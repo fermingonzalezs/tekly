@@ -5,6 +5,7 @@ import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChartTitle } from "@/components/ui/chart-title";
+import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { Input, Select } from "@/components/ui/field";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
@@ -14,7 +15,13 @@ import { filterPill } from "@/lib/ui-styles";
 // reingreso/calificación en ningún lado (rendimientoTecnicos). Agregar esas
 // columnas es una decisión de producto, no de esta migración.
 import { tiempoPorFalla, rendimientoTecnicos } from "@/lib/mock-data";
-import type { MargenPorTipo } from "@/lib/analiticas";
+import {
+  margenPorTipo as calcularMargenPorTipo,
+  ventasPorDiaSemana,
+  type MargenPorTipo,
+  type RubroMes,
+} from "@/lib/analiticas";
+import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe } from "@/lib/ventas";
 import {
   equipoStatus,
   medioPago as medioPagoCfg,
@@ -23,9 +30,10 @@ import {
 } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
-import { CHART_ACCENT } from "@/lib/chart";
+import { CHART_ACCENT, chartColor } from "@/lib/chart";
 import { cn } from "@/lib/utils";
 import { TendenciaRubros } from "@/components/analiticas/tendencia-rubros";
+import { DonutChart } from "@/components/dashboard/donut-chart";
 import { DemografiaClientes } from "@/components/clientes/demografia";
 import { InventarioValor } from "@/components/inventario-valor";
 import type { Caja, Cliente, Equipo, MovimientoCaja, OtroItem, Repuesto, Turno, Venta } from "@/lib/types";
@@ -85,6 +93,7 @@ export function AnaliticasClient({
   ventasPorMes,
   salesTrend,
   margenPorTipo,
+  rubroMesData,
   demografia,
   fuenteClientes,
 }: {
@@ -99,6 +108,7 @@ export function AnaliticasClient({
   ventasPorMes: { mes: string; usd: number }[];
   salesTrend: number[];
   margenPorTipo: MargenPorTipo[];
+  rubroMesData: RubroMes[];
   demografia: Record<Periodo, RangoEdad[]>;
   fuenteClientes: React.ReactNode;
 }) {
@@ -128,15 +138,6 @@ export function AnaliticasClient({
   const maxMes = Math.max(1, ...ventasPorMes.map((m) => m.usd));
   const maxHoras = Math.max(1, ...tiempoPorFalla.map((f) => f.horas));
 
-  const porVendedor = agrupar(
-    Object.entries(
-      ventasFiltradas.reduce<Record<string, number>>((a, v) => {
-        a[v.vendedor] = (a[v.vendedor] ?? 0) + v.totalUsd;
-        return a;
-      }, {}),
-    ),
-  );
-
   const porMedio = agrupar(
     Object.entries(
       ventasFiltradas
@@ -160,6 +161,72 @@ export function AnaliticasClient({
       }, {}),
     ),
   );
+
+  // ── Ventas: KPIs del período filtrado ──
+  const facturacionPeriodo = ventasFiltradas.reduce((a, v) => a + v.totalUsd, 0);
+  const cantidadOperaciones = ventasFiltradas.length;
+  const ticketPromedio = cantidadOperaciones > 0 ? facturacionPeriodo / cantidadOperaciones : 0;
+  const margenPromedio =
+    facturacionPeriodo > 0
+      ? ventasFiltradas.reduce((a, v) => a + v.margenPct * v.totalUsd, 0) / facturacionPeriodo
+      : 0;
+
+  // ── Ventas: ítems más vendidos del período (por ingreso) ──
+  const itemsVendidos: Row[] = (() => {
+    const acc = new Map<string, number>();
+    for (const v of ventasFiltradas) {
+      for (const item of v.items) {
+        acc.set(item.detalle, (acc.get(item.detalle) ?? 0) + item.precioUsd * item.cantidad);
+      }
+    }
+    return agrupar([...acc.entries()]).slice(0, 6);
+  })();
+
+  // ── Ventas: mix de rubros del período (dona) ──
+  const rubroSlices = (() => {
+    const totales = new Map<string, number>();
+    for (const v of ventasFiltradas) {
+      for (const item of v.items) {
+        const cat = categoriaDe(item);
+        totales.set(cat, (totales.get(cat) ?? 0) + item.precioUsd * item.cantidad);
+      }
+    }
+    const datos = RUBRO_ORDEN.map((cat) => ({ label: RUBRO_LABEL[cat], value: totales.get(cat) ?? 0 }));
+    const total = datos.reduce((a, d) => a + d.value, 0) || 1;
+    return datos.map((d, i) => ({
+      label: d.label,
+      pct: Math.round((d.value / total) * 100),
+      color: chartColor(i),
+      valueLabel: fmtUsd(d.value),
+    }));
+  })();
+
+  // ── Ventas: ganancia por categoría del período (mismo cálculo que la
+  // tabla de Finanzas, `margenPorTipo`, pero sobre `ventasFiltradas`) ──
+  const gananciaPeriodo: Row[] = calcularMargenPorTipo(ventasFiltradas)
+    .map((r) => ({ label: r.tipo, value: r.gananciaUsd }))
+    .sort((a, b) => b.value - a.value);
+
+  // ── Ventas: facturación por vendedor (dona con % y monto) ──
+  const porVendedor = agrupar(
+    Object.entries(
+      ventasFiltradas.reduce<Record<string, number>>((a, v) => {
+        a[v.vendedor] = (a[v.vendedor] ?? 0) + v.totalUsd;
+        return a;
+      }, {}),
+    ),
+  );
+  const totalVendedores = porVendedor.reduce((a, r) => a + r.value, 0) || 1;
+  const vendedorSlices = porVendedor.map((r, i) => ({
+    label: r.label,
+    pct: Math.round((r.value / totalVendedores) * 100),
+    color: chartColor(i),
+    valueLabel: fmtUsd(r.value),
+  }));
+
+  // ── Ventas: distribución por día de la semana ──
+  const porDiaSemana = ventasPorDiaSemana(ventasFiltradas);
+  const maxDiaSemana = Math.max(1, ...porDiaSemana.map((d) => d.usd));
 
   const equiposPorEstado = (
     Object.keys(equipoStatus) as (keyof typeof equipoStatus)[]
@@ -291,7 +358,14 @@ export function AnaliticasClient({
 
         {tab === "ventas" && (
           <div className="space-y-6">
-            <TendenciaRubros className="min-h-[340px]" />
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatCard label="Facturación" value={fmtUsd(facturacionPeriodo)} />
+              <StatCard label="Ticket promedio" value={fmtUsd(Math.round(ticketPromedio))} />
+              <StatCard label="Operaciones" value={cantidadOperaciones} />
+              <StatCard label="Margen promedio" value={`${margenPromedio.toFixed(1)}%`} />
+            </div>
+
+            <TendenciaRubros data={rubroMesData} className="min-h-[340px]" />
 
             <div className="grid gap-6 xl:grid-cols-2">
               <Card className="p-5">
@@ -314,7 +388,9 @@ export function AnaliticasClient({
 
               <Card className="p-5">
                 <ChartTitle align="left" divider>Facturación por vendedor</ChartTitle>
-                <BarRows rows={porVendedor} fmt={fmtUsd} />
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <DonutChart slices={vendedorSlices} />
+                </div>
               </Card>
             </div>
 
@@ -326,6 +402,43 @@ export function AnaliticasClient({
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ingresos por medio de pago</ChartTitle>
                 <BarRows rows={porMedio} fmt={fmtUsd} />
+              </Card>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <Card className="p-5">
+                <ChartTitle align="left" divider>Ítems más vendidos</ChartTitle>
+                <BarRows rows={itemsVendidos} fmt={fmtUsd} />
+              </Card>
+              <Card className="p-5">
+                <ChartTitle align="left" divider sub="del período filtrado">Mix de rubros</ChartTitle>
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <DonutChart slices={rubroSlices} />
+                </div>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <Card className="p-5">
+                <ChartTitle align="left" divider>Ganancia por categoría</ChartTitle>
+                <BarRows rows={gananciaPeriodo} fmt={fmtUsd} />
+              </Card>
+              <Card className="p-5">
+                <ChartTitle align="left" divider>Ventas por día de la semana</ChartTitle>
+                <div className="mt-5 flex items-end gap-3">
+                  {porDiaSemana.map((d) => (
+                    <div key={d.dia} className="flex flex-1 flex-col items-center gap-2">
+                      <span className="text-[11px] font-medium text-neutral-400">
+                        {d.usd > 0 ? fmtUsd(d.usd) : ""}
+                      </span>
+                      <div
+                        className="w-full rounded-t-xl bg-accent"
+                        style={{ height: `${Math.max(4, (d.usd / maxDiaSemana) * 140)}px` }}
+                      />
+                      <span className="text-xs text-neutral-500">{d.dia}</span>
+                    </div>
+                  ))}
+                </div>
               </Card>
             </div>
 

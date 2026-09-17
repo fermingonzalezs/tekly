@@ -30,7 +30,7 @@ describe("metricasDashboard", () => {
   it("calcula ventas/margen/ticket del mes y delta vs mes anterior", () => {
     const hoy = new Date(2026, 8, 14); // 14 sep 2026
     const ventas = [venta("2026-09-05", 100, 20), venta("2026-08-05", 50, 10)];
-    const out = metricasDashboard({ ventas, ticketsAbiertos: 3, equiposEnRevision: 1, turnosHoy: 2, hoy });
+    const out = metricasDashboard({ ventas, ticketsAbiertos: 3, turnosHoy: 2, hoy });
     const porKey = Object.fromEntries(out.map((m) => [m.key, m]));
     expect(porKey.ventas.value).toBe("U$ 100");
     expect(porKey.ventas.delta).toBe(100); // 100 vs 50 = +100%
@@ -41,7 +41,7 @@ describe("metricasDashboard", () => {
 
   it("sin ventas del mes anterior, delta 0 (no fabrica una comparación)", () => {
     const hoy = new Date(2026, 8, 14);
-    const out = metricasDashboard({ ventas: [venta("2026-09-05", 100)], ticketsAbiertos: 0, equiposEnRevision: 0, turnosHoy: 0, hoy });
+    const out = metricasDashboard({ ventas: [venta("2026-09-05", 100)], ticketsAbiertos: 0, turnosHoy: 0, hoy });
     expect(out.find((m) => m.key === "ventas")!.delta).toBe(0);
   });
 });

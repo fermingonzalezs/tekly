@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ventasPorMes, facturacionDiaria, margenPorTipo } from "@/lib/analiticas";
+import {
+  ventasPorMes,
+  facturacionDiaria,
+  margenPorTipo,
+  ventasPorRubroMes,
+  ventasPorDiaSemana,
+} from "@/lib/analiticas";
 import type { Venta, VentaItem } from "@/lib/types";
 
 function venta(fechaISO: string, totalUsd: number, items: VentaItem[] = []): Venta {
@@ -85,5 +91,40 @@ describe("margenPorTipo", () => {
       margenPct: 0,
       gananciaUsd: 0,
     });
+  });
+});
+
+describe("ventasPorRubroMes", () => {
+  it("agrupa por mes y rubro, completando meses/rubros sin ventas con 0", () => {
+    const hoy = new Date(2026, 8, 14); // 14 sep 2026
+    const ventas = [
+      venta("2026-09-05", 550, [
+        { detalle: "iPhone 13", cantidad: 1, precioUsd: 450, categoria: "equipo" },
+        { detalle: "Cambio pantalla", cantidad: 1, precioUsd: 100, categoria: "servicio" },
+      ]),
+      venta("2026-08-01", 20, [
+        { detalle: "Funda", cantidad: 1, precioUsd: 20, categoria: "otro" },
+      ]),
+    ];
+    const out = ventasPorRubroMes(ventas, 3, hoy);
+    expect(out).toEqual([
+      { mes: "jul", equipo: 0, servicio: 0, otro: 0, libre: 0 },
+      { mes: "ago", equipo: 0, servicio: 0, otro: 20, libre: 0 },
+      { mes: "sep", equipo: 450, servicio: 100, otro: 0, libre: 0 },
+    ]);
+  });
+});
+
+describe("ventasPorDiaSemana", () => {
+  it("suma facturación y operaciones por día, Lun a Dom", () => {
+    const ventas = [
+      venta("2026-09-14", 100), // lunes
+      venta("2026-09-14", 50), // lunes
+      venta("2026-09-19", 30), // sábado
+    ];
+    const out = ventasPorDiaSemana(ventas);
+    expect(out[0]).toEqual({ dia: "Lun", usd: 150, operaciones: 2 });
+    expect(out[5]).toEqual({ dia: "Sáb", usd: 30, operaciones: 1 });
+    expect(out[6]).toEqual({ dia: "Dom", usd: 0, operaciones: 0 });
   });
 });

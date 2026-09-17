@@ -161,6 +161,46 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   return toVenta(row as unknown as VentaRow);
 }
 
+/** Borra la venta (sus `venta_items` caen solos por `on delete cascade`) y
+ * devuelve al stock los equipos que había vendido -- vuelven a
+ * `disponible`, como si la venta nunca hubiera pasado. No revierte nada de
+ * repuestos/otros: vender esos ítems nunca descuenta su stock (eso se
+ * maneja aparte, con Recuento/Ingreso en Inventario).
+ *
+ * `id` es el `Venta.id` de la app (`"V-1042"`) -- no el uuid real de la
+ * fila, que `toVenta` nunca expone hacia afuera. Se resuelve acá contra
+ * `numero` antes de tocar nada. */
+export async function deleteVenta(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const numero = Number(id.replace(/^V-/, ""));
+
+  const { data: ventaRow, error: ventaError } = await supabase
+    .from("ventas")
+    .select("id")
+    .eq("numero", numero)
+    .single();
+  if (ventaError) throw ventaError;
+
+  const { data: items, error: itemsError } = await supabase
+    .from("venta_items")
+    .select("equipo_id")
+    .eq("venta_id", ventaRow.id)
+    .not("equipo_id", "is", null);
+  if (itemsError) throw itemsError;
+
+  const equipoIds = (items ?? []).map((i) => i.equipo_id as string);
+  if (equipoIds.length > 0) {
+    const { error: updError } = await supabase
+      .from("equipos")
+      .update({ estado: "disponible" })
+      .in("id", equipoIds);
+    if (updError) throw updError;
+  }
+
+  const { error } = await supabase.from("ventas").delete().eq("id", ventaRow.id);
+  if (error) throw error;
+}
+
 /** Vendedores posibles para el selector de "Nueva venta" -- admin y
  * vendedor pueden figurar como vendedor de una operación. */
 export async function listVendedores(): Promise<{ id: string; nombre: string }[]> {

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { describe, type AppEvent, type ToastView } from "@/lib/realtime";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 
-type Notif = ToastView & { id: number; ts: number };
+type Notif = ToastView & { id: number; ts: number; read: boolean };
 
 function ago(ts: number, now: number) {
   const s = Math.max(0, Math.round((now - ts) / 1000));
@@ -20,18 +20,15 @@ export function NotificationsBell() {
   const { subscribe } = useRealtime();
   const [list, setList] = useState<Notif[]>([]);
   const [open, setOpen] = useState(false);
-  const [seen, setSeen] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     return subscribe((e: AppEvent) => {
-      setList((p) =>
-        [
-          { id: Date.now() + Math.random(), ts: Date.now(), ...describe(e) },
-          ...p,
-        ].slice(0, 15),
-      );
+      setList((p) => [
+        { id: Date.now() + Math.random(), ts: Date.now(), read: false, ...describe(e) },
+        ...p,
+      ]);
     });
   }, [subscribe]);
 
@@ -42,7 +39,6 @@ export function NotificationsBell() {
 
   useEffect(() => {
     if (!open) return;
-    setSeen(list.length);
     const onDoc = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
@@ -53,9 +49,17 @@ export function NotificationsBell() {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, list.length]);
+  }, [open]);
 
-  const unread = Math.max(0, list.length - seen);
+  const unread = list.filter((n) => !n.read).length;
+
+  function dismiss(id: number) {
+    setList((p) => p.filter((n) => n.id !== id));
+  }
+
+  function markAllRead() {
+    setList((p) => p.map((n) => ({ ...n, read: true })));
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -76,10 +80,18 @@ export function NotificationsBell() {
 
       {open && (
         <div className="animate-toast-in absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
-          <div className="border-b border-neutral-100 px-4 py-2.5">
+          <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
               Notificaciones
             </p>
+            {unread > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-[11px] font-semibold text-accent hover:text-accent/80"
+              >
+                Marcar todas como vistas
+              </button>
+            )}
           </div>
           <div className="max-h-[22rem] overflow-y-auto">
             {list.length === 0 && (
@@ -90,7 +102,10 @@ export function NotificationsBell() {
             {list.map((n) => (
               <div
                 key={n.id}
-                className="flex items-start gap-2.5 border-b border-neutral-50 px-4 py-2.5 last:border-b-0"
+                className={cn(
+                  "relative flex items-start gap-2.5 border-b border-neutral-50 px-4 py-2.5 pr-8 last:border-b-0",
+                  !n.read && "bg-accent-soft/60",
+                )}
               >
                 <span
                   className={cn(
@@ -107,6 +122,12 @@ export function NotificationsBell() {
                     {ago(n.ts, now)}
                   </p>
                 </div>
+                <button
+                  onClick={() => dismiss(n.id)}
+                  className="absolute right-2.5 top-2.5 text-neutral-300 hover:text-neutral-500"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             ))}
           </div>

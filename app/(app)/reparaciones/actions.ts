@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import {
   createTicket,
   saveServicio,
   setTicketEstado,
+  deleteTicket,
 } from "@/lib/db/reparaciones";
 import type { ClienteSeleccion, Servicio, TicketStatus } from "@/lib/types";
 
@@ -33,6 +34,13 @@ export async function setTicketEstadoAction(id: number, estado: TicketStatus) {
   const ticket = await setTicketEstado(id, estado);
   revalidatePath("/reparaciones");
   return ticket;
+}
+
+export async function deleteTicketAction(id: number) {
+  await requireRole("admin");
+  await deleteTicket(id);
+  revalidatePath("/reparaciones");
+  revalidatePath("/turnos");
 }
 
 export async function saveServicioAction(servicio: Servicio) {

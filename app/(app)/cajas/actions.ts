@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
 import {
   saveCaja,
   type CajaInput,
   createMovimiento,
+  deleteMovimiento,
   crearConciliacion,
 } from "@/lib/db/cajas";
 import type { ConciliacionLinea, MedioPago } from "@/lib/types";
@@ -28,6 +29,12 @@ export async function createMovimientoAction(data: {
   const mov = await createMovimiento(data);
   revalidatePath("/cajas");
   return mov;
+}
+
+export async function deleteMovimientoAction(id: string) {
+  await requireRole("admin");
+  await deleteMovimiento(id);
+  revalidatePath("/cajas");
 }
 
 export async function crearConciliacionAction(lineas: ConciliacionLinea[], comentario?: string) {

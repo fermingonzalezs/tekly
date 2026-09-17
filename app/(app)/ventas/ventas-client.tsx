@@ -9,6 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import {
   ReciboDialog,
   ReciboCampos,
@@ -46,9 +47,10 @@ import type {
   VentaItem,
 } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
+import type { SessionUser } from "@/lib/auth/types";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
-import { createVentaAction } from "./actions";
+import { createVentaAction, deleteVentaAction } from "./actions";
 
 const MEDIOS: MedioPago[] = [
   "pesos",
@@ -108,6 +110,7 @@ export function VentasClient({
   servicios,
   vendedores,
   negocio,
+  user,
 }: {
   initialVentas: Venta[];
   clientesOpciones: ClienteOpcion[];
@@ -116,9 +119,11 @@ export function VentasClient({
   servicios: Servicio[];
   vendedores: PersonaOpcion[];
   negocio: Negocio;
+  user: SessionUser;
 }) {
   const { publish } = useRealtime();
   const dolarVenta = useDolar().venta;
+  const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Venta[]>(initialVentas);
   const [vista, setVista] = useState<"ventas" | "items">("ventas");
   const [vendFilter, setVendFilter] = useState("todos");
@@ -131,6 +136,7 @@ export function VentasClient({
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
   const [recibo, setRecibo] = useState<{
     venta: Venta;
     tipo: "venta" | "canje";
@@ -174,6 +180,14 @@ export function VentasClient({
   }, [filtered, q, equiposPorId]);
 
   const open = list.find((v) => v.id === openId) ?? null;
+
+  function eliminarVenta(id: string) {
+    setList((prev) => prev.filter((v) => v.id !== id));
+    setOpenId(null);
+    startTransition(async () => {
+      await deleteVentaAction(id);
+    });
+  }
 
   const totalUsd = filtered.reduce((a, v) => a + v.totalUsd, 0);
   const margenProm =
@@ -542,9 +556,10 @@ export function VentasClient({
           setCreating(false);
           publish({
             type: "sale_confirmed",
-            actor: `${v.vendedor} (ventas)`,
+            actor: v.vendedor,
             amountUsd: v.totalUsd,
             ref: v.id,
+            cliente: v.cliente,
           });
         }}
       />
@@ -559,6 +574,13 @@ export function VentasClient({
         footer={
           open && (
             <>
+              {esAdmin && (
+                <ConfirmButton
+                  label="Eliminar venta"
+                  onConfirm={() => eliminarVenta(open.id)}
+                  className="mr-auto"
+                />
+              )}
               <button
                 onClick={() => setOpenId(null)}
                 className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"

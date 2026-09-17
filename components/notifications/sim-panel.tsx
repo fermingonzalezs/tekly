@@ -6,9 +6,10 @@ import type { AppEvent } from "@/lib/realtime";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 
-const ACTORS = ["Nico (técnico)", "Caro (ventas)", "Dueño", "Meli (ventas)"];
+const ACTORS = ["Nico", "Caro", "Dueño", "Meli"];
 const MODELS = ["iPhone 12", "iPhone 13 Pro", "iPhone 15", "Samsung S22"];
 const PARTS = ["Pantalla iPhone 13", "Batería iPhone 12", "Flex de carga 15"];
+const CLIENTES = ["Juan P.", "Sofía R.", "Marco D.", "Lu V."];
 const TIPOS_TURNO = ["Compra equipo", "Deja reparación", "Retira reparación", "Cotizar"];
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 const rnd = (min: number, max: number) =>
@@ -22,6 +23,7 @@ const PRESETS: { label: string; build: () => AppEvent }[] = [
       actor: pick(ACTORS),
       amountUsd: rnd(180, 1200),
       ref: `V-${rnd(1000, 9999)}`,
+      cliente: pick(CLIENTES),
     }),
   },
   {
@@ -43,20 +45,11 @@ const PRESETS: { label: string; build: () => AppEvent }[] = [
     }),
   },
   {
-    label: "Cliente llegó al turno",
-    build: () => ({
-      type: "appointment_arrived",
-      actor: pick(ACTORS),
-      client: pick(["Juan P.", "Sofía R.", "Marco D.", "Lu V."]),
-      ticket: rnd(100, 199),
-    }),
-  },
-  {
     label: "Turno nuevo agendado",
     build: () => ({
       type: "appointment_scheduled",
       actor: pick(ACTORS),
-      client: pick(["Juan P.", "Sofía R.", "Marco D.", "Lu V."]),
+      client: pick(CLIENTES),
       tipoLabel: pick(TIPOS_TURNO),
       when: "lun 15 sep · 10:00",
     }),

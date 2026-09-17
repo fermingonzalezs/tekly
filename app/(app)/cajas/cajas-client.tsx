@@ -17,6 +17,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { medioPago as medioPagoCfg, dotClass } from "@/lib/status";
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
@@ -30,8 +31,14 @@ import type {
   MedioPago,
   MovimientoCaja,
 } from "@/lib/types";
-import { saveCajaAction, createMovimientoAction, crearConciliacionAction } from "./actions";
+import {
+  saveCajaAction,
+  createMovimientoAction,
+  deleteMovimientoAction,
+  crearConciliacionAction,
+} from "./actions";
 import type { CajaInput } from "@/lib/db/cajas";
+import type { SessionUser } from "@/lib/auth/types";
 
 const MEDIOS: MedioPago[] = [
   "pesos",
@@ -63,13 +70,17 @@ export function CajasClient({
   initialMovimientosTodos,
   initialConciliaciones,
   usuarioNombre,
+  user,
 }: {
   initialCajas: Caja[];
   initialMovimientosSinConciliar: MovimientoCaja[];
   initialMovimientosTodos: MovimientoCaja[];
   initialConciliaciones: Conciliacion[];
   usuarioNombre: string;
+  user: SessionUser;
 }) {
+  const esAdmin = user.rol === "admin";
+  const [, startDeleteTransition] = useTransition();
   const [vista, setVista] = useState<"dia" | "historial">("dia");
   const [medioFiltro, setMedioFiltro] = useState<MedioPago | null>(null);
   const [q, setQ] = useState("");
@@ -97,6 +108,15 @@ export function CajasClient({
     setMovimientosHoy((prev) => [mov, ...prev]);
     setMovimientosTodos((prev) => [mov, ...prev]);
   };
+
+  function eliminarMovimiento(id: string) {
+    setMovimientosHoy((prev) => prev.filter((m) => m.id !== id));
+    setMovimientosTodos((prev) => prev.filter((m) => m.id !== id));
+    setOpenMov(null);
+    startDeleteTransition(async () => {
+      await deleteMovimientoAction(id);
+    });
+  }
 
   const saveCajaLocal = (c: Caja) => {
     setCajas((prev) => (prev.some((x) => x.id === c.id) ? prev.map((x) => (x.id === c.id ? c : x)) : [...prev, c]));
@@ -483,12 +503,26 @@ export function CajasClient({
         description={openMov ? `${openMov.fecha} · ${openMov.hora}` : ""}
         footer={
           openMov && (
-            <button
-              onClick={() => setOpenMov(null)}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-            >
-              Cerrar
-            </button>
+            <>
+              {esAdmin && openMov.conciliacionId && (
+                <span className="mr-auto text-[11px] text-neutral-400">
+                  Ya conciliado — no se puede eliminar.
+                </span>
+              )}
+              {esAdmin && !openMov.conciliacionId && (
+                <ConfirmButton
+                  label="Eliminar movimiento"
+                  onConfirm={() => eliminarMovimiento(openMov.id)}
+                  className="mr-auto"
+                />
+              )}
+              <button
+                onClick={() => setOpenMov(null)}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+              >
+                Cerrar
+              </button>
+            </>
           )
         }
       >

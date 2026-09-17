@@ -16,6 +16,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { InventarioValor } from "@/components/inventario-valor";
 import { InventarioUnidades } from "@/components/inventario-unidades";
 import {
@@ -41,17 +42,21 @@ import type {
 import {
   createEquipoAction,
   updateEquipoAction,
+  deleteEquipoAction,
   updateRepuestoAction,
   nuevoRepuestoAction,
   ingresoRepuestoAction,
   recuentoRepuestosAction,
+  deleteRepuestoAction,
   updateOtroAction,
   nuevoOtroAction,
   ingresoOtroAction,
   recuentoOtrosAction,
+  deleteOtroAction,
   getMovimientosAction,
 } from "./actions";
 import type { EquipoInput, RepuestoInput } from "@/lib/db/inventario";
+import type { SessionUser } from "@/lib/auth/types";
 
 type Tab = "equipos" | "repuestos" | "otros";
 const CATS: OtroCategoria[] = [
@@ -153,11 +158,15 @@ export function InventarioClient({
   initialEquipos,
   initialRepuestos,
   initialOtros,
+  user,
 }: {
   initialEquipos: Equipo[];
   initialRepuestos: Repuesto[];
   initialOtros: OtroItem[];
+  user: SessionUser;
 }) {
+  const esAdmin = user.rol === "admin";
+  const [, startDeleteTransition] = useTransition();
   const [tab, setTab] = useState<Tab>("equipos");
   const [equipos, setEquipos] = useState<Equipo[]>(initialEquipos);
   const [repuestos, setRepuestos] = useState<Repuesto[]>(initialRepuestos);
@@ -1069,6 +1078,18 @@ export function InventarioClient({
           setEquipos((p) => p.map((x) => (x.id === actualizado.id ? actualizado : x)));
           setOpenEquipoId(null);
         }}
+        onDelete={
+          esAdmin
+            ? () => {
+                const id = openEquipo!.id;
+                setEquipos((p) => p.filter((x) => x.id !== id));
+                setOpenEquipoId(null);
+                startDeleteTransition(async () => {
+                  await deleteEquipoAction(id);
+                });
+              }
+            : undefined
+        }
       />
 
       {/* Agregar / ingresar repuesto */}
@@ -1134,6 +1155,18 @@ export function InventarioClient({
           setRepuestos((p) => p.map((x) => (x.id === actualizado.id ? actualizado : x)));
           setOpenRepuestoId(null);
         }}
+        onDelete={
+          esAdmin
+            ? () => {
+                const id = openRepuesto!.id;
+                setRepuestos((p) => p.filter((x) => x.id !== id));
+                setOpenRepuestoId(null);
+                startDeleteTransition(async () => {
+                  await deleteRepuestoAction(id);
+                });
+              }
+            : undefined
+        }
       />
 
       {/* Ver / editar producto de "Otros" */}
@@ -1147,6 +1180,18 @@ export function InventarioClient({
           setOtros((p) => p.map((x) => (x.id === actualizado.id ? actualizado : x)));
           setOpenOtroId(null);
         }}
+        onDelete={
+          esAdmin
+            ? () => {
+                const id = openOtro!.id;
+                setOtros((p) => p.filter((x) => x.id !== id));
+                setOpenOtroId(null);
+                startDeleteTransition(async () => {
+                  await deleteOtroAction(id);
+                });
+              }
+            : undefined
+        }
       />
     </>
   );
@@ -1161,11 +1206,13 @@ function EquipoFormDialog({
   open,
   onClose,
   onSubmit,
+  onDelete,
 }: {
   equipo: Equipo | null;
   open: boolean;
   onClose: () => void;
   onSubmit: (e: EquipoInput) => void | Promise<void>;
+  onDelete?: () => void;
 }) {
   const edit = !!equipo;
   const [f, setF] = useState<Equipo>(
@@ -1205,6 +1252,13 @@ function EquipoFormDialog({
       }
       footer={
         <>
+          {onDelete && (
+            <ConfirmButton
+              label="Eliminar equipo"
+              onConfirm={onDelete}
+              className="mr-auto"
+            />
+          )}
           <button
             onClick={onClose}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
@@ -1335,11 +1389,13 @@ function RepuestoFormDialog({
   open,
   onClose,
   onSubmit,
+  onDelete,
 }: {
   repuesto: Repuesto | null;
   open: boolean;
   onClose: () => void;
   onSubmit: (r: RepuestoInput) => void | Promise<void>;
+  onDelete?: () => void;
 }) {
   const [f, setF] = useState<Repuesto>(
     repuesto ?? {
@@ -1369,6 +1425,13 @@ function RepuestoFormDialog({
       description={repuesto ? `${repuesto.modelo} · ${repuesto.sku}` : ""}
       footer={
         <>
+          {onDelete && (
+            <ConfirmButton
+              label="Eliminar repuesto"
+              onConfirm={onDelete}
+              className="mr-auto"
+            />
+          )}
           <button
             onClick={onClose}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
@@ -1462,11 +1525,13 @@ function OtroFormDialog({
   open,
   onClose,
   onSubmit,
+  onDelete,
 }: {
   item: OtroItem | null;
   open: boolean;
   onClose: () => void;
   onSubmit: (o: OtroItem) => void | Promise<void>;
+  onDelete?: () => void;
 }) {
   const [nombre, setNombre] = useState(item?.nombre ?? "");
   const [descripcion, setDescripcion] = useState(item?.descripcion ?? "");
@@ -1564,6 +1629,13 @@ function OtroFormDialog({
       description={item ? otroCategoria[item.categoria].label : ""}
       footer={
         <>
+          {onDelete && (
+            <ConfirmButton
+              label="Eliminar producto"
+              onConfirm={onDelete}
+              className="mr-auto"
+            />
+          )}
           <button
             onClick={onClose}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"

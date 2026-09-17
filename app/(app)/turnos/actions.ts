@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
-import { createTurno, setTurnoEstado } from "@/lib/db/turnos";
+import { createTurno, setTurnoEstado, deleteTurno } from "@/lib/db/turnos";
 import type { ClienteSeleccion, Pago, TurnoEstado, TurnoTipo } from "@/lib/types";
 
 export async function createTurnoAction(data: {
@@ -39,4 +39,10 @@ export async function setTurnoEstadoAction(id: string, estado: TurnoEstado) {
   const turno = await setTurnoEstado(id, estado);
   revalidatePath("/turnos");
   return turno;
+}
+
+export async function deleteTurnoAction(id: string) {
+  await requireRole("admin");
+  await deleteTurno(id);
+  revalidatePath("/turnos");
 }

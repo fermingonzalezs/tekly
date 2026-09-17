@@ -161,7 +161,13 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
   const [nombre, setNombre] = useState("");
   const [rol, setRol] = useState<Rol>("vendedor");
   const [error, setError] = useState<string | null>(null);
+  const [enviada, setEnviada] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  function cerrar() {
+    setEnviada(false);
+    onClose();
+  }
 
   function enviar() {
     setError(null);
@@ -174,24 +180,24 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
       setEmail("");
       setNombre("");
       setRol("vendedor");
+      setEnviada(true);
       router.refresh();
-      onClose();
     });
   }
 
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={cerrar}
       accent
       title="Invitar usuario"
       footer={
         <>
           <button
-            onClick={onClose}
+            onClick={cerrar}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
           >
-            Cancelar
+            {enviada ? "Cerrar" : "Cancelar"}
           </button>
           <button
             onClick={enviar}
@@ -219,6 +225,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
             ))}
           </Select>
         </Field>
+        {enviada && <p className="text-xs text-emerald-600">Invitación enviada.</p>}
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
     </Dialog>

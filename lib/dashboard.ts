@@ -28,15 +28,14 @@ export type MetricaDashboard = {
   deltaHint: string;
 };
 
-/** Las 6 métricas del dashboard, derivadas de ventas/tickets/equipos/turnos
- * reales. `delta` compara contra el mes anterior donde hay una base real de
+/** Las 5 métricas del dashboard, derivadas de ventas/tickets/turnos reales.
+ * `delta` compara contra el mes anterior donde hay una base real de
  * comparación (facturado, margen, ticket promedio); para conteos puntuales
- * sin serie histórica (tickets abiertos, equipos en revisión, turnos hoy)
- * no hay con qué comparar todavía -- delta 0, no se fabrica una tendencia. */
+ * sin serie histórica (tickets abiertos, turnos hoy) no hay con qué
+ * comparar todavía -- delta 0, no se fabrica una tendencia. */
 export function metricasDashboard(params: {
   ventas: Venta[];
   ticketsAbiertos: number;
-  equiposEnRevision: number;
   turnosHoy: number;
   hoy?: Date;
 }): MetricaDashboard[] {
@@ -69,7 +68,6 @@ export function metricasDashboard(params: {
     { key: "ventas", label: "Ventas del mes", value: fmtUsd(totalMes), delta: round1(deltaVentas), deltaHint: "vs mes anterior" },
     { key: "margen", label: "Margen promedio", value: `${margenMes.toFixed(1)} %`, delta: round1(deltaMargen), deltaHint: "vs mes anterior" },
     { key: "abiertos", label: "Tickets abiertos", value: String(params.ticketsAbiertos), delta: 0, deltaHint: "sin entregar" },
-    { key: "revision", label: "Equipos en revisión", value: String(params.equiposEnRevision), delta: 0, deltaHint: "en este momento" },
     { key: "ticket", label: "Ticket promedio", value: fmtUsd(Math.round(ticketProm)), delta: round1(deltaTicket), deltaHint: "vs mes anterior" },
     { key: "turnos", label: "Turnos hoy", value: String(params.turnosHoy), delta: 0, deltaHint: "agendados" },
   ];

@@ -35,7 +35,7 @@ function MetricCard({
 
 export function MetricCards({ metrics }: { metrics: MetricaDashboard[] }) {
   return (
-    <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
+    <div className="grid shrink-0 grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
       {metrics.map((m) => (
         <MetricCard
           key={m.key}

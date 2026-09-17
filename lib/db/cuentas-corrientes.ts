@@ -62,3 +62,9 @@ export async function createMovimientoCC(data: {
   if (error) throw error;
   return toMovimiento(row as unknown as MovimientoCCRow);
 }
+
+export async function deleteMovimientoCC(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const { error } = await supabase.from("movimientos_cc").delete().eq("id", id);
+  if (error) throw error;
+}

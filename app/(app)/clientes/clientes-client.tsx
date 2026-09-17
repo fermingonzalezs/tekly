@@ -5,26 +5,38 @@ import { Plus, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/field";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ticketStatus, turnoStatus, dotClass, type Tone } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { Cliente } from "@/lib/types";
-import { createClienteAction, getClienteHistorialAction } from "./actions";
+import type { SessionUser } from "@/lib/auth/types";
+import {
+  createClienteAction,
+  updateClienteAction,
+  deleteClienteAction,
+  getClienteHistorialAction,
+} from "./actions";
 import type { HistorialEntry } from "@/lib/db/clientes";
 
 export function ClientesClient({
   initialClientes,
   charts,
+  user,
 }: {
   initialClientes: Cliente[];
   charts: React.ReactNode;
+  user: SessionUser;
 }) {
+  const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Cliente[]>(initialClientes);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<Cliente | null>(null);
+  const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [chartsOpen, setChartsOpen] = useState(true);
+  const [, startDeleteTransition] = useTransition();
 
   const filtered = useMemo(
     () => list.filter((c) => c.nombre.toLowerCase().includes(q.toLowerCase())),
@@ -117,7 +129,7 @@ export function ClientesClient({
       </Card>
 
       <Dialog
-        open={!!open}
+        open={!!open && !editing}
         onClose={() => setOpen(null)}
         size="lg"
         accent
@@ -125,23 +137,57 @@ export function ClientesClient({
         description={open ? `Cliente desde ${open.desde}` : ""}
         footer={
           open && (
-            <button
-              onClick={() => setOpen(null)}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-            >
-              Cerrar
-            </button>
+            <>
+              {esAdmin && (
+                <ConfirmButton
+                  label="Eliminar cliente"
+                  onConfirm={() => {
+                    const id = open.id;
+                    setList((p) => p.filter((c) => c.id !== id));
+                    setOpen(null);
+                    startDeleteTransition(async () => {
+                      await deleteClienteAction(id);
+                    });
+                  }}
+                  className="mr-auto"
+                />
+              )}
+              <button
+                onClick={() => setOpen(null)}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={() => setEditing(true)}
+                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90"
+              >
+                Editar
+              </button>
+            </>
           )
         }
       >
         {open && <Ficha cliente={open} />}
       </Dialog>
 
-      <NuevoClienteDialog
+      <ClienteFormDialog
+        key={open ? `edit-${open.id}-${editing}` : "edit-none"}
+        cliente={open}
+        open={editing}
+        onClose={() => setEditing(false)}
+        onSaved={(c) => {
+          setList((p) => p.map((x) => (x.id === c.id ? c : x)));
+          setOpen(c);
+          setEditing(false);
+        }}
+      />
+
+      <ClienteFormDialog
         key={creating ? "n" : "n0"}
         open={creating}
         onClose={() => setCreating(false)}
-        onCreate={(c) => {
+        onSaved={(c) => {
           setList((p) => [c, ...p]);
           setCreating(false);
         }}
@@ -312,30 +358,45 @@ function fechaDDMMAAAAaIso(ddmmaaaa: string): string | undefined {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function NuevoClienteDialog({
+/** "2000-05-15" -> "15/05/2000", para precargar el input al editar. */
+function isoAFechaDDMMAAAA(iso?: string): string {
+  const m = iso?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
+function ClienteFormDialog({
+  cliente,
   open,
   onClose,
-  onCreate,
+  onSaved,
 }: {
+  cliente?: Cliente | null;
   open: boolean;
   onClose: () => void;
-  onCreate: (c: Cliente) => void;
+  onSaved: (c: Cliente) => void;
 }) {
-  const [nombre, setNombre] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [email, setEmail] = useState("");
-  const [fechaNacimiento, setFechaNacimiento] = useState("");
+  const [nombre, setNombre] = useState(cliente?.nombre ?? "");
+  const [telefono, setTelefono] = useState(
+    cliente?.telefono && cliente.telefono !== "—" ? cliente.telefono : "",
+  );
+  const [email, setEmail] = useState(cliente?.email && cliente.email !== "—" ? cliente.email : "");
+  const [fechaNacimiento, setFechaNacimiento] = useState(
+    isoAFechaDDMMAAAA(cliente?.fechaNacimiento),
+  );
   const [pending, startTransition] = useTransition();
 
   function submit() {
     startTransition(async () => {
-      const cliente = await createClienteAction({
+      const data = {
         nombre: nombre.trim(),
         telefono: telefono.trim(),
         email: email.trim(),
         fechaNacimiento: fechaDDMMAAAAaIso(fechaNacimiento),
-      });
-      onCreate(cliente);
+      };
+      const saved = cliente
+        ? await updateClienteAction(cliente.id, data)
+        : await createClienteAction(data);
+      onSaved(saved);
     });
   }
 
@@ -344,7 +405,7 @@ function NuevoClienteDialog({
       open={open}
       onClose={onClose}
       accent
-      title="Nuevo cliente"
+      title={cliente ? "Editar cliente" : "Nuevo cliente"}
       footer={
         <>
           <button
@@ -358,7 +419,7 @@ function NuevoClienteDialog({
             disabled={!nombre.trim() || pending}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
           >
-            {pending ? "Creando…" : "Crear cliente"}
+            {pending ? "Guardando…" : cliente ? "Guardar" : "Crear cliente"}
           </button>
         </>
       }

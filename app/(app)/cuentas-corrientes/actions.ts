@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
-import { createMovimientoCC } from "@/lib/db/cuentas-corrientes";
+import { createMovimientoCC, deleteMovimientoCC } from "@/lib/db/cuentas-corrientes";
 import type { ClienteSeleccion } from "@/lib/types";
 
 export async function createMovimientoCCAction(data: {
@@ -22,4 +22,10 @@ export async function createMovimientoCCAction(data: {
   });
   revalidatePath("/cuentas-corrientes");
   return mov;
+}
+
+export async function deleteMovimientoCCAction(id: string) {
+  await requireRole("admin");
+  await deleteMovimientoCC(id);
+  revalidatePath("/cuentas-corrientes");
 }

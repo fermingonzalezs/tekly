@@ -20,6 +20,7 @@ export default async function CajasPage() {
         initialMovimientosTodos={movimientosTodos}
         initialConciliaciones={conciliaciones}
         usuarioNombre={user.nombre}
+        user={user}
       />
     </Section>
   );

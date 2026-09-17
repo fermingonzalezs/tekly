@@ -129,3 +129,9 @@ export async function setTurnoEstado(id: string, estado: TurnoEstado): Promise<T
   if (error) throw error;
   return toTurno(row as unknown as TurnoRow);
 }
+
+export async function deleteTurno(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const { error } = await supabase.from("turnos").delete().eq("id", id);
+  if (error) throw error;
+}

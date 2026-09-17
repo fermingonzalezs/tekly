@@ -50,6 +50,7 @@ export async function listEquipos(): Promise<Equipo[]> {
   const { data, error } = await supabase
     .from("equipos")
     .select(EQUIPO_COLS)
+    .eq("activo", true)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data.map(toEquipo);
@@ -110,6 +111,18 @@ export async function updateEquipo(id: string, data: EquipoInput): Promise<Equip
   if (error) throw error;
   await addMovimiento("equipo", id, `Editado · estado: ${data.estado}`);
   return toEquipo(row);
+}
+
+/** Baja lógica -- nunca `DELETE` real: `venta_items.equipo_id` referencia
+ * `equipos.id` con `NO ACTION`, así que un equipo que alguna vez se vendió
+ * rompería el borrado en duro. Queda desactivado (afuera de `listEquipos`)
+ * y con su baja registrada en `movimientos_stock`, igual que cualquier
+ * otro cambio del ítem. */
+export async function deleteEquipo(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const { error } = await supabase.from("equipos").update({ activo: false }).eq("id", id);
+  if (error) throw error;
+  await addMovimiento("equipo", id, "Baja de inventario");
 }
 
 /** IMEIs ya cargados en la organización (sin nulos) -- usado por el
@@ -219,6 +232,7 @@ export async function listRepuestos(): Promise<Repuesto[]> {
   const { data, error } = await supabase
     .from("repuestos")
     .select(REPUESTO_COLS)
+    .eq("activo", true)
     .order("nombre");
   if (error) throw error;
   return (data as unknown as RepuestoRow[]).map(toRepuesto);
@@ -304,6 +318,16 @@ export async function recuentoRepuestos(draft: Record<string, number>): Promise<
   }
 }
 
+/** Baja lógica (nada referencia `repuestos.id` con FK, pero se usa el mismo
+ * criterio que equipos por consistencia: nunca un `DELETE` real, siempre
+ * queda la baja en `movimientos_stock`). */
+export async function deleteRepuesto(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const { error } = await supabase.from("repuestos").update({ activo: false }).eq("id", id);
+  if (error) throw error;
+  await addMovimiento("repuesto", id, "Baja de inventario");
+}
+
 // ─────────────────────────── Otros ───────────────────────────
 
 type OtroRow = {
@@ -336,7 +360,11 @@ function toOtro(row: OtroRow): OtroItem {
 
 export async function listOtros(): Promise<OtroItem[]> {
   const supabase = createServerClient();
-  const { data, error } = await supabase.from("otros_items").select(OTRO_COLS).order("nombre");
+  const { data, error } = await supabase
+    .from("otros_items")
+    .select(OTRO_COLS)
+    .eq("activo", true)
+    .order("nombre");
   if (error) throw error;
   return (data as unknown as OtroRow[]).map(toOtro);
 }
@@ -428,6 +456,14 @@ export async function recuentoOtros(draft: Record<string, number>): Promise<void
     if (error) throw error;
     await addMovimiento("otro", id, `Recuento: cantidad ajustada a ${cantidad}`);
   }
+}
+
+/** Baja lógica, mismo criterio que equipos/repuestos. */
+export async function deleteOtro(id: string): Promise<void> {
+  const supabase = createServerClient();
+  const { error } = await supabase.from("otros_items").update({ activo: false }).eq("id", id);
+  if (error) throw error;
+  await addMovimiento("otro", id, "Baja de inventario");
 }
 
 // ─────────────────────────── Movimientos de stock ───────────────────────────

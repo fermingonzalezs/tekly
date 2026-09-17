@@ -7,13 +7,21 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { ClientePicker } from "@/components/ui/cliente-picker";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { dotClass } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { saldoDe } from "@/lib/cuentas-corrientes";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { ClienteOpcion, ClienteSeleccion, MovimientoCC } from "@/lib/types";
-import { createMovimientoCCAction } from "./actions";
+import type { SessionUser } from "@/lib/auth/types";
+import { createMovimientoCCAction, deleteMovimientoCCAction } from "./actions";
+
+/** Grilla de la tabla de movimientos -- columna extra al final solo si hay
+ * botón de eliminar (admin), para que header y filas queden alineados. */
+function movRowCols(esAdmin: boolean) {
+  return esAdmin ? "grid-cols-[110px_1fr_100px_100px_28px]" : "grid-cols-[110px_1fr_100px_100px]";
+}
 
 const MES_IDX: Record<string, number> = Object.fromEntries(
   ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"].map(
@@ -30,11 +38,15 @@ export function CuentasCorrientesClient({
   initialMovimientos,
   clientes,
   usuarioNombre,
+  user,
 }: {
   initialMovimientos: MovimientoCC[];
   clientes: ClienteOpcion[];
   usuarioNombre: string;
+  user: SessionUser;
 }) {
+  const esAdmin = user.rol === "admin";
+  const [, startDeleteTransition] = useTransition();
   const [movimientos, setMovimientos] = useState<MovimientoCC[]>(initialMovimientos);
   const [q, setQ] = useState("");
   const [openClienteId, setOpenClienteId] = useState<string | null>(null);
@@ -47,6 +59,13 @@ export function CuentasCorrientesClient({
   const addMovimiento = (mov: MovimientoCC) => {
     setMovimientos((prev) => [mov, ...prev]);
   };
+
+  function eliminarMovimiento(id: string) {
+    setMovimientos((prev) => prev.filter((m) => m.id !== id));
+    startDeleteTransition(async () => {
+      await deleteMovimientoCCAction(id);
+    });
+  }
 
   const cuentas = useMemo(
     () =>
@@ -217,11 +236,17 @@ export function CuentasCorrientesClient({
               Movimientos
             </p>
             <div className="overflow-hidden rounded-xl border border-neutral-200 font-mono">
-              <div className="grid grid-cols-[110px_1fr_100px_100px] gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              <div
+                className={cn(
+                  "grid items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400",
+                  movRowCols(esAdmin),
+                )}
+              >
                 <span>Fecha</span>
                 <span className="text-start">Concepto</span>
                 <span>Tipo</span>
                 <span>Monto</span>
+                {esAdmin && <span />}
               </div>
               {openRow.movs.length === 0 ? (
                 <p className="px-4 py-3 text-center text-[13px] text-neutral-400">
@@ -231,7 +256,10 @@ export function CuentasCorrientesClient({
                 openRow.movs.map((m) => (
                   <div
                     key={m.id}
-                    className="grid grid-cols-[110px_1fr_100px_100px] items-center gap-2 border-t border-neutral-100 px-4 py-2 text-[12px] first:border-t-0"
+                    className={cn(
+                      "grid items-center gap-2 border-t border-neutral-100 px-4 py-2 text-[12px] first:border-t-0",
+                      movRowCols(esAdmin),
+                    )}
                   >
                     <span className="text-center text-neutral-500">
                       {m.fecha} · {m.hora}
@@ -255,6 +283,13 @@ export function CuentasCorrientesClient({
                       {m.tipo === "cargo" ? "+" : "−"}
                       {fmtUsd(m.montoUsd)}
                     </span>
+                    {esAdmin && (
+                      <ConfirmButton
+                        variant="icon"
+                        label="Eliminar movimiento"
+                        onConfirm={() => eliminarMovimiento(m.id)}
+                      />
+                    )}
                   </div>
                 ))
               )}

@@ -95,7 +95,6 @@ export const turnoStatus: Record<
 > = {
   pendiente: { label: "Pendiente", tone: "gray" },
   confirmado: { label: "Confirmado", tone: "blue" },
-  llego: { label: "Llegó", tone: "green" },
   cancelado: { label: "Cancelado", tone: "red" },
 };
 

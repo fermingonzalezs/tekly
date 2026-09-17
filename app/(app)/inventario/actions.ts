@@ -1,20 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
 import {
   createEquipo,
   updateEquipo,
+  deleteEquipo,
   type EquipoInput,
   updateRepuesto,
   type RepuestoInput,
   crearRepuesto,
   ingresoRepuesto,
   recuentoRepuestos,
+  deleteRepuesto,
   updateOtro,
   crearOtro,
   ingresoOtroExistente,
   recuentoOtros,
+  deleteOtro,
   listMovimientos,
 } from "@/lib/db/inventario";
 import type { OtroCategoria, OtroItem, OtroUnidad } from "@/lib/types";
@@ -31,6 +34,12 @@ export async function updateEquipoAction(id: string, data: EquipoInput) {
   const equipo = await updateEquipo(id, data);
   revalidatePath("/inventario");
   return equipo;
+}
+
+export async function deleteEquipoAction(id: string) {
+  await requireRole("admin");
+  await deleteEquipo(id);
+  revalidatePath("/inventario");
 }
 
 export async function updateRepuestoAction(id: string, data: RepuestoInput) {
@@ -65,6 +74,12 @@ export async function ingresoRepuestoAction(
 export async function recuentoRepuestosAction(draft: Record<string, number>) {
   await requireUser();
   await recuentoRepuestos(draft);
+  revalidatePath("/inventario");
+}
+
+export async function deleteRepuestoAction(id: string) {
+  await requireRole("admin");
+  await deleteRepuesto(id);
   revalidatePath("/inventario");
 }
 
@@ -109,6 +124,12 @@ export async function ingresoOtroAction(
 export async function recuentoOtrosAction(draft: Record<string, number>) {
   await requireUser();
   await recuentoOtros(draft);
+  revalidatePath("/inventario");
+}
+
+export async function deleteOtroAction(id: string) {
+  await requireRole("admin");
+  await deleteOtro(id);
   revalidatePath("/inventario");
 }
 

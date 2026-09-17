@@ -89,6 +89,22 @@ export async function setTicketEstado(id: number, estado: TicketStatus): Promise
   return toTicket(row as unknown as TicketRow);
 }
 
+/** Un turno puede referenciar el ticket (`turnos.ticket_id`, ej. "retira
+ * reparación" vinculado) -- el FK es `NO ACTION`, así que hay que
+ * desvincularlo antes de poder borrar el ticket. */
+export async function deleteTicket(id: number): Promise<void> {
+  const supabase = createServerClient();
+
+  const { error: unlinkError } = await supabase
+    .from("turnos")
+    .update({ ticket_id: null })
+    .eq("ticket_id", id);
+  if (unlinkError) throw unlinkError;
+
+  const { error } = await supabase.from("tickets").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ─────────────────────────── Técnicos ───────────────────────────
 
 /** No hay tabla de "técnicos" separada -- son los `profiles` con rol

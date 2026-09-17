@@ -6,13 +6,15 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { medioPago as medioPagoCfg, compraEstado, dotClass } from "@/lib/status";
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { Compra, CompraEstado, CompraItem, MedioPago } from "@/lib/types";
-import { createCompraAction, marcarRecibidaAction } from "./actions";
+import type { SessionUser } from "@/lib/auth/types";
+import { createCompraAction, marcarRecibidaAction, deleteCompraAction } from "./actions";
 
 const MEDIOS: MedioPago[] = ["pesos", "dolares", "transferencia", "cripto", "tarjeta", "canje"];
 
@@ -23,7 +25,14 @@ function matchesQuery(c: Compra, q: string) {
   return c.items.some((i) => i.detalle.toLowerCase().includes(needle));
 }
 
-export function ComprasClient({ initialCompras }: { initialCompras: Compra[] }) {
+export function ComprasClient({
+  initialCompras,
+  user,
+}: {
+  initialCompras: Compra[];
+  user: SessionUser;
+}) {
+  const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Compra[]>(initialCompras);
   const [estadoFiltro, setEstadoFiltro] = useState<"todos" | CompraEstado>("todos");
   const [q, setQ] = useState("");
@@ -47,6 +56,14 @@ export function ComprasClient({ initialCompras }: { initialCompras: Compra[] }) 
     startTransition(async () => {
       const actualizada = await marcarRecibidaAction(id);
       setList((prev) => prev.map((c) => (c.id === id ? actualizada : c)));
+    });
+  }
+
+  function eliminarCompra(id: string) {
+    setList((prev) => prev.filter((c) => c.id !== id));
+    setOpenId(null);
+    startTransition(async () => {
+      await deleteCompraAction(id);
     });
   }
 
@@ -165,6 +182,13 @@ export function ComprasClient({ initialCompras }: { initialCompras: Compra[] }) 
         footer={
           open && (
             <>
+              {esAdmin && (
+                <ConfirmButton
+                  label="Eliminar compra"
+                  onConfirm={() => eliminarCompra(open.id)}
+                  className="mr-auto"
+                />
+              )}
               <button
                 onClick={() => setOpenId(null)}
                 className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"

@@ -17,6 +17,7 @@ export default async function CuentasCorrientesPage() {
         initialMovimientos={movimientos}
         clientes={clientes}
         usuarioNombre={user.nombre}
+        user={user}
       />
     </Section>
   );

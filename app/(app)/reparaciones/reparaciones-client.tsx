@@ -18,6 +18,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { ClientePicker } from "@/components/ui/cliente-picker";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { ServiciosCatalogo } from "@/components/servicios-catalogo";
 import { RepairsChart } from "@/components/dashboard/repairs-chart";
 import { ReparacionesSplit } from "@/components/dashboard/reparaciones-split";
@@ -30,7 +31,6 @@ import {
   TICKET_FLOW,
   nextTicketStatus,
   ticketStatus,
-  rolLabel,
   dotClass,
 } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
@@ -45,6 +45,7 @@ import {
   createTicketAction,
   saveServicioAction,
   setTicketEstadoAction,
+  deleteTicketAction,
 } from "./actions";
 
 function matchesQuery(t: Ticket, q: string) {
@@ -74,7 +75,8 @@ export function ReparacionesClient({
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
-  const actor = `${user.nombre} (${rolLabel[user.rol].toLowerCase()})`;
+  const actor = user.nombre;
+  const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Ticket[]>(initialTickets);
   const [tecFilter, setTecFilter] = useState("todos");
   const [estFilter, setEstFilter] = useState<"todos" | TicketStatus>("todos");
@@ -134,6 +136,14 @@ export function ReparacionesClient({
           ticket: id,
           amountUsd: actualizado.presupuestoUsd,
         });
+    });
+  }
+
+  function eliminarTicket(id: number) {
+    setList((prev) => prev.filter((t) => t.id !== id));
+    setOpenId(null);
+    startTransition(async () => {
+      await deleteTicketAction(id);
     });
   }
 
@@ -386,6 +396,13 @@ export function ReparacionesClient({
         footer={
           open && (
             <>
+              {esAdmin && (
+                <ConfirmButton
+                  label="Eliminar ticket"
+                  onConfirm={() => eliminarTicket(open.id)}
+                  className="mr-auto"
+                />
+              )}
               <button
                 onClick={() => setOpenId(null)}
                 className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"

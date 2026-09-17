@@ -4,37 +4,33 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import { salesByMonth } from "@/lib/mock-data";
+import { RUBRO_LABEL, RUBRO_ORDEN, type Rubro } from "@/lib/ventas";
+import type { RubroMes } from "@/lib/analiticas";
 import { fmtUsd } from "@/lib/format";
 import { chartColor } from "@/lib/chart";
 
-type CatKey = "equipos" | "reparaciones" | "accesorios" | "otros";
+type CatKey = Rubro;
 
-const CATS: { key: CatKey; label: string; color: string }[] = [
-  { key: "equipos", label: "Equipos", color: chartColor(0) },
-  { key: "reparaciones", label: "Reparaciones", color: chartColor(1) },
-  { key: "accesorios", label: "Accesorios", color: chartColor(2) },
-  { key: "otros", label: "Otros", color: chartColor(3) },
-];
-const COLOR: Record<CatKey, string> = {
-  equipos: chartColor(0),
-  reparaciones: chartColor(1),
-  accesorios: chartColor(2),
-  otros: chartColor(3),
-};
+const CATS: { key: CatKey; label: string; color: string }[] = RUBRO_ORDEN.map((key, i) => ({
+  key,
+  label: RUBRO_LABEL[key],
+  color: chartColor(i),
+}));
+const COLOR: Record<CatKey, string> = Object.fromEntries(
+  CATS.map((c) => [c.key, c.color]),
+) as Record<CatKey, string>;
 // orden de apilado, de abajo hacia arriba
-const STACK: CatKey[] = ["equipos", "reparaciones", "accesorios", "otros"];
+const STACK: CatKey[] = RUBRO_ORDEN;
 
 const MAX_BAR = 86; // alto de la barra más alta, en % de la banda
 const BAR_W = 0.72; // ancho de barra como fracción de la columna
 
-const total = (m: (typeof salesByMonth)[number]) =>
-  m.equipos + m.reparaciones + m.accesorios + m.otros;
+const total = (m: RubroMes) => RUBRO_ORDEN.reduce((a, k) => a + m[k], 0);
 
-export function TendenciaRubros({ className }: { className?: string }) {
+export function TendenciaRubros({ data, className }: { data: RubroMes[]; className?: string }) {
   const [hover, setHover] = useState<number | null>(null);
 
-  const rows = salesByMonth;
+  const rows = data;
   const n = rows.length;
   const totals = rows.map(total);
   const maxTotal = Math.max(...totals);

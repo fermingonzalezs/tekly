@@ -20,7 +20,7 @@ export type MedioPago =
   | "tarjeta"
   | "canje";
 
-export type TurnoEstado = "pendiente" | "confirmado" | "llego" | "cancelado";
+export type TurnoEstado = "pendiente" | "confirmado" | "cancelado";
 
 /** Qué viene a hacer el cliente — define el color en el calendario. */
 export type TurnoTipo = "compra" | "deja" | "retira" | "cotizar";
@@ -252,6 +252,10 @@ export type MovimientoCaja = {
   monto: number;
   /** Quién lo cargó — manual o generado automático desde una venta/pago. */
   usuario: string;
+  /** `null` = todavía sin conciliar. Un movimiento ya archivado bajo una
+   * conciliación no se puede eliminar (rompería la diferencia ya calculada
+   * de esa conciliación pasada). */
+  conciliacionId: string | null;
 };
 
 /** Una línea de conciliación: lo que el sistema esperaba tener en una caja
