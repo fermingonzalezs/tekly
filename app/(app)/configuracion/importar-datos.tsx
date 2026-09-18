@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Papa from "papaparse";
+import { CheckCircle2, Download, Smartphone, Upload, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { dotClass, type Tone } from "@/lib/status";
 import {
   CLIENTE_CSV_HEADERS,
   EQUIPO_CSV_HEADERS,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/importacion";
 import type { EquipoInput } from "@/lib/db/inventario";
 import { importClientesAction, importEquiposAction, type ImportResult } from "./actions";
+import type { ComponentType } from "react";
 
 type FilaCruda = { rowNum: number; raw: Record<string, string> };
 type PreviewRow = {
@@ -39,6 +42,15 @@ function descargar(contenido: string, filename: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function Chip({ tone, label }: { tone: Tone; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass[tone]}`} />
+      {label}
+    </span>
+  );
 }
 
 function ResultadoLista({
@@ -66,6 +78,8 @@ function ResultadoLista({
  * dominio (`lib/importacion.ts`). */
 function ImportCard<T>({
   titulo,
+  descripcion,
+  icon: Icon,
   headers,
   templateCsv,
   templateFilename,
@@ -74,6 +88,8 @@ function ImportCard<T>({
   action,
 }: {
   titulo: string;
+  descripcion: string;
+  icon: ComponentType<{ className?: string }>;
   headers: readonly string[];
   templateCsv: () => string;
   templateFilename: string;
@@ -147,34 +163,49 @@ function ImportCard<T>({
 
   return (
     <Card className="p-5">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold">{titulo}</p>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+              <Icon className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-neutral-900">{titulo}</p>
+              <p className="text-[13px] text-neutral-500">{descripcion}</p>
+            </div>
+          </div>
           <button
             onClick={() => descargar(templateCsv(), templateFilename)}
-            className="text-xs font-medium text-accent hover:underline"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
           >
-            Descargar plantilla
+            <Download className="h-3.5 w-3.5" />
+            Plantilla
           </button>
         </div>
 
         {estado === "idle" && (
           <div className="space-y-2">
-            <input
-              type="file"
-              accept=".csv"
-              onChange={onFile}
-              className="block w-full text-sm text-neutral-600"
-            />
+            <label className="group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50 px-4 py-8 text-center transition-colors hover:border-accent/40 hover:bg-accent-soft/40">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-accent shadow-sm ring-1 ring-neutral-200 transition-colors group-hover:ring-accent/30">
+                <Upload className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-neutral-700">Elegir archivo CSV</p>
+                <p className="text-xs text-neutral-400">Usá la plantilla para respetar las columnas</p>
+              </div>
+              <input type="file" accept=".csv" onChange={onFile} className="sr-only" />
+            </label>
             {errorArchivo && <p className="text-xs text-red-600">{errorArchivo}</p>}
           </div>
         )}
 
         {estado === "preview" && (
           <div className="space-y-3">
-            <p className="text-xs text-neutral-500">
-              {validas} válidas · {duplicadas} duplicadas en el archivo · {conError} con error
-            </p>
+            <div className="flex flex-wrap gap-2">
+              <Chip tone="green" label={`${validas} válidas`} />
+              {duplicadas > 0 && <Chip tone="amber" label={`${duplicadas} duplicadas en el archivo`} />}
+              {conError > 0 && <Chip tone="red" label={`${conError} con error`} />}
+            </div>
             <ResultadoLista rows={preview} />
             <div className="flex gap-2">
               <button onClick={reiniciar} className={pillOutline}>
@@ -189,13 +220,15 @@ function ImportCard<T>({
 
         {estado === "done" && resultado && (
           <div className="space-y-3">
-            <p className="text-sm">
-              <span className="font-semibold text-emerald-600">{resultado.inserted} importados</span>
-              {" · "}
-              <span className="text-amber-600">{resultado.skipped} omitidos (duplicados)</span>
-              {" · "}
-              <span className="text-red-600">{resultado.errors} con error</span>
-            </p>
+            <div className="flex items-center gap-2 text-emerald-600">
+              <CheckCircle2 className="h-4 w-4" />
+              <p className="text-sm font-medium">Importación completa</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Chip tone="green" label={`${resultado.inserted} importados`} />
+              {resultado.skipped > 0 && <Chip tone="amber" label={`${resultado.skipped} omitidos (duplicados)`} />}
+              {resultado.errors > 0 && <Chip tone="red" label={`${resultado.errors} con error`} />}
+            </div>
             <ResultadoLista rows={resultado.rows} />
             <button onClick={reiniciar} className={pillOutline}>
               Importar otro archivo
@@ -209,9 +242,11 @@ function ImportCard<T>({
 
 export function ImportarDatos() {
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid gap-6 lg:grid-cols-2">
       <ImportCard<EquipoInput>
         titulo="Importar equipos"
+        descripcion="Alta masiva de equipos existentes por IMEI"
+        icon={Smartphone}
         headers={EQUIPO_CSV_HEADERS}
         templateCsv={equipoTemplateCsv}
         templateFilename="plantilla-equipos.csv"
@@ -223,6 +258,8 @@ export function ImportarDatos() {
       />
       <ImportCard<ClienteImportInput>
         titulo="Importar clientes"
+        descripcion="Alta masiva de clientes existentes"
+        icon={Users}
         headers={CLIENTE_CSV_HEADERS}
         templateCsv={clienteTemplateCsv}
         templateFilename="plantilla-clientes.csv"

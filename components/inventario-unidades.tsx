@@ -40,7 +40,7 @@ export function InventarioUnidades({
   }));
 
   return (
-    <Card className={cn("flex flex-col overflow-hidden p-4", className)}>
+    <Card className={cn("flex h-72 flex-col overflow-hidden p-4", className)}>
       <ChartTitle align="left" divider>
         Unidades por categoría
       </ChartTitle>

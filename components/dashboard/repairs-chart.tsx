@@ -14,19 +14,19 @@ export function RepairsChart({ tickets }: { tickets: Ticket[] }) {
   const max = Math.max(1, ...stages.map((s) => s.count));
 
   return (
-    <Card className="p-5">
+    <Card className="flex h-72 flex-col overflow-hidden p-5">
       <ChartTitle align="left" divider sub={`${total} tickets en el taller`}>
         Reparaciones mes
       </ChartTitle>
 
-      <div className="mt-5 space-y-3">
+      <div className="mt-3 flex flex-1 flex-col justify-between">
         {stages.map((s) => (
           <div key={s.label} className="flex items-center gap-3">
-            <span className="w-40 shrink-0 text-start text-[13px] text-neutral-600">
+            <span className="w-40 shrink-0 text-start text-[12px] text-neutral-600">
               {s.label}
             </span>
             <div
-              className="h-6 flex-1 overflow-hidden rounded-full"
+              className="h-4 flex-1 overflow-hidden rounded-full"
               style={{ background: GHOST_STRIPES }}
             >
               <div
@@ -37,7 +37,7 @@ export function RepairsChart({ tickets }: { tickets: Ticket[] }) {
                 }}
               />
             </div>
-            <span className="w-6 shrink-0 text-sm font-semibold tabular-nums">
+            <span className="w-6 shrink-0 text-xs font-semibold tabular-nums">
               {s.count}
             </span>
           </div>

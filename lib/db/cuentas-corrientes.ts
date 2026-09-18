@@ -44,6 +44,11 @@ export async function createMovimientoCC(data: {
   tipo: "cargo" | "pago";
   concepto: string;
   montoUsd: number;
+  /** Venta que generó este movimiento (pago a "cuenta corriente" en
+   * "Nueva venta") -- permite ofrecer borrarlo junto con la venta, ver
+   * `lib/db/ventas.ts`. `undefined` para los movimientos manuales de
+   * siempre ("Registrar pago" en Cuentas corrientes). */
+  ventaId?: string;
 }): Promise<MovimientoCC> {
   const user = await requireUser();
   const supabase = createServerClient();
@@ -56,6 +61,7 @@ export async function createMovimientoCC(data: {
       monto_usd: data.montoUsd,
       usuario_id: user.id,
       usuario_nombre: user.nombre,
+      venta_id: data.ventaId ?? null,
     })
     .select(COLS)
     .single();

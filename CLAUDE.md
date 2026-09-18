@@ -650,15 +650,40 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
    (`requireUser()` + `revalidatePath`).
 4. KPIs arriba → `StatCard`. Tablas → `<Card>` + `<table>` (headers y celdas
    ya vienen con estilo del global). Estados → `Badge` + `lib/status.ts`.
-   Medios de pago (`MedioPago`): `pesos`, `dolares`, `transferencia`, `cripto`,
-   `tarjeta`, `canje`. `Venta.pagos` es `Pago[]` = `{ medio, montoUsd }[]`
-   (1+ medios, pago dividido; la suma cubre `totalUsd`). Formularios → `Dialog`
-   + `Field`.
+   Medios de pago (`MedioPago`): `pesos` ("Efectivo (pesos)" 💵), `dolares`
+   ("Dólares" 💲), `transferencia` 🏦, `cripto` 🪙, `tarjeta` ("Tarjeta de
+   crédito") 💳, `canje` ("Mercadería") 📦 — label/tone/emoji centralizados
+   en `medioPago` (`lib/status.ts`), nunca hardcodeados. Los internos
+   (`"pesos"`, `"tarjeta"`, `"canje"`, …) no cambian aunque el label sí —
+   son el valor persistido en `cajas`/`movimientos_caja`/`compras`
+   (`MEDIOS_CAJA` en `lib/status.ts`, fuente única para esos 3 selectores +
+   Turnos). Solo `Pago.medio` (ventas) admite un 7mo valor,
+   `"cuenta_corriente"` 📒 (tipo `MedioPagoVenta`, `MEDIOS_VENTA` con los 7)
+   — nunca es medio de una `Caja` real. `Venta.pagos` es `Pago[]` = `{
+   medio, montoUsd, caja, cajaId?, recargoPct? }[]` (1+ medios, pago
+   dividido; la suma de `montoUsd` cubre `totalUsd`, sin importar el
+   recargo — ver abajo). Formularios → `Dialog` + `Field`.
    El modal de **Nueva venta** (`app/(app)/ventas/ventas-client.tsx`) es la
    referencia de form completo: eyebrows en mayúscula, cliente existente/
    nuevo, ítems desde el stock (`equipos`) o libres, y pago dividido con
    conciliación (faltan/sobran/completo + botón «Saldar» — lógica en
-   `lib/ventas.ts`, no reimplementarla inline).
+   `lib/ventas.ts`, no reimplementarla inline). Cada pago elige una **caja
+   real** (`cajaId`) o "Cuenta corriente" directamente — no un medio
+   abstracto — así nunca hay que adivinar a qué caja fue la plata aunque
+   dos cajas compartan medio (ver "Cajas" más abajo); el medio/moneda
+   quedan derivados de esa elección. `Negocio.recargosMediosPago`
+   (Configuración → Datos del negocio) es un % opcional por medio que
+   infla lo que se **cobra/mueve** de verdad
+   (`montoConRecargo` en `lib/ventas.ts`) sin tocar `montoUsd` ni la
+   conciliación. Al confirmar la venta, cada pago genera su movimiento:
+   "Cuenta corriente" → cargo en `movimientos_cc`; el resto → ingreso en
+   `movimientos_caja` de la `cajaId` elegida — ambas tablas con `venta_id`
+   (`on delete set null`), y `Venta.tieneMovimientoCaja`/`tieneMovimientoCC`
+   habilitan el checkbox correspondiente al borrar (ver "Ventas" abajo).
+   Un ítem de categoría `servicio` puede además cargar **repuestos
+   usados** (`VentaItem.repuestos`, tabla propia `venta_item_repuestos`) —
+   descuenta stock de `repuestos` al vender, checkbox propio para
+   devolverlo al borrar.
 5. Lógica de negocio no trivial (cálculos, gating) → extraerla a
    `lib/<algo>.ts` puro (sin Supabase) con test en `lib/<algo>.test.ts` al
    lado — ver `lib/cajas.ts`/`lib/ventas.ts`.
@@ -723,6 +748,12 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `RUBRO_LABEL` compartido en `lib/ventas.ts`; es opcional porque ventas
   creadas antes de este campo no lo tienen. Persistencia: tabla propia
   `venta_items` (ver "Backend y multi-tenancy"), no `jsonb` en `ventas`.
+  «Eliminar venta» (admin-only) abre un `ConfirmDialog` con hasta 4
+  checkboxes independientes, cada uno visible solo si aplica: devolver los
+  equipos vendidos a `disponible`, devolver los repuestos usados al stock,
+  borrar el/los movimiento(s) de caja generados, borrar el movimiento de
+  cuenta corriente generado (ver "Medios de pago" arriba) — `deleteVenta`
+  (`lib/db/ventas.ts`) recibe los 4 como un objeto de opciones.
 - **Clientes** (`app/(app)/clientes/`, migrado): tabla (no cards). Fila →
   ficha con historial cruzado real (ventas/tickets/turnos vía
   `lib/db/clientes.ts`); toolbar «Nuevo cliente». `compras`/`reparaciones`/

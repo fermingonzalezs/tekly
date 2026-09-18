@@ -25,7 +25,7 @@ export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]
   const ticks = Array.from({ length: axisMax / 10 + 1 }, (_, i) => i * 10);
 
   return (
-    <Card className="flex flex-col p-5">
+    <Card className="flex h-72 flex-col p-5">
       <div className="flex items-center justify-between gap-2">
         <ChartTitle align="left" divider>Demografía de clientes · edad</ChartTitle>
         <div className="inline-flex rounded-lg bg-neutral-100 p-0.5">

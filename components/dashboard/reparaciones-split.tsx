@@ -19,7 +19,7 @@ export function ReparacionesSplit({
   const pct = (terminadas / total) * 100;
 
   return (
-    <Card className={cn("flex flex-col p-5", className)}>
+    <Card className={cn("flex h-72 flex-col p-5", className)}>
       <ChartTitle align="left" divider sub={`${tickets.length} tickets en el período`}>
         Reparaciones
       </ChartTitle>

@@ -9,7 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
-import { ConfirmButton } from "@/components/ui/confirm-button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ReciboDialog,
   ReciboCampos,
@@ -27,6 +27,7 @@ import {
   calcularMargenPct,
   calcularRestante,
   saldarUltimoPago,
+  montoConRecargo,
   categoriaDe,
   RUBRO_LABEL,
 } from "@/lib/ventas";
@@ -36,12 +37,14 @@ import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
 import type {
+  Caja,
   ClienteOpcion,
   ClienteSeleccion,
   Equipo,
-  MedioPago,
+  MedioPagoVenta,
   OtroItem,
   Pago,
+  Repuesto,
   Servicio,
   Venta,
   VentaItem,
@@ -51,20 +54,6 @@ import type { SessionUser } from "@/lib/auth/types";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
 import { createVentaAction, deleteVentaAction } from "./actions";
-
-const MEDIOS: MedioPago[] = [
-  "pesos",
-  "dolares",
-  "transferencia",
-  "cripto",
-  "tarjeta",
-  "canje",
-];
-
-/** Caja sugerida según el medio; el usuario la puede cambiar a mano. */
-function defaultCaja(medio: MedioPago): "usd" | "ars" {
-  return medio === "pesos" ? "ars" : "usd";
-}
 
 const PROCEDENCIAS = [
   "Local",
@@ -85,7 +74,7 @@ function ventaGanancia(v: Venta) {
 
 /** El monto de un pago se guarda siempre en USD; en pantalla, si el medio
  * es "pesos" se muestra convertido a $ a la cotización blue vigente. */
-function fmtPago(medio: MedioPago, montoUsd: number, dolarVenta: number) {
+function fmtPago(medio: MedioPagoVenta, montoUsd: number, dolarVenta: number) {
   return medio === "pesos" ? fmtArs(montoUsd * dolarVenta) : fmtUsd(montoUsd);
 }
 
@@ -108,7 +97,9 @@ export function VentasClient({
   equipos,
   otros,
   servicios,
+  repuestos,
   vendedores,
+  cajas,
   negocio,
   user,
 }: {
@@ -117,7 +108,9 @@ export function VentasClient({
   equipos: Equipo[];
   otros: OtroItem[];
   servicios: Servicio[];
+  repuestos: Repuesto[];
   vendedores: PersonaOpcion[];
+  cajas: Caja[];
   negocio: Negocio;
   user: SessionUser;
 }) {
@@ -136,6 +129,11 @@ export function VentasClient({
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [restituirEquipos, setRestituirEquipos] = useState(true);
+  const [restituirRepuestos, setRestituirRepuestos] = useState(true);
+  const [eliminarMovimientosCaja, setEliminarMovimientosCaja] = useState(true);
+  const [eliminarMovimientoCC, setEliminarMovimientoCC] = useState(true);
   const [, startTransition] = useTransition();
   const [recibo, setRecibo] = useState<{
     venta: Venta;
@@ -181,11 +179,24 @@ export function VentasClient({
 
   const open = list.find((v) => v.id === openId) ?? null;
 
-  function eliminarVenta(id: string) {
+  function eliminarVenta(venta: Venta) {
+    const id = venta.id;
     setList((prev) => prev.filter((v) => v.id !== id));
     setOpenId(null);
+    setConfirmDelete(false);
     startTransition(async () => {
-      await deleteVentaAction(id);
+      await deleteVentaAction(id, {
+        restituirEquipos,
+        restituirRepuestos,
+        eliminarMovimientosCaja,
+        eliminarMovimientoCC,
+      });
+    });
+    publish({
+      type: "item_deleted",
+      actor: user.nombre,
+      entity: "Venta",
+      label: `${id} · ${venta.cliente}`,
     });
   }
 
@@ -284,14 +295,14 @@ export function VentasClient({
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+          <div className="relative w-full md:w-64">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar por cliente, serie o producto…"
-              className={cn("w-64 pl-9", filterPill)}
+              className={cn("w-full pl-9", filterPill)}
             />
           </div>
           <Tabs
@@ -305,7 +316,7 @@ export function VentasClient({
           <Select
             value={vendFilter}
             onChange={(e) => setVendFilter(e.target.value)}
-            className={cn("w-44", filterPill)}
+            className={cn("w-full md:w-44", filterPill)}
           >
             <option value="todos">Todos los vendedores</option>
             {vendedores.map((v) => (
@@ -317,7 +328,7 @@ export function VentasClient({
           <Select
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value as typeof tipoFilter)}
-            className={cn("w-40", filterPill)}
+            className={cn("w-full md:w-40", filterPill)}
           >
             <option value="todos">Todo</option>
             <option value="venta">Equipos</option>
@@ -326,7 +337,7 @@ export function VentasClient({
           <Select
             value={datePreset}
             onChange={(e) => setDatePreset(e.target.value as DatePreset)}
-            className={cn("w-44", filterPill)}
+            className={cn("w-full md:w-44", filterPill)}
           >
             {DATE_PRESETS.map((p) => (
               <option key={p.value} value={p.value}>
@@ -335,21 +346,21 @@ export function VentasClient({
             ))}
           </Select>
           {datePreset === "personalizado" && (
-            <>
+            <div className="flex items-center gap-2">
               <Input
                 type="date"
                 value={desde}
                 onChange={(e) => setDesde(e.target.value)}
-                className={cn("w-36", filterPill)}
+                className={cn("w-full md:w-36", filterPill)}
               />
               <span className="text-xs text-neutral-400">a</span>
               <Input
                 type="date"
                 value={hasta}
                 onChange={(e) => setHasta(e.target.value)}
-                className={cn("w-36", filterPill)}
+                className={cn("w-full md:w-36", filterPill)}
               />
-            </>
+            </div>
           )}
           {datePreset !== "todos" && (
             <button
@@ -366,7 +377,7 @@ export function VentasClient({
 
           <button
             onClick={() => setCreating(true)}
-            className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft md:ml-auto md:w-auto"
           >
             <Plus className="h-4 w-4" />
             Nueva venta
@@ -374,7 +385,63 @@ export function VentasClient({
         </div>
 
         {vista === "items" ? (
-          <Card className="overflow-hidden">
+          <>
+          <div className="space-y-2 md:hidden">
+            {itemRows.map(({ venta: v, item: i }, idx) => (
+              <Card
+                key={`${v.id}-${idx}`}
+                onClick={() => setOpenId(v.id)}
+                className="cursor-pointer p-4"
+              >
+                <p className="text-xs text-neutral-400">
+                  {v.id} · {v.fecha} · {v.cliente}
+                </p>
+                <div className="mt-1 flex items-start justify-between gap-2">
+                  <p className="min-w-0 truncate text-sm font-medium text-neutral-900">
+                    {i.detalle}
+                  </p>
+                  <span className="shrink-0 text-xs text-neutral-500">
+                    {RUBRO_LABEL[categoriaDe(i)]}
+                  </span>
+                </div>
+                {i.equipoId && (
+                  <p className="mt-0.5 font-mono text-xs text-neutral-400">
+                    {equiposPorId.get(i.equipoId)?.imei ?? "—"}
+                  </p>
+                )}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-[11px] uppercase text-neutral-400">Cant.</p>
+                    <p className="text-sm tabular-nums">{i.cantidad}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase text-neutral-400">Precio</p>
+                    <p className="text-sm tabular-nums">{fmtUsd(i.precioUsd)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase text-neutral-400">Costo</p>
+                    <p className="text-sm tabular-nums text-neutral-500">
+                      {i.costoUsd !== undefined ? fmtUsd(i.costoUsd) : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase text-neutral-400">Margen</p>
+                    <p className="text-sm font-semibold tabular-nums">
+                      {i.costoUsd !== undefined
+                        ? `${calcularMargenPct(i.precioUsd, i.costoUsd).toFixed(1)}%`
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+            {itemRows.length === 0 && (
+              <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+                Sin ítems para estos filtros.
+              </p>
+            )}
+          </div>
+          <Card className="hidden overflow-hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -443,8 +510,65 @@ export function VentasClient({
               </tbody>
             </table>
           </Card>
+          </>
         ) : (
-        <Card className="overflow-hidden">
+        <>
+        <div className="space-y-2 md:hidden">
+          {filtered.map((v) => (
+            <Card key={v.id} onClick={() => setOpenId(v.id)} className="cursor-pointer p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-neutral-900">{v.id}</p>
+                  <p className="text-xs text-neutral-400">{v.fecha}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <p className="text-sm font-semibold tabular-nums">{fmtUsd(v.totalUsd)}</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRecibo({ venta: v, tipo: "venta" });
+                    }}
+                    title="Ver recibo"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-accent-soft hover:text-accent"
+                  >
+                    <FileText className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <p className="mt-2 truncate text-sm text-neutral-700">{v.cliente}</p>
+              <p className="truncate text-xs text-neutral-500">
+                {v.items.map((i) => i.detalle).join(" · ")}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {(v.pagos.length > 3 ? v.pagos.slice(0, 2) : v.pagos).map((p, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700"
+                  >
+                    <span
+                      className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[p.medio].tone])}
+                    />
+                    {medioPagoCfg[p.medio].label}
+                    <span className="font-normal tabular-nums text-neutral-900">
+                      {fmtPago(p.medio, p.montoUsd, dolarVenta)}
+                    </span>
+                  </span>
+                ))}
+                {v.pagos.length > 3 && <span className="text-[11px] text-neutral-400">…</span>}
+              </div>
+              <div className="mt-2 flex items-center gap-3 text-xs text-neutral-500">
+                <span>Costo {fmtUsd(ventaCosto(v))}</span>
+                <span>Margen {v.margenPct.toFixed(1)}%</span>
+              </div>
+            </Card>
+          ))}
+          {filtered.length === 0 && (
+            <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+              Sin ventas para estos filtros.
+            </p>
+          )}
+        </div>
+        <Card className="hidden overflow-hidden md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -539,6 +663,7 @@ export function VentasClient({
             </tbody>
           </table>
         </Card>
+        </>
         )}
       </div>
 
@@ -550,7 +675,11 @@ export function VentasClient({
         equipos={equipos}
         otros={otros}
         servicios={servicios}
+        repuestos={repuestos}
         vendedores={vendedores}
+        cajas={cajas}
+        negocio={negocio}
+        dolarVenta={dolarVenta}
         onCreate={(v) => {
           setList((prev) => [v, ...prev]);
           setCreating(false);
@@ -575,11 +704,18 @@ export function VentasClient({
           open && (
             <>
               {esAdmin && (
-                <ConfirmButton
-                  label="Eliminar venta"
-                  onConfirm={() => eliminarVenta(open.id)}
-                  className="mr-auto"
-                />
+                <button
+                  onClick={() => {
+                    setRestituirEquipos(true);
+                    setRestituirRepuestos(true);
+                    setEliminarMovimientosCaja(true);
+                    setEliminarMovimientoCC(true);
+                    setConfirmDelete(true);
+                  }}
+                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Eliminar venta
+                </button>
               )}
               <button
                 onClick={() => setOpenId(null)}
@@ -607,6 +743,70 @@ export function VentasClient({
       >
         {open && <VentaDetalle venta={open} />}
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => open && eliminarVenta(open)}
+        title="¿Eliminar venta?"
+        confirmLabel="Eliminar venta"
+      >
+        {open && (
+          <>
+            <p>
+              Se eliminará la venta {open.id} de {open.cliente}. Esta acción
+              no se puede deshacer.
+            </p>
+            {open.items.some((i) => i.equipoId) && (
+              <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={restituirEquipos}
+                  onChange={(e) => setRestituirEquipos(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+                />
+                Devolver los equipos vendidos al inventario (quedan
+                «disponibles» de nuevo)
+              </label>
+            )}
+            {open.items.some((i) => i.repuestos?.length) && (
+              <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={restituirRepuestos}
+                  onChange={(e) => setRestituirRepuestos(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+                />
+                Devolver los repuestos usados al stock
+              </label>
+            )}
+            {open.tieneMovimientoCaja && (
+              <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={eliminarMovimientosCaja}
+                  onChange={(e) => setEliminarMovimientosCaja(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+                />
+                Eliminar también los movimientos de caja generados por esta
+                venta
+              </label>
+            )}
+            {open.tieneMovimientoCC && (
+              <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={eliminarMovimientoCC}
+                  onChange={(e) => setEliminarMovimientoCC(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+                />
+                Eliminar también el movimiento de cuenta corriente generado
+                por esta venta
+              </label>
+            )}
+          </>
+        )}
+      </ConfirmDialog>
 
       <ReciboDialog
         key={recibo ? `${recibo.tipo}-${recibo.venta.id}` : "none"}
@@ -702,7 +902,38 @@ function VentaDetalle({ venta }: { venta: Venta }) {
         <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
           Ítems
         </p>
-        <div className="overflow-hidden rounded-xl border border-neutral-200">
+        <div className="space-y-2 md:hidden">
+          {venta.items.map((i, idx) => (
+            <Card key={idx} className="p-3">
+              <p className="truncate text-sm font-medium text-neutral-900">{i.detalle}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-400">Cant.</p>
+                  <p className="text-sm tabular-nums">{i.cantidad}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-400">Costo</p>
+                  <p className="text-sm tabular-nums text-neutral-500">{fmtUsd(i.costoUsd ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-400">Precio</p>
+                  <p className="text-sm tabular-nums">{fmtUsd(i.precioUsd)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase text-neutral-400">Subtotal</p>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {fmtUsd(i.cantidad * i.precioUsd)}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          ))}
+          <Card className="flex items-center justify-between p-3" style={{ backgroundColor: "#edecf8" }}>
+            <p className="text-sm font-semibold uppercase tracking-wide text-neutral-900">Total</p>
+            <p className="text-sm font-semibold tabular-nums">{fmtUsd(venta.totalUsd)}</p>
+          </Card>
+        </div>
+        <div className="hidden overflow-hidden rounded-xl border border-neutral-200 md:block">
           <table className="w-full text-sm [&_td]:text-center [&_th]:text-center">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -991,7 +1222,11 @@ function NuevaVentaDialog({
   equipos,
   otros,
   servicios,
+  repuestos,
   vendedores,
+  cajas,
+  negocio,
+  dolarVenta,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1000,16 +1235,44 @@ function NuevaVentaDialog({
   equipos: Equipo[];
   otros: OtroItem[];
   servicios: Servicio[];
+  repuestos: Repuesto[];
   vendedores: PersonaOpcion[];
+  cajas: Caja[];
+  negocio: Negocio;
+  dolarVenta: number;
 }) {
   const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
 
   const [vendedorId, setVendedorId] = useState(vendedores[0]?.id ?? "");
   const [procedencia, setProcedencia] = useState(PROCEDENCIAS[0]);
 
+  const cajasActivas = cajas.filter((c) => c.activa);
+  const destinoPago = (destino: string): Partial<DraftPago> => {
+    if (destino === "cuenta_corriente") {
+      return {
+        medio: "cuenta_corriente",
+        cajaId: undefined,
+        caja: "usd",
+        recargoPct: negocio.recargosMediosPago.cuenta_corriente,
+      };
+    }
+    const caja = cajasActivas.find((c) => c.id === destino);
+    return {
+      medio: caja?.medioPago ?? "transferencia",
+      cajaId: caja?.id,
+      caja: caja?.moneda ?? "usd",
+      recargoPct: caja ? negocio.recargosMediosPago[caja.medioPago] : undefined,
+    };
+  };
+  const destinoDe = (p: DraftPago) => p.cajaId ?? p.medio;
+
   const [items, setItems] = useState<DraftItem[]>([]);
   const [pagos, setPagos] = useState<DraftPago[]>([
-    { _k: rid(), medio: "pesos", montoUsd: 0, caja: defaultCaja("pesos") },
+    {
+      _k: rid(),
+      ...destinoPago(cajasActivas[0]?.id ?? "cuenta_corriente"),
+      montoUsd: 0,
+    } as DraftPago,
   ]);
   const [pending, startTransition] = useTransition();
 
@@ -1067,22 +1330,63 @@ function NuevaVentaDialog({
     setItems((p) => p.map((i) => (i._k === k ? { ...i, ...patch } : i)));
   const rmItem = (k: string) => setItems((p) => p.filter((i) => i._k !== k));
 
+  // Repuestos usados por un ítem de servicio (reparación) -- solo tiene
+  // sentido ahí, descuentan stock al confirmar la venta.
+  const addRepuestoUsado = (itemKey: string, repuestoId: string) => {
+    const r = repuestos.find((x) => x.id === repuestoId);
+    if (!r) return;
+    setItems((p) =>
+      p.map((i) =>
+        i._k === itemKey
+          ? {
+              ...i,
+              repuestos: [
+                ...(i.repuestos ?? []),
+                { repuestoId: r.id, nombre: r.nombre, cantidad: 1 },
+              ],
+            }
+          : i,
+      ),
+    );
+  };
+  const updRepuestoUsado = (itemKey: string, idx: number, cantidad: number) =>
+    setItems((p) =>
+      p.map((i) =>
+        i._k === itemKey
+          ? {
+              ...i,
+              repuestos: (i.repuestos ?? []).map((r, j) =>
+                j === idx ? { ...r, cantidad } : r,
+              ),
+            }
+          : i,
+      ),
+    );
+  const rmRepuestoUsado = (itemKey: string, idx: number) =>
+    setItems((p) =>
+      p.map((i) =>
+        i._k === itemKey
+          ? { ...i, repuestos: (i.repuestos ?? []).filter((_, j) => j !== idx) }
+          : i,
+      ),
+    );
+
+  const destinos = ["cuenta_corriente", ...cajasActivas.map((c) => c.id)];
   const updPago = (k: string, patch: Partial<DraftPago>) =>
     setPagos((p) => p.map((x) => (x._k === k ? { ...x, ...patch } : x)));
   const rmPago = (k: string) =>
     setPagos((p) => (p.length > 1 ? p.filter((x) => x._k !== k) : p));
   const addPago = () =>
     setPagos((p) => {
-      const medio =
-        MEDIOS.find((m) => !p.some((x) => x.medio === m)) ?? "transferencia";
+      const usados = p.map(destinoDe);
+      const destino = destinos.find((d) => !usados.includes(d)) ?? destinos[0];
       return [
         ...p,
         {
           _k: rid(),
-          medio,
+          ...destinoPago(destino),
           montoUsd: restante > 0 ? restante : 0,
-          caja: defaultCaja(medio),
-        },
+        } as DraftPago,
       ];
     });
   const saldar = () => setPagos((p) => saldarUltimoPago(p, restante));
@@ -1095,12 +1399,14 @@ function NuevaVentaDialog({
       const venta = await createVentaAction({
         cliente,
         vendedorId,
+        vendedorNombre,
         procedencia,
         items: items.map(({ _k, origen, ...i }) => ({ ...i, categoria: origen })),
         totalUsd: totalPrecio,
         pagos: pagos.map(({ _k, ...p }) => p),
         margenPct: Math.round(margenPct * 10) / 10,
         tipo: items.some((i) => i.origen === "equipo") ? "venta" : "reparacion",
+        dolarVenta,
       });
       onCreate({ ...venta, vendedor: vendedorNombre || venta.vendedor });
     });
@@ -1132,7 +1438,7 @@ function NuevaVentaDialog({
         </section>
 
         {/* Vendedor + Procedencia */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Vendedor" labelClassName="text-center">
             <Select
               value={vendedorId}
@@ -1186,51 +1492,104 @@ function NuevaVentaDialog({
             </p>
           ) : (
             <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+              <div className="hidden items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 sm:flex">
                 <span className="flex-1">Ítem</span>
                 <span className="w-12 text-center">Cant</span>
                 <span className="w-24 text-center">Precio</span>
                 <span className="w-9" />
               </div>
               {items.map((it) => (
-                <div key={it._k} className="flex items-center gap-2">
-                  <Input
-                    className="min-w-0 flex-1"
-                    placeholder="Nombre del ítem"
-                    value={it.detalle}
-                    readOnly={it.origen !== "libre"}
-                    onChange={(e) =>
-                      updItem(it._k, { detalle: e.target.value })
-                    }
-                  />
-                  <Input
-                    className="w-12 text-center"
-                    type="number"
-                    min={1}
-                    value={it.cantidad}
-                    onChange={(e) =>
-                      updItem(it._k, { cantidad: Number(e.target.value) || 1 })
-                    }
-                  />
-                  <Input
-                    className="w-24"
-                    type="number"
-                    min={0}
-                    placeholder="U$"
-                    value={it.precioUsd || ""}
-                    onChange={(e) =>
-                      updItem(it._k, {
-                        precioUsd: Number(e.target.value) || 0,
-                      })
-                    }
-                  />
-                  <button
-                    type="button"
-                    onClick={() => rmItem(it._k)}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                <div key={it._k}>
+                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                    <Input
+                      className="min-w-0 sm:flex-1"
+                      placeholder="Nombre del ítem"
+                      value={it.detalle}
+                      readOnly={it.origen !== "libre"}
+                      onChange={(e) =>
+                        updItem(it._k, { detalle: e.target.value })
+                      }
+                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        className="w-16 text-center sm:w-12"
+                        type="number"
+                        min={1}
+                        value={it.cantidad}
+                        onChange={(e) =>
+                          updItem(it._k, { cantidad: Number(e.target.value) || 1 })
+                        }
+                      />
+                      <Input
+                        className="flex-1 sm:w-24 sm:flex-none"
+                        type="number"
+                        min={0}
+                        placeholder="U$"
+                        value={it.precioUsd || ""}
+                        onChange={(e) =>
+                          updItem(it._k, {
+                            precioUsd: Number(e.target.value) || 0,
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => rmItem(it._k)}
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {it.origen === "servicio" && (
+                    <div className="ml-1 mt-1.5 space-y-1.5 border-l-2 border-neutral-100 pl-3">
+                      {(it.repuestos ?? []).map((r, idx) => (
+                        <div
+                          key={idx}
+                          className="flex flex-col gap-1.5 text-[12px] text-neutral-600 sm:flex-row sm:items-center sm:gap-2"
+                        >
+                          <span className="flex-1 truncate">{r.nombre}</span>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              className="w-16 text-center"
+                              type="number"
+                              min={1}
+                              value={r.cantidad}
+                              onChange={(e) =>
+                                updRepuestoUsado(
+                                  it._k,
+                                  idx,
+                                  Number(e.target.value) || 1,
+                                )
+                              }
+                            />
+                            <button
+                              type="button"
+                              onClick={() => rmRepuestoUsado(it._k, idx)}
+                              className="grid h-6 w-6 shrink-0 place-items-center rounded text-neutral-400 hover:bg-neutral-100 hover:text-red-500"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      <Select
+                        key={it.repuestos?.length ?? 0}
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) addRepuestoUsado(it._k, e.target.value);
+                        }}
+                        className="h-7 w-full text-[11px] text-neutral-500 sm:w-56"
+                      >
+                        <option value="">+ Repuesto usado…</option>
+                        {repuestos.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nombre} ({r.stock} en stock)
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1253,59 +1612,62 @@ function NuevaVentaDialog({
           </Eyebrow>
 
           <div className="space-y-2">
-            {pagos.map((p) => (
-              <div key={p._k} className="flex items-center gap-2">
-                <Select
-                  value={p.medio}
-                  onChange={(e) => {
-                    const medio = e.target.value as MedioPago;
-                    updPago(p._k, { medio, caja: defaultCaja(medio) });
-                  }}
-                  className="w-40"
-                >
-                  {MEDIOS.map((m) => (
-                    <option key={m} value={m}>
-                      {medioPagoCfg[m].label}
-                    </option>
-                  ))}
-                </Select>
-                <Input
-                  className="flex-1"
-                  type="number"
-                  min={0}
-                  placeholder="U$"
-                  value={p.montoUsd || ""}
-                  onChange={(e) =>
-                    updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
-                  }
-                />
-                <Select
-                  value={p.caja}
-                  onChange={(e) =>
-                    updPago(p._k, { caja: e.target.value as "usd" | "ars" })
-                  }
-                  className="w-32"
-                >
-                  <option value="usd">Caja USD</option>
-                  <option value="ars">Caja ARS</option>
-                </Select>
-                <button
-                  type="button"
-                  onClick={() => rmPago(p._k)}
-                  disabled={pagos.length === 1}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+            {pagos.map((p) => {
+              const recargoPct = p.recargoPct ?? 0;
+              return (
+                <div key={p._k}>
+                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                    <Select
+                      value={destinoDe(p)}
+                      onChange={(e) => updPago(p._k, destinoPago(e.target.value))}
+                      className="w-full sm:w-48"
+                    >
+                      <option value="cuenta_corriente">
+                        {medioPagoCfg.cuenta_corriente.emoji} Cuenta corriente
+                      </option>
+                      {cajasActivas.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {medioPagoCfg[c.medioPago].emoji} {c.nombre}
+                        </option>
+                      ))}
+                    </Select>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        className="flex-1"
+                        type="number"
+                        min={0}
+                        placeholder="U$"
+                        value={p.montoUsd || ""}
+                        onChange={(e) =>
+                          updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => rmPago(p._k)}
+                        disabled={pagos.length === 1}
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {recargoPct > 0 && p.montoUsd > 0 && (
+                    <p className="mt-1 pl-1 text-[11px] text-amber-600">
+                      + {recargoPct}% recargo → cobra{" "}
+                      {fmtUsd(montoConRecargo(p.montoUsd, recargoPct))}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <div className="mt-2 flex items-center justify-between">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <button
               type="button"
               onClick={addPago}
-              disabled={pagos.length >= MEDIOS.length}
+              disabled={pagos.length >= destinos.length}
               className="text-xs font-medium text-accent hover:underline disabled:opacity-40"
             >
               + Agregar medio

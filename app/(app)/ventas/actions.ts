@@ -3,18 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { requireUser, requireRole } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
-import { createVenta, deleteVenta } from "@/lib/db/ventas";
+import { createVenta, deleteVenta, type DeleteVentaOpts } from "@/lib/db/ventas";
 import type { ClienteSeleccion, Pago, VentaItem } from "@/lib/types";
 
 export async function createVentaAction(input: {
   cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
   vendedorId: string;
+  vendedorNombre: string;
   procedencia?: string;
   items: VentaItem[];
   totalUsd: number;
   pagos: Pago[];
   margenPct: number;
   tipo: "venta" | "reparacion";
+  dolarVenta: number;
 }) {
   await requireUser();
 
@@ -24,20 +26,27 @@ export async function createVentaAction(input: {
     clienteId: cliente.id,
     cliente: cliente.nombre,
     vendedorId: input.vendedorId,
+    vendedorNombre: input.vendedorNombre,
     procedencia: input.procedencia,
     items: input.items,
     totalUsd: input.totalUsd,
     pagos: input.pagos,
     margenPct: input.margenPct,
     tipo: input.tipo,
+    dolarVenta: input.dolarVenta,
   });
   revalidatePath("/ventas");
+  revalidatePath("/inventario");
+  revalidatePath("/cajas");
+  revalidatePath("/cuentas-corrientes");
   return venta;
 }
 
-export async function deleteVentaAction(id: string) {
+export async function deleteVentaAction(id: string, opts: DeleteVentaOpts) {
   await requireRole("admin");
-  await deleteVenta(id);
+  await deleteVenta(id, opts);
   revalidatePath("/ventas");
   revalidatePath("/inventario");
+  revalidatePath("/cajas");
+  revalidatePath("/cuentas-corrientes");
 }

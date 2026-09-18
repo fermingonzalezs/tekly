@@ -20,6 +20,11 @@ export type MedioPago =
   | "tarjeta"
   | "canje";
 
+/** `MedioPago` + "cuenta corriente" -- solo válido como `Pago.medio` (una
+ * venta puede cobrarse a cuenta corriente; una `Caja`/`MovimientoCaja`/
+ * `Compra` nunca, por eso esas tres siguen tipadas con `MedioPago`). */
+export type MedioPagoVenta = MedioPago | "cuenta_corriente";
+
 export type TurnoEstado = "pendiente" | "confirmado" | "cancelado";
 
 /** Qué viene a hacer el cliente — define el color en el calendario. */
@@ -195,14 +200,28 @@ export type VentaItem = {
    * categorías del dashboard (`ventasPorRubro` en `lib/dashboard.ts`).
    * Ventas creadas antes de este campo no lo tienen. */
   categoria?: "equipo" | "servicio" | "otro" | "libre";
+  /** Repuestos consumidos por este ítem (solo tiene sentido en ítems de
+   * servicio, ver "Nueva venta") -- descuenta stock al vender, se puede
+   * devolver al borrar la venta. `nombre` es un snapshot, igual criterio
+   * que `detalle`. */
+  repuestos?: { repuestoId: string; nombre: string; cantidad: number }[];
 };
 
 /** Un medio de pago con su monto (pago simple o dividido) y la caja a la
  * que ingresa (`caja` = misma moneda que usa `MovimientoCaja`). */
 export type Pago = {
-  medio: MedioPago;
+  medio: MedioPagoVenta;
   montoUsd: number;
   caja: "usd" | "ars";
+  /** Caja real elegida en "Nueva venta" (no aplica si `medio ===
+   * "cuenta_corriente"`) -- reemplaza tener que adivinar a qué caja fue la
+   * plata cuando hay más de una caja con el mismo medio. */
+  cajaId?: string;
+  /** % de recargo del medio al momento de la venta (snapshot, mismo
+   * criterio que `Compra.cotizacion`) -- el monto real cobrado/movido es
+   * `montoUsd * (1 + recargoPct/100)`, `montoUsd` sigue siendo la parte
+   * del total de la venta que cubre este pago. */
+  recargoPct?: number;
 };
 
 export type Venta = {
@@ -221,6 +240,10 @@ export type Venta = {
   pagos: Pago[];
   margenPct: number;
   tipo: "venta" | "reparacion";
+  /** Si algún pago generó un movimiento de caja / cuenta corriente --
+   * habilita el checkbox correspondiente al borrar (`lib/db/ventas.ts`). */
+  tieneMovimientoCaja?: boolean;
+  tieneMovimientoCC?: boolean;
 };
 
 /** Caja física/específica — puede haber varias por moneda (ej. "Mostrador"

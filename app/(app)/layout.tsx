@@ -15,7 +15,7 @@ export default async function AppLayout({
     <RealtimeProvider organizationId={user.organizationId}>
       <TopNav user={user} />
       {children}
-      <Toaster />
+      <Toaster esAdmin={user.rol === "admin"} />
       <SimPanel />
     </RealtimeProvider>
   );

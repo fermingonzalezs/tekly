@@ -4,6 +4,23 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Contador global de dialogs abiertos -- soporta dialog-sobre-dialog
+// (ej. ConfirmDialog encima de un form ya abierto): cada uno bloquea el
+// scroll al abrirse y lo desbloquea al cerrarse, pero solo el que lleva
+// el contador a 0 restaura el overflow real, así el de abajo no se libera
+// mientras el de arriba sigue abierto.
+let openDialogs = 0;
+
+function lockScroll() {
+  openDialogs += 1;
+  if (openDialogs === 1) document.body.style.overflow = "hidden";
+}
+
+function unlockScroll() {
+  openDialogs = Math.max(0, openDialogs - 1);
+  if (openDialogs === 0) document.body.style.overflow = "";
+}
+
 export function Dialog({
   open,
   onClose,
@@ -27,10 +44,10 @@ export function Dialog({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+    lockScroll();
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      unlockScroll();
     };
   }, [open, onClose]);
 
@@ -52,7 +69,7 @@ export function Dialog({
         >
           <div
             className={cn(
-              "flex items-start justify-between gap-4 border-b px-5 py-4",
+              "flex items-start justify-between gap-4 border-b px-4 py-4 sm:px-5",
               accent
                 ? "border-[#352f86] bg-[#352f86] text-white"
                 : "border-neutral-100",
@@ -93,9 +110,9 @@ export function Dialog({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="px-5 py-4">{children}</div>
+          <div className="px-4 py-4 sm:px-5">{children}</div>
           {footer && (
-            <div className="flex items-center justify-end gap-2 border-t border-neutral-100 px-5 py-3.5">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-100 px-4 py-3.5 sm:px-5">
               {footer}
             </div>
           )}

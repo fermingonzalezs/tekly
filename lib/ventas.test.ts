@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { calcularMargenPct, calcularRestante, saldarUltimoPago } from "@/lib/ventas";
+import {
+  calcularMargenPct,
+  calcularRestante,
+  saldarUltimoPago,
+  montoConRecargo,
+} from "@/lib/ventas";
 
 describe("calcularMargenPct", () => {
   it("0 si no hay precio (evita división por 0)", () => {
@@ -35,5 +40,18 @@ describe("saldarUltimoPago", () => {
   });
   it("con lista vacía no rompe", () => {
     expect(saldarUltimoPago([], 10)).toEqual([]);
+  });
+});
+
+describe("montoConRecargo", () => {
+  it("sin recargo devuelve el mismo monto", () => {
+    expect(montoConRecargo(100, undefined)).toBe(100);
+    expect(montoConRecargo(100, 0)).toBe(100);
+  });
+  it("aplica el % de recargo sobre el monto", () => {
+    expect(montoConRecargo(100, 10)).toBe(110);
+  });
+  it("redondea a centavos", () => {
+    expect(montoConRecargo(33.33, 15)).toBe(38.33);
   });
 });

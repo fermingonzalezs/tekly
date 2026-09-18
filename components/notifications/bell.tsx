@@ -16,7 +16,7 @@ function ago(ts: number, now: number) {
   return `hace ${Math.round(m / 60)}h`;
 }
 
-export function NotificationsBell() {
+export function NotificationsBell({ esAdmin }: { esAdmin: boolean }) {
   const { subscribe } = useRealtime();
   const [list, setList] = useState<Notif[]>([]);
   const [open, setOpen] = useState(false);
@@ -25,12 +25,14 @@ export function NotificationsBell() {
 
   useEffect(() => {
     return subscribe((e: AppEvent) => {
+      const view = describe(e);
+      if (view.adminOnly && !esAdmin) return;
       setList((p) => [
-        { id: Date.now() + Math.random(), ts: Date.now(), read: false, ...describe(e) },
+        { id: Date.now() + Math.random(), ts: Date.now(), read: false, ...view },
         ...p,
       ]);
     });
-  }, [subscribe]);
+  }, [subscribe, esAdmin]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30_000);
@@ -79,7 +81,7 @@ export function NotificationsBell() {
       </button>
 
       {open && (
-        <div className="animate-toast-in absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+        <div className="animate-toast-in absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
               Notificaciones

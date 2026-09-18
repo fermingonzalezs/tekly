@@ -13,13 +13,17 @@ export type AppEvent =
   | { type: "ticket_ready"; actor: string; ticket: number; model: string }
   | { type: "low_stock"; actor: string; part: string; qty: number }
   | { type: "appointment_scheduled"; actor: string; client: string; tipoLabel: string; when: string }
-  | { type: "repair_approved"; actor: string; ticket: number; amountUsd: number };
+  | { type: "repair_approved"; actor: string; ticket: number; amountUsd: number }
+  | { type: "item_deleted"; actor: string; entity: string; label: string };
 
 export type ToastView = {
-  icon: "sale" | "wrench" | "package" | "calendar" | "check";
+  icon: "sale" | "wrench" | "package" | "calendar" | "check" | "trash";
   title: string;
   detail: string;
   tone: "success" | "warning";
+  /** Solo para admins -- `Toaster`/`NotificationsBell` lo filtran por rol
+   * del usuario que ve la app, no por quién lo disparó. */
+  adminOnly?: boolean;
 };
 
 export function describe(e: AppEvent): ToastView {
@@ -58,6 +62,14 @@ export function describe(e: AppEvent): ToastView {
         title: "Stock bajo",
         detail: `${e.part} · quedan ${e.qty}`,
         tone: "warning",
+      };
+    case "item_deleted":
+      return {
+        icon: "trash",
+        title: `${e.entity} eliminado`,
+        detail: `${e.label} · eliminó ${e.actor}`,
+        tone: "warning",
+        adminOnly: true,
       };
   }
 }

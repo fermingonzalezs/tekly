@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Plus, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Search, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/field";
-import { ConfirmButton } from "@/components/ui/confirm-button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ticketStatus, turnoStatus, dotClass, type Tone } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { Cliente } from "@/lib/types";
@@ -29,6 +30,7 @@ export function ClientesClient({
   charts: React.ReactNode;
   user: SessionUser;
 }) {
+  const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Cliente[]>(initialClientes);
   const [q, setQ] = useState("");
@@ -36,7 +38,26 @@ export function ClientesClient({
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [chartsOpen, setChartsOpen] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [, startDeleteTransition] = useTransition();
+
+  function eliminarCliente(id: string) {
+    const c = list.find((x) => x.id === id);
+    setList((p) => p.filter((c) => c.id !== id));
+    setOpen(null);
+    setConfirmDelete(false);
+    startDeleteTransition(async () => {
+      await deleteClienteAction(id);
+    });
+    if (c) {
+      publish({
+        type: "item_deleted",
+        actor: user.nombre,
+        entity: "Cliente",
+        label: c.nombre,
+      });
+    }
+  }
 
   const filtered = useMemo(
     () => list.filter((c) => c.nombre.toLowerCase().includes(q.toLowerCase())),
@@ -46,17 +67,19 @@ export function ClientesClient({
   return (
     <div className="space-y-5">
       <div>
-        <button
-          onClick={() => setChartsOpen((v) => !v)}
-          className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
-        >
-          {chartsOpen ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-          {chartsOpen ? "Ocultar gráficos" : "Mostrar gráficos"}
-        </button>
+        <div className="flex justify-end">
+          <button
+            onClick={() => setChartsOpen((v) => !v)}
+            className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
+          >
+            {chartsOpen ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+            {chartsOpen ? "Ocultar gráficos" : "Mostrar gráficos"}
+          </button>
+        </div>
         {chartsOpen && <div className="mt-3">{charts}</div>}
       </div>
 
@@ -139,18 +162,12 @@ export function ClientesClient({
           open && (
             <>
               {esAdmin && (
-                <ConfirmButton
-                  label="Eliminar cliente"
-                  onConfirm={() => {
-                    const id = open.id;
-                    setList((p) => p.filter((c) => c.id !== id));
-                    setOpen(null);
-                    startDeleteTransition(async () => {
-                      await deleteClienteAction(id);
-                    });
-                  }}
-                  className="mr-auto"
-                />
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Eliminar cliente
+                </button>
               )}
               <button
                 onClick={() => setOpen(null)}
@@ -170,6 +187,16 @@ export function ClientesClient({
       >
         {open && <Ficha cliente={open} />}
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => open && eliminarCliente(open.id)}
+        title="¿Eliminar cliente?"
+        confirmLabel="Eliminar cliente"
+      >
+        {open && `Se eliminará «${open.nombre}». Esta acción no se puede deshacer.`}
+      </ConfirmDialog>
 
       <ClienteFormDialog
         key={open ? `edit-${open.id}-${editing}` : "edit-none"}

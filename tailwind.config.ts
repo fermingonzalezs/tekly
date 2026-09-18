@@ -31,10 +31,21 @@ const config: Config = {
           from: { opacity: "1", transform: "translateX(0) scale(1)" },
           to: { opacity: "0", transform: "translateX(24px) scale(0.96)" },
         },
+        "celebrate-in": {
+          from: { opacity: "0", transform: "scale(0.92)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        "celebrate-check": {
+          "0%": { transform: "scale(0)" },
+          "60%": { transform: "scale(1.15)" },
+          "100%": { transform: "scale(1)" },
+        },
       },
       animation: {
         "toast-in": "toast-in 0.22s cubic-bezier(0.21, 1.02, 0.73, 1)",
         "toast-out": "toast-out 0.18s ease-in forwards",
+        "celebrate-in": "celebrate-in 0.25s ease-out",
+        "celebrate-check": "celebrate-check 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both",
       },
     },
   },

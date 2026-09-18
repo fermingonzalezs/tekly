@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
@@ -17,11 +18,12 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { ConfirmButton } from "@/components/ui/confirm-button";
-import { medioPago as medioPagoCfg, dotClass } from "@/lib/status";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { medioPago as medioPagoCfg, MEDIOS_CAJA, dotClass } from "@/lib/status";
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
 import { enArs, netoMovimientos, signo } from "@/lib/cajas";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type {
@@ -40,14 +42,7 @@ import {
 import type { CajaInput } from "@/lib/db/cajas";
 import type { SessionUser } from "@/lib/auth/types";
 
-const MEDIOS: MedioPago[] = [
-  "pesos",
-  "dolares",
-  "transferencia",
-  "cripto",
-  "tarjeta",
-  "canje",
-];
+const MEDIOS = MEDIOS_CAJA;
 
 const STAT_MEDIOS: MedioPago[] = ["transferencia", "pesos", "tarjeta", "canje"];
 
@@ -79,12 +74,14 @@ export function CajasClient({
   usuarioNombre: string;
   user: SessionUser;
 }) {
+  const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
   const [, startDeleteTransition] = useTransition();
   const [vista, setVista] = useState<"dia" | "historial">("dia");
   const [medioFiltro, setMedioFiltro] = useState<MedioPago | null>(null);
   const [q, setQ] = useState("");
   const [openMov, setOpenMov] = useState<MovimientoCaja | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [nuevoOpen, setNuevoOpen] = useState(false);
   const [cajas, setCajas] = useState<Caja[]>(initialCajas);
   const [editingCaja, setEditingCaja] = useState<{ id: string | null; data: CajaInput } | null>(
@@ -110,12 +107,22 @@ export function CajasClient({
   };
 
   function eliminarMovimiento(id: string) {
+    const m = movimientosTodos.find((x) => x.id === id);
     setMovimientosHoy((prev) => prev.filter((m) => m.id !== id));
     setMovimientosTodos((prev) => prev.filter((m) => m.id !== id));
     setOpenMov(null);
+    setConfirmDelete(false);
     startDeleteTransition(async () => {
       await deleteMovimientoAction(id);
     });
+    if (m) {
+      publish({
+        type: "item_deleted",
+        actor: user.nombre,
+        entity: "Movimiento de caja",
+        label: m.concepto,
+      });
+    }
   }
 
   const saveCajaLocal = (c: Caja) => {
@@ -510,11 +517,12 @@ export function CajasClient({
                 </span>
               )}
               {esAdmin && !openMov.conciliacionId && (
-                <ConfirmButton
-                  label="Eliminar movimiento"
-                  onConfirm={() => eliminarMovimiento(openMov.id)}
-                  className="mr-auto"
-                />
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Eliminar movimiento
+                </button>
               )}
               <button
                 onClick={() => setOpenMov(null)}
@@ -589,6 +597,16 @@ export function CajasClient({
           </div>
         )}
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => openMov && eliminarMovimiento(openMov.id)}
+        title="¿Eliminar movimiento?"
+        confirmLabel="Eliminar movimiento"
+      >
+        {openMov && `Se eliminará «${openMov.concepto}». Esta acción no se puede deshacer.`}
+      </ConfirmDialog>
 
       <NuevoMovimientoDialog
         key={nuevoOpen ? "n" : "n0"}

@@ -1,16 +1,17 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { ClientePicker } from "@/components/ui/cliente-picker";
-import { ConfirmButton } from "@/components/ui/confirm-button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { dotClass } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { saldoDe } from "@/lib/cuentas-corrientes";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { ClienteOpcion, ClienteSeleccion, MovimientoCC } from "@/lib/types";
@@ -45,6 +46,7 @@ export function CuentasCorrientesClient({
   usuarioNombre: string;
   user: SessionUser;
 }) {
+  const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
   const [, startDeleteTransition] = useTransition();
   const [movimientos, setMovimientos] = useState<MovimientoCC[]>(initialMovimientos);
@@ -55,16 +57,28 @@ export function CuentasCorrientesClient({
     clienteId?: string;
     tipo?: "cargo" | "pago";
   } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const movAEliminar = movimientos.find((m) => m.id === confirmDeleteId) ?? null;
 
   const addMovimiento = (mov: MovimientoCC) => {
     setMovimientos((prev) => [mov, ...prev]);
   };
 
   function eliminarMovimiento(id: string) {
+    const m = movimientos.find((x) => x.id === id);
     setMovimientos((prev) => prev.filter((m) => m.id !== id));
+    setConfirmDeleteId(null);
     startDeleteTransition(async () => {
       await deleteMovimientoCCAction(id);
     });
+    if (m) {
+      publish({
+        type: "item_deleted",
+        actor: user.nombre,
+        entity: "Movimiento CC",
+        label: `${m.concepto} · ${openRow?.cliente.nombre ?? ""}`,
+      });
+    }
   }
 
   const cuentas = useMemo(
@@ -284,11 +298,13 @@ export function CuentasCorrientesClient({
                       {fmtUsd(m.montoUsd)}
                     </span>
                     {esAdmin && (
-                      <ConfirmButton
-                        variant="icon"
-                        label="Eliminar movimiento"
-                        onConfirm={() => eliminarMovimiento(m.id)}
-                      />
+                      <button
+                        onClick={() => setConfirmDeleteId(m.id)}
+                        title="Eliminar movimiento"
+                        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     )}
                   </div>
                 ))
@@ -297,6 +313,17 @@ export function CuentasCorrientesClient({
           </div>
         )}
       </Dialog>
+
+      <ConfirmDialog
+        open={!!movAEliminar}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={() => eliminarMovimiento(confirmDeleteId!)}
+        title="¿Eliminar movimiento?"
+        confirmLabel="Eliminar movimiento"
+      >
+        {movAEliminar &&
+          `Se eliminará «${movAEliminar.concepto}» (${fmtUsd(movAEliminar.montoUsd)}). Esta acción no se puede deshacer.`}
+      </ConfirmDialog>
 
       <NuevoMovimientoCCDialog
         key={nuevoOpen ? "n" : "n0"}

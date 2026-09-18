@@ -6,12 +6,13 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ClientePicker } from "@/components/ui/cliente-picker";
-import { ConfirmButton } from "@/components/ui/confirm-button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   turnoTipo,
   turnoStatus,
   equipoStatus,
   medioPago,
+  MEDIOS_CAJA,
   dotClass,
 } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
@@ -30,14 +31,7 @@ import type {
 import type { SessionUser } from "@/lib/auth/types";
 import { createTurnoAction, setTurnoEstadoAction, deleteTurnoAction } from "./actions";
 
-const MEDIOS: MedioPago[] = [
-  "pesos",
-  "dolares",
-  "transferencia",
-  "cripto",
-  "tarjeta",
-  "canje",
-];
+const MEDIOS = MEDIOS_CAJA;
 
 /** Caja sugerida según el medio; el usuario la puede cambiar a mano. */
 function defaultCaja(medio: MedioPago): "usd" | "ars" {
@@ -78,6 +72,7 @@ export function TurnosClient({
   const [list, setList] = useState<Turno[]>(initialTurnos);
   const [equipos, setEquipos] = useState<Equipo[]>(initialEquipos);
   const [sel, setSel] = useState<Turno | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [slot, setSlot] = useState<{ dayOffset: number; hora: string } | null>(
     null,
   );
@@ -127,8 +122,15 @@ export function TurnosClient({
   function eliminar(t: Turno) {
     setList((p) => p.filter((x) => x.id !== t.id));
     setSel(null);
+    setConfirmDelete(false);
     startTransition(async () => {
       await deleteTurnoAction(t.id);
+    });
+    publish({
+      type: "item_deleted",
+      actor,
+      entity: "Turno",
+      label: `${t.cliente} · ${turnoTipo[t.tipo].label}`,
     });
   }
 
@@ -312,11 +314,12 @@ export function TurnosClient({
           sel && (
             <>
               {esAdmin && (
-                <ConfirmButton
-                  label="Eliminar turno"
-                  onConfirm={() => eliminar(sel)}
-                  className="mr-auto"
-                />
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Eliminar turno
+                </button>
               )}
               <button
                 onClick={() => setSel(null)}
@@ -482,6 +485,16 @@ export function TurnosClient({
           </div>
         )}
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => sel && eliminar(sel)}
+        title="¿Eliminar turno?"
+        confirmLabel="Eliminar turno"
+      >
+        {sel && `Se eliminará el turno de «${sel.cliente}» (${dayLabel(sel.dayOffset)} · ${sel.hora}). Esta acción no se puede deshacer.`}
+      </ConfirmDialog>
 
       {/* Agendar turno */}
       <AgendarDialog

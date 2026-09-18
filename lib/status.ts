@@ -2,6 +2,7 @@ import type {
   CompraEstado,
   EquipoStatus,
   MedioPago,
+  MedioPagoVenta,
   OtroCategoria,
   Role,
   TicketStatus,
@@ -139,11 +140,34 @@ export const compraEstado: Record<
 
 // ── Medios de pago ─────────────────────────────────────────────
 
-export const medioPago: Record<MedioPago, { label: string; tone: Tone }> = {
-  pesos: { label: "Pesos", tone: "green" },
-  dolares: { label: "Dólares", tone: "green" },
-  transferencia: { label: "Transferencia", tone: "blue" },
-  cripto: { label: "Cripto", tone: "violet" },
-  tarjeta: { label: "Tarjeta", tone: "amber" },
-  canje: { label: "Canje", tone: "gray" },
+/** Superset de `MedioPago` -- `cuenta_corriente` solo tiene sentido como
+ * `Pago.medio` (ver `lib/types.ts`), nunca como medio de una `Caja`/
+ * `MovimientoCaja`/`Compra`, pero el mapa vive acá único para que Ventas
+ * y el resto (Cajas/Compras/Turnos, que siguen indexando con `MedioPago`)
+ * comparta label/tone/emoji. */
+export const medioPago: Record<MedioPagoVenta, { label: string; tone: Tone; emoji: string }> = {
+  pesos: { label: "Efectivo (pesos)", tone: "green", emoji: "💵" },
+  dolares: { label: "Dólares", tone: "green", emoji: "💲" },
+  transferencia: { label: "Transferencia", tone: "blue", emoji: "🏦" },
+  cripto: { label: "Cripto", tone: "violet", emoji: "🪙" },
+  tarjeta: { label: "Tarjeta de crédito", tone: "amber", emoji: "💳" },
+  canje: { label: "Mercadería", tone: "gray", emoji: "📦" },
+  cuenta_corriente: { label: "Cuenta corriente", tone: "gray", emoji: "📒" },
 };
+
+/** Medios válidos para una `Caja`/`MovimientoCaja`/`Compra` -- fuente
+ * única para los selectores de esas tres secciones + Turnos (antes cada
+ * uno tenía su propio array `MEDIOS` duplicado). "Cuenta corriente" queda
+ * afuera a propósito: nunca es el medio de una caja real. */
+export const MEDIOS_CAJA: MedioPago[] = [
+  "pesos",
+  "dolares",
+  "transferencia",
+  "cripto",
+  "tarjeta",
+  "canje",
+];
+
+/** `MEDIOS_CAJA` + "cuenta corriente" -- para los lugares que necesitan
+ * los 7 medios (ej. el form de recargo por medio en Configuración). */
+export const MEDIOS_VENTA: MedioPagoVenta[] = [...MEDIOS_CAJA, "cuenta_corriente"];

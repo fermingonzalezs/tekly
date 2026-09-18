@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { dotClass, rolLabel, rolTone } from "@/lib/status";
+import { dotClass, rolLabel, rolTone, medioPago as medioPagoCfg, MEDIOS_VENTA } from "@/lib/status";
 import { thDivider } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
 import { updateOwnProfileAction } from "@/app/(app)/actions";
@@ -312,51 +312,85 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
   }
 
   return (
-    <Card className="max-w-lg p-5">
-      <div className="space-y-3">
-        <Field label="Nombre">
-          <Input
-            value={form.nombre}
-            onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-          />
-        </Field>
-        <Field label="Dirección">
-          <Input
-            value={form.direccion}
-            onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
-          />
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Teléfono">
-            <Input
-              value={form.telefono}
-              onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
-            />
-          </Field>
-          <Field label="CUIT">
-            <Input
-              value={form.cuit}
-              onChange={(e) => setForm((f) => ({ ...f, cuit: e.target.value }))}
-            />
-          </Field>
-        </div>
-        <Field label="Horario de atención">
-          <Input
-            value={form.horario}
-            onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))}
-          />
-        </Field>
-        <Field label="Objetivo del mes (USD)">
-          <Input
-            type="number"
-            min={0}
-            value={form.objetivoMesUsd}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, objetivoMesUsd: Number(e.target.value) }))
-            }
-          />
-        </Field>
-        {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
+    <div className="max-w-3xl space-y-5">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="p-5">
+          <div className="space-y-3">
+            <Field label="Nombre">
+              <Input
+                value={form.nombre}
+                onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+              />
+            </Field>
+            <Field label="Dirección">
+              <Input
+                value={form.direccion}
+                onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Teléfono">
+                <Input
+                  value={form.telefono}
+                  onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+                />
+              </Field>
+              <Field label="CUIT">
+                <Input
+                  value={form.cuit}
+                  onChange={(e) => setForm((f) => ({ ...f, cuit: e.target.value }))}
+                />
+              </Field>
+            </div>
+            <Field label="Horario de atención">
+              <Input
+                value={form.horario}
+                onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))}
+              />
+            </Field>
+            <Field label="Objetivo del mes (USD)">
+              <Input
+                type="number"
+                min={0}
+                value={form.objetivoMesUsd}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, objetivoMesUsd: Number(e.target.value) }))
+                }
+              />
+            </Field>
+          </div>
+        </Card>
+        <Card className="p-5">
+          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            Recargo por medio de pago
+          </p>
+          <div className="space-y-2">
+            {MEDIOS_VENTA.map((m) => (
+              <div key={m} className="flex items-center gap-2">
+                <span className="flex-1 text-sm text-neutral-600">
+                  {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
+                </span>
+                <Input
+                  className="w-24 text-center"
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={form.recargosMediosPago[m] ?? ""}
+                  onChange={(e) => {
+                    const v = Number(e.target.value) || 0;
+                    setForm((f) => ({
+                      ...f,
+                      recargosMediosPago: { ...f.recargosMediosPago, [m]: v || undefined },
+                    }));
+                  }}
+                />
+                <span className="text-sm text-neutral-400">%</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+      <div className="flex items-center gap-3">
         <button
           onClick={guardar}
           disabled={pending}
@@ -364,8 +398,9 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
         >
           {pending ? "Guardando…" : "Guardar cambios"}
         </button>
+        {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
       </div>
-    </Card>
+    </div>
   );
 }
 

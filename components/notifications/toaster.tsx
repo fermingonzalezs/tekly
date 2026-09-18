@@ -7,6 +7,7 @@ import {
   Wrench,
   PackageX,
   CalendarClock,
+  Trash2,
   X,
 } from "lucide-react";
 import { describe, type AppEvent, type ToastView } from "@/lib/realtime";
@@ -21,11 +22,12 @@ const ICONS = {
   package: PackageX,
   calendar: CalendarClock,
   check: Check,
+  trash: Trash2,
 } as const;
 
 const LIFE_MS = 5000;
 
-export function Toaster() {
+export function Toaster({ esAdmin }: { esAdmin: boolean }) {
   const { subscribe } = useRealtime();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
@@ -37,8 +39,10 @@ export function Toaster() {
 
   useEffect(() => {
     const off = subscribe((e: AppEvent) => {
+      const view = describe(e);
+      if (view.adminOnly && !esAdmin) return;
       const id = Date.now() + Math.random();
-      setToasts((t) => [...t, { id, ...describe(e) }].slice(-4));
+      setToasts((t) => [...t, { id, ...view }].slice(-4));
       timers.current.set(
         id,
         setTimeout(() => dismiss(id), LIFE_MS),
@@ -48,7 +52,7 @@ export function Toaster() {
       off();
       timers.current.forEach(clearTimeout);
     };
-  }, [subscribe]);
+  }, [subscribe, esAdmin]);
 
   return (
     <div className="pointer-events-none fixed right-6 top-20 z-50 flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-3">

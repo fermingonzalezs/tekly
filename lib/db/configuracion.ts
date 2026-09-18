@@ -2,6 +2,8 @@ import "server-only";
 import { createServerClient, createServiceRoleClient } from "@/lib/auth/supabase";
 import { requireRole } from "@/lib/auth";
 import type { Rol } from "@/lib/auth/types";
+import type { MedioPagoVenta } from "@/lib/types";
+import type { OnboardingPasoId } from "@/lib/onboarding";
 
 // ─────────────────────────── Usuarios y roles ───────────────────────────
 
@@ -43,6 +45,13 @@ export type Negocio = {
   garantiaImportante: string;
   /** Una causal de anulación por línea -- se renderiza como lista. */
   garantiaCausales: string;
+  /** % de recargo por medio de pago (ej. `{ tarjeta: 10 }`) -- aumenta lo
+   * que cobra el cliente al elegir ese medio en "Nueva venta", ver
+   * `montoConRecargo` en `lib/ventas.ts`. Medios sin entrada = sin recargo. */
+  recargosMediosPago: Partial<Record<MedioPagoVenta, number>>;
+  /** Checklist de onboarding (Dashboard → Bienvenida, ver
+   * lib/onboarding.ts) -- qué pasos del setup inicial tildó el admin. */
+  onboardingPasos: Partial<Record<OnboardingPasoId, boolean>>;
 };
 
 /** `organizations` sí tiene policy de select para `authenticated` -- lectura
@@ -52,7 +61,7 @@ export async function getNegocio(): Promise<Negocio> {
   const { data, error } = await supabase
     .from("organizations")
     .select(
-      "nombre, direccion, telefono, cuit, horario, objetivo_mes_usd, garantia_texto, garantia_condiciones, garantia_importante, garantia_causales",
+      "nombre, direccion, telefono, cuit, horario, objetivo_mes_usd, garantia_texto, garantia_condiciones, garantia_importante, garantia_causales, recargos_medios_pago, onboarding_pasos",
     )
     .single();
   if (error) throw error;
@@ -67,6 +76,8 @@ export async function getNegocio(): Promise<Negocio> {
     garantiaCondiciones: data.garantia_condiciones ?? "",
     garantiaImportante: data.garantia_importante ?? "",
     garantiaCausales: data.garantia_causales ?? "",
+    recargosMediosPago: data.recargos_medios_pago ?? {},
+    onboardingPasos: data.onboarding_pasos ?? {},
   };
 }
 
@@ -90,7 +101,24 @@ export async function updateNegocio(data: Negocio): Promise<void> {
       garantia_condiciones: data.garantiaCondiciones || null,
       garantia_importante: data.garantiaImportante || null,
       garantia_causales: data.garantiaCausales || null,
+      recargos_medios_pago: data.recargosMediosPago,
     })
+    .eq("id", caller.organizationId);
+  if (error) throw error;
+}
+
+/** Tilda/destilda pasos del checklist de onboarding (Dashboard →
+ * Bienvenida). El cliente manda el mapa completo (ya lo tiene cargado desde
+ * `Negocio.onboardingPasos`), así que es un reemplazo directo -- mismo
+ * criterio admin-only + service role que `updateNegocio`. */
+export async function setOnboardingPasos(
+  pasos: Partial<Record<OnboardingPasoId, boolean>>,
+): Promise<void> {
+  const caller = await requireRole("admin");
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("organizations")
+    .update({ onboarding_pasos: pasos })
     .eq("id", caller.organizationId);
   if (error) throw error;
 }

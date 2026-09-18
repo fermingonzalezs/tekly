@@ -63,6 +63,15 @@ const PRESETS: { label: string; build: () => AppEvent }[] = [
       qty: rnd(0, 3),
     }),
   },
+  {
+    label: "Elemento eliminado (solo admin)",
+    build: () => ({
+      type: "item_deleted",
+      actor: pick(ACTORS),
+      entity: "Venta",
+      label: `V-${rnd(1000, 9999)} · ${pick(CLIENTES)}`,
+    }),
+  },
 ];
 
 export function SimPanel() {

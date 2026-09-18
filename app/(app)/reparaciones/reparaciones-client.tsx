@@ -10,6 +10,7 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { ClientePicker } from "@/components/ui/cliente-picker";
-import { ConfirmButton } from "@/components/ui/confirm-button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiciosCatalogo } from "@/components/servicios-catalogo";
 import { RepairsChart } from "@/components/dashboard/repairs-chart";
 import { ReparacionesSplit } from "@/components/dashboard/reparaciones-split";
@@ -85,6 +86,7 @@ export function ReparacionesClient({
   const [hasta, setHasta] = useState("");
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [creating, setCreating] = useState(false);
   const [vista, setVista] = useState<"tickets" | "servicios">("tickets");
   const [recibo, setRecibo] = useState<{
@@ -140,11 +142,21 @@ export function ReparacionesClient({
   }
 
   function eliminarTicket(id: number) {
+    const t = list.find((x) => x.id === id);
     setList((prev) => prev.filter((t) => t.id !== id));
     setOpenId(null);
+    setConfirmDelete(false);
     startTransition(async () => {
       await deleteTicketAction(id);
     });
+    if (t) {
+      publish({
+        type: "item_deleted",
+        actor,
+        entity: "Ticket",
+        label: `#${t.id} · ${t.equipo}`,
+      });
+    }
   }
 
   function advance(id: number) {
@@ -397,11 +409,12 @@ export function ReparacionesClient({
           open && (
             <>
               {esAdmin && (
-                <ConfirmButton
-                  label="Eliminar ticket"
-                  onConfirm={() => eliminarTicket(open.id)}
-                  className="mr-auto"
-                />
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Eliminar ticket
+                </button>
               )}
               <button
                 onClick={() => setOpenId(null)}
@@ -608,6 +621,16 @@ export function ReparacionesClient({
           </div>
         )}
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => open && eliminarTicket(open.id)}
+        title="¿Eliminar ticket?"
+        confirmLabel="Eliminar ticket"
+      >
+        {open && `Se eliminará el ticket #${open.id} (${open.equipo}). Esta acción no se puede deshacer.`}
+      </ConfirmDialog>
 
       <NuevoTicketDialog
         open={creating}

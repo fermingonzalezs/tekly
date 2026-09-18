@@ -8,7 +8,7 @@ export async function FuenteClientes() {
   const menor = rows[rows.length - 1];
 
   return (
-    <Card className="flex flex-col p-5">
+    <Card className="flex h-72 flex-col p-5">
       <ChartTitle align="left" divider>Fuente de clientes</ChartTitle>
 
       <div className="flex flex-1 flex-col justify-center">

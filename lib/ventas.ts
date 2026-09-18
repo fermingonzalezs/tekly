@@ -47,3 +47,13 @@ export function saldarUltimoPago<T extends PagoDraft>(pagos: T[], restante: numb
   const monto = Math.max(0, Math.round((last.montoUsd + restante) * 100) / 100);
   return pagos.map((p, i) => (i === pagos.length - 1 ? { ...p, montoUsd: monto } : p));
 }
+
+/** Monto real cobrado/movido por un pago con recargo -- `montoUsd` sigue
+ * siendo la parte del total de la venta que ese pago cubre (no cambia
+ * `calcularRestante`/`saldarUltimoPago`); esto es solo lo que el medio con
+ * recargo hace pagar de más por arriba, para el movimiento de caja/cuenta
+ * corriente que genera y para el aviso en "Nueva venta". */
+export function montoConRecargo(montoUsd: number, recargoPct: number | undefined): number {
+  if (!recargoPct) return montoUsd;
+  return Math.round(montoUsd * (1 + recargoPct / 100) * 100) / 100;
+}

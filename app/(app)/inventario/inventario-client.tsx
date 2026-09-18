@@ -16,7 +16,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
-import { ConfirmButton } from "@/components/ui/confirm-button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { InventarioValor } from "@/components/inventario-valor";
 import { InventarioUnidades } from "@/components/inventario-unidades";
 import {
@@ -29,6 +29,7 @@ import { filterPill, thDivider } from "@/lib/ui-styles";
 import { GHOST_STRIPES } from "@/lib/chart";
 import { fmtUsd } from "@/lib/format";
 import { otroCantidad, otroCostoPromedio, otroValorStock } from "@/lib/otros";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import type {
   Equipo,
@@ -165,6 +166,7 @@ export function InventarioClient({
   initialOtros: OtroItem[];
   user: SessionUser;
 }) {
+  const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
   const [, startDeleteTransition] = useTransition();
   const [tab, setTab] = useState<Tab>("equipos");
@@ -1082,10 +1084,17 @@ export function InventarioClient({
           esAdmin
             ? () => {
                 const id = openEquipo!.id;
+                const modelo = openEquipo!.modelo;
                 setEquipos((p) => p.filter((x) => x.id !== id));
                 setOpenEquipoId(null);
                 startDeleteTransition(async () => {
                   await deleteEquipoAction(id);
+                });
+                publish({
+                  type: "item_deleted",
+                  actor: user.nombre,
+                  entity: "Equipo",
+                  label: modelo,
                 });
               }
             : undefined
@@ -1159,10 +1168,17 @@ export function InventarioClient({
           esAdmin
             ? () => {
                 const id = openRepuesto!.id;
+                const nombre = openRepuesto!.nombre;
                 setRepuestos((p) => p.filter((x) => x.id !== id));
                 setOpenRepuestoId(null);
                 startDeleteTransition(async () => {
                   await deleteRepuestoAction(id);
+                });
+                publish({
+                  type: "item_deleted",
+                  actor: user.nombre,
+                  entity: "Repuesto",
+                  label: nombre,
                 });
               }
             : undefined
@@ -1184,10 +1200,17 @@ export function InventarioClient({
           esAdmin
             ? () => {
                 const id = openOtro!.id;
+                const nombre = openOtro!.nombre;
                 setOtros((p) => p.filter((x) => x.id !== id));
                 setOpenOtroId(null);
                 startDeleteTransition(async () => {
                   await deleteOtroAction(id);
+                });
+                publish({
+                  type: "item_deleted",
+                  actor: user.nombre,
+                  entity: "Producto",
+                  label: nombre,
                 });
               }
             : undefined
@@ -1230,6 +1253,7 @@ function EquipoFormDialog({
     },
   );
   const [pending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const set = <K extends keyof Equipo>(k: K, v: Equipo[K]) =>
     setF((p) => ({ ...p, [k]: v }));
   const valid = f.modelo.trim() && f.costoUsd > 0 && f.precioUsd > 0;
@@ -1239,148 +1263,166 @@ function EquipoFormDialog({
   const movimientos = useMovimientos("equipo", edit ? equipo!.id : null);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="lg"
-      accent
-      title={edit ? `Equipo · ${equipo!.modelo}` : "Agregar equipo"}
-      description={
-        edit
-          ? `Margen ${margen.toFixed(0)}%`
-          : "Ingresa en estado «En revisión»."
-      }
-      footer={
-        <>
-          {onDelete && (
-            <ConfirmButton
-              label="Eliminar equipo"
-              onConfirm={onDelete}
-              className="mr-auto"
-            />
-          )}
-          <button
-            onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-          >
-            Cancelar
-          </button>
-          <button
-            disabled={!valid || pending}
-            onClick={() =>
-              startTransition(async () => {
-                await onSubmit({
-                  modelo: f.modelo.trim(),
-                  almacenamiento: f.almacenamiento,
-                  color: f.color.trim() || "—",
-                  imei: f.imei.trim() || "—",
-                  bateria: f.bateria,
-                  condicion: f.condicion,
-                  costoUsd: f.costoUsd,
-                  precioUsd: f.precioUsd,
-                  estado: f.estado,
-                });
-              })
-            }
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
-          >
-            {pending ? "Guardando…" : edit ? "Guardar" : "Agregar"}
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-5">
-        <div>
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-            Información general
-          </p>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Modelo">
-              <Input
-                value={f.modelo}
-                onChange={(e) => set("modelo", e.target.value)}
-                placeholder="iPhone 13"
-              />
-            </Field>
-            <Field label="Almacenamiento">
-              <Select
-                value={f.almacenamiento}
-                onChange={(e) => set("almacenamiento", e.target.value)}
+    <Fragment>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        size="lg"
+        accent
+        title={edit ? `Equipo · ${equipo!.modelo}` : "Agregar equipo"}
+        description={
+          edit
+            ? `Margen ${margen.toFixed(0)}%`
+            : "Ingresa en estado «En revisión»."
+        }
+        footer={
+          <>
+            {onDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
               >
-                {["64GB", "128GB", "256GB", "512GB", "1TB"].map((a) => (
-                  <option key={a}>{a}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Color">
-              <Input
-                value={f.color}
-                onChange={(e) => set("color", e.target.value)}
-              />
-            </Field>
-            <Field label="IMEI/Serial">
-              <Input
-                value={f.imei}
-                onChange={(e) => set("imei", e.target.value)}
-              />
-            </Field>
-            <Field label="Batería (%)">
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                value={f.bateria}
-                onChange={(e) => set("bateria", Number(e.target.value) || 0)}
-              />
-            </Field>
-            <Field label="Condición">
-              <Select
-                value={f.condicion}
-                onChange={(e) => set("condicion", e.target.value)}
-              >
-                {["NUEVO", "A+", "A", "B+", "B", "C"].map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Costo (U$)">
-              <Input
-                type="number"
-                min={0}
-                value={f.costoUsd || ""}
-                onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
-              />
-            </Field>
-            <Field label="Venta (U$)">
-              <Input
-                type="number"
-                min={0}
-                value={f.precioUsd || ""}
-                onChange={(e) => set("precioUsd", Number(e.target.value) || 0)}
-              />
-            </Field>
-            {edit && (
-              <Field label="Estado">
+                <Trash2 className="h-4 w-4" /> Eliminar equipo
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={!valid || pending}
+              onClick={() =>
+                startTransition(async () => {
+                  await onSubmit({
+                    modelo: f.modelo.trim(),
+                    almacenamiento: f.almacenamiento,
+                    color: f.color.trim() || "—",
+                    imei: f.imei.trim() || "—",
+                    bateria: f.bateria,
+                    condicion: f.condicion,
+                    costoUsd: f.costoUsd,
+                    precioUsd: f.precioUsd,
+                    estado: f.estado,
+                  });
+                })
+              }
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {pending ? "Guardando…" : edit ? "Guardar" : "Agregar"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          <div>
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Información general
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Modelo">
+                <Input
+                  value={f.modelo}
+                  onChange={(e) => set("modelo", e.target.value)}
+                  placeholder="iPhone 13"
+                />
+              </Field>
+              <Field label="Almacenamiento">
                 <Select
-                  value={f.estado}
-                  onChange={(e) =>
-                    set("estado", e.target.value as EquipoStatus)
-                  }
+                  value={f.almacenamiento}
+                  onChange={(e) => set("almacenamiento", e.target.value)}
                 >
-                  {ESTADOS.map((s) => (
-                    <option key={s} value={s}>
-                      {equipoStatus[s].label}
-                    </option>
+                  {["64GB", "128GB", "256GB", "512GB", "1TB"].map((a) => (
+                    <option key={a}>{a}</option>
                   ))}
                 </Select>
               </Field>
-            )}
+              <Field label="Color">
+                <Input
+                  value={f.color}
+                  onChange={(e) => set("color", e.target.value)}
+                />
+              </Field>
+              <Field label="IMEI/Serial">
+                <Input
+                  value={f.imei}
+                  onChange={(e) => set("imei", e.target.value)}
+                />
+              </Field>
+              <Field label="Batería (%)">
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={f.bateria}
+                  onChange={(e) => set("bateria", Number(e.target.value) || 0)}
+                />
+              </Field>
+              <Field label="Condición">
+                <Select
+                  value={f.condicion}
+                  onChange={(e) => set("condicion", e.target.value)}
+                >
+                  {["NUEVO", "A+", "A", "B+", "B", "C"].map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Costo (U$)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={f.costoUsd || ""}
+                  onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
+                />
+              </Field>
+              <Field label="Venta (U$)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={f.precioUsd || ""}
+                  onChange={(e) => set("precioUsd", Number(e.target.value) || 0)}
+                />
+              </Field>
+              {edit && (
+                <Field label="Estado">
+                  <Select
+                    value={f.estado}
+                    onChange={(e) =>
+                      set("estado", e.target.value as EquipoStatus)
+                    }
+                  >
+                    {ESTADOS.map((s) => (
+                      <option key={s} value={s}>
+                        {equipoStatus[s].label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+            </div>
           </div>
-        </div>
 
-        {edit && <MovimientosLog movimientos={movimientos} />}
-      </div>
-    </Dialog>
+          {edit && <MovimientosLog movimientos={movimientos} />}
+        </div>
+      </Dialog>
+      {onDelete && (
+        <ConfirmDialog
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            onDelete();
+          }}
+          title="¿Eliminar equipo?"
+          confirmLabel="Eliminar equipo"
+        >
+          Se eliminará «{equipo?.modelo}» del inventario. Esta acción no se
+          puede deshacer.
+        </ConfirmDialog>
+      )}
+    </Fragment>
   );
 }
 
@@ -1410,113 +1452,132 @@ function RepuestoFormDialog({
     },
   );
   const [pending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const set = <K extends keyof Repuesto>(k: K, v: Repuesto[K]) =>
     setF((p) => ({ ...p, [k]: v }));
   const valid = !!f.nombre.trim() && f.costoUsd > 0;
   const movimientos = useMovimientos("repuesto", repuesto?.id ?? null);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="lg"
-      accent
-      title={repuesto ? `Repuesto · ${repuesto.nombre}` : "Repuesto"}
-      description={repuesto ? `${repuesto.modelo} · ${repuesto.sku}` : ""}
-      footer={
-        <>
-          {onDelete && (
-            <ConfirmButton
-              label="Eliminar repuesto"
-              onConfirm={onDelete}
-              className="mr-auto"
-            />
-          )}
-          <button
-            onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-          >
-            Cancelar
-          </button>
-          <button
-            disabled={!valid || pending}
-            onClick={() =>
-              startTransition(async () => {
-                await onSubmit({
-                  sku: f.sku,
-                  nombre: f.nombre.trim(),
-                  modelo: f.modelo,
-                  stock: f.stock,
-                  stockMin: f.stockMin,
-                  costoUsd: f.costoUsd,
-                  proveedor: f.proveedor,
-                });
-              })
-            }
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
-          >
-            {pending ? "Guardando…" : "Guardar"}
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-5">
-        <div>
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-            Información general
-          </p>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Nombre">
-              <Input
-                value={f.nombre}
-                onChange={(e) => set("nombre", e.target.value)}
-              />
-            </Field>
-            <Field label="SKU">
-              <Input value={f.sku} onChange={(e) => set("sku", e.target.value)} />
-            </Field>
-            <Field label="Modelo">
-              <Input
-                value={f.modelo}
-                onChange={(e) => set("modelo", e.target.value)}
-              />
-            </Field>
-            <Field label="Proveedor">
-              <Input
-                value={f.proveedor}
-                onChange={(e) => set("proveedor", e.target.value)}
-              />
-            </Field>
-            <Field label="Stock">
-              <Input
-                type="number"
-                min={0}
-                value={f.stock}
-                onChange={(e) => set("stock", Number(e.target.value) || 0)}
-              />
-            </Field>
-            <Field label="Stock mínimo">
-              <Input
-                type="number"
-                min={0}
-                value={f.stockMin}
-                onChange={(e) => set("stockMin", Number(e.target.value) || 0)}
-              />
-            </Field>
-            <Field label="Costo (U$)">
-              <Input
-                type="number"
-                min={0}
-                value={f.costoUsd || ""}
-                onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
-              />
-            </Field>
+    <Fragment>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        size="lg"
+        accent
+        title={repuesto ? `Repuesto · ${repuesto.nombre}` : "Repuesto"}
+        description={repuesto ? `${repuesto.modelo} · ${repuesto.sku}` : ""}
+        footer={
+          <>
+            {onDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" /> Eliminar repuesto
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={!valid || pending}
+              onClick={() =>
+                startTransition(async () => {
+                  await onSubmit({
+                    sku: f.sku,
+                    nombre: f.nombre.trim(),
+                    modelo: f.modelo,
+                    stock: f.stock,
+                    stockMin: f.stockMin,
+                    costoUsd: f.costoUsd,
+                    proveedor: f.proveedor,
+                  });
+                })
+              }
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {pending ? "Guardando…" : "Guardar"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          <div>
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Información general
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Nombre">
+                <Input
+                  value={f.nombre}
+                  onChange={(e) => set("nombre", e.target.value)}
+                />
+              </Field>
+              <Field label="SKU">
+                <Input value={f.sku} onChange={(e) => set("sku", e.target.value)} />
+              </Field>
+              <Field label="Modelo">
+                <Input
+                  value={f.modelo}
+                  onChange={(e) => set("modelo", e.target.value)}
+                />
+              </Field>
+              <Field label="Proveedor">
+                <Input
+                  value={f.proveedor}
+                  onChange={(e) => set("proveedor", e.target.value)}
+                />
+              </Field>
+              <Field label="Stock">
+                <Input
+                  type="number"
+                  min={0}
+                  value={f.stock}
+                  onChange={(e) => set("stock", Number(e.target.value) || 0)}
+                />
+              </Field>
+              <Field label="Stock mínimo">
+                <Input
+                  type="number"
+                  min={0}
+                  value={f.stockMin}
+                  onChange={(e) => set("stockMin", Number(e.target.value) || 0)}
+                />
+              </Field>
+              <Field label="Costo (U$)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={f.costoUsd || ""}
+                  onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
+                />
+              </Field>
+            </div>
           </div>
-        </div>
 
-        {repuesto && <MovimientosLog movimientos={movimientos} />}
-      </div>
-    </Dialog>
+          {repuesto && <MovimientosLog movimientos={movimientos} />}
+        </div>
+      </Dialog>
+      {onDelete && (
+        <ConfirmDialog
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            onDelete();
+          }}
+          title="¿Eliminar repuesto?"
+          confirmLabel="Eliminar repuesto"
+        >
+          Se eliminará «{repuesto?.nombre}» del inventario. Esta acción no se
+          puede deshacer.
+        </ConfirmDialog>
+      )}
+    </Fragment>
   );
 }
 
@@ -1560,6 +1621,7 @@ function OtroFormDialog({
   const [bulkColor, setBulkColor] = useState("");
   const [bulkCosto, setBulkCosto] = useState(0);
   const [pending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const unidadesLimpias: OtroUnidad[] = unidadesManual
     .filter((u) => u.serial.trim())
@@ -1620,242 +1682,260 @@ function OtroFormDialog({
       : cantidad > 0 && costoUsd > 0);
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="lg"
-      accent
-      title={item ? `Producto · ${item.nombre}` : "Producto"}
-      description={item ? otroCategoria[item.categoria].label : ""}
-      footer={
-        <>
-          {onDelete && (
-            <ConfirmButton
-              label="Eliminar producto"
-              onConfirm={onDelete}
-              className="mr-auto"
-            />
-          )}
-          <button
-            onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-          >
-            Cancelar
-          </button>
-          <button
-            disabled={!valid || !item || pending}
-            onClick={() =>
-              item &&
-              startTransition(async () => {
-                await onSubmit({
-                  id: item.id,
-                  nombre: nombre.trim(),
-                  descripcion: descripcion.trim() || undefined,
-                  categoria,
-                  precioUsd,
-                  ...(serializado
-                    ? { serializado: true, unidades: unidadesLimpias }
-                    : { serializado: false, cantidad, costoUsd }),
-                });
-              })
-            }
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
-          >
-            {pending ? "Guardando…" : "Guardar"}
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-5">
-        <div>
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-            Información general
-          </p>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Nombre">
-              <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
-            </Field>
-            <Field label="Categoría">
-              <Select
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value as OtroCategoria)}
+    <Fragment>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        size="lg"
+        accent
+        title={item ? `Producto · ${item.nombre}` : "Producto"}
+        description={item ? otroCategoria[item.categoria].label : ""}
+        footer={
+          <>
+            {onDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
               >
-                {CATS.map((c) => (
-                  <option key={c} value={c}>
-                    {otroCategoria[c].label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Serializado">
-              <div className="flex h-9 rounded-lg border border-neutral-200 p-0.5">
-                {(["no", "si"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => toggleSerializado(v === "si")}
-                    className={cn(
-                      "flex-1 rounded-md text-[13px] font-medium transition-colors",
-                      (v === "si") === serializado
-                        ? "bg-accent-soft text-accent"
-                        : "text-neutral-500 hover:bg-neutral-50",
-                    )}
-                  >
-                    {v === "si" ? "Sí" : "No"}
-                  </button>
-                ))}
-              </div>
-            </Field>
-            <Field label="Descripción" className="col-span-3">
-              <Input
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                placeholder="Opcional"
-              />
-            </Field>
-            <Field label="Costo (U$)">
-              {serializado ? (
-                <div className="flex h-9 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500">
-                  {fmtUsd(costoPromedio)} prom.
-                </div>
-              ) : (
-                <Input
-                  type="number"
-                  min={0}
-                  value={costoUsd || ""}
-                  onChange={(e) => setCostoUsd(Number(e.target.value) || 0)}
-                />
-              )}
-            </Field>
-            <Field label="Venta (U$)">
-              <Input
-                type="number"
-                min={0}
-                value={precioUsd || ""}
-                onChange={(e) => setPrecioUsd(Number(e.target.value) || 0)}
-              />
-            </Field>
-            <Field label="Cantidad">
-              {serializado ? (
-                <div className="flex h-9 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500">
-                  {unidadesLimpias.length}
-                </div>
-              ) : (
-                <Input
-                  type="number"
-                  min={0}
-                  value={cantidad}
-                  onChange={(e) => setCantidad(Number(e.target.value) || 0)}
-                />
-              )}
-            </Field>
-            {serializado && (
-              <Field label="Unidades" className="col-span-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                    <span className="flex-1">Serial</span>
-                    <span className="w-28 text-center">Color</span>
-                    <span className="w-24 text-center">Costo</span>
-                    <span className="w-9" />
-                  </div>
-                  {unidadesManual.map((u, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <Input
-                        className="min-w-0 flex-1"
-                        value={u.serial}
-                        onChange={(e) =>
-                          updUnidad(i, { serial: e.target.value })
-                        }
-                        placeholder={`Serial ${i + 1}`}
-                      />
-                      <Input
-                        className="w-28"
-                        value={u.color}
-                        onChange={(e) =>
-                          updUnidad(i, { color: e.target.value })
-                        }
-                        placeholder="Color"
-                      />
-                      <Input
-                        className="w-24"
-                        type="number"
-                        min={0}
-                        value={u.costoUsd || ""}
-                        placeholder="U$"
-                        onChange={(e) =>
-                          updUnidad(i, {
-                            costoUsd: Number(e.target.value) || 0,
-                          })
-                        }
-                      />
-                      <button
-                        type="button"
-                        onClick={() => rmUnidad(i)}
-                        disabled={unidadesManual.length === 1}
-                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                <Trash2 className="h-4 w-4" /> Eliminar producto
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={!valid || !item || pending}
+              onClick={() =>
+                item &&
+                startTransition(async () => {
+                  await onSubmit({
+                    id: item.id,
+                    nombre: nombre.trim(),
+                    descripcion: descripcion.trim() || undefined,
+                    categoria,
+                    precioUsd,
+                    ...(serializado
+                      ? { serializado: true, unidades: unidadesLimpias }
+                      : { serializado: false, cantidad, costoUsd }),
+                  });
+                })
+              }
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {pending ? "Guardando…" : "Guardar"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          <div>
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              Información general
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Nombre">
+                <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
+              </Field>
+              <Field label="Categoría">
+                <Select
+                  value={categoria}
+                  onChange={(e) => setCategoria(e.target.value as OtroCategoria)}
+                >
+                  {CATS.map((c) => (
+                    <option key={c} value={c}>
+                      {otroCategoria[c].label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Serializado">
+                <div className="flex h-9 rounded-lg border border-neutral-200 p-0.5">
+                  {(["no", "si"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => toggleSerializado(v === "si")}
+                      className={cn(
+                        "flex-1 rounded-md text-[13px] font-medium transition-colors",
+                        (v === "si") === serializado
+                          ? "bg-accent-soft text-accent"
+                          : "text-neutral-500 hover:bg-neutral-50",
+                      )}
+                    >
+                      {v === "si" ? "Sí" : "No"}
+                    </button>
                   ))}
                 </div>
-                <div className="mt-2 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={addUnidad}
-                    className="text-xs font-medium text-accent hover:underline"
-                  >
-                    + Agregar unidad
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBulkOpen((v) => !v)}
-                    className="text-xs font-medium text-accent hover:underline"
-                  >
-                    {bulkOpen ? "Cerrar carga en bulk" : "Cargar en bulk"}
-                  </button>
-                </div>
-                {bulkOpen && (
-                  <div className="mt-2 space-y-2 rounded-lg border border-dashed border-neutral-200 p-3">
-                    <Textarea
-                      rows={3}
-                      value={bulkText}
-                      onChange={(e) => setBulkText(e.target.value)}
-                      placeholder={"Un serial por línea\nIPAD9-010\nIPAD9-011"}
-                    />
-                    <div className="grid grid-cols-3 gap-2">
-                      <Input
-                        value={bulkColor}
-                        onChange={(e) => setBulkColor(e.target.value)}
-                        placeholder="Color (opcional)"
-                      />
-                      <Input
-                        type="number"
-                        min={0}
-                        value={bulkCosto || ""}
-                        onChange={(e) =>
-                          setBulkCosto(Number(e.target.value) || 0)
-                        }
-                        placeholder="Costo c/u (U$)"
-                      />
-                      <button
-                        type="button"
-                        onClick={aplicarBulk}
-                        className="rounded-lg bg-accent px-3 text-xs font-semibold text-white transition-colors hover:bg-accent/90"
-                      >
-                        Agregar unidades
-                      </button>
-                    </div>
+              </Field>
+              <Field label="Descripción" className="col-span-3">
+                <Input
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  placeholder="Opcional"
+                />
+              </Field>
+              <Field label="Costo (U$)">
+                {serializado ? (
+                  <div className="flex h-9 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500">
+                    {fmtUsd(costoPromedio)} prom.
                   </div>
+                ) : (
+                  <Input
+                    type="number"
+                    min={0}
+                    value={costoUsd || ""}
+                    onChange={(e) => setCostoUsd(Number(e.target.value) || 0)}
+                  />
                 )}
               </Field>
-            )}
+              <Field label="Venta (U$)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={precioUsd || ""}
+                  onChange={(e) => setPrecioUsd(Number(e.target.value) || 0)}
+                />
+              </Field>
+              <Field label="Cantidad">
+                {serializado ? (
+                  <div className="flex h-9 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500">
+                    {unidadesLimpias.length}
+                  </div>
+                ) : (
+                  <Input
+                    type="number"
+                    min={0}
+                    value={cantidad}
+                    onChange={(e) => setCantidad(Number(e.target.value) || 0)}
+                  />
+                )}
+              </Field>
+              {serializado && (
+                <Field label="Unidades" className="col-span-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                      <span className="flex-1">Serial</span>
+                      <span className="w-28 text-center">Color</span>
+                      <span className="w-24 text-center">Costo</span>
+                      <span className="w-9" />
+                    </div>
+                    {unidadesManual.map((u, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          className="min-w-0 flex-1"
+                          value={u.serial}
+                          onChange={(e) =>
+                            updUnidad(i, { serial: e.target.value })
+                          }
+                          placeholder={`Serial ${i + 1}`}
+                        />
+                        <Input
+                          className="w-28"
+                          value={u.color}
+                          onChange={(e) =>
+                            updUnidad(i, { color: e.target.value })
+                          }
+                          placeholder="Color"
+                        />
+                        <Input
+                          className="w-24"
+                          type="number"
+                          min={0}
+                          value={u.costoUsd || ""}
+                          placeholder="U$"
+                          onChange={(e) =>
+                            updUnidad(i, {
+                              costoUsd: Number(e.target.value) || 0,
+                            })
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => rmUnidad(i)}
+                          disabled={unidadesManual.length === 1}
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={addUnidad}
+                      className="text-xs font-medium text-accent hover:underline"
+                    >
+                      + Agregar unidad
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkOpen((v) => !v)}
+                      className="text-xs font-medium text-accent hover:underline"
+                    >
+                      {bulkOpen ? "Cerrar carga en bulk" : "Cargar en bulk"}
+                    </button>
+                  </div>
+                  {bulkOpen && (
+                    <div className="mt-2 space-y-2 rounded-lg border border-dashed border-neutral-200 p-3">
+                      <Textarea
+                        rows={3}
+                        value={bulkText}
+                        onChange={(e) => setBulkText(e.target.value)}
+                        placeholder={"Un serial por línea\nIPAD9-010\nIPAD9-011"}
+                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input
+                          value={bulkColor}
+                          onChange={(e) => setBulkColor(e.target.value)}
+                          placeholder="Color (opcional)"
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          value={bulkCosto || ""}
+                          onChange={(e) =>
+                            setBulkCosto(Number(e.target.value) || 0)
+                          }
+                          placeholder="Costo c/u (U$)"
+                        />
+                        <button
+                          type="button"
+                          onClick={aplicarBulk}
+                          className="rounded-lg bg-accent px-3 text-xs font-semibold text-white transition-colors hover:bg-accent/90"
+                        >
+                          Agregar unidades
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </Field>
+              )}
+            </div>
           </div>
-        </div>
 
-        {item && <MovimientosLog movimientos={movimientos} />}
-      </div>
-    </Dialog>
+          {item && <MovimientosLog movimientos={movimientos} />}
+        </div>
+      </Dialog>
+      {onDelete && (
+        <ConfirmDialog
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            onDelete();
+          }}
+          title="¿Eliminar producto?"
+          confirmLabel="Eliminar producto"
+        >
+          Se eliminará «{item?.nombre}» del inventario. Esta acción no se
+          puede deshacer.
+        </ConfirmDialog>
+      )}
+    </Fragment>
   );
 }
 

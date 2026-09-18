@@ -6,17 +6,18 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
-import { ConfirmButton } from "@/components/ui/confirm-button";
-import { medioPago as medioPagoCfg, compraEstado, dotClass } from "@/lib/status";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { medioPago as medioPagoCfg, MEDIOS_CAJA, compraEstado, dotClass } from "@/lib/status";
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
+import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { Compra, CompraEstado, CompraItem, MedioPago } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
 import { createCompraAction, marcarRecibidaAction, deleteCompraAction } from "./actions";
 
-const MEDIOS: MedioPago[] = ["pesos", "dolares", "transferencia", "cripto", "tarjeta", "canje"];
+const MEDIOS = MEDIOS_CAJA;
 
 function matchesQuery(c: Compra, q: string) {
   const needle = q.trim().toLowerCase();
@@ -32,12 +33,14 @@ export function ComprasClient({
   initialCompras: Compra[];
   user: SessionUser;
 }) {
+  const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Compra[]>(initialCompras);
   const [estadoFiltro, setEstadoFiltro] = useState<"todos" | CompraEstado>("todos");
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const filtered = useMemo(
@@ -60,11 +63,21 @@ export function ComprasClient({
   }
 
   function eliminarCompra(id: string) {
+    const c = list.find((x) => x.id === id);
     setList((prev) => prev.filter((c) => c.id !== id));
     setOpenId(null);
+    setConfirmDelete(false);
     startTransition(async () => {
       await deleteCompraAction(id);
     });
+    if (c) {
+      publish({
+        type: "item_deleted",
+        actor: user.nombre,
+        entity: "Compra",
+        label: `${c.id} · ${c.proveedor}`,
+      });
+    }
   }
 
   return (
@@ -183,11 +196,12 @@ export function ComprasClient({
           open && (
             <>
               {esAdmin && (
-                <ConfirmButton
-                  label="Eliminar compra"
-                  onConfirm={() => eliminarCompra(open.id)}
-                  className="mr-auto"
-                />
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" /> Eliminar compra
+                </button>
               )}
               <button
                 onClick={() => setOpenId(null)}
@@ -213,6 +227,16 @@ export function ComprasClient({
       >
         {open && <CompraDetalle compra={open} />}
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => open && eliminarCompra(open.id)}
+        title="¿Eliminar compra?"
+        confirmLabel="Eliminar compra"
+      >
+        {open && `Se eliminará «${open.id}» de ${open.proveedor}. Esta acción no se puede deshacer.`}
+      </ConfirmDialog>
 
       <NuevaCompraDialog
         key={creating ? "n" : "n0"}
