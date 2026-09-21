@@ -40,12 +40,12 @@ export function InventarioUnidades({
   }));
 
   return (
-    <Card className={cn("flex h-72 flex-col overflow-hidden p-4", className)}>
+    <Card className={cn("flex h-auto flex-col overflow-hidden p-4 lg:h-72", className)}>
       <ChartTitle align="left" divider>
         Unidades por categoría
       </ChartTitle>
       <div className="flex min-h-0 flex-1 items-center">
-        <DonutChart slices={slices} />
+        <DonutChart slices={slices} legend="row" />
       </div>
     </Card>
   );

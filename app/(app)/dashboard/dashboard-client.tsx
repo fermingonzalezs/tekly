@@ -39,19 +39,24 @@ export function DashboardClient({
     <Section
       title="Dashboard"
       toolbar={
-        <Tabs
-          value={periodo}
-          onChange={setPeriodo}
-          options={DASH_PERIODOS.map((p) => ({
-            value: p.value,
-            label: p.label,
-          }))}
-        />
+        <div className="flex flex-1 justify-center sm:flex-none sm:justify-start">
+          <Tabs
+            value={periodo}
+            onChange={setPeriodo}
+            options={DASH_PERIODOS.map((p) => ({
+              value: p.value,
+              label: p.label,
+            }))}
+          />
+        </div>
       }
       // En pantallas xl el dashboard entra completo en el viewport: alto =
       // 100dvh menos TopNav (h-16) + Topbar (h-14), sin scroll de página.
-      // Debajo de xl las columnas se apilan y se deja scrollear con normalidad.
-      mainClassName="flex flex-col p-4 xl:h-[calc(100dvh-7.5rem)] xl:overflow-hidden"
+      // Debajo de xl las columnas se apilan y se deja scrollear con normalidad
+      // -- ahí el `p-4` no alcanza como margen inferior real (la tarjeta de
+      // Ventas recientes termina pegada al borde de la pantalla), así que
+      // solo debajo de xl se suma `pb-8`.
+      mainClassName="flex flex-col p-4 pb-8 xl:pb-4 xl:h-[calc(100dvh-7.5rem)] xl:overflow-hidden"
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         <MetricCards metrics={metrics} />
@@ -66,8 +71,8 @@ export function DashboardClient({
               rubroMix={rubrosPorPeriodo[periodo]}
               sub={meta.trendSub}
             />
-            <div className="grid shrink-0 gap-3 sm:grid-cols-2">
-              <Card className="flex flex-col p-4">
+            <div className="grid min-w-0 shrink-0 gap-3 sm:grid-cols-2">
+              <Card className="flex min-w-0 flex-col p-4">
                 <RubrosPie
                   data={rubrosPorPeriodo[periodo]}
                   totalFacturado={objetivo.current}

@@ -76,6 +76,7 @@ export function TurnosClient({
   const [slot, setSlot] = useState<{ dayOffset: number; hora: string } | null>(
     null,
   );
+  const [selectedDay, setSelectedDay] = useState(0);
   const [tipoState, setTipoState] = useState<Record<TurnoTipo, ChipState>>(
     () =>
       Object.fromEntries(TIPOS.map((t) => [t, "normal"])) as Record<
@@ -106,8 +107,15 @@ export function TurnosClient({
     });
   }, []);
 
+  // Puede haber más de un turno en el mismo día/horario -- devuelve todos
+  // los que aplican, ya filtrados por los tipos ocultos de la referencia.
   const at = (dayOffset: number, hora: string) =>
-    list.find((t) => t.dayOffset === dayOffset && t.hora === hora);
+    list.filter(
+      (t) =>
+        t.dayOffset === dayOffset &&
+        t.hora === hora &&
+        tipoState[t.tipo] !== "hidden",
+    );
 
   function cancelar(t: Turno) {
     setList((p) =>
@@ -170,8 +178,9 @@ export function TurnosClient({
 
   return (
     <div className="space-y-4">
-      {/* Referencia de colores: click resalta, click de nuevo oculta, click de nuevo vuelve a normal */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Referencia de colores: click resalta, click de nuevo oculta, click de nuevo vuelve a normal.
+          Oculta en mobile -- ahí la página arranca directo con las tarjetas del día. */}
+      <div className="hidden flex-wrap items-center gap-2 md:flex">
         {TIPOS.map((tp) => {
           const state = tipoState[tp];
           return (
@@ -205,7 +214,90 @@ export function TurnosClient({
         </span>
       </div>
 
-      <Card className="overflow-x-auto p-0">
+      {/* Mobile: agenda de un día -- la grilla semanal completa obliga a
+          scrollear de costado una tabla de 760px, injugable en un teléfono. */}
+      <div className="md:hidden">
+        <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
+          {days.map((d, i) => {
+            const active = selectedDay === i;
+            return (
+              <button
+                key={i}
+                onClick={() => setSelectedDay(i)}
+                className={cn(
+                  "flex shrink-0 flex-col items-center gap-0.5 rounded-xl border px-3.5 py-1.5 transition-colors",
+                  active
+                    ? "border-accent bg-accent text-white"
+                    : "border-neutral-200 text-neutral-600 hover:border-neutral-300",
+                )}
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-wide">
+                  {i === 0 ? "Hoy" : DOW[d.getDay()]}
+                </span>
+                <span className="text-sm font-semibold tabular-nums">
+                  {d.getDate()} {MES[d.getMonth()]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <Card className="mt-3 divide-y divide-neutral-100 overflow-hidden">
+          {HORAS.map((h) => {
+            const turnos = at(selectedDay, h);
+            return (
+              <div key={h} className="flex items-start gap-3 px-3 py-2">
+                <span className="w-12 shrink-0 pt-1 text-[11px] font-medium tabular-nums text-neutral-400">
+                  {h}
+                </span>
+                <div className="min-w-0 flex-1 space-y-1">
+                  {turnos.map((t) => {
+                    const dimmed = anyHighlighted && tipoState[t.tipo] !== "highlight";
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setSel(t)}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-md bg-neutral-100 px-2.5 py-1.5 text-left transition-colors hover:bg-neutral-200",
+                          dimmed && "opacity-30",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 shrink-0 rounded-full",
+                            dotClass[turnoTipo[t.tipo].tone],
+                          )}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={cn(
+                              "block truncate text-sm font-semibold text-neutral-900",
+                              t.estado === "cancelado" && "line-through opacity-50",
+                            )}
+                          >
+                            {t.cliente}
+                          </span>
+                          <span className="block truncate text-xs text-neutral-500">
+                            {turnoTipo[t.tipo].label}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setSlot({ dayOffset: selectedDay, hora: h })}
+                    className="flex h-6 w-full items-center justify-center rounded-md border border-dashed border-neutral-200 text-neutral-300 transition-colors hover:border-accent hover:bg-accent-soft hover:text-accent"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </Card>
+      </div>
+
+      <Card className="hidden overflow-x-auto p-0 md:block">
         <div className="min-w-[760px]">
           {/* Encabezado de días */}
           <div
@@ -248,52 +340,50 @@ export function TurnosClient({
                 {h}
               </div>
               {days.map((_, dayOffset) => {
-                const t = at(dayOffset, h);
-                if (!t)
-                  return (
-                    <button
-                      key={dayOffset}
-                      onClick={() => setSlot({ dayOffset, hora: h })}
-                      className="min-h-[46px] border-l border-neutral-100 transition-colors hover:bg-accent-soft"
-                    />
-                  );
-                if (tipoState[t.tipo] === "hidden")
-                  return (
-                    <div
-                      key={dayOffset}
-                      className="min-h-[46px] border-l border-neutral-100"
-                    />
-                  );
-                const dimmed =
-                  anyHighlighted && tipoState[t.tipo] !== "highlight";
+                const turnos = at(dayOffset, h);
                 return (
                   <div
                     key={dayOffset}
-                    className="border-l border-neutral-100 p-1"
+                    className="min-h-[46px] border-l border-neutral-100 p-1"
                   >
-                    <button
-                      onClick={() => setSel(t)}
-                      className={cn(
-                        "flex h-full w-full items-start gap-1.5 rounded-md bg-neutral-100 px-2 py-1.5 text-left transition-colors hover:bg-neutral-200",
-                        t.estado === "cancelado" && "line-through opacity-50",
-                        dimmed && "opacity-30",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "mt-1 h-1.5 w-1.5 shrink-0 rounded-full",
-                          dotClass[turnoTipo[t.tipo].tone],
-                        )}
-                      />
-                      <span className="min-w-0">
-                        <span className="block truncate text-xs font-semibold text-neutral-900">
-                          {t.cliente}
-                        </span>
-                        <span className="block truncate text-[11px] text-neutral-500">
-                          {turnoTipo[t.tipo].label}
-                        </span>
-                      </span>
-                    </button>
+                    <div className="flex flex-col gap-1">
+                      {turnos.map((t) => {
+                        const dimmed =
+                          anyHighlighted && tipoState[t.tipo] !== "highlight";
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => setSel(t)}
+                            className={cn(
+                              "flex w-full items-start gap-1.5 rounded-md bg-neutral-100 px-2 py-1.5 text-left transition-colors hover:bg-neutral-200",
+                              t.estado === "cancelado" && "line-through opacity-50",
+                              dimmed && "opacity-30",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "mt-1 h-1.5 w-1.5 shrink-0 rounded-full",
+                                dotClass[turnoTipo[t.tipo].tone],
+                              )}
+                            />
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs font-semibold text-neutral-900">
+                                {t.cliente}
+                              </span>
+                              <span className="block truncate text-[11px] text-neutral-500">
+                                {turnoTipo[t.tipo].label}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setSlot({ dayOffset, hora: h })}
+                        className="flex h-5 w-full items-center justify-center rounded-md border border-dashed border-neutral-200 text-neutral-300 transition-colors hover:border-accent hover:bg-accent-soft hover:text-accent"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -316,21 +406,21 @@ export function TurnosClient({
               {esAdmin && (
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
                 >
                   <Trash2 className="h-4 w-4" /> Eliminar turno
                 </button>
               )}
               <button
                 onClick={() => setSel(null)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
               >
                 Cerrar
               </button>
               {sel.estado !== "cancelado" && (
                 <button
                   onClick={() => cancelar(sel)}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
                 >
                   <X className="h-4 w-4" /> Cancelar turno
                 </button>
@@ -377,7 +467,35 @@ export function TurnosClient({
                 <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                   Equipos vinculados
                 </p>
-                <div className="overflow-hidden rounded-xl border border-neutral-200">
+                <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
+                  {sel.equipoIds.map((id) => {
+                    const e = equipos.find((x) => x.id === id);
+                    if (!e) return null;
+                    return (
+                      <div key={id} className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="flex min-w-0 flex-1 items-center gap-2 truncate text-sm text-neutral-900">
+                          <Smartphone className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                          <span className="truncate">
+                            {e.modelo} {e.almacenamiento} · {e.color}
+                          </span>
+                        </span>
+                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              dotClass[equipoStatus[e.estado].tone],
+                            )}
+                          />
+                          {equipoStatus[e.estado].label}
+                        </span>
+                        <span className="shrink-0 text-sm font-medium tabular-nums">
+                          {fmtUsd(e.precioUsd)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </Card>
+                <div className="hidden overflow-hidden rounded-xl border border-neutral-200 md:block">
                   <table className="w-full text-sm">
                     <thead>
                       <tr>
@@ -601,14 +719,14 @@ function AgendarDialog({
         <>
           <button
             onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
           >
             Cancelar
           </button>
           <button
             onClick={submit}
             disabled={!cliente}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             Agendar
           </button>

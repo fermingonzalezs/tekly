@@ -302,14 +302,16 @@ export function AnaliticasClient({
   const maxPorHora = Math.max(1, ...turnosPorHora.map((x) => x.value));
 
   return (
-    <Section
-      title="Analíticas"
-      toolbar={
-        <div className="flex flex-wrap items-center gap-2">
+    <Section title="Analíticas">
+      <div className="space-y-6">
+        {/* El filtro de fecha vive acá, no en el toolbar de la Topbar -- ese
+            es un h-14 fijo y en mobile este control (select + 2 fechas +
+            "limpiar") no entra en una sola línea sin cortarse. */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Select
             value={datePreset}
             onChange={(e) => setDatePreset(e.target.value as DatePreset)}
-            className={cn("w-44", filterPill)}
+            className={cn("w-full sm:w-44", filterPill)}
           >
             {DATE_PRESETS.map((p) => (
               <option key={p.value} value={p.value}>
@@ -318,21 +320,21 @@ export function AnaliticasClient({
             ))}
           </Select>
           {datePreset === "personalizado" && (
-            <>
+            <div className="flex items-center gap-2">
               <Input
                 type="date"
                 value={desde}
                 onChange={(e) => setDesde(e.target.value)}
-                className={cn("w-36", filterPill)}
+                className={cn("w-full sm:w-36", filterPill)}
               />
               <span className="text-xs text-neutral-400">a</span>
               <Input
                 type="date"
                 value={hasta}
                 onChange={(e) => setHasta(e.target.value)}
-                className={cn("w-36", filterPill)}
+                className={cn("w-full sm:w-36", filterPill)}
               />
-            </>
+            </div>
           )}
           {datePreset !== "todos" && (
             <button
@@ -347,9 +349,7 @@ export function AnaliticasClient({
             </button>
           )}
         </div>
-      }
-    >
-      <div className="space-y-6">
+
         <Tabs
           value={tab}
           onChange={setTab}
@@ -367,7 +367,7 @@ export function AnaliticasClient({
 
             <TendenciaRubros data={rubroMesData} className="min-h-[340px]" />
 
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ventas por mes (U$)</ChartTitle>
                 <div className="mt-5 flex items-end gap-3">
@@ -394,7 +394,7 @@ export function AnaliticasClient({
               </Card>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ventas por canal</ChartTitle>
                 <BarRows rows={porCanal} fmt={fmtUsd} />
@@ -405,7 +405,7 @@ export function AnaliticasClient({
               </Card>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ítems más vendidos</ChartTitle>
                 <BarRows rows={itemsVendidos} fmt={fmtUsd} />
@@ -418,7 +418,7 @@ export function AnaliticasClient({
               </Card>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ganancia por categoría</ChartTitle>
                 <BarRows rows={gananciaPeriodo} fmt={fmtUsd} />
@@ -470,7 +470,7 @@ export function AnaliticasClient({
         )}
 
         {tab === "reparaciones" && (
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             <Card className="p-5">
               <ChartTitle align="left" divider>Tiempo promedio por tipo de falla</ChartTitle>
               <ul className="mt-4 space-y-3">
@@ -498,61 +498,65 @@ export function AnaliticasClient({
 
             <Card className="p-5">
               <ChartTitle align="left" divider>Rendimiento por técnico</ChartTitle>
-              <table className="mt-3 w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-neutral-400">
-                    <th className="py-2 font-medium">Técnico</th>
-                    <th className="py-2 font-medium">Cerrados</th>
-                    <th className="py-2 font-medium">Reingresos</th>
-                    <th className="py-2 font-medium">Prom.</th>
-                    <th className="py-2 font-medium">Calif.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rendimientoTecnicos.map((t) => (
-                    <tr key={t.tecnico} className="border-t border-neutral-100">
-                      <td className="py-2.5 font-medium">{t.tecnico}</td>
-                      <td className="py-2.5">{t.cerrados}</td>
-                      <td className="py-2.5 text-neutral-500">{t.reingresos}</td>
-                      <td className="py-2.5 text-neutral-500">{t.ticketPromHoras} h</td>
-                      <td className="py-2.5 font-semibold">{t.calif} ★</td>
+              <div className="overflow-x-auto">
+                <table className="mt-3 w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-neutral-400">
+                      <th className="py-2 font-medium">Técnico</th>
+                      <th className="py-2 font-medium">Cerrados</th>
+                      <th className="py-2 font-medium">Reingresos</th>
+                      <th className="py-2 font-medium">Prom.</th>
+                      <th className="py-2 font-medium">Calif.</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {rendimientoTecnicos.map((t) => (
+                      <tr key={t.tecnico} className="border-t border-neutral-100">
+                        <td className="py-2.5 font-medium">{t.tecnico}</td>
+                        <td className="py-2.5">{t.cerrados}</td>
+                        <td className="py-2.5 text-neutral-500">{t.reingresos}</td>
+                        <td className="py-2.5 text-neutral-500">{t.ticketPromHoras} h</td>
+                        <td className="py-2.5 font-semibold">{t.calif} ★</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           </div>
         )}
 
         {tab === "finanzas" && (
           <div className="space-y-6">
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Margen por tipo de operación</ChartTitle>
-                <table className="mt-3 w-full text-sm">
-                  <thead>
-                    <tr className="text-xs text-neutral-400">
-                      <th className="py-2 font-medium">Tipo</th>
-                      <th className="py-2 font-medium">Ops.</th>
-                      <th className="py-2 font-medium">Margen</th>
-                      <th className="py-2 font-medium">Ganancia</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {margenPorTipo.map((r) => (
-                      <tr key={r.tipo} className="border-t border-neutral-100">
-                        <td className="py-2.5">{r.tipo}</td>
-                        <td className="py-2.5 text-neutral-500">{r.operaciones}</td>
-                        <td className="py-2.5">
-                          <Badge tone={r.margenPct > 35 ? "green" : "blue"}>
-                            {r.margenPct.toFixed(1)}%
-                          </Badge>
-                        </td>
-                        <td className="py-2.5 font-semibold">{fmtUsd(r.gananciaUsd)}</td>
+                <div className="overflow-x-auto">
+                  <table className="mt-3 w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-neutral-400">
+                        <th className="py-2 font-medium">Tipo</th>
+                        <th className="py-2 font-medium">Ops.</th>
+                        <th className="py-2 font-medium">Margen</th>
+                        <th className="py-2 font-medium">Ganancia</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {margenPorTipo.map((r) => (
+                        <tr key={r.tipo} className="border-t border-neutral-100">
+                          <td className="py-2.5">{r.tipo}</td>
+                          <td className="py-2.5 text-neutral-500">{r.operaciones}</td>
+                          <td className="py-2.5">
+                            <Badge tone={r.margenPct > 35 ? "green" : "blue"}>
+                              {r.margenPct.toFixed(1)}%
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 font-semibold">{fmtUsd(r.gananciaUsd)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </Card>
 
               <Card className="p-5">
@@ -602,7 +606,7 @@ export function AnaliticasClient({
         )}
 
         {tab === "inventario" && (
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             <Card className="p-5">
               <ChartTitle align="left" divider>Inventario · equipos por estado</ChartTitle>
               <BarRows rows={equiposPorEstado} />
@@ -613,11 +617,11 @@ export function AnaliticasClient({
 
         {tab === "clientes" && (
           <div className="space-y-6">
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <DemografiaClientes data={demografia} />
               {fuenteClientes}
             </div>
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Top clientes por gasto</ChartTitle>
                 <BarRows rows={topClientes} fmt={fmtUsd} />
@@ -632,7 +636,7 @@ export function AnaliticasClient({
 
         {tab === "turnos" && (
           <div className="space-y-6">
-            <div className="grid gap-6 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Turnos por tipo</ChartTitle>
                 <BarRows rows={turnosPorTipo} />

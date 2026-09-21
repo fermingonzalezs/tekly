@@ -64,19 +64,19 @@ export function StatCard({
     <Card
       onClick={onClick}
       className={cn(
-        "overflow-hidden p-4",
+        "overflow-hidden p-3 sm:p-4",
         center && "text-center",
         onClick && "cursor-pointer transition-colors hover:border-neutral-300",
         active && "border-accent bg-accent-soft",
         className,
       )}
     >
-      <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-400 sm:text-[11px]">
         {label}
       </p>
       <p
         className={cn(
-          "mt-2 font-grotesk text-3xl font-semibold tracking-tight tabular-nums",
+          "mt-1 font-grotesk text-xl font-semibold tracking-tight tabular-nums sm:mt-2 sm:text-3xl",
           valueClassName,
         )}
       >

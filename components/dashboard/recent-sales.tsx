@@ -74,7 +74,7 @@ export function RecentSales({
       </div>
 
       <div className="mt-3 min-h-0 flex-1 overflow-auto">
-        <table className="w-full text-[13px]">
+        <table className="hidden w-full text-[13px] sm:table">
           <tbody>
             {filtered.slice(0, 6).map((s) => (
               <tr
@@ -107,6 +107,34 @@ export function RecentSales({
             )}
           </tbody>
         </table>
+
+        {/* Mobile: tarjetas en vez de tabla -- con 4 columnas apretadas no
+            se llega a leer nada. */}
+        <div className="divide-y divide-neutral-100 sm:hidden">
+          {filtered.slice(0, 6).map((s) => (
+            <div key={s.id} className="flex flex-col gap-1 px-4 py-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="min-w-0 truncate font-medium text-neutral-900">
+                  {s.cliente}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums">
+                  {fmtUsd(s.monto)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-2 text-[12px] text-neutral-500">
+                <span className="min-w-0 truncate">{s.item}</span>
+                <span className="shrink-0 tabular-nums text-neutral-400">
+                  {s.id}
+                </span>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div className="px-4 py-6 text-center text-[13px] text-neutral-400">
+              Sin resultados
+            </div>
+          )}
+        </div>
       </div>
     </Card>
   );

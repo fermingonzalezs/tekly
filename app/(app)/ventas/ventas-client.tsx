@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Plus, Trash2, Check, FileText, Search } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Check,
+  FileText,
+  Search,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,6 +135,10 @@ export function VentasClient({
   const [datePreset, setDatePreset] = useState<DatePreset>("todos");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
+  // Filtros secundarios (vista, vendedor, tipo, fecha) colapsados por
+  // default en mobile -- el buscador y "Nueva venta" quedan siempre
+  // visibles. Sin efecto desde md (siempre en línea, como antes).
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -305,75 +318,97 @@ export function VentasClient({
               className={cn("w-full pl-9", filterPill)}
             />
           </div>
-          <Tabs
-            value={vista}
-            onChange={setVista}
-            options={[
-              { value: "ventas", label: "Ventas", count: filtered.length },
-              { value: "items", label: "Ítems vendidos", count: itemRows.length },
-            ]}
-          />
-          <Select
-            value={vendFilter}
-            onChange={(e) => setVendFilter(e.target.value)}
-            className={cn("w-full md:w-44", filterPill)}
+
+          <button
+            onClick={() => setFiltersOpen((v) => !v)}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-3.5 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 md:hidden"
           >
-            <option value="todos">Todos los vendedores</option>
-            {vendedores.map((v) => (
-              <option key={v.id} value={v.nombre}>
-                {v.nombre}
-              </option>
-            ))}
-          </Select>
-          <Select
-            value={tipoFilter}
-            onChange={(e) => setTipoFilter(e.target.value as typeof tipoFilter)}
-            className={cn("w-full md:w-40", filterPill)}
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros
+            {filtersOpen ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          <div
+            className={cn(
+              "flex-col gap-2 md:contents",
+              filtersOpen ? "flex" : "hidden",
+            )}
           >
-            <option value="todos">Todo</option>
-            <option value="venta">Equipos</option>
-            <option value="reparacion">Reparaciones</option>
-          </Select>
-          <Select
-            value={datePreset}
-            onChange={(e) => setDatePreset(e.target.value as DatePreset)}
-            className={cn("w-full md:w-44", filterPill)}
-          >
-            {DATE_PRESETS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </Select>
-          {datePreset === "personalizado" && (
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={desde}
-                onChange={(e) => setDesde(e.target.value)}
-                className={cn("w-full md:w-36", filterPill)}
-              />
-              <span className="text-xs text-neutral-400">a</span>
-              <Input
-                type="date"
-                value={hasta}
-                onChange={(e) => setHasta(e.target.value)}
-                className={cn("w-full md:w-36", filterPill)}
-              />
-            </div>
-          )}
-          {datePreset !== "todos" && (
-            <button
-              onClick={() => {
-                setDatePreset("todos");
-                setDesde("");
-                setHasta("");
-              }}
-              className="text-xs text-neutral-400 hover:text-neutral-600"
+            <Tabs
+              value={vista}
+              onChange={setVista}
+              className="w-full justify-between md:w-auto md:justify-start"
+              options={[
+                { value: "ventas", label: "Ventas", count: filtered.length },
+                { value: "items", label: "Ítems vendidos", count: itemRows.length },
+              ]}
+            />
+            <Select
+              value={vendFilter}
+              onChange={(e) => setVendFilter(e.target.value)}
+              className={cn("w-full md:w-44", filterPill)}
             >
-              limpiar fecha
-            </button>
-          )}
+              <option value="todos">Todos los vendedores</option>
+              {vendedores.map((v) => (
+                <option key={v.id} value={v.nombre}>
+                  {v.nombre}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={tipoFilter}
+              onChange={(e) => setTipoFilter(e.target.value as typeof tipoFilter)}
+              className={cn("w-full md:w-40", filterPill)}
+            >
+              <option value="todos">Todo</option>
+              <option value="venta">Equipos</option>
+              <option value="reparacion">Reparaciones</option>
+            </Select>
+            <Select
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+              className={cn("w-full md:w-44", filterPill)}
+            >
+              {DATE_PRESETS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+            {datePreset === "personalizado" && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={desde}
+                  onChange={(e) => setDesde(e.target.value)}
+                  className={cn("w-full md:w-36", filterPill)}
+                />
+                <span className="text-xs text-neutral-400">a</span>
+                <Input
+                  type="date"
+                  value={hasta}
+                  onChange={(e) => setHasta(e.target.value)}
+                  className={cn("w-full md:w-36", filterPill)}
+                />
+              </div>
+            )}
+            {datePreset !== "todos" && (
+              <button
+                onClick={() => {
+                  setDatePreset("todos");
+                  setDesde("");
+                  setHasta("");
+                }}
+                className="text-xs text-neutral-400 hover:text-neutral-600"
+              >
+                limpiar fecha
+              </button>
+            )}
+          </div>
 
           <button
             onClick={() => setCreating(true)}
@@ -515,52 +550,13 @@ export function VentasClient({
         <>
         <div className="space-y-2 md:hidden">
           {filtered.map((v) => (
-            <Card key={v.id} onClick={() => setOpenId(v.id)} className="cursor-pointer p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">{v.id}</p>
-                  <p className="text-xs text-neutral-400">{v.fecha}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <p className="text-sm font-semibold tabular-nums">{fmtUsd(v.totalUsd)}</p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setRecibo({ venta: v, tipo: "venta" });
-                    }}
-                    title="Ver recibo"
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-accent-soft hover:text-accent"
-                  >
-                    <FileText className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              <p className="mt-2 truncate text-sm text-neutral-700">{v.cliente}</p>
-              <p className="truncate text-xs text-neutral-500">
-                {v.items.map((i) => i.detalle).join(" · ")}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {(v.pagos.length > 3 ? v.pagos.slice(0, 2) : v.pagos).map((p, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700"
-                  >
-                    <span
-                      className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[p.medio].tone])}
-                    />
-                    {medioPagoCfg[p.medio].label}
-                    <span className="font-normal tabular-nums text-neutral-900">
-                      {fmtPago(p.medio, p.montoUsd, dolarVenta)}
-                    </span>
-                  </span>
-                ))}
-                {v.pagos.length > 3 && <span className="text-[11px] text-neutral-400">…</span>}
-              </div>
-              <div className="mt-2 flex items-center gap-3 text-xs text-neutral-500">
-                <span>Costo {fmtUsd(ventaCosto(v))}</span>
-                <span>Margen {v.margenPct.toFixed(1)}%</span>
-              </div>
-            </Card>
+            <VentaCardMobile
+              key={v.id}
+              venta={v}
+              dolarVenta={dolarVenta}
+              onOpen={() => setOpenId(v.id)}
+              onRecibo={() => setRecibo({ venta: v, tipo: "venta" })}
+            />
           ))}
           {filtered.length === 0 && (
             <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
@@ -712,28 +708,28 @@ export function VentasClient({
                     setEliminarMovimientoCC(true);
                     setConfirmDelete(true);
                   }}
-                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
                 >
                   <Trash2 className="h-4 w-4" /> Eliminar venta
                 </button>
               )}
               <button
                 onClick={() => setOpenId(null)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
               >
                 Cerrar
               </button>
               {open.pagos.some((p) => p.medio === "canje") && (
                 <button
                   onClick={() => setRecibo({ venta: open, tipo: "canje" })}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
                 >
                   <FileText className="h-4 w-4" /> Recibo de canje
                 </button>
               )}
               <button
                 onClick={() => setRecibo({ venta: open, tipo: "venta" })}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
               >
                 <FileText className="h-4 w-4" /> Comprobante de venta
               </button>
@@ -862,6 +858,105 @@ export function VentasClient({
   );
 }
 
+// ────────────────────── Tarjeta de venta (mobile) ──────────────────────
+
+/** Tarjeta de la lista de Ventas en mobile. Con más de un método de pago el
+ * bloque de abajo (Costo/Margen/pago) no entra en una línea -- en vez de
+ * dejar que la tarjeta se estire con el wrap automático, arranca colapsada
+ * (1 método) con un "Ver más" que revela el resto a pedido. */
+function VentaCardMobile({
+  venta: v,
+  dolarVenta,
+  onOpen,
+  onRecibo,
+}: {
+  venta: Venta;
+  dolarVenta: number;
+  onOpen: () => void;
+  onRecibo: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const pagosVisibles = expanded ? v.pagos : v.pagos.slice(0, 1);
+  const ocultos = v.pagos.length - pagosVisibles.length;
+
+  return (
+    <Card onClick={onOpen} className="cursor-pointer overflow-hidden p-0">
+      <div className="flex items-center justify-between gap-2 bg-[#352f86] px-4 py-2 text-white">
+        <span className="text-sm font-semibold">{v.id}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-white/70">{v.fecha}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRecibo();
+            }}
+            title="Ver recibo"
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
+          >
+            <FileText className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-stretch gap-3 p-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-neutral-900">{v.cliente}</p>
+          <p className="mt-0.5 truncate text-xs text-neutral-500">
+            {v.items.map((i) => i.detalle).join(" · ")}
+          </p>
+
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+            <span>Costo {fmtUsd(ventaCosto(v))}</span>
+            <span>Margen {v.margenPct.toFixed(1)}%</span>
+            <div className="flex flex-wrap items-center gap-1">
+              {pagosVisibles.map((p, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700"
+                >
+                  <span
+                    className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[p.medio].tone])}
+                  />
+                  {medioPagoCfg[p.medio].label}
+                  <span className="font-normal tabular-nums text-neutral-900">
+                    {fmtPago(p.medio, p.montoUsd, dolarVenta)}
+                  </span>
+                </span>
+              ))}
+              {ocultos > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded(true);
+                  }}
+                  className="text-[11px] font-semibold text-accent"
+                >
+                  Ver más (+{ocultos})
+                </button>
+              )}
+              {expanded && v.pagos.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded(false);
+                  }}
+                  className="text-[11px] font-semibold text-accent"
+                >
+                  Ver menos
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+          <p className="text-base font-semibold tabular-nums">{fmtUsd(v.totalUsd)}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ────────────────────── Detalle de venta ──────────────────────
 
 function VentaDetalle({ venta }: { venta: Venta }) {
@@ -878,19 +973,35 @@ function VentaDetalle({ venta }: { venta: Venta }) {
         venta.tipo === "venta" ? "Venta de equipos" : "Reparación / servicio",
     },
   ];
+  // Métodos de pago + Costo/Ganancia/Margen fijos, 4 por fila -- si el total
+  // no es múltiplo de 4, se reparte el resto entre las últimas 1-2 tarjetas
+  // (siempre "Ganancia bruta"/"Margen") para que no quede un hueco suelto.
+  const resumenTotal = venta.pagos.length + 3;
+  const resumenRem = resumenTotal % 4;
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
-        <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
           Información general
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {metaFields.map((f) => (
-            <Card key={f.label} className="p-3 text-center">
-              <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          {metaFields.map((f, idx) => (
+            <Card
+              key={f.label}
+              className={cn(
+                "p-2 text-center",
+                // Con cantidad impar de campos (sin "Procedencia"), el último
+                // queda solo en la 2da fila con medio card de hueco al lado
+                // -- ocupa las 2 columnas en mobile; en sm+ vuelve a 1.
+                idx === metaFields.length - 1 &&
+                  metaFields.length % 2 === 1 &&
+                  "col-span-2 sm:col-span-1",
+              )}
+            >
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 {f.label}
               </p>
-              <p className="mt-2 truncate text-sm font-normal text-neutral-600">
+              <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
                 {f.value}
               </p>
             </Card>
@@ -899,40 +1010,33 @@ function VentaDetalle({ venta }: { venta: Venta }) {
       </div>
 
       <div>
-        <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
           Ítems
         </p>
-        <div className="space-y-2 md:hidden">
+        <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
           {venta.items.map((i, idx) => (
-            <Card key={idx} className="p-3">
-              <p className="truncate text-sm font-medium text-neutral-900">{i.detalle}</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-[11px] uppercase text-neutral-400">Cant.</p>
-                  <p className="text-sm tabular-nums">{i.cantidad}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] uppercase text-neutral-400">Costo</p>
-                  <p className="text-sm tabular-nums text-neutral-500">{fmtUsd(i.costoUsd ?? 0)}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] uppercase text-neutral-400">Precio</p>
-                  <p className="text-sm tabular-nums">{fmtUsd(i.precioUsd)}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] uppercase text-neutral-400">Subtotal</p>
-                  <p className="text-sm font-semibold tabular-nums">
-                    {fmtUsd(i.cantidad * i.precioUsd)}
-                  </p>
-                </div>
-              </div>
-            </Card>
+            <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2">
+              <span className="min-w-0 flex-1 truncate text-sm text-neutral-900">
+                {i.detalle}
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-neutral-400">
+                ×{i.cantidad}
+              </span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">
+                {fmtUsd(i.cantidad * i.precioUsd)}
+              </span>
+            </div>
           ))}
-          <Card className="flex items-center justify-between p-3" style={{ backgroundColor: "#edecf8" }}>
-            <p className="text-sm font-semibold uppercase tracking-wide text-neutral-900">Total</p>
-            <p className="text-sm font-semibold tabular-nums">{fmtUsd(venta.totalUsd)}</p>
-          </Card>
-        </div>
+          <div
+            className="flex items-center justify-between gap-2 px-3 py-2"
+            style={{ backgroundColor: "#edecf8" }}
+          >
+            <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              Total
+            </span>
+            <span className="text-sm font-semibold tabular-nums">{fmtUsd(venta.totalUsd)}</span>
+          </div>
+        </Card>
         <div className="hidden overflow-hidden rounded-xl border border-neutral-200 md:block">
           <table className="w-full text-sm [&_td]:text-center [&_th]:text-center">
             <thead>
@@ -982,24 +1086,24 @@ function VentaDetalle({ venta }: { venta: Venta }) {
       </div>
 
       <div>
-        <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
           Resumen financiero
         </p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-4 gap-2">
           {venta.pagos.map((p, i) => (
             <Card
               key={i}
-              className="flex flex-col p-3 text-center"
+              className="flex flex-col p-2 text-center"
               title={`Caja ${p.caja.toUpperCase()}`}
             >
-              <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 Método {i + 1}
               </p>
-              <div className="flex flex-1 flex-col items-center justify-center gap-1.5 pt-2">
-                <p className="truncate text-sm font-normal tabular-nums text-neutral-600">
+              <div className="flex flex-1 flex-col items-center justify-center gap-1 pt-1.5">
+                <p className="truncate text-xs font-normal tabular-nums text-neutral-600">
                   {fmtPago(p.medio, p.montoUsd, dolarVenta)}
                 </p>
-                <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-700">
+                <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md bg-neutral-100 px-1.5 py-0.5 text-[9px] font-medium text-neutral-700">
                   <span
                     className={cn(
                       "h-1 w-1 shrink-0 rounded-full",
@@ -1011,32 +1115,43 @@ function VentaDetalle({ venta }: { venta: Venta }) {
               </div>
             </Card>
           ))}
-          <Card className="flex flex-col p-3 text-center">
-            <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <Card className="flex flex-col p-2 text-center">
+            <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
               Costo total
             </p>
-            <div className="flex flex-1 items-center justify-center pt-2">
-              <p className="truncate text-sm font-normal text-neutral-600">
+            <div className="flex flex-1 items-center justify-center pt-1.5">
+              <p className="truncate text-xs font-normal text-neutral-600">
                 {fmtUsd(ventaCosto(venta))}
               </p>
             </div>
           </Card>
-          <Card className="flex flex-col p-3 text-center">
-            <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <Card
+            className={cn(
+              "flex flex-col p-2 text-center",
+              resumenRem === 2 && "col-span-2",
+            )}
+          >
+            <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
               Ganancia bruta
             </p>
-            <div className="flex flex-1 items-center justify-center pt-2">
-              <p className="truncate text-sm font-normal tabular-nums text-neutral-600">
+            <div className="flex flex-1 items-center justify-center pt-1.5">
+              <p className="truncate text-xs font-normal tabular-nums text-neutral-600">
                 {fmtUsd(ventaGanancia(venta))}
               </p>
             </div>
           </Card>
-          <Card className="flex flex-col p-3 text-center">
-            <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <Card
+            className={cn(
+              "flex flex-col p-2 text-center",
+              resumenRem === 1 && "col-span-4",
+              resumenRem === 2 && "col-span-2",
+            )}
+          >
+            <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
               Margen
             </p>
-            <div className="flex flex-1 items-center justify-center pt-2">
-              <p className="truncate text-sm font-normal text-neutral-600">
+            <div className="flex flex-1 items-center justify-center pt-1.5">
+              <p className="truncate text-xs font-normal text-neutral-600">
                 {venta.margenPct.toFixed(1)}%
               </p>
             </div>
@@ -1421,10 +1536,15 @@ function NuevaVentaDialog({
       description="El número de venta se asigna al confirmar"
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClose}>
             Cancelar
           </Button>
-          <Button size="sm" disabled={!valid || pending} onClick={submit}>
+          <Button
+            size="sm"
+            className="w-full sm:w-auto"
+            disabled={!valid || pending}
+            onClick={submit}
+          >
             {pending ? "Confirmando…" : `Confirmar venta · ${fmtUsd(totalPrecio)}`}
           </Button>
         </>

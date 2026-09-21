@@ -44,20 +44,44 @@ export function ServiciosCatalogo({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-neutral-400">
-          {list.length} servicios · precio y garantía
-        </p>
-        <button
-          onClick={() => setEditing(blank)}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo servicio
-        </button>
-      </div>
+      <button
+        onClick={() => setEditing(blank)}
+        className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft md:w-auto"
+      >
+        <Plus className="h-4 w-4" />
+        Nuevo servicio
+      </button>
 
-      <Card className="overflow-hidden">
+      <div className="space-y-2 md:hidden">
+        {list.map((s) => (
+          <Card key={s.id} className="p-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="min-w-0 truncate text-sm font-medium text-neutral-900">
+                {s.nombre}
+              </p>
+              <p className="shrink-0 text-sm font-semibold tabular-nums">
+                {fmtUsd(s.precioUsd)}
+              </p>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2 text-xs text-neutral-500">
+              <span className="inline-flex items-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5 text-neutral-400" />
+                {s.garantiaDias === 0 ? "Sin garantía" : `${s.garantiaDias} días`}
+              </span>
+              <button
+                onClick={() => setEditing(s)}
+                className="inline-flex items-center gap-1 font-medium text-neutral-400 hover:text-accent"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Editar
+              </button>
+              <Badge tone={s.activo ? "green" : "gray"}>
+                {s.activo ? "Activo" : "Inactivo"}
+              </Badge>
+            </div>
+          </Card>
+        ))}
+      </div>
+      <Card className="hidden overflow-hidden md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -134,11 +158,12 @@ function ServicioDialog({
       title={servicio?.id ? "Editar servicio" : "Nuevo servicio"}
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClose}>
             Cancelar
           </Button>
           <Button
             size="sm"
+            className="w-full sm:w-auto"
             disabled={!draft.nombre.trim() || draft.precioUsd <= 0 || pending}
             onClick={() => onSave(draft)}
           >

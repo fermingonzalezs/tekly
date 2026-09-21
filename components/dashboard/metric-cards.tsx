@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Delta } from "@/components/ui/stat-card";
+import { cn } from "@/lib/utils";
 import type { MetricaDashboard } from "@/lib/dashboard";
 
 function MetricCard({
@@ -7,22 +8,24 @@ function MetricCard({
   value,
   delta,
   deltaHint,
+  className,
 }: {
   label: string;
   value: string;
   delta: number;
   deltaHint: string;
+  className?: string;
 }) {
   return (
-    <Card className="p-3">
-      <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+    <Card className={cn("p-3", className)}>
+      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-400 sm:text-[11px]">
         {label}
       </p>
-      <div className="mt-1 flex items-end justify-between gap-2">
-        <span className="font-grotesk text-3xl font-semibold leading-none tracking-tight tabular-nums">
+      <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
+        <span className="font-grotesk text-xl font-semibold leading-none tracking-tight tabular-nums sm:text-3xl">
           {value}
         </span>
-        <div className="flex shrink-0 flex-col items-end gap-1 leading-none">
+        <div className="flex items-center gap-1.5 leading-none sm:shrink-0 sm:flex-col sm:items-end sm:gap-1">
           <Delta value={delta} className="px-1.5 py-0.5 text-[10px]" />
           <span className="whitespace-nowrap text-[10px] text-neutral-400">
             {deltaHint}
@@ -43,6 +46,10 @@ export function MetricCards({ metrics }: { metrics: MetricaDashboard[] }) {
           value={m.value}
           delta={m.delta}
           deltaHint={m.deltaHint}
+          // "Tickets abiertos" es la 5ta métrica -- en mobile (grid-cols-2)
+          // dejaba una sola tarjeta huérfana en la 3ra fila; se oculta para
+          // que las otras 4 cierren en 2 filas parejas. Vuelve desde sm.
+          className={m.key === "abiertos" ? "hidden sm:block" : undefined}
         />
       ))}
     </div>

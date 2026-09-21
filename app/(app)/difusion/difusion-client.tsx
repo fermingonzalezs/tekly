@@ -162,26 +162,59 @@ export function DifusionClient({
         <StatCard align="left" label="Con descuento activo" value={conDescuento} />
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="relative">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar lista por nombre…"
-            className={cn("w-64 pl-9", filterPill)}
+            className={cn("w-full pl-9", filterPill)}
           />
         </div>
         <button
           onClick={() => setCreatingNew(true)}
-          className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:ml-auto sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           Nueva lista
         </button>
       </div>
 
-      <Card className="overflow-hidden">
+      <div className="space-y-2 md:hidden">
+        {filtered.map((l) => (
+          <Card
+            key={l.id}
+            onClick={() => setViewingId(l.id)}
+            className="cursor-pointer overflow-hidden p-0"
+          >
+            <div className="bg-[#352f86] px-4 py-2 text-white">
+              <p className="truncate text-sm font-semibold">{l.nombre}</p>
+            </div>
+            <div className="flex items-stretch gap-3 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs text-neutral-500">
+                  {l.mensajeInicial || "Sin mensaje inicial"}
+                </p>
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                  <span>{l.secciones.length} secciones</span>
+                  <span>{totalItems(l, equipos, otros)} ítems</span>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+                <p className="text-base font-semibold tabular-nums">{descuentoLabel(l)}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
+        {filtered.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+            Sin listas para esta búsqueda.
+          </p>
+        )}
+      </div>
+
+      <Card className="hidden overflow-hidden md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -239,7 +272,7 @@ export function DifusionClient({
             <>
               <button
                 onClick={() => setViewingId(null)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
               >
                 Cerrar
               </button>
@@ -248,13 +281,13 @@ export function DifusionClient({
                   setEditing(viewing);
                   setViewingId(null);
                 }}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
               >
                 Editar
               </button>
               <button
                 onClick={() => copiar(viewing)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
               >
                 {copied ? "¡Copiado!" : "Copiar mensaje"}
               </button>
@@ -348,14 +381,14 @@ function ListaEditorDialog({
         <>
           <button
             onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
           >
             Cancelar
           </button>
           <button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             {pending ? "Guardando…" : "Guardar lista"}
           </button>
@@ -371,7 +404,7 @@ function ListaEditorDialog({
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Mensaje inicial">
             <Textarea
               rows={2}
@@ -390,7 +423,7 @@ function ListaEditorDialog({
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Descuento">
             <Select
               value={draft.descuentoTipo}

@@ -18,7 +18,7 @@ export default async function ClientesPage() {
         initialClientes={clientes}
         user={user}
         charts={
-          <div className="grid gap-5 xl:grid-cols-2">
+          <div className="grid min-w-0 gap-5 xl:grid-cols-2">
             <DemografiaClientes data={demografia} />
             <FuenteClientes />
           </div>

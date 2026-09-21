@@ -22,7 +22,7 @@ export function RepairsChart({ tickets }: { tickets: Ticket[] }) {
       <div className="mt-3 flex flex-1 flex-col justify-between">
         {stages.map((s) => (
           <div key={s.label} className="flex items-center gap-3">
-            <span className="w-40 shrink-0 text-start text-[12px] text-neutral-600">
+            <span className="w-24 shrink-0 truncate text-start text-[12px] text-neutral-600 sm:w-40">
               {s.label}
             </span>
             <div

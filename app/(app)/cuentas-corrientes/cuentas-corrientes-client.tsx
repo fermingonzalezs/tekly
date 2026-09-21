@@ -130,14 +130,14 @@ export function CuentasCorrientesClient({
         <StatCard align="left" label="Cuentas al día" value={alDia} />
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="relative">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar cliente por nombre o teléfono…"
-            className={cn("w-72 pl-9", filterPill)}
+            className={cn("w-full pl-9", filterPill)}
           />
         </div>
         <button
@@ -145,14 +145,58 @@ export function CuentasCorrientesClient({
             setNuevoDefault(null);
             setNuevoOpen(true);
           }}
-          className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:ml-auto sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           Nuevo movimiento
         </button>
       </div>
 
-      <Card className="overflow-hidden">
+      <div className="space-y-2 md:hidden">
+        {cuentas.map((r) => (
+          <Card
+            key={r.cliente.id}
+            onClick={() => setOpenClienteId(r.cliente.id)}
+            className="cursor-pointer overflow-hidden p-0"
+          >
+            <div className="bg-[#352f86] px-4 py-2 text-white">
+              <p className="truncate text-sm font-semibold">{r.cliente.nombre}</p>
+            </div>
+            <div className="flex items-stretch gap-3 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs text-neutral-500">{r.cliente.telefono}</p>
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                  <span>{r.movs.length} movimientos</span>
+                  <span>{r.ultimo ? `${r.ultimo.fecha} · ${r.ultimo.hora}` : "—"}</span>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+                <p
+                  className={cn(
+                    "text-base font-semibold tabular-nums",
+                    r.saldo > 0
+                      ? "text-red-500"
+                      : r.saldo < 0
+                        ? "text-emerald-600"
+                        : "text-neutral-400",
+                  )}
+                >
+                  {r.saldo === 0
+                    ? "Al día"
+                    : `${r.saldo > 0 ? "" : "+"}${fmtUsd(Math.abs(r.saldo))}`}
+                </p>
+              </div>
+            </div>
+          </Card>
+        ))}
+        {cuentas.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+            Sin clientes para esta búsqueda.
+          </p>
+        )}
+      </div>
+
+      <Card className="hidden overflow-hidden md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -192,7 +236,7 @@ export function CuentasCorrientesClient({
                 >
                   {r.saldo === 0
                     ? "Al día"
-                    : `${r.saldo > 0 ? "" : "+"}${fmtUsd(Math.abs(r.saldo))}${r.saldo < 0 ? " a favor" : ""}`}
+                    : `${r.saldo > 0 ? "" : "+"}${fmtUsd(Math.abs(r.saldo))}`}
                 </td>
               </tr>
             ))}
@@ -227,7 +271,7 @@ export function CuentasCorrientesClient({
             <>
               <button
                 onClick={() => setOpenClienteId(null)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
               >
                 Cerrar
               </button>
@@ -236,7 +280,7 @@ export function CuentasCorrientesClient({
                   setNuevoDefault({ clienteId: openRow.cliente.id, tipo: "pago" });
                   setNuevoOpen(true);
                 }}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
               >
                 Registrar pago
               </button>
@@ -249,7 +293,51 @@ export function CuentasCorrientesClient({
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
               Movimientos
             </p>
-            <div className="overflow-hidden rounded-xl border border-neutral-200 font-mono">
+
+            <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
+              {openRow.movs.length === 0 ? (
+                <p className="px-4 py-3 text-center text-[13px] text-neutral-400">
+                  Sin movimientos registrados.
+                </p>
+              ) : (
+                openRow.movs.map((m) => (
+                  <div key={m.id} className="flex items-center gap-2 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-neutral-800">{m.concepto}</p>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 shrink-0 rounded-full",
+                            m.tipo === "cargo" ? dotClass.red : dotClass.green,
+                          )}
+                        />
+                        {m.tipo === "cargo" ? "Cargo" : "Pago"} · {m.fecha} · {m.hora}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 text-sm font-semibold tabular-nums",
+                        m.tipo === "cargo" ? "text-red-500" : "text-emerald-600",
+                      )}
+                    >
+                      {m.tipo === "cargo" ? "+" : "−"}
+                      {fmtUsd(m.montoUsd)}
+                    </span>
+                    {esAdmin && (
+                      <button
+                        onClick={() => setConfirmDeleteId(m.id)}
+                        title="Eliminar movimiento"
+                        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </Card>
+
+            <div className="hidden overflow-hidden rounded-xl border border-neutral-200 font-mono md:block">
               <div
                 className={cn(
                   "grid items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400",
@@ -391,14 +479,14 @@ function NuevoMovimientoCCDialog({
         <>
           <button
             onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
           >
             Cancelar
           </button>
           <button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             {pending ? "Registrando…" : "Registrar movimiento"}
           </button>

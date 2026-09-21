@@ -7,15 +7,17 @@ export function Tabs<T extends string>({
   onChange,
   options,
   accent,
+  className,
 }: {
   value: T;
   onChange: (v: T) => void;
   options: { value: T; label: string; count?: number }[];
   /** Color del estado activo (hex). Default: el `accent` de Tailwind. */
   accent?: string;
+  className?: string;
 }) {
   return (
-    <div className="inline-flex flex-wrap items-center gap-2">
+    <div className={cn("inline-flex flex-wrap items-center gap-2", className)}>
       {options.map((o) => {
         const active = value === o.value;
         return (

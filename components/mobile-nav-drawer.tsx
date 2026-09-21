@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { Smartphone, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/nav";
 
@@ -33,23 +33,27 @@ export function MobileNavDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-[2px] md:hidden"
+      className="animate-fade-in fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-[2px] md:hidden"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-toast-in flex h-full w-72 flex-col border-r border-neutral-200 bg-white shadow-2xl"
+        className="animate-drawer-in flex h-full w-[80%] max-w-72 flex-col border-r border-neutral-200 bg-white shadow-2xl"
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-neutral-200 px-5">
-          <span className="text-sm font-semibold text-neutral-900">Secciones</span>
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-neutral-200 px-5">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-white">
+            <Smartphone className="h-5 w-5" />
+          </div>
+          <span className="text-sm font-semibold text-neutral-900">Tekly</span>
           <button
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+            aria-label="Cerrar menú"
+            className="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto p-2">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {items.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             return (

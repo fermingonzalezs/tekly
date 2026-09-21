@@ -98,7 +98,30 @@ function MovimientosLog({ movimientos }: { movimientos: Movimiento[] | null }) {
       <p className="mb-2 border-b border-neutral-200 pb-2 text-start text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
         Movimientos
       </p>
-      <div className="overflow-hidden rounded-xl border border-neutral-200 font-mono">
+
+      {/* Mobile: 204px de columnas fijas (fecha+usuario) no dejan lugar al
+          detalle -- se apila en su lugar. */}
+      <div className="overflow-hidden rounded-xl border border-neutral-200 font-mono md:hidden">
+        {movimientos === null ? (
+          <p className="px-4 py-3 text-center text-[13px] text-neutral-400">Cargando…</p>
+        ) : movimientos.length === 0 ? (
+          <p className="px-4 py-3 text-center text-[13px] text-neutral-400">
+            Sin movimientos registrados.
+          </p>
+        ) : (
+          movimientos.map((m, i) => (
+            <div key={i} className="border-t border-neutral-100 px-4 py-2 text-[12px] first:border-t-0">
+              <p className="truncate text-neutral-800">{m.detalle}</p>
+              <p className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-neutral-500">
+                <span>{m.fecha} · {m.hora}</span>
+                <span className="truncate text-accent">{m.usuario}</span>
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="hidden overflow-hidden rounded-xl border border-neutral-200 font-mono md:block">
         <div className="grid grid-cols-[1fr_120px_84px] gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
           <span>Movimiento</span>
           <span>Fecha y hora</span>
@@ -277,6 +300,96 @@ export function InventarioClient({
     });
   }
 
+  const tabOptions = [
+    { value: "equipos" as Tab, label: "Equipos", count: equipos.length },
+    { value: "repuestos" as Tab, label: "Repuestos", count: repuestos.length },
+    { value: "otros" as Tab, label: "Otros", count: otros.length },
+  ];
+  // En mobile el Tabs se repite justo arriba de las tarjetas de cada pestaña
+  // (después de las StatCard) en vez de ir arriba de todo junto al buscador.
+  const mobileTabs = (
+    <Tabs
+      value={tab}
+      onChange={switchTab}
+      className="w-full justify-between md:hidden"
+      options={tabOptions}
+    />
+  );
+
+  // En mobile los filtros (buscador + acciones) van abajo de las StatCard de
+  // cada pestaña, no arriba de todo -- se repiten igual que mobileTabs.
+  const mobileFilters = (
+    <div className="flex flex-col gap-2 md:hidden">
+      <div className="relative w-full">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={
+            tab === "equipos"
+              ? "Buscar por modelo, color o IMEI…"
+              : tab === "repuestos"
+                ? "Buscar por nombre, SKU, modelo o proveedor…"
+                : "Buscar por nombre…"
+          }
+          className={cn("w-full pl-9", filterPill)}
+        />
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        {(tab === "repuestos" || tab === "otros") &&
+          (recuento ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => setRecuento(false)}
+                disabled={savingRecuento}
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={saveRecuento}
+                disabled={savingRecuento}
+              >
+                {savingRecuento ? "Guardando…" : "Guardar recuento"}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={startRecuento}
+            >
+              <ClipboardCheck className="h-4 w-4" /> Recuento
+            </Button>
+          ))}
+        {!recuento && (
+          <button
+            onClick={() =>
+              tab === "equipos"
+                ? setAddEquipo(true)
+                : tab === "repuestos"
+                  ? setAddRepuesto(true)
+                  : setAddOtro(true)
+            }
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+          >
+            <Plus className="h-4 w-4" />
+            {tab === "equipos"
+              ? "Agregar equipo"
+              : tab === "repuestos"
+                ? "Agregar / ingresar repuesto"
+                : "Agregar / ingresar producto"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div className="space-y-5">
@@ -310,9 +423,12 @@ export function InventarioClient({
           )}
         </div>
 
-        {/* tabs + filtros + acción, todo en la misma fila */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+        {/* tabs + filtros + acción, todo en la misma fila -- solo desktop;
+            en mobile el buscador/acciones van abajo de las StatCard de cada
+            pestaña (mobileFilters) y el Tabs justo arriba de las tarjetas
+            (mobileTabs). */}
+        <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
+          <div className="relative w-full md:w-64">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <Input
               value={q}
@@ -324,44 +440,44 @@ export function InventarioClient({
                     ? "Buscar por nombre, SKU, modelo o proveedor…"
                     : "Buscar por nombre…"
               }
-              className={cn("w-64 pl-9", filterPill)}
+              className={cn("w-full pl-9", filterPill)}
             />
           </div>
           <Tabs
             value={tab}
             onChange={switchTab}
-            options={[
-              {
-                value: "equipos",
-                label: "Equipos para venta",
-                count: equipos.length,
-              },
-              {
-                value: "repuestos",
-                label: "Repuestos",
-                count: repuestos.length,
-              },
-              { value: "otros", label: "Otros", count: otros.length },
-            ]}
+            className="hidden md:flex md:w-auto md:justify-start"
+            options={tabOptions}
           />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center md:ml-auto">
             {(tab === "repuestos" || tab === "otros") &&
               (recuento ? (
                 <>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() => setRecuento(false)}
                     disabled={savingRecuento}
                   >
                     Cancelar
                   </Button>
-                  <Button size="sm" onClick={saveRecuento} disabled={savingRecuento}>
+                  <Button
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={saveRecuento}
+                    disabled={savingRecuento}
+                  >
                     {savingRecuento ? "Guardando…" : "Guardar recuento"}
                   </Button>
                 </>
               ) : (
-                <Button variant="outline" size="sm" onClick={startRecuento}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  onClick={startRecuento}
+                >
                   <ClipboardCheck className="h-4 w-4" /> Recuento
                 </Button>
               ))}
@@ -374,7 +490,7 @@ export function InventarioClient({
                       ? setAddRepuesto(true)
                       : setAddOtro(true)
                 }
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
               >
                 <Plus className="h-4 w-4" />
                 {tab === "equipos"
@@ -450,7 +566,56 @@ export function InventarioClient({
                   </div>
                 )}
 
-                <Card className="overflow-hidden">
+                {mobileFilters}
+
+                {mobileTabs}
+
+                <div className="space-y-2 md:hidden">
+                  {equiposFiltrados.map((e) => (
+                    <Card
+                      key={e.id}
+                      onClick={() => setOpenEquipoId(e.id)}
+                      className="cursor-pointer overflow-hidden p-0"
+                    >
+                      <div className="bg-[#352f86] px-4 py-2 text-white">
+                        <p className="truncate text-sm font-semibold">
+                          {e.modelo} {e.almacenamiento}
+                        </p>
+                      </div>
+                      <div className="flex items-stretch gap-3 p-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs text-neutral-500">
+                            {e.color} · {e.imei}
+                          </p>
+                          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                            <span>Batería {e.bateria}%</span>
+                            <span>Costo {fmtUsd(e.costoUsd)}</span>
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 rounded-full",
+                                  dotClass[equipoStatus[e.estado].tone],
+                                )}
+                              />
+                              {equipoStatus[e.estado].label}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+                          <p className="text-base font-semibold tabular-nums">
+                            {fmtUsd(e.precioUsd)}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                  {equiposFiltrados.length === 0 && (
+                    <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+                      Sin equipos para esta búsqueda.
+                    </p>
+                  )}
+                </div>
+                <Card className="hidden overflow-hidden md:block">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -622,8 +787,113 @@ export function InventarioClient({
                   </p>
                 )}
 
+                {mobileFilters}
+
+                {mobileTabs}
+
                 <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
-                  <Card className="overflow-hidden">
+                  <div className="space-y-2 md:hidden">
+                    {repuestosFiltrados.map((r) => {
+                      const est = repuestoEstado(r.stock, r.stockMin);
+                      const frac = Math.max(
+                        0,
+                        Math.min(1, r.stock / (r.stockMin * 2)),
+                      );
+                      const barColor =
+                        r.stock <= 0
+                          ? "bg-red-500"
+                          : r.stock <= r.stockMin
+                            ? "bg-amber-500"
+                            : "bg-emerald-500";
+                      return (
+                        <Card
+                          key={r.id}
+                          onClick={() => !recuento && setOpenRepuestoId(r.id)}
+                          className={cn("overflow-hidden p-0", !recuento && "cursor-pointer")}
+                        >
+                          <div className="bg-[#352f86] px-4 py-2 text-white">
+                            <p className="truncate text-sm font-semibold">{r.nombre}</p>
+                          </div>
+                          <div
+                            className={cn(
+                              "p-3",
+                              r.stock <= 0 && "bg-red-50/50",
+                              r.stock > 0 && r.stock <= r.stockMin && "bg-amber-50/40",
+                            )}
+                          >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-xs text-neutral-400">
+                              {r.sku} · {r.modelo}
+                            </p>
+                            {!recuento && (
+                              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                                <span
+                                  className={cn("h-1.5 w-1.5 rounded-full", dotClass[est.tone])}
+                                />
+                                {est.label}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-2.5 flex items-center gap-2 border-t border-neutral-100 pt-2.5">
+                            {recuento ? (
+                              <>
+                                <span className="text-xs text-neutral-500">Stock real</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={draft[r.id] ?? r.stock}
+                                  onChange={(e) =>
+                                    setDraft((d) => ({
+                                      ...d,
+                                      [r.id]: Number(e.target.value) || 0,
+                                    }))
+                                  }
+                                  className="ml-auto h-8 w-20 text-center"
+                                />
+                              </>
+                            ) : (
+                              <>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs tabular-nums text-neutral-500">
+                                    <span className="font-semibold text-neutral-900">
+                                      {r.stock}
+                                    </span>{" "}
+                                    / mín {r.stockMin} · {fmtUsd(r.costoUsd)}
+                                  </p>
+                                  <div
+                                    className="mt-1 h-1.5 overflow-hidden rounded-full"
+                                    style={{ background: GHOST_STRIPES }}
+                                  >
+                                    <div
+                                      className={cn("h-full rounded-full", barColor)}
+                                      style={{ width: `${frac * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    reponer(r.id);
+                                  }}
+                                  className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                                >
+                                  Reponer
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                    {repuestosFiltrados.length === 0 && (
+                      <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+                        Sin repuestos para esta búsqueda.
+                      </p>
+                    )}
+                  </div>
+                  <Card className="hidden overflow-hidden md:block">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -899,7 +1169,132 @@ export function InventarioClient({
                     recuento.
                   </p>
                 )}
-                <Card className="overflow-hidden">
+
+                {mobileFilters}
+
+                {mobileTabs}
+
+                <div className="space-y-2 md:hidden">
+                  {otrosFiltrados.map((o) => {
+                    const cantidad = otroCantidad(o);
+                    const expanded = expandedOtros.has(o.id);
+                    return (
+                      <Card
+                        key={o.id}
+                        onClick={() => !recuento && setOpenOtroId(o.id)}
+                        className={cn("overflow-hidden p-0", !recuento && "cursor-pointer")}
+                      >
+                        <div className="flex items-center justify-between gap-2 bg-[#352f86] px-4 py-2 text-white">
+                          <p className="min-w-0 flex-1 truncate text-sm font-semibold">
+                            {o.nombre}
+                          </p>
+                          {o.serializado && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpandOtro(o.id);
+                              }}
+                              className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
+                            >
+                              {expanded ? (
+                                <ChevronUp className="h-3.5 w-3.5" />
+                              ) : (
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="min-w-0 flex-1 truncate text-xs text-neutral-500">
+                            {o.descripcion ?? "—"}
+                          </p>
+                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                dotClass[otroCategoria[o.categoria].tone],
+                              )}
+                            />
+                            {otroCategoria[o.categoria].label}
+                          </span>
+                        </div>
+
+                        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                          <span>
+                            Costo {fmtUsd(otroCostoPromedio(o))}
+                            {o.serializado && (
+                              <span className="ml-1 text-[10px]">prom.</span>
+                            )}
+                          </span>
+                          <span className="font-semibold text-neutral-900">
+                            {fmtUsd(o.precioUsd)}
+                          </span>
+                          {o.serializado ? (
+                            <span className="inline-flex items-center gap-1 font-semibold text-neutral-700">
+                              {cantidad}
+                              <Tag className="h-3 w-3 text-neutral-400" />
+                            </span>
+                          ) : recuento ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              value={draft[o.id] ?? o.cantidad}
+                              onChange={(e) =>
+                                setDraft((d) => ({
+                                  ...d,
+                                  [o.id]: Number(e.target.value) || 0,
+                                }))
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-8 w-16 text-center"
+                            />
+                          ) : (
+                            <span className="font-semibold text-neutral-900">
+                              {cantidad}
+                            </span>
+                          )}
+                        </div>
+
+                        {o.serializado && expanded && (
+                          <div
+                            className="mt-2.5 overflow-hidden rounded-lg border border-neutral-200 font-mono"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="grid grid-cols-[1fr_1fr_84px] gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                              <span>Serial</span>
+                              <span>Color</span>
+                              <span className="text-end">Costo</span>
+                            </div>
+                            {o.unidades.map((u) => (
+                              <div
+                                key={u.serial}
+                                className="grid grid-cols-[1fr_1fr_84px] items-center gap-2 border-t border-neutral-100 bg-white px-3 py-1.5 text-[12px] first:border-t-0"
+                              >
+                                <span className="truncate text-neutral-700">{u.serial}</span>
+                                <span className="truncate text-neutral-500">
+                                  {u.color ?? "—"}
+                                </span>
+                                <span className="text-end tabular-nums text-neutral-500">
+                                  {fmtUsd(u.costoUsd)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                  {otrosFiltrados.length === 0 && (
+                    <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+                      Sin productos para esta búsqueda.
+                    </p>
+                  )}
+                </div>
+                <Card className="hidden overflow-hidden md:block">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -1280,14 +1675,14 @@ function EquipoFormDialog({
             {onDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
               >
                 <Trash2 className="h-4 w-4" /> Eliminar equipo
               </button>
             )}
             <button
               onClick={onClose}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
             >
               Cancelar
             </button>
@@ -1308,7 +1703,7 @@ function EquipoFormDialog({
                   });
                 })
               }
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
             >
               {pending ? "Guardando…" : edit ? "Guardar" : "Agregar"}
             </button>
@@ -1320,7 +1715,7 @@ function EquipoFormDialog({
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
               Información general
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Modelo">
                 <Input
                   value={f.modelo}
@@ -1472,14 +1867,14 @@ function RepuestoFormDialog({
             {onDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
               >
                 <Trash2 className="h-4 w-4" /> Eliminar repuesto
               </button>
             )}
             <button
               onClick={onClose}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
             >
               Cancelar
             </button>
@@ -1498,7 +1893,7 @@ function RepuestoFormDialog({
                   });
                 })
               }
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
             >
               {pending ? "Guardando…" : "Guardar"}
             </button>
@@ -1510,7 +1905,7 @@ function RepuestoFormDialog({
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
               Información general
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Nombre">
                 <Input
                   value={f.nombre}
@@ -1695,14 +2090,14 @@ function OtroFormDialog({
             {onDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
               >
                 <Trash2 className="h-4 w-4" /> Eliminar producto
               </button>
             )}
             <button
               onClick={onClose}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
             >
               Cancelar
             </button>
@@ -1723,7 +2118,7 @@ function OtroFormDialog({
                   });
                 })
               }
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
             >
               {pending ? "Guardando…" : "Guardar"}
             </button>
@@ -1735,7 +2130,7 @@ function OtroFormDialog({
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
               Información general
             </p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Nombre">
                 <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
               </Field>
@@ -1770,7 +2165,7 @@ function OtroFormDialog({
                   ))}
                 </div>
               </Field>
-              <Field label="Descripción" className="col-span-3">
+              <Field label="Descripción" className="col-span-1 sm:col-span-2 lg:col-span-3">
                 <Input
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
@@ -1814,7 +2209,7 @@ function OtroFormDialog({
                 )}
               </Field>
               {serializado && (
-                <Field label="Unidades" className="col-span-3">
+                <Field label="Unidades" className="col-span-1 sm:col-span-2 lg:col-span-3">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
                       <span className="flex-1">Serial</span>
@@ -1887,7 +2282,7 @@ function OtroFormDialog({
                         onChange={(e) => setBulkText(e.target.value)}
                         placeholder={"Un serial por línea\nIPAD9-010\nIPAD9-011"}
                       />
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         <Input
                           value={bulkColor}
                           onChange={(e) => setBulkColor(e.target.value)}
@@ -2071,14 +2466,14 @@ function IngresoDialog({
         <>
           <button
             onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
           >
             Cancelar
           </button>
           <button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             {pending
               ? "Guardando…"

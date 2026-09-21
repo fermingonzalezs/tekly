@@ -40,7 +40,7 @@ export function ObjetivoPanel({
   const momPct = prevTotal > 0 ? ((current - prevTotal) / prevTotal) * 100 : 0;
 
   return (
-    <Card className="flex flex-col p-4">
+    <Card className="flex min-w-0 flex-col p-4">
       <ChartTitle align="left" sub="Avance sobre la meta del mes">
         Objetivo del mes
       </ChartTitle>
@@ -48,18 +48,30 @@ export function ObjetivoPanel({
       <div className="mt-3 flex flex-1 flex-col border-t border-neutral-100 pt-3">
         <div className="flex flex-1 flex-col justify-center gap-3">
           {/* barra gruesa: tramo cumplido en accent con chip %, resto rayado */}
-          <div
-            className="relative h-9 w-full overflow-hidden rounded-full"
-            style={{ background: GHOST_STRIPES }}
-          >
+          <div className="flex items-center gap-2">
             <div
-              className="absolute inset-y-0 left-0 flex items-center justify-end rounded-full pr-2"
-              style={{ width: `${pct}%`, background: DASH_ACCENT }}
+              className="relative h-9 min-w-0 flex-1 overflow-hidden rounded-full"
+              style={{ background: GHOST_STRIPES }}
             >
-              <span className="rounded-md bg-white/25 px-1.5 py-1 text-[11px] font-semibold leading-none text-white tabular-nums">
+              <div
+                className="absolute inset-y-0 left-0 flex items-center justify-end rounded-full pr-2"
+                style={{ width: `${pct}%`, background: DASH_ACCENT }}
+              >
+                {/* Con el mes recién arrancado el tramo cumplido es muy
+                    angosto y el chip no entra -- desde 8% ya entra bien
+                    adentro; por debajo se muestra afuera de la barra. */}
+                {pct >= 8 && (
+                  <span className="rounded-md bg-white/25 px-1.5 py-1 text-[11px] font-semibold leading-none text-white tabular-nums">
+                    {pct}%
+                  </span>
+                )}
+              </div>
+            </div>
+            {pct < 8 && (
+              <span className="shrink-0 rounded-md bg-neutral-100 px-1.5 py-1 text-[11px] font-semibold leading-none tabular-nums text-neutral-600">
                 {pct}%
               </span>
-            </div>
+            )}
           </div>
 
           <div className="flex items-baseline justify-between gap-2 text-xs">

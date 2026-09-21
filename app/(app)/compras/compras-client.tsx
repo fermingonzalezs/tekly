@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Search, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Trash2,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
@@ -41,6 +48,7 @@ export function ComprasClient({
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const filtered = useMemo(
@@ -93,35 +101,108 @@ export function ComprasClient({
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar por proveedor o ítem…"
-            className={cn("w-64 pl-9", filterPill)}
+            className={cn("w-full pl-9", filterPill)}
           />
         </div>
-        <Select
-          value={estadoFiltro}
-          onChange={(e) => setEstadoFiltro(e.target.value as "todos" | CompraEstado)}
-          className={cn("w-44", filterPill)}
+
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-3.5 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:hidden"
         >
-          <option value="todos">Todos los estados</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="recibida">Recibida</option>
-        </Select>
+          <SlidersHorizontal className="h-4 w-4" />
+          Filtros
+          {filtersOpen ? (
+            <ChevronUp className="h-4 w-4" />
+          ) : (
+            <ChevronDown className="h-4 w-4" />
+          )}
+        </button>
+
+        <div
+          className={cn(
+            "flex-col gap-2 sm:contents",
+            filtersOpen ? "flex" : "hidden",
+          )}
+        >
+          <Select
+            value={estadoFiltro}
+            onChange={(e) => setEstadoFiltro(e.target.value as "todos" | CompraEstado)}
+            className={cn("w-full sm:w-44", filterPill)}
+          >
+            <option value="todos">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="recibida">Recibida</option>
+          </Select>
+        </div>
+
         <button
           onClick={() => setCreating(true)}
-          className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:ml-auto sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           Nueva compra
         </button>
       </div>
 
-      <Card className="overflow-hidden">
+      <div className="space-y-2 md:hidden">
+        {filtered.map((c) => (
+          <Card
+            key={c.id}
+            onClick={() => setOpenId(c.id)}
+            className="cursor-pointer overflow-hidden p-0"
+          >
+            <div className="flex items-center justify-between gap-2 bg-[#352f86] px-4 py-2 text-white">
+              <span className="text-sm font-semibold">{c.id}</span>
+              <span className="text-xs text-white/70">{c.fecha}</span>
+            </div>
+
+            <div className="flex items-stretch gap-3 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-neutral-900">{c.proveedor}</p>
+                <p className="mt-0.5 truncate text-xs text-neutral-500">
+                  {c.items.map((i) => i.detalle).join(" · ")}
+                </p>
+
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                    <span
+                      className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[c.medioPago].tone])}
+                    />
+                    {medioPagoCfg[c.medioPago].label}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                    <span
+                      className={cn("h-1.5 w-1.5 rounded-full", dotClass[compraEstado[c.estado].tone])}
+                    />
+                    {compraEstado[c.estado].label}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-col items-center justify-center border-l border-neutral-100 pl-3 text-center">
+                <p className="text-base font-semibold tabular-nums">{fmtUsd(c.totalUsd)}</p>
+                {c.medioPago === "pesos" && c.montoArs != null && (
+                  <p className="text-[11px] tabular-nums text-neutral-400">{fmtArs(c.montoArs)}</p>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+        {filtered.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+            Sin compras para esta búsqueda.
+          </p>
+        )}
+      </div>
+
+      <Card className="hidden overflow-hidden md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -198,14 +279,14 @@ export function ComprasClient({
               {esAdmin && (
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
                 >
                   <Trash2 className="h-4 w-4" /> Eliminar compra
                 </button>
               )}
               <button
                 onClick={() => setOpenId(null)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
               >
                 Cerrar
               </button>
@@ -216,7 +297,7 @@ export function ComprasClient({
                     marcarRecibida(open.id);
                     setOpenId(null);
                   }}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50 sm:w-auto"
                 >
                   Marcar como recibida
                 </button>
@@ -265,28 +346,50 @@ function CompraDetalle({ compra }: { compra: Compra }) {
       : []),
   ];
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
-        <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
           Información general
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {metaFields.map((f) => (
-            <Card key={f.label} className="p-3 text-center">
-              <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <Card key={f.label} className="p-2 text-center">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 {f.label}
               </p>
-              <p className="mt-2 truncate text-sm font-normal text-neutral-600">{f.value}</p>
+              <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{f.value}</p>
             </Card>
           ))}
         </div>
       </div>
 
       <div>
-        <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
           Ítems
         </p>
-        <div className="overflow-hidden rounded-xl border border-neutral-200">
+        <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
+          {compra.items.map((i, idx) => (
+            <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2">
+              <span className="min-w-0 flex-1 truncate text-sm text-neutral-900">
+                {i.detalle}
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-neutral-400">×{i.cantidad}</span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">
+                {fmtUsd(i.cantidad * i.costoUsd)}
+              </span>
+            </div>
+          ))}
+          <div
+            className="flex items-center justify-between gap-2 px-3 py-2"
+            style={{ backgroundColor: "#edecf8" }}
+          >
+            <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
+              Total
+            </span>
+            <span className="text-sm font-semibold tabular-nums">{fmtUsd(compra.totalUsd)}</span>
+          </div>
+        </Card>
+        <div className="hidden overflow-hidden rounded-xl border border-neutral-200 md:block">
           <table className="w-full text-sm [&_td]:text-center [&_th]:text-center">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -378,14 +481,14 @@ function NuevaCompraDialog({
         <>
           <button
             onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
           >
             Cancelar
           </button>
           <button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             {pending ? "Registrando…" : "Registrar compra"}
           </button>

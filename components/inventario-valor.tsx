@@ -31,7 +31,7 @@ export function InventarioValor({
   const total = rows.reduce((a, r) => a + r.value, 0) || 1;
 
   return (
-    <Card className={cn("flex h-72 flex-col overflow-hidden p-4", className)}>
+    <Card className={cn("flex h-auto flex-col overflow-hidden p-4 lg:h-72", className)}>
       <ChartTitle align="left" divider>
         Valor de inventario
       </ChartTitle>
@@ -59,14 +59,14 @@ export function InventarioValor({
           ))}
         </div>
 
-        <ul className="mt-3 grid gap-2 text-[13px] sm:grid-cols-3">
+        <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[13px]">
           {rows.map((r, i) => (
-            <li key={r.label} className="flex items-center gap-2">
+            <li key={r.label} className="flex items-center gap-1.5">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
                 style={{ background: COLORS[i % COLORS.length] }}
               />
-              <span className="text-neutral-600">{r.label}</span>
+              <span className="whitespace-nowrap text-neutral-600">{r.label}</span>
             </li>
           ))}
         </ul>

@@ -82,14 +82,14 @@ export function Bienvenida({ negocio }: { negocio: Negocio }) {
           })}
         </Card>
 
-        <div className="flex items-center justify-between rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm">
+        <div className="flex flex-col items-stretch justify-between gap-3 rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm sm:flex-row sm:items-center">
           <div>
             <p className="text-sm font-medium text-neutral-900">¿Ya está todo listo?</p>
             <p className="text-[13px] text-neutral-500">
               Cargá tu primera venta -- el Dashboard se activa solo apenas hay una.
             </p>
           </div>
-          <Button shape="pill" onClick={() => router.push("/ventas")}>
+          <Button shape="pill" className="w-full sm:w-auto" onClick={() => router.push("/ventas")}>
             Ir a Ventas
           </Button>
         </div>

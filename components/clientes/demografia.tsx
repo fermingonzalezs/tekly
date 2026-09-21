@@ -22,13 +22,12 @@ export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]
     30,
     Math.ceil(Math.max(...rows.map((r) => r.pct)) / 10) * 10,
   );
-  const ticks = Array.from({ length: axisMax / 10 + 1 }, (_, i) => i * 10);
 
   return (
-    <Card className="flex h-72 flex-col p-5">
-      <div className="flex items-center justify-between gap-2">
+    <Card className="flex h-auto min-w-0 flex-col p-5 sm:h-72">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <ChartTitle align="left" divider>Demografía de clientes · edad</ChartTitle>
-        <div className="inline-flex rounded-lg bg-neutral-100 p-0.5">
+        <div className="inline-flex w-fit self-center rounded-lg bg-neutral-100 p-0.5 sm:self-auto">
           {PERIODOS.map((p) => (
             <button
               key={p.key}
@@ -52,7 +51,7 @@ export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]
             <div key={r.rango} className="flex items-center gap-3 text-sm">
               <span className="w-14 shrink-0 text-neutral-500">{r.rango}</span>
               <div
-                className="h-6 flex-1 overflow-hidden rounded-full"
+                className="h-6 min-w-0 flex-1 overflow-hidden rounded-full"
                 style={{ background: GHOST_STRIPES }}
               >
                 <div
@@ -68,16 +67,6 @@ export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]
               </span>
             </div>
           ))}
-        </div>
-
-        <div className="mt-2 flex items-center gap-3 text-[11px] text-neutral-400">
-          <span className="w-14 shrink-0" />
-          <div className="flex flex-1 justify-between">
-            {ticks.map((t) => (
-              <span key={t}>{t}%</span>
-            ))}
-          </div>
-          <span className="w-10 shrink-0" />
         </div>
       </div>
     </Card>

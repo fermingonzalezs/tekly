@@ -8,7 +8,7 @@ export async function FuenteClientes() {
   const menor = rows[rows.length - 1];
 
   return (
-    <Card className="flex h-72 flex-col p-5">
+    <Card className="flex h-auto min-w-0 flex-col p-5 sm:h-72">
       <ChartTitle align="left" divider>Fuente de clientes</ChartTitle>
 
       <div className="flex flex-1 flex-col justify-center">
@@ -35,7 +35,7 @@ export async function FuenteClientes() {
               {rows.map((r, i) => (
                 <div
                   key={r.label}
-                  className="flex flex-col items-center"
+                  className="flex min-w-0 flex-col items-center"
                   style={{ flexGrow: r.value, flexBasis: 0 }}
                 >
                   <span
@@ -45,7 +45,7 @@ export async function FuenteClientes() {
                   <p className="mt-1 font-grotesk text-xl font-semibold tabular-nums">
                     {r.value}
                   </p>
-                  <p className="text-xs leading-tight text-neutral-400">
+                  <p className="w-full truncate text-center text-xs leading-tight text-neutral-400">
                     {r.label}
                   </p>
                 </div>

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
 import { heatCell, DASH_HEAT } from "@/lib/chart";
+import { turnoTipo } from "@/lib/status";
 import type { Turno } from "@/lib/types";
 
 const DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
@@ -69,9 +70,9 @@ export function TurnosHeatmap({
         Turnos agendados
       </ChartTitle>
 
-      <div className="mt-3 flex gap-5 border-t border-neutral-100 pt-3">
+      <div className="mt-3 flex flex-col gap-5 border-t border-neutral-100 pt-3 sm:flex-row">
         {/* IZQUIERDA: próximos turnos */}
-        <div className="flex w-48 shrink-0 flex-col justify-center gap-2">
+        <div className="flex w-full flex-col justify-center gap-2 sm:w-48 sm:shrink-0">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
             Próximos
           </p>
@@ -84,14 +85,19 @@ export function TurnosHeatmap({
                 <span className="shrink-0 tabular-nums text-neutral-400">
                   {whenLabel(t.dayOffset)} {t.hora}
                 </span>
-                <span className="min-w-0 truncate">{t.cliente}</span>
+                <span className="min-w-0 truncate">
+                  {t.cliente}{" "}
+                  <span className="text-neutral-400">
+                    ({turnoTipo[t.tipo].label})
+                  </span>
+                </span>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* DERECHA: calendario */}
-        <div className="min-w-0 flex-1 border-l border-neutral-200 pl-5">
+        {/* DERECHA: calendario -- no entra en mobile, solo tablet+ */}
+        <div className="hidden min-w-0 flex-1 border-l border-neutral-200 pl-5 sm:block">
           {/* encabezado de días */}
           <div className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] gap-1">
             <span />

@@ -81,7 +81,45 @@ export function ConfiguracionClient({
                 Invitar usuario
               </button>
             </div>
-            <Card className="overflow-hidden">
+            <div className="space-y-2 md:hidden">
+              {miembros.map((u) => (
+                <Card key={u.id} className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-neutral-900">{u.nombre}</p>
+                      <p className="truncate text-xs text-neutral-500">{u.email}</p>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          u.activo ? dotClass.green : dotClass.gray,
+                        )}
+                      />
+                      {u.activo ? "Activo" : "Inactivo"}
+                    </span>
+                  </div>
+                  <div className="mt-2.5 border-t border-neutral-100 pt-2.5">
+                    <button
+                      onClick={() => setCambiandoRolDe(u)}
+                      className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
+                    >
+                      <span
+                        className={cn("h-1.5 w-1.5 rounded-full", dotClass[rolTone[u.rol]])}
+                      />
+                      {rolLabel[u.rol]}
+                    </button>
+                  </div>
+                </Card>
+              ))}
+              {miembros.length === 0 && (
+                <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+                  Sin usuarios todavía.
+                </p>
+              )}
+            </div>
+
+            <Card className="hidden overflow-hidden md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -195,14 +233,14 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
         <>
           <button
             onClick={cerrar}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
           >
             {enviada ? "Cerrar" : "Cancelar"}
           </button>
           <button
             onClick={enviar}
             disabled={pending || !email.trim() || !nombre.trim()}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             {pending ? "Invitando…" : "Invitar"}
           </button>
@@ -268,14 +306,14 @@ function CambiarRolDialog({
         <>
           <button
             onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
           >
             Cancelar
           </button>
           <button
             onClick={guardar}
             disabled={pending}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             {pending ? "Guardando…" : "Guardar"}
           </button>
@@ -328,7 +366,7 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
                 onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
               />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Teléfono">
                 <Input
                   value={form.telefono}

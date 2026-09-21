@@ -83,29 +83,62 @@ export function ClientesClient({
         {chartsOpen && <div className="mt-3">{charts}</div>}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar cliente…"
-            className={cn("w-64 pl-9", filterPill)}
+            className={cn("w-full pl-9", filterPill)}
           />
         </div>
-        <span className="text-sm text-neutral-400">
-          {filtered.length} cliente{filtered.length === 1 ? "" : "s"}
-        </span>
         <button
           onClick={() => setCreating(true)}
-          className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:ml-auto sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           Nuevo cliente
         </button>
       </div>
 
-      <Card className="overflow-hidden">
+      <div className="space-y-2 md:hidden">
+        {filtered.map((c) => (
+          <Card
+            key={c.id}
+            onClick={() => setOpen(c)}
+            className="cursor-pointer overflow-hidden p-0"
+          >
+            <div className="bg-[#352f86] px-4 py-2 text-white">
+              <p className="truncate text-sm font-semibold">{c.nombre}</p>
+            </div>
+            <div className="flex items-stretch gap-3 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs text-neutral-500">
+                  {c.telefono} · {c.email}
+                </p>
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                  <span>Cliente desde {c.desde}</span>
+                  <span>{c.compras} compras</span>
+                  <span>{c.reparaciones} reparaciones</span>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+                <p className="text-base font-semibold tabular-nums">
+                  {fmtUsd(c.gastadoUsd)}
+                </p>
+              </div>
+            </div>
+          </Card>
+        ))}
+        {filtered.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+            Sin clientes para esta búsqueda.
+          </p>
+        )}
+      </div>
+
+      <Card className="hidden overflow-hidden md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -164,20 +197,20 @@ export function ClientesClient({
               {esAdmin && (
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
                 >
                   <Trash2 className="h-4 w-4" /> Eliminar cliente
                 </button>
               )}
               <button
                 onClick={() => setOpen(null)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
               >
                 Cerrar
               </button>
               <button
                 onClick={() => setEditing(true)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
               >
                 Editar
               </button>
@@ -301,28 +334,65 @@ function Ficha({ cliente }: { cliente: Cliente }) {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div>
-        <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
           Información general
         </p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {infoFields.map((f) => (
-            <Card key={f.label} className="p-3 text-center">
-              <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <Card key={f.label} className="p-2 text-center">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 {f.label}
               </p>
-              <p className="mt-2 truncate text-sm font-normal text-neutral-600">{f.value}</p>
+              <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{f.value}</p>
             </Card>
           ))}
         </div>
       </div>
 
       <div>
-        <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
           Historial
         </p>
-        <div className="overflow-hidden rounded-xl border border-neutral-200 font-mono">
+
+        <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
+          {historial === null ? (
+            <p className="px-4 py-3 text-center text-[13px] text-neutral-400">Cargando…</p>
+          ) : filas.length === 0 ? (
+            <p className="px-4 py-3 text-center text-[13px] text-neutral-400">
+              Sin actividad registrada.
+            </p>
+          ) : (
+            filas.map((f) => (
+              <div key={f.key} className="px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-700">
+                    <span
+                      className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotClass[f.tipoTone])}
+                    />
+                    {f.tipo}
+                  </span>
+                  <span className="text-xs tabular-nums text-neutral-400">{f.fecha}</span>
+                </div>
+                <p className="mt-1 truncate text-sm text-neutral-800">{f.detalle}</p>
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-xs text-neutral-500">
+                    <span
+                      className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotClass[f.estadoTone])}
+                    />
+                    {f.estadoLabel}
+                  </span>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {f.monto != null ? fmtUsd(f.monto) : "—"}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </Card>
+
+        <div className="hidden overflow-hidden rounded-xl border border-neutral-200 font-mono md:block">
           <div className="grid grid-cols-[100px_110px_1fr_130px_84px] gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
             <span>Fecha</span>
             <span>Tipo</span>
@@ -437,14 +507,14 @@ function ClienteFormDialog({
         <>
           <button
             onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
           >
             Cancelar
           </button>
           <button
             onClick={submit}
             disabled={!nombre.trim() || pending}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             {pending ? "Guardando…" : cliente ? "Guardar" : "Crear cliente"}
           </button>

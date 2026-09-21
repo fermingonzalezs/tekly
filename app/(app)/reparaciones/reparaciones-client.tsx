@@ -10,6 +10,7 @@ import {
   Search,
   ChevronDown,
   ChevronUp,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -94,6 +95,7 @@ export function ReparacionesClient({
     tipo: "mercaderia" | "presupuesto" | "entrega";
   } | null>(null);
   const [chartsOpen, setChartsOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   const range =
@@ -197,8 +199,21 @@ export function ReparacionesClient({
           )}
         </div>
 
-        {/* pipeline resumen: siempre visible */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+        {/* pipeline resumen: siempre visible -- en mobile son 8 tarjetas
+            (demasiadas para esa altura), se reemplaza por un desplegable */}
+        <Select
+          value={estFilter}
+          onChange={(e) => setEstFilter(e.target.value as "todos" | TicketStatus)}
+          className={cn("w-full sm:hidden", filterPill)}
+        >
+          <option value="todos">Todos los estados ({list.length})</option>
+          {counts.map(({ s, n }) => (
+            <option key={s} value={s}>
+              {ticketStatus[s].label} ({n})
+            </option>
+          ))}
+        </Select>
+        <div className="hidden gap-3 sm:grid sm:grid-cols-4 xl:grid-cols-8">
           {counts.map(({ s, n }) => (
             <StatCard
               key={s}
@@ -212,10 +227,11 @@ export function ReparacionesClient({
         </div>
 
         {/* tabs + filtros + acción, todo en la misma fila */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
           <Tabs
             value={vista}
             onChange={setVista}
+            className="w-full justify-between md:w-auto md:justify-start"
             options={[
               { value: "tickets", label: "Tickets", count: list.length },
               { value: "servicios", label: "Servicios" },
@@ -223,85 +239,110 @@ export function ReparacionesClient({
           />
           {vista === "tickets" && (
             <>
-              <div className="relative">
+              <div className="relative w-full md:w-64">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                 <Input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Buscar por cliente, equipo o IMEI…"
-                  className={cn("w-64 pl-9", filterPill)}
+                  className={cn("w-full pl-9", filterPill)}
                 />
               </div>
-              <Select
-                value={tecFilter}
-                onChange={(e) => setTecFilter(e.target.value)}
-                className={cn("w-52", filterPill)}
+
+              <button
+                onClick={() => setFiltersOpen((v) => !v)}
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-3.5 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 md:hidden"
               >
-                <option value="todos">Todos los técnicos</option>
-                <option value="sin">Sin asignar</option>
-                {tecnicos.map((t) => (
-                  <option key={t.id} value={t.nombre}>
-                    {t.nombre}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                value={estFilter}
-                onChange={(e) =>
-                  setEstFilter(e.target.value as "todos" | TicketStatus)
-                }
-                className={cn("w-52", filterPill)}
+                <SlidersHorizontal className="h-4 w-4" />
+                Filtros
+                {filtersOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+
+              <div
+                className={cn(
+                  "flex-col gap-2 md:contents",
+                  filtersOpen ? "flex" : "hidden",
+                )}
               >
-                <option value="todos">Todos los estados</option>
-                {TICKET_FLOW.map((s) => (
-                  <option key={s} value={s}>
-                    {ticketStatus[s].label}
-                  </option>
-                ))}
-              </Select>
-              <Select
-                value={datePreset}
-                onChange={(e) => setDatePreset(e.target.value as DatePreset)}
-                className={cn("w-44", filterPill)}
-              >
-                {DATE_PRESETS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </Select>
-              {datePreset === "personalizado" && (
-                <>
-                  <Input
-                    type="date"
-                    value={desde}
-                    onChange={(e) => setDesde(e.target.value)}
-                    className={cn("w-36", filterPill)}
-                  />
-                  <span className="text-xs text-neutral-400">a</span>
-                  <Input
-                    type="date"
-                    value={hasta}
-                    onChange={(e) => setHasta(e.target.value)}
-                    className={cn("w-36", filterPill)}
-                  />
-                </>
-              )}
-              {datePreset !== "todos" && (
-                <button
-                  onClick={() => {
-                    setDatePreset("todos");
-                    setDesde("");
-                    setHasta("");
-                  }}
-                  className="text-xs text-neutral-400 hover:text-neutral-600"
+                <Select
+                  value={tecFilter}
+                  onChange={(e) => setTecFilter(e.target.value)}
+                  className={cn("w-full md:w-52", filterPill)}
                 >
-                  limpiar fecha
-                </button>
-              )}
+                  <option value="todos">Todos los técnicos</option>
+                  <option value="sin">Sin asignar</option>
+                  {tecnicos.map((t) => (
+                    <option key={t.id} value={t.nombre}>
+                      {t.nombre}
+                    </option>
+                  ))}
+                </Select>
+                {/* En mobile el estado ya se filtra con el desplegable del
+                    pipeline de arriba -- este queda solo de sm en adelante,
+                    al lado de las tarjetas. */}
+                <Select
+                  value={estFilter}
+                  onChange={(e) =>
+                    setEstFilter(e.target.value as "todos" | TicketStatus)
+                  }
+                  className={cn("hidden sm:block sm:w-52", filterPill)}
+                >
+                  <option value="todos">Todos los estados</option>
+                  {TICKET_FLOW.map((s) => (
+                    <option key={s} value={s}>
+                      {ticketStatus[s].label}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  value={datePreset}
+                  onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+                  className={cn("w-full md:w-44", filterPill)}
+                >
+                  {DATE_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </Select>
+                {datePreset === "personalizado" && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={desde}
+                      onChange={(e) => setDesde(e.target.value)}
+                      className={cn("w-full md:w-36", filterPill)}
+                    />
+                    <span className="text-xs text-neutral-400">a</span>
+                    <Input
+                      type="date"
+                      value={hasta}
+                      onChange={(e) => setHasta(e.target.value)}
+                      className={cn("w-full md:w-36", filterPill)}
+                    />
+                  </div>
+                )}
+                {datePreset !== "todos" && (
+                  <button
+                    onClick={() => {
+                      setDatePreset("todos");
+                      setDesde("");
+                      setHasta("");
+                    }}
+                    className="text-xs text-neutral-400 hover:text-neutral-600"
+                  >
+                    limpiar fecha
+                  </button>
+                )}
+              </div>
+
               <button
                 onClick={() => setCreating(true)}
-                className="ml-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft md:ml-auto md:w-auto"
               >
                 <Plus className="h-4 w-4" />
                 Nuevo ticket
@@ -316,7 +357,52 @@ export function ReparacionesClient({
             onSave={saveServicioAction}
           />
         ) : (
-          <Card className="overflow-hidden">
+          <>
+        <div className="space-y-2 md:hidden">
+          {filtered.map((t) => (
+            <Card
+              key={t.id}
+              onClick={() => setOpenId(t.id)}
+              className="cursor-pointer overflow-hidden p-0"
+            >
+              <div className="flex items-center justify-between gap-2 bg-[#352f86] px-4 py-2 text-white">
+                <span className="text-sm font-semibold">#{t.id}</span>
+                <span className="text-xs text-white/70">{t.ingreso}</span>
+              </div>
+
+              <div className="flex items-stretch gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-neutral-900">{t.cliente}</p>
+                  <p className="mt-0.5 truncate text-xs text-neutral-500">
+                    {t.equipo} · {t.falla}
+                  </p>
+
+                  <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                    <span>{t.tecnico ?? "Sin asignar"}</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                      <span
+                        className={cn("h-1.5 w-1.5 rounded-full", dotClass[ticketStatus[t.estado].tone])}
+                      />
+                      {ticketStatus[t.estado].label}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+                  <p className="text-base font-semibold tabular-nums">
+                    {t.presupuestoUsd ? fmtUsd(t.presupuestoUsd) : "—"}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          ))}
+          {filtered.length === 0 && (
+            <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+              No hay tickets con estos filtros.
+            </p>
+          )}
+        </div>
+        <Card className="hidden overflow-hidden md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -394,6 +480,7 @@ export function ReparacionesClient({
             </tbody>
           </table>
         </Card>
+        </>
         )}
       </div>
 
@@ -411,27 +498,27 @@ export function ReparacionesClient({
               {esAdmin && (
                 <button
                   onClick={() => setConfirmDelete(true)}
-                  className="mr-auto flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
                 >
                   <Trash2 className="h-4 w-4" /> Eliminar ticket
                 </button>
               )}
               <button
                 onClick={() => setOpenId(null)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
               >
                 Cerrar
               </button>
               <button
                 onClick={() => setRecibo({ ticket: open, tipo: "mercaderia" })}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
               >
                 <FileText className="h-4 w-4" /> Recibo de mercadería
               </button>
               {open.servicios.length > 0 && (
                 <button
                   onClick={() => setRecibo({ ticket: open, tipo: "presupuesto" })}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
                 >
                   <FileText className="h-4 w-4" /> Presupuesto
                 </button>
@@ -439,7 +526,7 @@ export function ReparacionesClient({
               {["listo", "entregado"].includes(open.estado) && (
                 <button
                   onClick={() => setRecibo({ ticket: open, tipo: "entrega" })}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
                 >
                   <FileText className="h-4 w-4" /> Recibo de entrega
                 </button>
@@ -448,7 +535,7 @@ export function ReparacionesClient({
                 ["diagnosticado", "presupuestado"].includes(open.estado) && (
                   <button
                     onClick={() => aplicarEstado(open.id, "aprobado")}
-                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                    className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
                   >
                     <Check className="h-4 w-4" /> Aprobar presupuesto
                   </button>
@@ -460,7 +547,7 @@ export function ReparacionesClient({
                       ? aplicarEstado(open.id, "listo")
                       : advance(open.id)
                   }
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90"
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
                 >
                   {["en_reparacion", "esperando_repuesto"].includes(open.estado) ? (
                     <>Marcar listo</>
@@ -478,33 +565,33 @@ export function ReparacionesClient({
         }
       >
         {open && (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div>
-              <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                 Información general
               </p>
               <div className="grid grid-cols-3 gap-3">
-                <Card className="p-3 text-center">
-                  <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                <Card className="p-2 text-center">
+                  <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                     IMEI
                   </p>
-                  <p className="mt-2 truncate text-sm font-normal text-neutral-600">
+                  <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
                     {open.imei}
                   </p>
                 </Card>
-                <Card className="p-3 text-center">
-                  <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                <Card className="p-2 text-center">
+                  <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                     Técnico
                   </p>
-                  <p className="mt-2 truncate text-sm font-normal text-neutral-600">
+                  <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
                     {open.tecnico ?? "Sin asignar"}
                   </p>
                 </Card>
-                <Card className="p-3 text-center">
-                  <p className="font-grotesk border-b border-neutral-300 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                <Card className="p-2 text-center">
+                  <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                     Estado
                   </p>
-                  <div className="mt-2 flex justify-center">
+                  <div className="mt-1.5 flex justify-center">
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                       <span
                         className={cn(
@@ -520,7 +607,7 @@ export function ReparacionesClient({
             </div>
 
             <div>
-              <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                 Falla reportada
               </p>
               <p className="text-sm">{open.falla}</p>
@@ -528,7 +615,7 @@ export function ReparacionesClient({
 
             {/* stepper */}
             <div>
-              <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                 Progreso
               </p>
               <ol className="flex flex-wrap justify-center gap-1.5">
@@ -554,31 +641,50 @@ export function ReparacionesClient({
 
             {/* servicios */}
             <div>
-              <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
                 Servicios asociados
               </p>
-              <div className="overflow-hidden rounded-xl border border-neutral-200">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className={cn("px-4 py-2 text-start", thDivider)}>
-                        Servicio
-                      </th>
-                      <th className="px-4 py-2 text-end">Precio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {open.servicios.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={2}
-                          className="px-4 py-3 text-center text-neutral-400"
-                        >
-                          Sin servicios cargados todavía.
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
+              {open.servicios.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
+                  Sin servicios cargados todavía.
+                </p>
+              ) : (
+                <>
+                  <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
+                    {open.servicios.map((s, i) => (
+                      <div key={i} className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="flex min-w-0 flex-1 items-center gap-2 truncate text-sm text-neutral-900">
+                          <Wrench className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                          <span className="truncate">{s.nombre}</span>
+                        </span>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums">
+                          {fmtUsd(s.precioUsd)}
+                        </span>
+                      </div>
+                    ))}
+                    <div
+                      className="flex items-center justify-between gap-2 px-3 py-2"
+                      style={{ backgroundColor: "#edecf8" }}
+                    >
+                      <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
+                        Presupuesto total
+                      </span>
+                      <span className="text-sm font-semibold tabular-nums">
+                        {fmtUsd(open.presupuestoUsd)}
+                      </span>
+                    </div>
+                  </Card>
+                  <div className="hidden overflow-hidden rounded-xl border border-neutral-200 md:block">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr>
+                          <th className={cn("px-4 py-2 text-start", thDivider)}>
+                            Servicio
+                          </th>
+                          <th className="px-4 py-2 text-end">Precio</th>
+                        </tr>
+                      </thead>
+                      <tbody>
                         {open.servicios.map((s, i) => (
                           <tr key={i}>
                             <td className="px-4 py-2.5 text-start">
@@ -606,11 +712,11 @@ export function ReparacionesClient({
                             {fmtUsd(open.presupuestoUsd)}
                           </td>
                         </tr>
-                      </>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
 
             {open.nota && (
@@ -783,11 +889,12 @@ function NuevoTicketDialog({
       description="Se crea en estado «Recibido»."
       footer={
         <>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClose}>
             Cancelar
           </Button>
           <Button
             size="sm"
+            className="w-full sm:w-auto"
             disabled={!equipo || !falla || !cliente || pending}
             onClick={submit}
           >
