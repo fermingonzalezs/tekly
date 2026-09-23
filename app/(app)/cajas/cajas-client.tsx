@@ -232,23 +232,23 @@ export function CajasClient({
           </button>
         </div>
       </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className={HEAD}>
+          {vista === "dia" ? "Movimientos desde la conciliación" : "Historial de movimientos"}
+        </p>
+        <Tabs
+          value={vista}
+          onChange={setVista}
+          className="w-full justify-between sm:w-auto sm:justify-start"
+          options={[
+            { value: "dia", label: "Desde conciliación" },
+            { value: "historial", label: "Historial" },
+          ]}
+        />
+      </div>
+
       <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_320px]">
         <Card className="overflow-hidden">
-          <div className="flex flex-col gap-2 border-b border-neutral-100 px-5 pt-5 pb-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className={HEAD}>
-              {vista === "dia" ? "Movimientos desde la conciliación" : "Historial de movimientos"}
-            </p>
-            <Tabs
-              value={vista}
-              onChange={setVista}
-              className="w-full justify-between sm:w-auto sm:justify-start"
-              options={[
-                { value: "dia", label: "Desde conciliación" },
-                { value: "historial", label: "Historial" },
-              ]}
-            />
-          </div>
-
           <div className="space-y-2 p-3 md:hidden">
             {movs.map((m) => (
               <button

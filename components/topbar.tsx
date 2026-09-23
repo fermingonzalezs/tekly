@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 
 export function Topbar({ toolbar }: { toolbar?: React.ReactNode }) {
   return (
-    <div className="sticky top-16 z-20 flex h-14 items-center gap-4 border-b border-neutral-200 bg-neutral-50/85 px-8 backdrop-blur">
+    <div className="sticky top-16 z-20 flex h-14 items-center gap-4 border-b border-neutral-200 bg-neutral-50/85 px-4 backdrop-blur sm:px-8">
       {toolbar}
       <div className="relative ml-auto hidden sm:block">
         <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />

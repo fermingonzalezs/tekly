@@ -355,3 +355,91 @@ export async function setMemberRole(
   });
   return { error: error?.message ?? null };
 }
+
+/** Valida que `targetProfileId` sea un perfil de la misma organización que
+ * el admin que llama -- chequeo común a `deactivateMember`/`setMemberEmail`,
+ * que no pueden pasar por una RPC (necesitan el admin API de Auth, que solo
+ * está disponible server-side vía service role, no en SQL). */
+async function requireMemberOfCallerOrg(
+  service: ReturnType<typeof createServiceRoleClient>,
+  callerOrgId: string,
+  targetProfileId: string,
+): Promise<string | null> {
+  const { data: target, error } = await service
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", targetProfileId)
+    .maybeSingle();
+  if (error) return error.message;
+  if (!target || target.organization_id !== callerOrgId) {
+    return "El usuario no pertenece a tu organización.";
+  }
+  return null;
+}
+
+/** Da de baja a un miembro de la organización. Nunca un `DELETE` real:
+ * `tickets.tecnico_id`, `ventas.vendedor_id`, `movimientos_caja.usuario_id`,
+ * etc. referencian `profiles.id` sin cascada -- borrar la fila rompería en
+ * cuanto el usuario tuviera algo de historial (una venta, un ticket
+ * asignado). Mismo criterio de "baja lógica" que equipos/repuestos/otros:
+ * `profiles.activo = false` (ya mostrado como "Inactivo" en la UI) +
+ * `ban_duration` en Supabase Auth para que además no pueda loguearse de
+ * nuevo -- Supabase revalida el ban al refrescar el token, así que también
+ * corta una sesión ya abierta, no solo logins futuros. No hay vía para
+ * reactivar todavía (no se pidió); si hace falta, es levantar el ban con
+ * `ban_duration: "none"` + `activo = true`. */
+export async function deactivateMember(targetProfileId: string): Promise<AuthResult> {
+  const caller = await requireRole("admin");
+  if (targetProfileId === caller.id) {
+    return { error: "No podés eliminar tu propio usuario." };
+  }
+
+  const service = createServiceRoleClient();
+  const orgError = await requireMemberOfCallerOrg(service, caller.organizationId, targetProfileId);
+  if (orgError) return { error: orgError };
+
+  const { error: banError } = await service.auth.admin.updateUserById(targetProfileId, {
+    ban_duration: "876000h",
+  });
+  if (banError) return { error: banError.message };
+
+  const { error: profileError } = await service
+    .from("profiles")
+    .update({ activo: false })
+    .eq("id", targetProfileId);
+  if (profileError) return { error: profileError.message };
+
+  return { error: null };
+}
+
+/** Re-vincula la cuenta de un miembro a otro email (se equivocaron al
+ * invitar, o el empleado cambió de casilla) -- admin-only. Va directo por
+ * el admin API con `email_confirm: true`: es un cambio administrativo, no
+ * autoservicio, no hace falta que el mail nuevo confirme por link (eso es
+ * el flujo de `/auth/confirm` para el propio usuario). `profiles.email`
+ * es una copia desnormalizada para no tener que ir a `auth.users` en cada
+ * lectura -- se actualiza en el mismo paso para no desincronizarse. */
+export async function setMemberEmail(
+  targetProfileId: string,
+  nuevoEmail: string,
+): Promise<AuthResult> {
+  const caller = await requireRole("admin");
+
+  const service = createServiceRoleClient();
+  const orgError = await requireMemberOfCallerOrg(service, caller.organizationId, targetProfileId);
+  if (orgError) return { error: orgError };
+
+  const { error: authError } = await service.auth.admin.updateUserById(targetProfileId, {
+    email: nuevoEmail,
+    email_confirm: true,
+  });
+  if (authError) return { error: authError.message };
+
+  const { error: profileError } = await service
+    .from("profiles")
+    .update({ email: nuevoEmail })
+    .eq("id", targetProfileId);
+  if (profileError) return { error: profileError.message };
+
+  return { error: null };
+}

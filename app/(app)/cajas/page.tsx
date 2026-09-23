@@ -1,10 +1,11 @@
 import { Section } from "@/components/section";
-import { requireUser } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { listCajas, listConciliaciones, listMovimientos } from "@/lib/db/cajas";
 import { CajasClient } from "./cajas-client";
 
+// Financiero -- no es una sección para vendedores.
 export default async function CajasPage() {
-  const user = await requireUser();
+  const user = await requireRole("admin", "tecnico");
   const [cajas, movimientosSinConciliar, movimientosTodos, conciliaciones] = await Promise.all([
     listCajas(),
     listMovimientos({ soloSinConciliar: true }),

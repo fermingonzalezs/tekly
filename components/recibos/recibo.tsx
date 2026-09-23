@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { Printer, ShieldCheck } from "lucide-react";
+import { Printer, ShieldCheck, Store } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { negocio as negocioSeed } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
@@ -11,13 +11,12 @@ type Negocio = { nombre: string; direccion: string; telefono: string; cuit: stri
 export type ReciboPagina = { titulo: string; children: React.ReactNode };
 
 /** Una hoja individual -- lo que imprime `page-break-after` como una página
- * propia. Banda superior en `accent` con el nombre del negocio como hero (en
- * `font-grotesk`, mismo tratamiento que un número hero de `StatCard` --
- * este documento es de ELLOS, no de Tekly, así que la marca del negocio
- * lidera y "Tekly" queda como crédito chico en el pie) + bloque "A nombre
- * de" con el cliente y el título/número/fecha del documento -- las tablas
- * de `ReciboLineas`/`ReciboGarantiaItems` ya salen con el header índigo
- * oscuro de las tablas globales (`app/globals.css`), sin pedirlo a mano. */
+ * propia. Banda superior en `accent` con el título/número/fecha del
+ * documento en blanco + un ícono placeholder de logo a la derecha (todavía
+ * no hay campo de logo real en Configuración) + dos tarjetas "Facturado
+ * por"/"Facturado a" (negocio / cliente) -- las tablas de
+ * `ReciboLineas`/`ReciboGarantiaItems` ya salen con el header índigo oscuro
+ * de las tablas globales (`app/globals.css`), sin pedirlo a mano. */
 function ReciboHoja({
   titulo,
   nro,
@@ -34,39 +33,46 @@ function ReciboHoja({
   children: React.ReactNode;
 }) {
   return (
-    <div className="recibo-print overflow-hidden rounded-xl border border-neutral-200 bg-white text-neutral-900">
-      <div className="flex items-start justify-between gap-6 bg-accent px-6 py-5 text-white">
-        <p className="font-grotesk text-2xl font-semibold tracking-tight">
-          {negocio.nombre}
-        </p>
-        <div className="shrink-0 text-right text-xs text-white/70">
-          <p>{negocio.direccion}</p>
-          <p>
-            CUIT {negocio.cuit} · {negocio.telefono}
+    <div className="recibo-print flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-neutral-900 print:min-h-screen">
+      <div className="flex items-center justify-between gap-6 bg-accent px-8 py-6 text-white print:px-[14mm] print:py-8">
+        <div>
+          <p className="font-grotesk text-3xl font-semibold uppercase tracking-tight">{titulo}</p>
+          <p className="mt-2 font-grotesk text-xs tabular-nums text-white/80">
+            {fecha} - {nro}
           </p>
+        </div>
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15">
+          <Store className="h-6 w-6" />
         </div>
       </div>
 
-      <div className="px-6 py-5">
-        <div className="flex items-start justify-between gap-6 border-b border-neutral-200 pb-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-              A nombre de
+      <div className="flex flex-1 flex-col px-6 py-5 print:px-[14mm] print:py-8">
+        <div className="grid grid-cols-2 gap-4 border-b border-accent/15 pb-5">
+          <div className="rounded-lg bg-accent-soft p-4">
+            <p className="border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
+              Facturado por
             </p>
-            <p className="mt-1 text-sm font-semibold">{cliente}</p>
+            <div className="pt-3">
+              <p className="font-grotesk text-base font-semibold">{negocio.nombre}</p>
+              <p className="mt-1 text-xs text-neutral-500">{negocio.direccion}</p>
+              <p className="text-xs text-neutral-500">
+                CUIT {negocio.cuit} · {negocio.telefono}
+              </p>
+            </div>
           </div>
-          <div className="shrink-0 text-right">
-            <p className="text-lg font-bold uppercase tracking-wide text-accent">
-              {titulo}
+          <div className="rounded-lg bg-accent-soft p-4">
+            <p className="border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
+              Facturado a
             </p>
-            <p className="text-xs text-neutral-500">{fecha}</p>
-            <p className="text-xs font-medium tabular-nums text-neutral-500">{nro}</p>
+            <div className="pt-3">
+              <p className="font-grotesk text-base font-semibold">{cliente}</p>
+            </div>
           </div>
         </div>
 
         <div className="text-sm">{children}</div>
 
-        <div className="mt-10 grid grid-cols-2 gap-10 text-xs text-neutral-500">
+        <div className="mt-auto grid grid-cols-2 gap-10 pt-10 text-xs text-neutral-500">
           <div className="border-t border-neutral-300 pt-1 text-center">
             Firma del cliente · aclaración
           </div>
@@ -74,9 +80,15 @@ function ReciboHoja({
             Firma y sello — {negocio.nombre}
           </div>
         </div>
-        <p className="mt-4 text-[10px] text-neutral-400">
-          Documento no válido como factura. Comprobante interno de{" "}
-          {titulo.toLowerCase()}. · {negocio.telefono} · generado con Tekly
+      </div>
+
+      <div className="shrink-0 bg-accent px-6 py-3 text-center print:px-[14mm]">
+        <p className="text-[10px] text-white/70">
+          Documento no válido como factura · Comprobante interno de{" "}
+          {titulo.toLowerCase()}
+        </p>
+        <p className="mt-1 text-[11px] font-semibold text-white">
+          Hecho con Tekly · tekly.tech
         </p>
       </div>
     </div>
@@ -109,7 +121,7 @@ export function ReciboShell({
   return (
     <div>
       {hojas.map((h, i) => (
-        <div key={i} className={i > 0 ? "mt-4" : undefined}>
+        <div key={i} className={i > 0 ? "mt-4 print:mt-0" : undefined}>
           {multi && (
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400 print:hidden">
               Página {i + 1} de {hojas.length} · {h.titulo}
@@ -226,45 +238,61 @@ export function ReciboCampos({
 }
 
 /** Tabla de ítems del recibo. `serial` es opcional por línea -- en cuanto
- * alguna lo trae, la tabla pasa a columnas explícitas (Ítem/Serial/Cant./
- * Total) con header; si ninguna lo trae, queda el formato compacto de
- * siempre ("2× Detalle" + un monto), sin romper los usos existentes
- * (servicios de Reparaciones, forma de pago) que no tienen serial. */
+ * alguna lo trae, la tabla pasa a columnas explícitas (Producto/Serial/
+ * Cantidad/Precio) con header; si ninguna lo trae, queda el formato
+ * compacto de siempre ("2× Detalle" + un monto), sin romper los usos
+ * existentes (servicios de Reparaciones, forma de pago) que no tienen
+ * serial. */
 export function ReciboLineas({
   titulo,
   lineas,
   total,
+  forzarTabla = false,
 }: {
   titulo: string;
-  lineas: { detalle: string; cantidad?: number; montoUsd: number; serial?: string }[];
+  lineas: {
+    detalle: string;
+    cantidad?: number;
+    montoUsd: number;
+    serial?: string;
+    /** Texto ya formateado para la columna de monto -- pisa `fmtUsd(montoUsd)`
+     * cuando el pago fue en otra moneda (ej. "Forma de pago" con un medio
+     * en pesos: `montoUsd` sigue siendo el valor en dólares que se
+     * concilia, pero acá hay que mostrar lo que el cliente entregó). */
+    montoLabel?: string;
+  }[];
   total?: number;
+  /** Fuerza el formato de columnas (Producto/Serial/Cantidad/Precio) aunque
+   * ninguna línea traiga `serial` -- el "Detalle" del comprobante de venta
+   * lo necesita siempre, no solo cuando hay algún equipo con IMEI. */
+  forzarTabla?: boolean;
 }) {
-  const conSerial = lineas.some((l) => l.serial);
+  const conSerial = forzarTabla || lineas.some((l) => l.serial);
   return (
     <div className="mt-5">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+      <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
         {titulo}
       </p>
-      <table className="w-full border border-neutral-200 text-sm">
+      <table className="w-full border border-accent/15 text-sm">
         {conSerial && (
           <thead>
             <tr>
-              <th className="px-3 py-2 text-start">Ítem</th>
-              <th className="px-3 py-2 text-start">Serial</th>
-              <th className="px-3 py-2 text-center">Cant.</th>
-              <th className="px-3 py-2 text-end">Total</th>
+              <th className="px-3 py-2 text-start">Producto</th>
+              <th className="px-3 py-2 text-center">Serial</th>
+              <th className="px-3 py-2 text-center">Cantidad</th>
+              <th className="px-3 py-2 text-center">Precio</th>
             </tr>
           </thead>
         )}
         <tbody>
           {lineas.map((l, i) => (
-            <tr key={i} className="border-b border-neutral-100 last:border-b-0">
+            <tr key={i} className="border-b border-accent/10 last:border-b-0">
               <td className="px-3 py-2 text-start">
                 {!conSerial && l.cantidad ? `${l.cantidad}× ` : ""}
                 {l.detalle}
               </td>
               {conSerial && (
-                <td className="px-3 py-2 text-start font-mono text-[11px] tabular-nums text-neutral-500">
+                <td className="px-3 py-2 text-center font-mono text-[11px] tabular-nums text-neutral-500">
                   {l.serial ?? "—"}
                 </td>
               )}
@@ -273,20 +301,24 @@ export function ReciboLineas({
                   {l.cantidad ?? 1}
                 </td>
               )}
-              <td className="px-3 py-2 text-end font-medium tabular-nums">
-                {fmtUsd(l.montoUsd)}
+              <td
+                className={`px-3 py-2 font-medium tabular-nums ${conSerial ? "text-center" : "text-end"}`}
+              >
+                {l.montoLabel ?? fmtUsd(l.montoUsd)}
               </td>
             </tr>
           ))}
           {total !== undefined && (
-            <tr className="border-t border-neutral-300">
+            <tr className="border-t border-accent/30 bg-accent/20">
               <td
                 className="px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide text-neutral-500"
                 colSpan={conSerial ? 3 : 1}
               >
                 Total
               </td>
-              <td className="px-3 py-2 text-end font-grotesk text-base font-semibold tabular-nums">
+              <td
+                className={`px-3 py-2 font-grotesk text-lg font-semibold tabular-nums ${conSerial ? "text-center" : "text-end"}`}
+              >
                 {fmtUsd(total)}
               </td>
             </tr>
@@ -307,7 +339,7 @@ export function ReciboGarantiaItems({
 }) {
   return (
     <div className="mt-5">
-      <table className="w-full border border-neutral-200 text-sm">
+      <table className="w-full border border-accent/15 text-sm">
         <thead>
           <tr>
             <th className="px-3 py-2 text-start">Ítem</th>
@@ -318,7 +350,7 @@ export function ReciboGarantiaItems({
         </thead>
         <tbody>
           {items.map((it, i) => (
-            <tr key={i} className="border-b border-neutral-100 last:border-b-0">
+            <tr key={i} className="border-b border-accent/10 last:border-b-0">
               <td className="px-3 py-2 text-start">{it.detalle}</td>
               <td className="px-3 py-2 text-start font-mono text-[11px] tabular-nums text-neutral-500">
                 {it.serial ?? "—"}

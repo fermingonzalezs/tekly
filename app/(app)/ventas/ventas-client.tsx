@@ -30,7 +30,7 @@ import {
   type ReciboPagina,
 } from "@/components/recibos/recibo";
 import { medioPago as medioPagoCfg, dotClass } from "@/lib/status";
-import { fmtUsd, fmtArs } from "@/lib/format";
+import { fmtUsd, fmtArs, fmtDateSlash } from "@/lib/format";
 import { otroCostoPromedio } from "@/lib/otros";
 import {
   calcularMargenPct,
@@ -126,6 +126,10 @@ export function VentasClient({
   const { publish } = useRealtime();
   const dolarVenta = useDolar().venta;
   const esAdmin = user.rol === "admin";
+  // Vendedor no ve costo/margen de las ventas -- eso expone el precio de
+  // compra del ítem vendido (margen = 1 - costo/precio, con el precio ya
+  // visible alcanza para despejarlo).
+  const puedeVerCosto = user.rol !== "vendedor";
   const [list, setList] = useState<Venta[]>(initialVentas);
   const [vista, setVista] = useState<"ventas" | "items">("ventas");
   const [vendFilter, setVendFilter] = useState("todos");
@@ -223,17 +227,12 @@ export function VentasClient({
     recibo?.tipo === "venta"
       ? [
           {
-            titulo: "Comprobante de venta",
+            titulo: "Recibo",
             children: (
               <>
-                <ReciboCampos
-                  filas={[
-                    ["Vendedor", recibo.venta.vendedor],
-                    ["Procedencia", recibo.venta.procedencia ?? "—"],
-                  ]}
-                />
                 <ReciboLineas
                   titulo="Detalle"
+                  forzarTabla
                   lineas={recibo.venta.items.map((i) => ({
                     detalle: i.detalle,
                     cantidad: i.cantidad,
@@ -247,6 +246,7 @@ export function VentasClient({
                   lineas={recibo.venta.pagos.map((p) => ({
                     detalle: medioPagoCfg[p.medio].label,
                     montoUsd: p.montoUsd,
+                    montoLabel: fmtPago(p.medio, p.montoUsd, dolarVenta),
                   }))}
                 />
               </>
@@ -296,11 +296,19 @@ export function VentasClient({
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatCard align="left" label="Operaciones" value={filtered.length} />
           <StatCard align="left" label="Facturado" value={fmtUsd(totalUsd)} />
-          <StatCard
-            align="left"
-            label="Margen promedio"
-            value={`${margenProm.toFixed(1)}%`}
-          />
+          {puedeVerCosto ? (
+            <StatCard
+              align="left"
+              label="Margen promedio"
+              value={`${margenProm.toFixed(1)}%`}
+            />
+          ) : (
+            <StatCard
+              align="left"
+              label="Ítems vendidos"
+              value={filtered.reduce((a, v) => a + v.items.length, 0)}
+            />
+          )}
           <StatCard
             align="left"
             label="Ticket promedio"
@@ -453,20 +461,24 @@ export function VentasClient({
                     <p className="text-[11px] uppercase text-neutral-400">Precio</p>
                     <p className="text-sm tabular-nums">{fmtUsd(i.precioUsd)}</p>
                   </div>
-                  <div>
-                    <p className="text-[11px] uppercase text-neutral-400">Costo</p>
-                    <p className="text-sm tabular-nums text-neutral-500">
-                      {i.costoUsd !== undefined ? fmtUsd(i.costoUsd) : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] uppercase text-neutral-400">Margen</p>
-                    <p className="text-sm font-semibold tabular-nums">
-                      {i.costoUsd !== undefined
-                        ? `${calcularMargenPct(i.precioUsd, i.costoUsd).toFixed(1)}%`
-                        : "—"}
-                    </p>
-                  </div>
+                  {puedeVerCosto && (
+                    <>
+                      <div>
+                        <p className="text-[11px] uppercase text-neutral-400">Costo</p>
+                        <p className="text-sm tabular-nums text-neutral-500">
+                          {i.costoUsd !== undefined ? fmtUsd(i.costoUsd) : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase text-neutral-400">Margen</p>
+                        <p className="text-sm font-semibold tabular-nums">
+                          {i.costoUsd !== undefined
+                            ? `${calcularMargenPct(i.precioUsd, i.costoUsd).toFixed(1)}%`
+                            : "—"}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </Card>
             ))}
@@ -487,8 +499,10 @@ export function VentasClient({
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Categoría</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Cant.</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Precio</th>
-                  <th className={cn("px-5 py-3 text-center", thDivider)}>Costo</th>
-                  <th className="px-5 py-3 text-center">Margen</th>
+                  {puedeVerCosto && (
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>Costo</th>
+                  )}
+                  {puedeVerCosto && <th className="px-5 py-3 text-center">Margen</th>}
                 </tr>
               </thead>
               <tbody>
@@ -522,20 +536,24 @@ export function VentasClient({
                     <td className="px-5 py-2 text-center tabular-nums">
                       {fmtUsd(i.precioUsd)}
                     </td>
-                    <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
-                      {i.costoUsd !== undefined ? fmtUsd(i.costoUsd) : "—"}
-                    </td>
-                    <td className="px-5 py-2 text-center tabular-nums font-semibold">
-                      {i.costoUsd !== undefined
-                        ? `${calcularMargenPct(i.precioUsd, i.costoUsd).toFixed(1)}%`
-                        : "—"}
-                    </td>
+                    {puedeVerCosto && (
+                      <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                        {i.costoUsd !== undefined ? fmtUsd(i.costoUsd) : "—"}
+                      </td>
+                    )}
+                    {puedeVerCosto && (
+                      <td className="px-5 py-2 text-center tabular-nums font-semibold">
+                        {i.costoUsd !== undefined
+                          ? `${calcularMargenPct(i.precioUsd, i.costoUsd).toFixed(1)}%`
+                          : "—"}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {itemRows.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={puedeVerCosto ? 9 : 7}
                       className="px-5 py-10 text-center text-sm text-neutral-400"
                     >
                       Sin ítems para estos filtros.
@@ -556,6 +574,7 @@ export function VentasClient({
               dolarVenta={dolarVenta}
               onOpen={() => setOpenId(v.id)}
               onRecibo={() => setRecibo({ venta: v, tipo: "venta" })}
+              puedeVerCosto={puedeVerCosto}
             />
           ))}
           {filtered.length === 0 && (
@@ -572,8 +591,12 @@ export function VentasClient({
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Cliente</th>
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Detalle</th>
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Pago</th>
-                <th className={cn("px-5 py-3 text-center", thDivider)}>Costo</th>
-                <th className={cn("px-5 py-3 text-center", thDivider)}>Margen</th>
+                {puedeVerCosto && (
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Costo</th>
+                )}
+                {puedeVerCosto && (
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Margen</th>
+                )}
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Total</th>
                 <th className="px-5 py-3 text-center">Acciones</th>
               </tr>
@@ -623,12 +646,16 @@ export function VentasClient({
                       )}
                     </div>
                   </td>
-                  <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
-                    {fmtUsd(ventaCosto(v))}
-                  </td>
-                  <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
-                    {v.margenPct.toFixed(1)}%
-                  </td>
+                  {puedeVerCosto && (
+                    <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                      {fmtUsd(ventaCosto(v))}
+                    </td>
+                  )}
+                  {puedeVerCosto && (
+                    <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                      {v.margenPct.toFixed(1)}%
+                    </td>
+                  )}
                   <td className="px-5 py-2 text-center font-semibold tabular-nums">
                     {fmtUsd(v.totalUsd)}
                   </td>
@@ -649,7 +676,7 @@ export function VentasClient({
               {filtered.length === 0 && (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={puedeVerCosto ? 8 : 6}
                     className="px-5 py-10 text-center text-sm text-neutral-400"
                   >
                     Sin ventas para estos filtros.
@@ -676,6 +703,7 @@ export function VentasClient({
         cajas={cajas}
         negocio={negocio}
         dolarVenta={dolarVenta}
+        puedeVerCosto={puedeVerCosto}
         onCreate={(v) => {
           setList((prev) => [v, ...prev]);
           setCreating(false);
@@ -737,7 +765,7 @@ export function VentasClient({
           )
         }
       >
-        {open && <VentaDetalle venta={open} />}
+        {open && <VentaDetalle venta={open} puedeVerCosto={puedeVerCosto} />}
       </Dialog>
 
       <ConfirmDialog
@@ -809,10 +837,10 @@ export function VentasClient({
         open={!!recibo}
         onClose={() => setRecibo(null)}
         titulo={
-          recibo?.tipo === "canje" ? "Recibo de equipo en parte de pago" : "Comprobante de venta"
+          recibo?.tipo === "canje" ? "Recibo de equipo en parte de pago" : "Recibo"
         }
         nro={recibo?.venta.id ?? ""}
-        fecha={recibo?.venta.fecha ?? ""}
+        fecha={recibo ? fmtDateSlash(recibo.venta.fechaISO) : ""}
         cliente={recibo?.venta.cliente ?? ""}
         negocio={negocio}
         paginas={paginasVenta}
@@ -869,11 +897,13 @@ function VentaCardMobile({
   dolarVenta,
   onOpen,
   onRecibo,
+  puedeVerCosto,
 }: {
   venta: Venta;
   dolarVenta: number;
   onOpen: () => void;
   onRecibo: () => void;
+  puedeVerCosto: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const pagosVisibles = expanded ? v.pagos : v.pagos.slice(0, 1);
@@ -906,8 +936,12 @@ function VentaCardMobile({
           </p>
 
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
-            <span>Costo {fmtUsd(ventaCosto(v))}</span>
-            <span>Margen {v.margenPct.toFixed(1)}%</span>
+            {puedeVerCosto && (
+              <>
+                <span>Costo {fmtUsd(ventaCosto(v))}</span>
+                <span>Margen {v.margenPct.toFixed(1)}%</span>
+              </>
+            )}
             <div className="flex flex-wrap items-center gap-1">
               {pagosVisibles.map((p, i) => (
                 <span
@@ -959,7 +993,13 @@ function VentaCardMobile({
 
 // ────────────────────── Detalle de venta ──────────────────────
 
-function VentaDetalle({ venta }: { venta: Venta }) {
+function VentaDetalle({
+  venta,
+  puedeVerCosto,
+}: {
+  venta: Venta;
+  puedeVerCosto: boolean;
+}) {
   const dolarVenta = useDolar().venta;
   const metaFields: { label: string; value: string }[] = [
     { label: "Cliente", value: venta.cliente },
@@ -976,7 +1016,9 @@ function VentaDetalle({ venta }: { venta: Venta }) {
   // Métodos de pago + Costo/Ganancia/Margen fijos, 4 por fila -- si el total
   // no es múltiplo de 4, se reparte el resto entre las últimas 1-2 tarjetas
   // (siempre "Ganancia bruta"/"Margen") para que no quede un hueco suelto.
-  const resumenTotal = venta.pagos.length + 3;
+  // Vendedor no ve esas 3 tarjetas (revelan costo) -- el resto se reparte
+  // en las últimas tarjetas de método de pago en su lugar.
+  const resumenTotal = venta.pagos.length + (puedeVerCosto ? 3 : 0);
   const resumenRem = resumenTotal % 4;
   return (
     <div className="space-y-4">
@@ -1045,7 +1087,7 @@ function VentaDetalle({ venta }: { venta: Venta }) {
                   Detalle
                 </th>
                 <th className={cn("px-4 py-2", thDivider)}>Cant</th>
-                <th className={cn("px-4 py-2", thDivider)}>Costo</th>
+                {puedeVerCosto && <th className={cn("px-4 py-2", thDivider)}>Costo</th>}
                 <th className={cn("px-4 py-2", thDivider)}>Precio</th>
                 <th className="px-4 py-2">Subtotal</th>
               </tr>
@@ -1058,9 +1100,11 @@ function VentaDetalle({ venta }: { venta: Venta }) {
                 >
                   <td className="px-4 py-2.5 !text-start">{i.detalle}</td>
                   <td className="px-4 py-2.5 tabular-nums">{i.cantidad}</td>
-                  <td className="px-4 py-2.5 tabular-nums text-neutral-500">
-                    {fmtUsd(i.costoUsd ?? 0)}
-                  </td>
+                  {puedeVerCosto && (
+                    <td className="px-4 py-2.5 tabular-nums text-neutral-500">
+                      {fmtUsd(i.costoUsd ?? 0)}
+                    </td>
+                  )}
                   <td className="px-4 py-2.5 tabular-nums">
                     {fmtUsd(i.precioUsd)}
                   </td>
@@ -1073,7 +1117,10 @@ function VentaDetalle({ venta }: { venta: Venta }) {
                 className="border-t border-neutral-100 font-semibold text-neutral-900"
                 style={{ backgroundColor: "#edecf8", backgroundImage: "none" }}
               >
-                <td className="px-4 py-2.5 !text-start uppercase tracking-wide" colSpan={4}>
+                <td
+                  className="px-4 py-2.5 !text-start uppercase tracking-wide"
+                  colSpan={puedeVerCosto ? 4 : 3}
+                >
                   Total
                 </td>
                 <td className="px-4 py-2.5 tabular-nums">
@@ -1093,7 +1140,17 @@ function VentaDetalle({ venta }: { venta: Venta }) {
           {venta.pagos.map((p, i) => (
             <Card
               key={i}
-              className="flex flex-col p-2 text-center"
+              className={cn(
+                "flex flex-col p-2 text-center",
+                !puedeVerCosto &&
+                  i === venta.pagos.length - 1 &&
+                  resumenRem === 1 &&
+                  "col-span-4",
+                !puedeVerCosto &&
+                  i === venta.pagos.length - 1 &&
+                  resumenRem === 2 &&
+                  "col-span-2",
+              )}
               title={`Caja ${p.caja.toUpperCase()}`}
             >
               <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
@@ -1115,31 +1172,36 @@ function VentaDetalle({ venta }: { venta: Venta }) {
               </div>
             </Card>
           ))}
-          <Card className="flex flex-col p-2 text-center">
-            <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-              Costo total
-            </p>
-            <div className="flex flex-1 items-center justify-center pt-1.5">
-              <p className="truncate text-xs font-normal text-neutral-600">
-                {fmtUsd(ventaCosto(venta))}
+          {puedeVerCosto && (
+            <Card className="flex flex-col p-2 text-center">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                Costo total
               </p>
-            </div>
-          </Card>
-          <Card
-            className={cn(
-              "flex flex-col p-2 text-center",
-              resumenRem === 2 && "col-span-2",
-            )}
-          >
-            <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-              Ganancia bruta
-            </p>
-            <div className="flex flex-1 items-center justify-center pt-1.5">
-              <p className="truncate text-xs font-normal tabular-nums text-neutral-600">
-                {fmtUsd(ventaGanancia(venta))}
+              <div className="flex flex-1 items-center justify-center pt-1.5">
+                <p className="truncate text-xs font-normal text-neutral-600">
+                  {fmtUsd(ventaCosto(venta))}
+                </p>
+              </div>
+            </Card>
+          )}
+          {puedeVerCosto && (
+            <Card
+              className={cn(
+                "flex flex-col p-2 text-center",
+                resumenRem === 2 && "col-span-2",
+              )}
+            >
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                Ganancia bruta
               </p>
-            </div>
-          </Card>
+              <div className="flex flex-1 items-center justify-center pt-1.5">
+                <p className="truncate text-xs font-normal tabular-nums text-neutral-600">
+                  {fmtUsd(ventaGanancia(venta))}
+                </p>
+              </div>
+            </Card>
+          )}
+          {puedeVerCosto && (
           <Card
             className={cn(
               "flex flex-col p-2 text-center",
@@ -1156,6 +1218,7 @@ function VentaDetalle({ venta }: { venta: Venta }) {
               </p>
             </div>
           </Card>
+          )}
         </div>
       </div>
     </div>
@@ -1342,6 +1405,7 @@ function NuevaVentaDialog({
   cajas,
   negocio,
   dolarVenta,
+  puedeVerCosto,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1355,6 +1419,7 @@ function NuevaVentaDialog({
   cajas: Caja[];
   negocio: Negocio;
   dolarVenta: number;
+  puedeVerCosto: boolean;
 }) {
   const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
 
@@ -1722,9 +1787,11 @@ function NuevaVentaDialog({
             right={
               <span className="text-sm font-semibold tabular-nums">
                 Total {fmtUsd(totalPrecio)}
-                <span className="ml-2 text-xs font-normal text-neutral-400">
-                  margen {margenPct.toFixed(0)}%
-                </span>
+                {puedeVerCosto && (
+                  <span className="ml-2 text-xs font-normal text-neutral-400">
+                    margen {margenPct.toFixed(0)}%
+                  </span>
+                )}
               </span>
             }
           >

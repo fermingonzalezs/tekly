@@ -39,7 +39,7 @@ export function DashboardClient({
     <Section
       title="Dashboard"
       toolbar={
-        <div className="flex flex-1 justify-center sm:flex-none sm:justify-start">
+        <div className="no-scrollbar flex flex-1 justify-center overflow-x-auto sm:flex-none sm:justify-start">
           <Tabs
             value={periodo}
             onChange={setPeriodo}
@@ -47,6 +47,7 @@ export function DashboardClient({
               value: p.value,
               label: p.label,
             }))}
+            className="flex-nowrap gap-1.5 sm:gap-2"
           />
         </div>
       }

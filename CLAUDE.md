@@ -460,7 +460,8 @@ Aplica a **toda tabla, presente y futura** (menos los recibos/PDF):
   (igual conviene el `<tr>` del thead con `text-xs`).
 - **Filas cebra**: `tr` par en índigo muy claro (`#f0eff9`), impar blanca.
   Regla en `@layer base` para que el `hover:bg-*` de cada fila siga ganando.
-  Los `.recibo-print` van sin cebra.
+  Los `.recibo-print` tienen su propia cebra, en violeta claro (`#edecf8`,
+  `accent-soft`) en vez del índigo muy claro del resto de la app.
 - **Todo alineado a la izquierda** por defecto (`th, td { text-align:left }`).
 - **Opt-out por celda**: `text-end` / `text-right` alinea a la derecha
   (columnas de plata / números: `Monto`, `Total`, `Precio`, `Costo`, `Margen`);

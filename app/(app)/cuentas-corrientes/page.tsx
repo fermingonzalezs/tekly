@@ -1,11 +1,12 @@
 import { Section } from "@/components/section";
-import { requireUser } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { listMovimientosCC } from "@/lib/db/cuentas-corrientes";
 import { listClientesOpciones } from "@/lib/db/clientes";
 import { CuentasCorrientesClient } from "./cuentas-corrientes-client";
 
+// Financiero -- no es una sección para vendedores.
 export default async function CuentasCorrientesPage() {
-  const user = await requireUser();
+  const user = await requireRole("admin", "tecnico");
   const [movimientos, clientes] = await Promise.all([
     listMovimientosCC(),
     listClientesOpciones(),

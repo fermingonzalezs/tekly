@@ -1,7 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireRole, inviteMember, setMemberRole } from "@/lib/auth";
+import {
+  requireRole,
+  inviteMember,
+  setMemberRole,
+  deactivateMember,
+  setMemberEmail,
+} from "@/lib/auth";
 import type { AuthResult, Rol } from "@/lib/auth/types";
 import { updateNegocio, type Negocio } from "@/lib/db/configuracion";
 import { createEquiposBulk, listImeisExistentes, type EquipoInput } from "@/lib/db/inventario";
@@ -29,6 +35,21 @@ export async function setMemberRoleAction(
   nuevoRol: Rol,
 ): Promise<AuthResult> {
   const result = await setMemberRole(targetProfileId, nuevoRol);
+  if (!result.error) revalidatePath("/configuracion");
+  return result;
+}
+
+export async function setMemberEmailAction(
+  targetProfileId: string,
+  nuevoEmail: string,
+): Promise<AuthResult> {
+  const result = await setMemberEmail(targetProfileId, nuevoEmail);
+  if (!result.error) revalidatePath("/configuracion");
+  return result;
+}
+
+export async function deactivateMemberAction(targetProfileId: string): Promise<AuthResult> {
+  const result = await deactivateMember(targetProfileId);
   if (!result.error) revalidatePath("/configuracion");
   return result;
 }

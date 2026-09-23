@@ -6,17 +6,18 @@ import {
   createEquipo,
   updateEquipo,
   deleteEquipo,
+  crearRecuentoEquipos,
   type EquipoInput,
   updateRepuesto,
   type RepuestoInput,
   crearRepuesto,
   ingresoRepuesto,
-  recuentoRepuestos,
+  crearRecuentoRepuestos,
   deleteRepuesto,
   updateOtro,
   crearOtro,
   ingresoOtroExistente,
-  recuentoOtros,
+  crearRecuentoOtros,
   deleteOtro,
   listMovimientos,
 } from "@/lib/db/inventario";
@@ -40,6 +41,13 @@ export async function deleteEquipoAction(id: string) {
   await requireRole("admin");
   await deleteEquipo(id);
   revalidatePath("/inventario");
+}
+
+export async function crearRecuentoEquiposAction(draft: Record<string, boolean>) {
+  await requireUser();
+  const recuento = await crearRecuentoEquipos(draft);
+  revalidatePath("/recuentos");
+  return recuento;
 }
 
 export async function updateRepuestoAction(id: string, data: RepuestoInput) {
@@ -71,10 +79,11 @@ export async function ingresoRepuestoAction(
   return repuesto;
 }
 
-export async function recuentoRepuestosAction(draft: Record<string, number>) {
+export async function crearRecuentoRepuestosAction(draft: Record<string, number>) {
   await requireUser();
-  await recuentoRepuestos(draft);
-  revalidatePath("/inventario");
+  const recuento = await crearRecuentoRepuestos(draft);
+  revalidatePath("/recuentos");
+  return recuento;
 }
 
 export async function deleteRepuestoAction(id: string) {
@@ -121,10 +130,11 @@ export async function ingresoOtroAction(
   return otro;
 }
 
-export async function recuentoOtrosAction(draft: Record<string, number>) {
+export async function crearRecuentoOtrosAction(draft: Record<string, number>) {
   await requireUser();
-  await recuentoOtros(draft);
-  revalidatePath("/inventario");
+  const recuento = await crearRecuentoOtros(draft);
+  revalidatePath("/recuentos");
+  return recuento;
 }
 
 export async function deleteOtroAction(id: string) {

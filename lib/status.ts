@@ -3,6 +3,7 @@ import type {
   EquipoStatus,
   MedioPago,
   MedioPagoVenta,
+  MovimientoTipo,
   OtroCategoria,
   Role,
   TicketStatus,
@@ -86,6 +87,7 @@ export const equipoStatus: Record<
   disponible: { label: "Disponible", tone: "green" },
   reservado: { label: "Reservado", tone: "blue" },
   vendido: { label: "Vendido", tone: "gray" },
+  extraviado: { label: "Extraviado", tone: "red" },
 };
 
 // ── Turnos ─────────────────────────────────────────────────────
@@ -105,6 +107,17 @@ export const turnoTipo: Record<TurnoTipo, { label: string; tone: Tone }> = {
   deja: { label: "Deja reparación", tone: "blue" },
   retira: { label: "Retira reparación", tone: "violet" },
   cotizar: { label: "Cotizar", tone: "amber" },
+};
+
+/** Categoría de un `movimientos_stock` (ingreso/edición/baja/recuento) --
+ * usado en la tabla "Movimientos" de /recuentos, que mezcla equipos,
+ * repuestos y otros en una sola vista. */
+export const movimientoTipo: Record<MovimientoTipo, { label: string; tone: Tone }> = {
+  ingreso: { label: "Ingreso", tone: "green" },
+  egreso: { label: "Egreso", tone: "amber" },
+  edicion: { label: "Edición", tone: "blue" },
+  baja: { label: "Baja", tone: "red" },
+  recuento: { label: "Recuento", tone: "violet" },
 };
 
 // ── Inventario · Repuestos ─────────────────────────────────────

@@ -159,7 +159,12 @@ export function DifusionClient({
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <StatCard align="left" label="Listas" value={listas.length} />
         <StatCard align="left" label="Ítems publicados" value={totalItemsAll} />
-        <StatCard align="left" label="Con descuento activo" value={conDescuento} />
+        <StatCard
+          className="hidden sm:block"
+          align="left"
+          label="Con descuento activo"
+          value={conDescuento}
+        />
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

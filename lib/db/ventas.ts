@@ -225,6 +225,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
         "repuesto",
         r.repuestoId,
         `Usado en venta V-${ventaRow.numero}: -${r.cantidad} unidades`,
+        "egreso",
       );
     }
   }
@@ -354,6 +355,7 @@ export async function deleteVenta(id: string, opts: DeleteVentaOpts): Promise<vo
           "repuesto",
           repuestoId,
           `Devuelto al borrar venta ${id}: +${cantidad} unidades`,
+          "ingreso",
         );
       }
     }

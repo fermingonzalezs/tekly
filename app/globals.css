@@ -44,10 +44,12 @@ td {
       rgba(0, 0, 0, 0) 4px 8px
     );
   }
-  /* los recibos/PDF van sin cebra */
+  /* los recibos/PDF llevan su propia cebra, en violeta claro (accent-soft)
+     en vez de las rayitas grises del resto de la app -- más acorde a la
+     banda violeta del header/footer del recibo. */
   .recibo-print tbody tr:nth-child(even) {
     background-image: none;
-    background-color: transparent;
+    background-color: #edecf8;
   }
 }
 
@@ -107,7 +109,12 @@ input[type="number"]::-webkit-inner-spin-button {
 
 @media print {
   @page {
-    margin: 14mm;
+    /* Sin margen arriba/costados -- la banda violeta del recibo
+       (`.recibo-print`, `components/recibos/recibo.tsx`) tiene que llegar
+       al borde físico de la hoja. El resto del contenido se inserta su
+       propio padding (`print:px-[14mm] print:pb-[14mm]`) por debajo de la
+       banda, así que no hace falta margen de página para eso. */
+    margin: 0;
   }
   body {
     background: #fff;
@@ -123,6 +130,14 @@ input[type="number"]::-webkit-inner-spin-button {
     border-radius: 0 !important;
     box-shadow: none !important;
     break-after: page;
+  }
+  /* Sin esto Chrome/Safari ignoran los `background-color` del recibo
+     (banda violeta, tarjetas Facturado por/a) salvo que el usuario tilde
+     "Gráficos de fondo" a mano en el diálogo de impresión. */
+  .recibo-print,
+  .recibo-print * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .recibo-print:last-child {
     break-after: auto;

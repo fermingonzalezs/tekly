@@ -3,7 +3,6 @@ import type {
   Compra,
   Equipo,
   ListaDifusion,
-  Movimiento,
   MovimientoCC,
   OtroItem,
   Proveedor,
@@ -81,7 +80,7 @@ export const DASH_PERIODOS: {
   },
   {
     value: "quince",
-    label: "Últimos quince días",
+    label: "Últimos 15 días",
     trendSub: "Valores de los últimos quince días",
   },
 ];
@@ -257,45 +256,6 @@ export const equipos: Equipo[] = [
   { id: "e-11", modelo: "iPhone 16", almacenamiento: "128GB", color: "Rosa", imei: "356111000000111", bateria: 100, condicion: "NUEVO", costoUsd: 650, precioUsd: 790, estado: "disponible" },
 ];
 
-export const equipoMovimientos: Record<string, Movimiento[]> = {
-  "e-1": [
-    { fecha: "28 ago", hora: "09:14", detalle: "Ingresó al inventario", usuario: "Fermín G." },
-  ],
-  "e-2": [
-    { fecha: "1 sep", hora: "11:32", detalle: "Ingresó al inventario", usuario: "Caro" },
-  ],
-  "e-3": [
-    { fecha: "20 ago", hora: "10:05", detalle: "Ingresó al inventario", usuario: "Fermín G." },
-    { fecha: "5 sep", hora: "16:40", detalle: "Cambio de estado: En revisión → Disponible", usuario: "Nico" },
-  ],
-  "e-4": [
-    { fecha: "4 sep", hora: "12:00", detalle: "Ingresó al inventario (sellado, de fábrica)", usuario: "Fermín G." },
-  ],
-  "e-5": [
-    { fecha: "10 sep", hora: "15:20", detalle: "Ingresó al inventario", usuario: "Meli" },
-  ],
-  "e-6": [
-    { fecha: "11 sep", hora: "09:50", detalle: "Ingresó al inventario", usuario: "Meli" },
-  ],
-  "e-7": [
-    { fecha: "2 ago", hora: "10:00", detalle: "Ingresó al inventario", usuario: "Caro" },
-    { fecha: "20 ago", hora: "18:15", detalle: "Cambio de estado: Disponible → Vendido", usuario: "Caro" },
-  ],
-  "e-8": [
-    { fecha: "28 ago", hora: "09:00", detalle: "Ingresó al inventario", usuario: "Fermín G." },
-    { fecha: "8 sep", hora: "14:22", detalle: "Cambio de estado: En revisión → Disponible", usuario: "Dani" },
-  ],
-  "e-9": [
-    { fecha: "3 sep", hora: "17:05", detalle: "Ingresó al inventario", usuario: "Caro" },
-  ],
-  "e-10": [
-    { fecha: "10 sep", hora: "11:00", detalle: "Ingresó al inventario (sellado, de fábrica)", usuario: "Fermín G." },
-  ],
-  "e-11": [
-    { fecha: "10 sep", hora: "11:05", detalle: "Ingresó al inventario (sellado, de fábrica)", usuario: "Fermín G." },
-  ],
-};
-
 export const repuestos: Repuesto[] = [
   { id: "r-1", sku: "PANT-OLED-11", nombre: "Pantalla OLED", modelo: "iPhone 11", stock: 4, stockMin: 3, costoUsd: 42, proveedor: "Tecno Import" },
   { id: "r-2", sku: "PANT-OLED-13", nombre: "Pantalla OLED", modelo: "iPhone 13", stock: 2, stockMin: 3, costoUsd: 68, proveedor: "Tecno Import" },
@@ -319,68 +279,6 @@ export const otros: OtroItem[] = [
   { id: "o-6", nombre: "Cable Lightning 1m", descripcion: "Trenzado, compatible MFi", categoria: "accesorio", serializado: false, cantidad: 40, costoUsd: 2, precioUsd: 8 },
   { id: "o-7", nombre: "Apple Watch SE 40mm", descripcion: "GPS, caja de aluminio", categoria: "otro", serializado: true, unidades: [{ serial: "AWSE-001", color: "Medianoche", costoUsd: 190 }], precioUsd: 250 },
 ];
-
-export const repuestoMovimientos: Record<string, Movimiento[]> = {
-  "r-1": [
-    { fecha: "25 ago", hora: "10:15", detalle: "Ingreso de stock (+4)", usuario: "Nico" },
-  ],
-  "r-2": [
-    { fecha: "18 ago", hora: "09:30", detalle: "Ingreso de stock (+5)", usuario: "Fermín G." },
-    { fecha: "6 sep", hora: "13:10", detalle: "Consumo por reparación (-3)", usuario: "Nico" },
-  ],
-  "r-3": [
-    { fecha: "2 sep", hora: "11:00", detalle: "Ingreso de stock (+9)", usuario: "Fermín G." },
-  ],
-  "r-4": [
-    { fecha: "30 ago", hora: "16:20", detalle: "Ingreso de stock (+5)", usuario: "Dani" },
-    { fecha: "9 sep", hora: "10:40", detalle: "Consumo por reparación (-4)", usuario: "Dani" },
-  ],
-  "r-5": [
-    { fecha: "5 sep", hora: "12:05", detalle: "Ingreso de stock (+6)", usuario: "Nico" },
-  ],
-  "r-6": [
-    { fecha: "22 ago", hora: "15:45", detalle: "Ingreso de stock (+2)", usuario: "Fermín G." },
-  ],
-  "r-7": [
-    { fecha: "15 ago", hora: "09:00", detalle: "Ingreso de stock (+3)", usuario: "Fermín G." },
-    { fecha: "3 sep", hora: "17:30", detalle: "Consumo por reparación (-3)", usuario: "Nico" },
-  ],
-  "r-8": [
-    { fecha: "1 sep", hora: "14:15", detalle: "Ingreso de stock (+3)", usuario: "Fermín G." },
-  ],
-  "r-9": [
-    { fecha: "28 ago", hora: "11:50", detalle: "Ingreso de stock (+5)", usuario: "Dani" },
-  ],
-  "r-10": [
-    { fecha: "8 sep", hora: "10:00", detalle: "Ingreso de stock (+2)", usuario: "Nico" },
-  ],
-};
-
-export const otroMovimientos: Record<string, Movimiento[]> = {
-  "o-1": [
-    { fecha: "26 ago", hora: "10:00", detalle: "Ingreso de stock (+2 seriales)", usuario: "Fermín G." },
-  ],
-  "o-2": [
-    { fecha: "20 ago", hora: "09:15", detalle: "Ingreso de stock (+5 seriales)", usuario: "Caro" },
-  ],
-  "o-3": [
-    { fecha: "1 sep", hora: "11:40", detalle: "Ingreso de stock (+3 seriales)", usuario: "Meli" },
-  ],
-  "o-4": [
-    { fecha: "30 ago", hora: "16:00", detalle: "Ingreso de stock (+1 serial)", usuario: "Caro" },
-  ],
-  "o-5": [
-    { fecha: "10 ago", hora: "09:30", detalle: "Ingreso de stock (+30)", usuario: "Fermín G." },
-    { fecha: "5 sep", hora: "18:00", detalle: "Ventas (-6)", usuario: "Meli" },
-  ],
-  "o-6": [
-    { fecha: "12 ago", hora: "10:20", detalle: "Ingreso de stock (+50)", usuario: "Fermín G." },
-    { fecha: "6 sep", hora: "17:10", detalle: "Ventas (-10)", usuario: "Caro" },
-  ],
-  "o-7": [
-    { fecha: "3 sep", hora: "12:30", detalle: "Ingreso de stock (+1 serial)", usuario: "Fermín G." },
-  ],
-};
 
 // ───────────────────────── Proveedores ─────────────────────────
 

@@ -44,15 +44,16 @@ import {
   createEquipoAction,
   updateEquipoAction,
   deleteEquipoAction,
+  crearRecuentoEquiposAction,
   updateRepuestoAction,
   nuevoRepuestoAction,
   ingresoRepuestoAction,
-  recuentoRepuestosAction,
+  crearRecuentoRepuestosAction,
   deleteRepuestoAction,
   updateOtroAction,
   nuevoOtroAction,
   ingresoOtroAction,
-  recuentoOtrosAction,
+  crearRecuentoOtrosAction,
   deleteOtroAction,
   getMovimientosAction,
 } from "./actions";
@@ -191,6 +192,10 @@ export function InventarioClient({
 }) {
   const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
+  // Vendedor no ve precios de compra de ítems ya cargados (Costo, Margen,
+  // "Valor de stock") -- sí puede seguir cargando un costo al dar de alta
+  // o ingresar stock nuevo, porque ahí es él quien lo escribe.
+  const puedeVerCosto = user.rol !== "vendedor";
   const [, startDeleteTransition] = useTransition();
   const [tab, setTab] = useState<Tab>("equipos");
   const [equipos, setEquipos] = useState<Equipo[]>(initialEquipos);
@@ -199,6 +204,7 @@ export function InventarioClient({
 
   const [recuento, setRecuento] = useState(false);
   const [draft, setDraft] = useState<Record<string, number>>({});
+  const [draftEncontrados, setDraftEncontrados] = useState<Record<string, boolean>>({});
   const [savingRecuento, startRecuentoSave] = useTransition();
   const [q, setQ] = useState("");
   const [statsOpen, setStatsOpen] = useState(true);
@@ -275,27 +281,27 @@ export function InventarioClient({
   );
 
   function startRecuento() {
-    const d: Record<string, number> = {};
-    if (tab === "repuestos") repuestos.forEach((r) => (d[r.id] = r.stock));
-    else otros.forEach((o) => !o.serializado && (d[o.id] = o.cantidad));
-    setDraft(d);
+    if (tab === "equipos") {
+      const d: Record<string, boolean> = {};
+      equipos.forEach((e) => e.estado !== "vendido" && (d[e.id] = true));
+      setDraftEncontrados(d);
+    } else {
+      const d: Record<string, number> = {};
+      if (tab === "repuestos") repuestos.forEach((r) => (d[r.id] = r.stock));
+      else otros.forEach((o) => !o.serializado && (d[o.id] = o.cantidad));
+      setDraft(d);
+    }
     setRecuento(true);
   }
+  // El recuento no ajusta equipos/repuestos/otros al guardar -- solo
+  // registra las diferencias y queda pendiente hasta que un admin lo
+  // revise en la sección «Recuentos» (`resolverRecuento` en
+  // lib/db/inventario.ts). El cambio real recién se aplica ahí.
   function saveRecuento() {
     startRecuentoSave(async () => {
-      if (tab === "repuestos") {
-        await recuentoRepuestosAction(draft);
-        setRepuestos((p) =>
-          p.map((r) => ({ ...r, stock: draft[r.id] ?? r.stock })),
-        );
-      } else {
-        await recuentoOtrosAction(draft);
-        setOtros((p) =>
-          p.map((o) =>
-            o.serializado ? o : { ...o, cantidad: draft[o.id] ?? o.cantidad },
-          ),
-        );
-      }
+      if (tab === "equipos") await crearRecuentoEquiposAction(draftEncontrados);
+      else if (tab === "repuestos") await crearRecuentoRepuestosAction(draft);
+      else await crearRecuentoOtrosAction(draft);
       setRecuento(false);
     });
   }
@@ -336,7 +342,7 @@ export function InventarioClient({
         />
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        {(tab === "repuestos" || tab === "otros") &&
+        {(tab === "equipos" || tab === "repuestos" || tab === "otros") &&
           (recuento ? (
             <>
               <Button
@@ -408,12 +414,14 @@ export function InventarioClient({
             </button>
           </div>
           {chartsOpen && (
-            <div className="mt-3 grid gap-5 lg:grid-cols-2">
-              <InventarioValor
-                equipos={equipos}
-                repuestos={repuestos}
-                otros={otros}
-              />
+            <div className={cn("mt-3 grid gap-5", puedeVerCosto && "lg:grid-cols-2")}>
+              {puedeVerCosto && (
+                <InventarioValor
+                  equipos={equipos}
+                  repuestos={repuestos}
+                  otros={otros}
+                />
+              )}
               <InventarioUnidades
                 equipos={equipos}
                 repuestos={repuestos}
@@ -450,7 +458,7 @@ export function InventarioClient({
             options={tabOptions}
           />
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center md:ml-auto">
-            {(tab === "repuestos" || tab === "otros") &&
+            {(tab === "equipos" || tab === "repuestos" || tab === "otros") &&
               (recuento ? (
                 <>
                   <Button
@@ -515,6 +523,14 @@ export function InventarioClient({
             const valor = equipos
               .filter((e) => e.estado !== "vendido")
               .reduce((a, e) => a + e.costoUsd, 0);
+            const valorVenta = equipos
+              .filter((e) => e.estado !== "vendido")
+              .reduce((a, e) => a + e.precioUsd, 0);
+            // Durante el recuento no tiene sentido auditar equipos ya
+            // vendidos -- ya no están en el local.
+            const equiposParaMostrar = recuento
+              ? equiposFiltrados.filter((e) => e.estado !== "vendido")
+              : equiposFiltrados;
 
             return (
               <>
@@ -557,13 +573,31 @@ export function InventarioClient({
                         )
                       }
                     />
-                    <StatCard
-                      align="left"
-                      label="Valor de stock"
-                      value={fmtUsd(valor)}
-                      hint="a costo"
-                    />
+                    {puedeVerCosto ? (
+                      <StatCard
+                        align="left"
+                        label="Valor de stock"
+                        value={fmtUsd(valor)}
+                        hint="a costo"
+                      />
+                    ) : (
+                      <StatCard
+                        align="left"
+                        label="Valor de venta"
+                        value={fmtUsd(valorVenta)}
+                        hint="precio de lista"
+                      />
+                    )}
                   </div>
+                )}
+
+                {recuento && (
+                  <p className="text-sm text-neutral-500">
+                    Tildá los equipos que encontraste físicamente y guardá el
+                    recuento — las diferencias quedan pendientes de revisión
+                    en «Recuentos», no se marcan extraviados al toque. Los
+                    equipos vendidos no entran en el recuento.
+                  </p>
                 )}
 
                 {mobileFilters}
@@ -571,11 +605,11 @@ export function InventarioClient({
                 {mobileTabs}
 
                 <div className="space-y-2 md:hidden">
-                  {equiposFiltrados.map((e) => (
+                  {equiposParaMostrar.map((e) => (
                     <Card
                       key={e.id}
-                      onClick={() => setOpenEquipoId(e.id)}
-                      className="cursor-pointer overflow-hidden p-0"
+                      onClick={() => !recuento && setOpenEquipoId(e.id)}
+                      className={cn("overflow-hidden p-0", !recuento && "cursor-pointer")}
                     >
                       <div className="bg-[#352f86] px-4 py-2 text-white">
                         <p className="truncate text-sm font-semibold">
@@ -589,29 +623,53 @@ export function InventarioClient({
                           </p>
                           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
                             <span>Batería {e.bateria}%</span>
-                            <span>Costo {fmtUsd(e.costoUsd)}</span>
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                              <span
-                                className={cn(
-                                  "h-1.5 w-1.5 rounded-full",
-                                  dotClass[equipoStatus[e.estado].tone],
-                                )}
-                              />
-                              {equipoStatus[e.estado].label}
-                            </span>
+                            {puedeVerCosto && <span>Costo {fmtUsd(e.costoUsd)}</span>}
+                            {!recuento && (
+                              <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full",
+                                    dotClass[equipoStatus[e.estado].tone],
+                                  )}
+                                />
+                                {equipoStatus[e.estado].label}
+                              </span>
+                            )}
                           </div>
                         </div>
-                        <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
-                          <p className="text-base font-semibold tabular-nums">
-                            {fmtUsd(e.precioUsd)}
-                          </p>
-                        </div>
+                        {recuento ? (
+                          <label
+                            onClick={(ev) => ev.stopPropagation()}
+                            className="flex shrink-0 flex-col items-center justify-center gap-1 border-l border-neutral-100 pl-3 text-[11px] font-medium text-neutral-500"
+                          >
+                            Encontrado
+                            <input
+                              type="checkbox"
+                              checked={draftEncontrados[e.id] ?? true}
+                              onChange={(ev) =>
+                                setDraftEncontrados((d) => ({
+                                  ...d,
+                                  [e.id]: ev.target.checked,
+                                }))
+                              }
+                              className="h-5 w-5 rounded border-neutral-300 text-accent focus:ring-accent"
+                            />
+                          </label>
+                        ) : (
+                          <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+                            <p className="text-base font-semibold tabular-nums">
+                              {fmtUsd(e.precioUsd)}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </Card>
                   ))}
-                  {equiposFiltrados.length === 0 && (
+                  {equiposParaMostrar.length === 0 && (
                     <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
-                      Sin equipos para esta búsqueda.
+                      {recuento
+                        ? "No hay equipos para auditar con esta búsqueda."
+                        : "Sin equipos para esta búsqueda."}
                     </p>
                   )}
                 </div>
@@ -637,24 +695,33 @@ export function InventarioClient({
                         <th className={cn("px-5 py-3 text-center", thDivider)}>
                           Condición
                         </th>
-                        <th className={cn("px-5 py-3 text-center", thDivider)}>
-                          Costo
-                        </th>
+                        {puedeVerCosto && (
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Costo
+                          </th>
+                        )}
                         <th className={cn("px-5 py-3 text-center", thDivider)}>
                           Venta
                         </th>
-                        <th className={cn("px-5 py-3 text-center", thDivider)}>
-                          Margen
+                        {puedeVerCosto && (
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Margen
+                          </th>
+                        )}
+                        <th className="px-5 py-3 text-center">
+                          {recuento ? "Encontrado" : "Estado"}
                         </th>
-                        <th className="px-5 py-3 text-center">Estado</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {equiposFiltrados.map((e) => (
+                      {equiposParaMostrar.map((e) => (
                         <tr
                           key={e.id}
-                          onClick={() => setOpenEquipoId(e.id)}
-                          className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
+                          onClick={() => !recuento && setOpenEquipoId(e.id)}
+                          className={cn(
+                            "border-t border-neutral-100 first:border-t-0",
+                            !recuento && "cursor-pointer hover:bg-neutral-50",
+                          )}
                         >
                           <td className="max-w-[160px] truncate px-5 py-2 text-center font-medium">
                             {e.modelo}
@@ -674,39 +741,59 @@ export function InventarioClient({
                           <td className="px-5 py-2 text-center text-neutral-500">
                             {e.condicion}
                           </td>
-                          <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
-                            {fmtUsd(e.costoUsd)}
-                          </td>
+                          {puedeVerCosto && (
+                            <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                              {fmtUsd(e.costoUsd)}
+                            </td>
+                          )}
                           <td className="px-5 py-2 text-center font-semibold tabular-nums">
                             {fmtUsd(e.precioUsd)}
                           </td>
-                          <td className="px-5 py-2 text-center tabular-nums text-emerald-600">
-                            {(
-                              ((e.precioUsd - e.costoUsd) / e.precioUsd) *
-                              100
-                            ).toFixed(0)}
-                            %
-                          </td>
+                          {puedeVerCosto && (
+                            <td className="px-5 py-2 text-center tabular-nums text-emerald-600">
+                              {(
+                                ((e.precioUsd - e.costoUsd) / e.precioUsd) *
+                                100
+                              ).toFixed(0)}
+                              %
+                            </td>
+                          )}
                           <td className="px-5 py-2 text-center">
-                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                              <span
-                                className={cn(
-                                  "h-1.5 w-1.5 rounded-full",
-                                  dotClass[equipoStatus[e.estado].tone],
-                                )}
+                            {recuento ? (
+                              <input
+                                type="checkbox"
+                                checked={draftEncontrados[e.id] ?? true}
+                                onChange={(ev) =>
+                                  setDraftEncontrados((d) => ({
+                                    ...d,
+                                    [e.id]: ev.target.checked,
+                                  }))
+                                }
+                                className="h-5 w-5 rounded border-neutral-300 text-accent focus:ring-accent"
                               />
-                              {equipoStatus[e.estado].label}
-                            </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full",
+                                    dotClass[equipoStatus[e.estado].tone],
+                                  )}
+                                />
+                                {equipoStatus[e.estado].label}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}
-                      {equiposFiltrados.length === 0 && (
+                      {equiposParaMostrar.length === 0 && (
                         <tr>
                           <td
-                            colSpan={10}
+                            colSpan={puedeVerCosto ? 10 : 8}
                             className="px-5 py-10 text-center text-sm text-neutral-400"
                           >
-                            Sin equipos para esta búsqueda.
+                            {recuento
+                              ? "No hay equipos para auditar con esta búsqueda."
+                              : "Sin equipos para esta búsqueda."}
                           </td>
                         </tr>
                       )}
@@ -772,18 +859,29 @@ export function InventarioClient({
                         )
                       }
                     />
-                    <StatCard
-                      align="left"
-                      label="Valor de stock"
-                      value={fmtUsd(valor)}
-                      hint="a costo"
-                    />
+                    {puedeVerCosto ? (
+                      <StatCard
+                        align="left"
+                        label="Valor de stock"
+                        value={fmtUsd(valor)}
+                        hint="a costo"
+                      />
+                    ) : (
+                      <StatCard
+                        align="left"
+                        label="Unidades"
+                        value={repuestos.reduce((a, r) => a + r.stock, 0)}
+                        hint="en stock"
+                      />
+                    )}
                   </div>
                 )}
 
                 {recuento && (
                   <p className="text-sm text-neutral-500">
-                    Ajustá el stock real de cada repuesto y guardá el recuento.
+                    Contá el stock real de cada repuesto y guardá el recuento
+                    — las diferencias quedan pendientes de revisión en
+                    «Recuentos», el stock no se ajusta solo.
                   </p>
                 )}
 
@@ -859,7 +957,8 @@ export function InventarioClient({
                                     <span className="font-semibold text-neutral-900">
                                       {r.stock}
                                     </span>{" "}
-                                    / mín {r.stockMin} · {fmtUsd(r.costoUsd)}
+                                    / mín {r.stockMin}
+                                    {puedeVerCosto && ` · ${fmtUsd(r.costoUsd)}`}
                                   </p>
                                   <div
                                     className="mt-1 h-1.5 overflow-hidden rounded-full"
@@ -912,11 +1011,13 @@ export function InventarioClient({
                           >
                             Stock
                           </th>
-                          <th
-                            className={cn("px-5 py-3 text-center", thDivider)}
-                          >
-                            Costo
-                          </th>
+                          {puedeVerCosto && (
+                            <th
+                              className={cn("px-5 py-3 text-center", thDivider)}
+                            >
+                              Costo
+                            </th>
+                          )}
                           <th
                             className={cn("px-5 py-3 text-center", thDivider)}
                           >
@@ -1002,9 +1103,11 @@ export function InventarioClient({
                                   </div>
                                 )}
                               </td>
-                              <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
-                                {fmtUsd(r.costoUsd)}
-                              </td>
+                              {puedeVerCosto && (
+                                <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                                  {fmtUsd(r.costoUsd)}
+                                </td>
+                              )}
                               <td className="px-5 py-2 text-center">
                                 <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                                   <span
@@ -1033,7 +1136,7 @@ export function InventarioClient({
                         {repuestosFiltrados.length === 0 && (
                           <tr>
                             <td
-                              colSpan={6}
+                              colSpan={puedeVerCosto ? 6 : 5}
                               className="px-5 py-10 text-center text-sm text-neutral-400"
                             >
                               Sin repuestos para esta búsqueda.
@@ -1119,6 +1222,10 @@ export function InventarioClient({
             const unidades = otros.reduce((a, o) => a + otroCantidad(o), 0);
             const serializados = otros.filter((o) => o.serializado).length;
             const valor = otros.reduce((a, o) => a + otroValorStock(o), 0);
+            const valorVenta = otros.reduce(
+              (a, o) => a + otroCantidad(o) * o.precioUsd,
+              0,
+            );
 
             return (
               <>
@@ -1154,19 +1261,29 @@ export function InventarioClient({
                         )
                       }
                     />
-                    <StatCard
-                      align="left"
-                      label="Valor de stock"
-                      value={fmtUsd(valor)}
-                      hint="a costo"
-                    />
+                    {puedeVerCosto ? (
+                      <StatCard
+                        align="left"
+                        label="Valor de stock"
+                        value={fmtUsd(valor)}
+                        hint="a costo"
+                      />
+                    ) : (
+                      <StatCard
+                        align="left"
+                        label="Valor de venta"
+                        value={fmtUsd(valorVenta)}
+                        hint="precio de lista"
+                      />
+                    )}
                   </div>
                 )}
 
                 {recuento && (
                   <p className="text-sm text-neutral-500">
-                    Ajustá la cantidad real de cada producto y guardá el
-                    recuento.
+                    Contá la cantidad real de cada producto y guardá el
+                    recuento — las diferencias quedan pendientes de revisión
+                    en «Recuentos», la cantidad no se ajusta sola.
                   </p>
                 )}
 
@@ -1223,12 +1340,14 @@ export function InventarioClient({
                         </div>
 
                         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
-                          <span>
-                            Costo {fmtUsd(otroCostoPromedio(o))}
-                            {o.serializado && (
-                              <span className="ml-1 text-[10px]">prom.</span>
-                            )}
-                          </span>
+                          {puedeVerCosto && (
+                            <span>
+                              Costo {fmtUsd(otroCostoPromedio(o))}
+                              {o.serializado && (
+                                <span className="ml-1 text-[10px]">prom.</span>
+                              )}
+                            </span>
+                          )}
                           <span className="font-semibold text-neutral-900">
                             {fmtUsd(o.precioUsd)}
                           </span>
@@ -1263,23 +1382,33 @@ export function InventarioClient({
                             className="mt-2.5 overflow-hidden rounded-lg border border-neutral-200 font-mono"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="grid grid-cols-[1fr_1fr_84px] gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                            <div
+                              className={cn(
+                                "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-400",
+                                puedeVerCosto ? "grid-cols-[1fr_1fr_84px]" : "grid-cols-[1fr_1fr]",
+                              )}
+                            >
                               <span>Serial</span>
                               <span>Color</span>
-                              <span className="text-end">Costo</span>
+                              {puedeVerCosto && <span className="text-end">Costo</span>}
                             </div>
                             {o.unidades.map((u) => (
                               <div
                                 key={u.serial}
-                                className="grid grid-cols-[1fr_1fr_84px] items-center gap-2 border-t border-neutral-100 bg-white px-3 py-1.5 text-[12px] first:border-t-0"
+                                className={cn(
+                                  "grid items-center gap-2 border-t border-neutral-100 bg-white px-3 py-1.5 text-[12px] first:border-t-0",
+                                  puedeVerCosto ? "grid-cols-[1fr_1fr_84px]" : "grid-cols-[1fr_1fr]",
+                                )}
                               >
                                 <span className="truncate text-neutral-700">{u.serial}</span>
                                 <span className="truncate text-neutral-500">
                                   {u.color ?? "—"}
                                 </span>
-                                <span className="text-end tabular-nums text-neutral-500">
-                                  {fmtUsd(u.costoUsd)}
-                                </span>
+                                {puedeVerCosto && (
+                                  <span className="text-end tabular-nums text-neutral-500">
+                                    {fmtUsd(u.costoUsd)}
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -1307,9 +1436,11 @@ export function InventarioClient({
                         <th className={cn("px-5 py-3 text-center", thDivider)}>
                           Categoría
                         </th>
-                        <th className={cn("px-5 py-3 text-center", thDivider)}>
-                          Costo
-                        </th>
+                        {puedeVerCosto && (
+                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                            Costo
+                          </th>
+                        )}
                         <th className={cn("px-5 py-3 text-center", thDivider)}>
                           Precio
                         </th>
@@ -1366,14 +1497,16 @@ export function InventarioClient({
                                   {otroCategoria[o.categoria].label}
                                 </span>
                               </td>
-                              <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
-                                {fmtUsd(otroCostoPromedio(o))}
-                                {o.serializado && (
-                                  <span className="ml-1 text-[10px] text-neutral-400">
-                                    prom.
-                                  </span>
-                                )}
-                              </td>
+                              {puedeVerCosto && (
+                                <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                                  {fmtUsd(otroCostoPromedio(o))}
+                                  {o.serializado && (
+                                    <span className="ml-1 text-[10px] text-neutral-400">
+                                      prom.
+                                    </span>
+                                  )}
+                                </td>
+                              )}
                               <td className="px-5 py-2 text-center font-semibold tabular-nums">
                                 {fmtUsd(o.precioUsd)}
                               </td>
@@ -1403,17 +1536,29 @@ export function InventarioClient({
                             </tr>
                             {o.serializado && expanded && (
                               <tr className="bg-neutral-50">
-                                <td colSpan={6} className="px-5 py-3">
+                                <td colSpan={puedeVerCosto ? 6 : 5} className="px-5 py-3">
                                   <div className="overflow-hidden rounded-lg border border-neutral-200 font-mono">
-                                    <div className="grid grid-cols-[1fr_1fr_84px] gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                                    <div
+                                      className={cn(
+                                        "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-400",
+                                        puedeVerCosto
+                                          ? "grid-cols-[1fr_1fr_84px]"
+                                          : "grid-cols-[1fr_1fr]",
+                                      )}
+                                    >
                                       <span>Serial</span>
                                       <span>Color</span>
-                                      <span className="text-end">Costo</span>
+                                      {puedeVerCosto && <span className="text-end">Costo</span>}
                                     </div>
                                     {o.unidades.map((u) => (
                                       <div
                                         key={u.serial}
-                                        className="grid grid-cols-[1fr_1fr_84px] items-center gap-2 border-t border-neutral-100 bg-white px-3 py-1.5 text-[12px] first:border-t-0"
+                                        className={cn(
+                                          "grid items-center gap-2 border-t border-neutral-100 bg-white px-3 py-1.5 text-[12px] first:border-t-0",
+                                          puedeVerCosto
+                                            ? "grid-cols-[1fr_1fr_84px]"
+                                            : "grid-cols-[1fr_1fr]",
+                                        )}
                                       >
                                         <span className="truncate text-neutral-700">
                                           {u.serial}
@@ -1421,9 +1566,11 @@ export function InventarioClient({
                                         <span className="truncate text-neutral-500">
                                           {u.color ?? "—"}
                                         </span>
-                                        <span className="text-end tabular-nums text-neutral-500">
-                                          {fmtUsd(u.costoUsd)}
-                                        </span>
+                                        {puedeVerCosto && (
+                                          <span className="text-end tabular-nums text-neutral-500">
+                                            {fmtUsd(u.costoUsd)}
+                                          </span>
+                                        )}
                                       </div>
                                     ))}
                                   </div>
@@ -1436,7 +1583,7 @@ export function InventarioClient({
                       {otrosFiltrados.length === 0 && (
                         <tr>
                           <td
-                            colSpan={6}
+                            colSpan={puedeVerCosto ? 6 : 5}
                             className="px-5 py-10 text-center text-sm text-neutral-400"
                           >
                             Sin productos para esta búsqueda.
@@ -1457,6 +1604,7 @@ export function InventarioClient({
         equipo={null}
         open={addEquipo}
         onClose={() => setAddEquipo(false)}
+        puedeVerCosto={puedeVerCosto}
         onSubmit={async (data) => {
           const nuevo = await createEquipoAction(data);
           setEquipos((p) => [nuevo, ...p]);
@@ -1470,6 +1618,7 @@ export function InventarioClient({
         equipo={openEquipo}
         open={!!openEquipo}
         onClose={() => setOpenEquipoId(null)}
+        puedeVerCosto={puedeVerCosto}
         onSubmit={async (data) => {
           const actualizado = await updateEquipoAction(openEquipo!.id, data);
           setEquipos((p) => p.map((x) => (x.id === actualizado.id ? actualizado : x)));
@@ -1553,6 +1702,7 @@ export function InventarioClient({
         key={openRepuestoId ?? "none"}
         repuesto={openRepuesto}
         open={!!openRepuesto}
+        puedeVerCosto={puedeVerCosto}
         onClose={() => setOpenRepuestoId(null)}
         onSubmit={async (data) => {
           const actualizado = await updateRepuestoAction(openRepuesto!.id, data);
@@ -1586,6 +1736,7 @@ export function InventarioClient({
         item={openOtro}
         open={!!openOtro}
         onClose={() => setOpenOtroId(null)}
+        puedeVerCosto={puedeVerCosto}
         onSubmit={async (o) => {
           const actualizado = await updateOtroAction(o.id, o);
           setOtros((p) => p.map((x) => (x.id === actualizado.id ? actualizado : x)));
@@ -1617,7 +1768,13 @@ export function InventarioClient({
 
 // ─────────────────────────── Dialogs ───────────────────────────
 
-const ESTADOS: EquipoStatus[] = ["en_revision", "disponible", "reservado", "vendido"];
+const ESTADOS: EquipoStatus[] = [
+  "en_revision",
+  "disponible",
+  "reservado",
+  "vendido",
+  "extraviado",
+];
 
 function EquipoFormDialog({
   equipo,
@@ -1625,12 +1782,16 @@ function EquipoFormDialog({
   onClose,
   onSubmit,
   onDelete,
+  puedeVerCosto,
 }: {
   equipo: Equipo | null;
   open: boolean;
   onClose: () => void;
   onSubmit: (e: EquipoInput) => void | Promise<void>;
   onDelete?: () => void;
+  /** false para vendedor -- oculta el costo de un equipo YA cargado (no el
+   * campo al dar de alta uno nuevo, ahí lo escribe la misma persona). */
+  puedeVerCosto: boolean;
 }) {
   const edit = !!equipo;
   const [f, setF] = useState<Equipo>(
@@ -1667,7 +1828,9 @@ function EquipoFormDialog({
         title={edit ? `Equipo · ${equipo!.modelo}` : "Agregar equipo"}
         description={
           edit
-            ? `Margen ${margen.toFixed(0)}%`
+            ? puedeVerCosto
+              ? `Margen ${margen.toFixed(0)}%`
+              : undefined
             : "Ingresa en estado «En revisión»."
         }
         footer={
@@ -1764,14 +1927,16 @@ function EquipoFormDialog({
                   ))}
                 </Select>
               </Field>
-              <Field label="Costo (U$)">
-                <Input
-                  type="number"
-                  min={0}
-                  value={f.costoUsd || ""}
-                  onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
-                />
-              </Field>
+              {(!edit || puedeVerCosto) && (
+                <Field label="Costo (U$)">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={f.costoUsd || ""}
+                    onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
+                  />
+                </Field>
+              )}
               <Field label="Venta (U$)">
                 <Input
                   type="number"
@@ -1827,12 +1992,17 @@ function RepuestoFormDialog({
   onClose,
   onSubmit,
   onDelete,
+  puedeVerCosto,
 }: {
   repuesto: Repuesto | null;
   open: boolean;
   onClose: () => void;
   onSubmit: (r: RepuestoInput) => void | Promise<void>;
   onDelete?: () => void;
+  /** false para vendedor -- este dialog es siempre "editar un repuesto ya
+   * cargado" (el alta/ingreso va por `IngresoDialog`, que no muestra costo
+   * existente). */
+  puedeVerCosto: boolean;
 }) {
   const [f, setF] = useState<Repuesto>(
     repuesto ?? {
@@ -1943,14 +2113,16 @@ function RepuestoFormDialog({
                   onChange={(e) => set("stockMin", Number(e.target.value) || 0)}
                 />
               </Field>
-              <Field label="Costo (U$)">
-                <Input
-                  type="number"
-                  min={0}
-                  value={f.costoUsd || ""}
-                  onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
-                />
-              </Field>
+              {puedeVerCosto && (
+                <Field label="Costo (U$)">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={f.costoUsd || ""}
+                    onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
+                  />
+                </Field>
+              )}
             </div>
           </div>
 
@@ -1982,12 +2154,18 @@ function OtroFormDialog({
   onClose,
   onSubmit,
   onDelete,
+  puedeVerCosto,
 }: {
   item: OtroItem | null;
   open: boolean;
   onClose: () => void;
   onSubmit: (o: OtroItem) => void | Promise<void>;
   onDelete?: () => void;
+  /** false para vendedor -- este dialog es siempre "editar un producto ya
+   * cargado" (el alta/ingreso va por `IngresoDialog`, que no muestra costo
+   * existente). Sumar unidades serializadas nuevas desde acá también se
+   * oculta -- para eso ya está "Agregar / ingresar producto". */
+  puedeVerCosto: boolean;
 }) {
   const [nombre, setNombre] = useState(item?.nombre ?? "");
   const [descripcion, setDescripcion] = useState(item?.descripcion ?? "");
@@ -2172,20 +2350,22 @@ function OtroFormDialog({
                   placeholder="Opcional"
                 />
               </Field>
-              <Field label="Costo (U$)">
-                {serializado ? (
-                  <div className="flex h-9 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500">
-                    {fmtUsd(costoPromedio)} prom.
-                  </div>
-                ) : (
-                  <Input
-                    type="number"
-                    min={0}
-                    value={costoUsd || ""}
-                    onChange={(e) => setCostoUsd(Number(e.target.value) || 0)}
-                  />
-                )}
-              </Field>
+              {puedeVerCosto && (
+                <Field label="Costo (U$)">
+                  {serializado ? (
+                    <div className="flex h-9 items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-500">
+                      {fmtUsd(costoPromedio)} prom.
+                    </div>
+                  ) : (
+                    <Input
+                      type="number"
+                      min={0}
+                      value={costoUsd || ""}
+                      onChange={(e) => setCostoUsd(Number(e.target.value) || 0)}
+                    />
+                  )}
+                </Field>
+              )}
               <Field label="Venta (U$)">
                 <Input
                   type="number"
@@ -2214,7 +2394,7 @@ function OtroFormDialog({
                     <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
                       <span className="flex-1">Serial</span>
                       <span className="w-28 text-center">Color</span>
-                      <span className="w-24 text-center">Costo</span>
+                      {puedeVerCosto && <span className="w-24 text-center">Costo</span>}
                       <span className="w-9" />
                     </div>
                     {unidadesManual.map((u, i) => (
@@ -2235,18 +2415,20 @@ function OtroFormDialog({
                           }
                           placeholder="Color"
                         />
-                        <Input
-                          className="w-24"
-                          type="number"
-                          min={0}
-                          value={u.costoUsd || ""}
-                          placeholder="U$"
-                          onChange={(e) =>
-                            updUnidad(i, {
-                              costoUsd: Number(e.target.value) || 0,
-                            })
-                          }
-                        />
+                        {puedeVerCosto && (
+                          <Input
+                            className="w-24"
+                            type="number"
+                            min={0}
+                            value={u.costoUsd || ""}
+                            placeholder="U$"
+                            onChange={(e) =>
+                              updUnidad(i, {
+                                costoUsd: Number(e.target.value) || 0,
+                              })
+                            }
+                          />
+                        )}
                         <button
                           type="button"
                           onClick={() => rmUnidad(i)}
@@ -2258,23 +2440,29 @@ function OtroFormDialog({
                       </div>
                     ))}
                   </div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={addUnidad}
-                      className="text-xs font-medium text-accent hover:underline"
-                    >
-                      + Agregar unidad
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBulkOpen((v) => !v)}
-                      className="text-xs font-medium text-accent hover:underline"
-                    >
-                      {bulkOpen ? "Cerrar carga en bulk" : "Cargar en bulk"}
-                    </button>
-                  </div>
-                  {bulkOpen && (
+                  {puedeVerCosto ? (
+                    <div className="mt-2 flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={addUnidad}
+                        className="text-xs font-medium text-accent hover:underline"
+                      >
+                        + Agregar unidad
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBulkOpen((v) => !v)}
+                        className="text-xs font-medium text-accent hover:underline"
+                      >
+                        {bulkOpen ? "Cerrar carga en bulk" : "Cargar en bulk"}
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-neutral-400">
+                      Para sumar unidades nuevas usá «Agregar / ingresar producto».
+                    </p>
+                  )}
+                  {puedeVerCosto && bulkOpen && (
                     <div className="mt-2 space-y-2 rounded-lg border border-dashed border-neutral-200 p-3">
                       <Textarea
                         rows={3}

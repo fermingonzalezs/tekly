@@ -10,7 +10,12 @@ export type TicketStatus =
   | "listo"
   | "entregado";
 
-export type EquipoStatus = "en_revision" | "disponible" | "reservado" | "vendido";
+export type EquipoStatus =
+  | "en_revision"
+  | "disponible"
+  | "reservado"
+  | "vendido"
+  | "extraviado";
 
 export type MedioPago =
   | "pesos"
@@ -140,11 +145,23 @@ export type Equipo = {
 
 /** Historial de stock de un ítem de inventario (equipo, repuesto u otro) —
  * ingreso, cambios de estado, ajustes, etc. */
+export type MovimientoTipo = "ingreso" | "egreso" | "edicion" | "baja" | "recuento";
+
 export type Movimiento = {
   fecha: string;
   hora: string;
   detalle: string;
   usuario: string;
+  tipo: MovimientoTipo;
+};
+
+/** Un `Movimiento` con el ítem resuelto -- para la vista consolidada de
+ * "Movimientos" en /recuentos, que mezcla equipos/repuestos/otros en una
+ * sola tabla (el historial por ítem, en su propio dialog, no necesita
+ * esto). */
+export type MovimientoItem = Movimiento & {
+  itemTipo: "equipo" | "repuesto" | "otro";
+  itemNombre: string;
 };
 
 /** Unidad individual de un producto serializado de "Otros" — cada una con
@@ -176,6 +193,56 @@ export type Repuesto = {
   stockMin: number;
   costoUsd: number;
   proveedor: string;
+};
+
+/** Cómo quedó una diferencia del recuento al revisarla (admin-only, ver
+ * `Recuento` abajo) -- "pendiente" hasta que alguien decide. Para equipos:
+ * `confirmado` dice "sí, sigue extraviado", `restaurado` lo vuelve a
+ * `disponible` (reapareció). Para repuestos/otros solo hay `ajustado`
+ * (el stock pasa a lo contado) o `descartado` (fue un error de conteo,
+ * ninguno toca el ítem real -- solo queda el registro). */
+export type RecuentoResolucion = "pendiente" | "confirmado" | "restaurado" | "ajustado" | "descartado";
+
+/** Una diferencia de un recuento de Equipos: lo que se esperaba (según el
+ * estado guardado antes del recuento) vs. si se tildó como encontrado. Solo
+ * entran acá los que NO coinciden -- un equipo que estaba disponible y se
+ * encontró, o extraviado y seguía sin encontrarse, no es una diferencia. */
+export type RecuentoLineaEquipo = {
+  itemId: string;
+  detalle: string;
+  eraExtraviado: boolean;
+  encontrado: boolean;
+  resolucion: RecuentoResolucion;
+};
+
+/** Una diferencia de un recuento de Repuestos/Otros: cantidad que el
+ * sistema tenía vs. la contada a mano. Solo entran los que no coinciden. */
+export type RecuentoLineaCantidad = {
+  itemId: string;
+  detalle: string;
+  cantidadSistema: number;
+  cantidadContada: number;
+  resolucion: RecuentoResolucion;
+};
+
+/** Una "sesión" de recuento de inventario: alguien cuenta (encontrado/no
+ * encontrado para Equipos, cantidad real para Repuestos/Otros) y el
+ * resultado queda `pendiente` -- no toca el stock todavía. Un admin lo
+ * revisa después (`resolverRecuento`) línea por línea; recién ahí se
+ * aplican los cambios reales y el recuento pasa a `revisado`. Si el
+ * recuento no tuvo ninguna diferencia, se cierra solo como `revisado` sin
+ * `revisadoPor` (nada que decidir). Mismo criterio que `Conciliacion` en
+ * Cajas -- ver "Backend y multi-tenancy" en CLAUDE.md. */
+export type Recuento = {
+  id: string;
+  tipo: "equipos" | "repuestos" | "otros";
+  fecha: string;
+  hora: string;
+  responsable: string;
+  estado: "pendiente" | "revisado";
+  revisadoPor?: string;
+  revisadoEn?: string;
+  lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[];
 };
 
 export type Proveedor = {

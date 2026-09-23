@@ -1,18 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { dotClass, rolLabel, rolTone, medioPago as medioPagoCfg, MEDIOS_VENTA } from "@/lib/status";
 import { thDivider } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
 import { updateOwnProfileAction } from "@/app/(app)/actions";
-import { inviteMemberAction, setMemberRoleAction, updateNegocioAction } from "./actions";
+import {
+  inviteMemberAction,
+  setMemberRoleAction,
+  setMemberEmailAction,
+  deactivateMemberAction,
+  updateNegocioAction,
+} from "./actions";
 import { ImportarDatos } from "./importar-datos";
 import {
   ReciboShell,
@@ -45,7 +52,7 @@ export function ConfiguracionClient({
   );
 
   const [invitando, setInvitando] = useState(false);
-  const [cambiandoRolDe, setCambiandoRolDe] = useState<Miembro | null>(null);
+  const [editandoMiembro, setEditandoMiembro] = useState<Miembro | null>(null);
 
   if (!esAdmin) {
     return (
@@ -83,7 +90,11 @@ export function ConfiguracionClient({
             </div>
             <div className="space-y-2 md:hidden">
               {miembros.map((u) => (
-                <Card key={u.id} className="p-3">
+                <Card
+                  key={u.id}
+                  onClick={() => setEditandoMiembro(u)}
+                  className="cursor-pointer p-3"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-neutral-900">{u.nombre}</p>
@@ -100,15 +111,12 @@ export function ConfiguracionClient({
                     </span>
                   </div>
                   <div className="mt-2.5 border-t border-neutral-100 pt-2.5">
-                    <button
-                      onClick={() => setCambiandoRolDe(u)}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                    >
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                       <span
                         className={cn("h-1.5 w-1.5 rounded-full", dotClass[rolTone[u.rol]])}
                       />
                       {rolLabel[u.rol]}
-                    </button>
+                    </span>
                   </div>
                 </Card>
               ))}
@@ -133,20 +141,18 @@ export function ConfiguracionClient({
                   {miembros.map((u) => (
                     <tr
                       key={u.id}
-                      className="border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
+                      onClick={() => setEditandoMiembro(u)}
+                      className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                     >
                       <td className="px-5 py-2 text-center font-medium">{u.nombre}</td>
                       <td className="px-5 py-2 text-center text-neutral-500">{u.email}</td>
                       <td className="px-5 py-2 text-center">
-                        <button
-                          onClick={() => setCambiandoRolDe(u)}
-                          className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200"
-                        >
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                           <span
                             className={cn("h-1.5 w-1.5 rounded-full", dotClass[rolTone[u.rol]])}
                           />
                           {rolLabel[u.rol]}
-                        </button>
+                        </span>
                       </td>
                       <td className="px-5 py-2 text-center">
                         <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
@@ -184,10 +190,11 @@ export function ConfiguracionClient({
       </div>
 
       <InvitarUsuarioDialog open={invitando} onClose={() => setInvitando(false)} />
-      <CambiarRolDialog
-        key={`rol-${cambiandoRolDe?.id ?? "cerrado"}`}
-        miembro={cambiandoRolDe}
-        onClose={() => setCambiandoRolDe(null)}
+      <EditarMiembroDialog
+        key={`miembro-${editandoMiembro?.id ?? "cerrado"}`}
+        miembro={editandoMiembro}
+        esUnoMismo={editandoMiembro?.id === user.id}
+        onClose={() => setEditandoMiembro(null)}
       />
     </Section>
   );
@@ -270,67 +277,144 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
   );
 }
 
-function CambiarRolDialog({
+function EditarMiembroDialog({
   miembro,
+  esUnoMismo,
   onClose,
 }: {
   miembro: Miembro | null;
+  /** El admin abrió su propia fila -- acá no se edita rol/email ni se
+   * elimina (mismo bloqueo que valida `deactivateMember` server-side): el
+   * autoservicio de nombre/alias vive en la pestaña "Mi cuenta". */
+  esUnoMismo: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [rol, setRol] = useState<Rol>(miembro?.rol ?? "vendedor");
+  const [email, setEmail] = useState(miembro?.email ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [pendingEliminar, startEliminarTransition] = useTransition();
 
   function guardar() {
     if (!miembro) return;
     setError(null);
     startTransition(async () => {
-      const result = await setMemberRoleAction(miembro.id, rol);
-      if (result.error) {
-        setError(result.error);
-        return;
+      if (rol !== miembro.rol) {
+        const result = await setMemberRoleAction(miembro.id, rol);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+      }
+      const emailLimpio = email.trim();
+      if (emailLimpio && emailLimpio !== miembro.email) {
+        const result = await setMemberEmailAction(miembro.id, emailLimpio);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
       }
       router.refresh();
       onClose();
     });
   }
 
-  return (
-    <Dialog
-      open={!!miembro}
-      onClose={onClose}
-      accent
-      title={miembro ? `Cambiar rol · ${miembro.nombre}` : ""}
-      footer={
-        <>
-          <button
-            onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={guardar}
-            disabled={pending}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
-          >
-            {pending ? "Guardando…" : "Guardar"}
-          </button>
-        </>
+  function eliminar() {
+    if (!miembro) return;
+    startEliminarTransition(async () => {
+      const result = await deactivateMemberAction(miembro.id);
+      if (result.error) {
+        setError(result.error);
+        setConfirmEliminar(false);
+        return;
       }
-    >
-      <Field label="Rol">
-        <Select value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {rolLabel[r]}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-    </Dialog>
+      setConfirmEliminar(false);
+      router.refresh();
+      onClose();
+    });
+  }
+
+  return (
+    <Fragment>
+      <Dialog
+        open={!!miembro}
+        onClose={onClose}
+        accent
+        title={miembro ? `Editar usuario · ${miembro.nombre}` : ""}
+        footer={
+          esUnoMismo ? (
+            <button
+              onClick={onClose}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:ml-auto sm:w-auto"
+            >
+              Cerrar
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setConfirmEliminar(true)}
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+              >
+                <Trash2 className="h-4 w-4" /> Eliminar usuario
+              </button>
+              <button
+                onClick={onClose}
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardar}
+                disabled={pending || !email.trim()}
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+              >
+                {pending ? "Guardando…" : "Guardar"}
+              </button>
+            </>
+          )
+        }
+      >
+        {esUnoMismo ? (
+          <p className="text-sm text-neutral-500">
+            No podés cambiar tu propio rol ni email, ni eliminar tu cuenta,
+            desde acá. Para cambiar tu nombre o alias, andá a la pestaña «Mi
+            cuenta».
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <Field label="Rol">
+              <Select value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {rolLabel[r]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Email">
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </Field>
+          </div>
+        )}
+        {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
+      </Dialog>
+
+      {miembro && !esUnoMismo && (
+        <ConfirmDialog
+          open={confirmEliminar}
+          onClose={() => setConfirmEliminar(false)}
+          onConfirm={eliminar}
+          pending={pendingEliminar}
+          title="¿Eliminar usuario?"
+          confirmLabel="Eliminar usuario"
+        >
+          Se eliminará a «{miembro.nombre}» -- pierde acceso a Tekly de
+          inmediato. Su historial (ventas, tickets, movimientos) se conserva.
+        </ConfirmDialog>
+      )}
+    </Fragment>
   );
 }
 

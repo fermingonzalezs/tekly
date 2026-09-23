@@ -31,6 +31,14 @@ export const fmtDayMonth = (iso: string) => {
   return `${String(d.getDate()).padStart(2, "0")} ${MESES[d.getMonth()]}`;
 };
 
+/** "2026-09-17" (o con hora, se recorta) -> "17/09/2026" -- N.º/fecha de
+ * los recibos. String, nunca `new Date().getDate()` -- mismo cuidado de
+ * huso horario que `fechaISO` en `lib/analiticas.ts`. */
+export const fmtDateSlash = (isoDate: string) => {
+  const [y, m, d] = isoDate.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+};
+
 /** "2026-09-07T14:32..." -> "14:32". */
 export const fmtTime = (iso: string) => {
   const d = new Date(iso);

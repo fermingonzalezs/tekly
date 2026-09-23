@@ -1,14 +1,22 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
-import { requireUser } from "@/lib/auth";
+import { requireUser, requireRole } from "@/lib/auth";
+import type { SessionUser } from "@/lib/auth/types";
 import { fmtDayMonth, fmtTime } from "@/lib/format";
+import { diffEquipo, diffRepuesto, diffOtro } from "@/lib/inventario-diff";
 import type {
   Equipo,
   EquipoStatus,
   Movimiento,
+  MovimientoItem,
+  MovimientoTipo,
   OtroCategoria,
   OtroItem,
   OtroUnidad,
+  Recuento,
+  RecuentoLineaCantidad,
+  RecuentoLineaEquipo,
+  RecuentoResolucion,
   Repuesto,
 } from "@/lib/types";
 
@@ -86,12 +94,17 @@ export async function createEquipo(data: EquipoInput): Promise<Equipo> {
     .select(EQUIPO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("equipo", row.id, "Ingreso a inventario");
+  await addMovimiento("equipo", row.id, "Ingreso a inventario", "ingreso");
   return toEquipo(row);
 }
 
 export async function updateEquipo(id: string, data: EquipoInput): Promise<Equipo> {
   const supabase = createServerClient();
+  const { data: antesRow } = await supabase
+    .from("equipos")
+    .select(EQUIPO_COLS)
+    .eq("id", id)
+    .single();
   const { data: row, error } = await supabase
     .from("equipos")
     .update({
@@ -109,8 +122,10 @@ export async function updateEquipo(id: string, data: EquipoInput): Promise<Equip
     .select(EQUIPO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("equipo", id, `Editado · estado: ${data.estado}`);
-  return toEquipo(row);
+  const despues = toEquipo(row);
+  const detalle = antesRow ? diffEquipo(toEquipo(antesRow), despues) : "Editado";
+  await addMovimiento("equipo", id, detalle, "edicion");
+  return despues;
 }
 
 /** Baja lógica -- nunca `DELETE` real: `venta_items.equipo_id` referencia
@@ -122,7 +137,7 @@ export async function deleteEquipo(id: string): Promise<void> {
   const supabase = createServerClient();
   const { error } = await supabase.from("equipos").update({ activo: false }).eq("id", id);
   if (error) throw error;
-  await addMovimiento("equipo", id, "Baja de inventario");
+  await addMovimiento("equipo", id, "Baja de inventario", "baja");
 }
 
 /** IMEIs ya cargados en la organización (sin nulos) -- usado por el
@@ -167,6 +182,7 @@ export async function createEquiposBulk(
     item_type: "equipo" as const,
     item_id: row.id,
     detalle: "Importación inicial",
+    tipo: "ingreso" as const,
     usuario_id: user.id,
     usuario_nombre: user.nombre,
   }));
@@ -174,6 +190,52 @@ export async function createEquiposBulk(
   if (movError) throw movError;
 
   return { inserted: data.length, equipos: data.map(toEquipo) };
+}
+
+/** Recuento (auditoría física): `draft` mapea id de equipo -> si se
+ * encontró al revisarlo. Solo cubre equipos que no estén `vendido` (esos ya
+ * no están en el local, no hay nada que auditar) -- lo filtra `startRecuento`
+ * en el cliente. Un equipo no encontrado pasa a `extraviado`; si vuelve a
+ * aparecer en un recuento posterior, se restaura a `disponible`. Cada id
+ * deja su registro en `movimientos_stock`, se haya movido el estado o no,
+ * mismo criterio que `recuentoRepuestos`/`recuentoOtros`. */
+/** Recuento (auditoría física): registra qué se encontró y qué no, pero NO
+ * toca `equipos.estado` todavía -- queda `pendiente` hasta que un admin lo
+ * revise (`resolverRecuento`). Solo las diferencias (esperaba una cosa,
+ * contó otra) entran a `lineas`; lo que coincide con lo esperado igual deja
+ * su registro en `movimientos_stock`, pero no requiere revisión. */
+export async function crearRecuentoEquipos(draft: Record<string, boolean>): Promise<Recuento> {
+  const ids = Object.keys(draft);
+  const user = await requireUser();
+  const lineas: RecuentoLineaEquipo[] = [];
+
+  if (ids.length > 0) {
+    const supabase = createServerClient();
+    const { data: actuales, error: readError } = await supabase
+      .from("equipos")
+      .select("id, modelo, almacenamiento, imei, estado")
+      .in("id", ids);
+    if (readError) throw readError;
+
+    for (const eq of actuales) {
+      const encontrado = draft[eq.id];
+      const eraExtraviado = (eq.estado as EquipoStatus) === "extraviado";
+      const detalle = `${eq.modelo} ${eq.almacenamiento ?? ""} · ${eq.imei ?? "—"}`.trim();
+      if (encontrado && eraExtraviado) {
+        await addMovimiento("equipo", eq.id, "Recuento: reapareció (pendiente de revisión)", "recuento");
+        lineas.push({ itemId: eq.id, detalle, eraExtraviado: true, encontrado: true, resolucion: "pendiente" });
+      } else if (encontrado) {
+        await addMovimiento("equipo", eq.id, "Recuento: presente", "recuento");
+      } else if (eraExtraviado) {
+        await addMovimiento("equipo", eq.id, "Recuento: sigue sin encontrarse", "recuento");
+      } else {
+        await addMovimiento("equipo", eq.id, "Recuento: no encontrado (pendiente de revisión)", "recuento");
+        lineas.push({ itemId: eq.id, detalle, eraExtraviado: false, encontrado: false, resolucion: "pendiente" });
+      }
+    }
+  }
+
+  return crearRecuento("equipos", user, lineas);
 }
 
 // ─────────────────────────── Repuestos ───────────────────────────
@@ -250,7 +312,10 @@ export type RepuestoInput = {
 
 export async function updateRepuesto(id: string, data: RepuestoInput): Promise<Repuesto> {
   const supabase = createServerClient();
-  const proveedorId = await resolveProveedorId(data.proveedor);
+  const [proveedorId, { data: antesRow }] = await Promise.all([
+    resolveProveedorId(data.proveedor),
+    supabase.from("repuestos").select(REPUESTO_COLS).eq("id", id).single(),
+  ]);
   const { data: row, error } = await supabase
     .from("repuestos")
     .update({
@@ -266,8 +331,12 @@ export async function updateRepuesto(id: string, data: RepuestoInput): Promise<R
     .select(REPUESTO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("repuesto", id, "Editado");
-  return toRepuesto(row as unknown as RepuestoRow);
+  const despues = toRepuesto(row as unknown as RepuestoRow);
+  const detalle = antesRow
+    ? diffRepuesto(toRepuesto(antesRow as unknown as RepuestoRow), despues)
+    : "Editado";
+  await addMovimiento("repuesto", id, detalle, "edicion");
+  return despues;
 }
 
 export async function crearRepuesto(
@@ -282,7 +351,7 @@ export async function crearRepuesto(
     .select(REPUESTO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("repuesto", row.id, `Ingreso: +${cantidad} unidades`);
+  await addMovimiento("repuesto", row.id, `Ingreso: +${cantidad} unidades`, "ingreso");
   return toRepuesto(row as unknown as RepuestoRow);
 }
 
@@ -305,17 +374,46 @@ export async function ingresoRepuesto(
     .select(REPUESTO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("repuesto", id, `Ingreso: +${cantidad} unidades`);
+  await addMovimiento("repuesto", id, `Ingreso: +${cantidad} unidades`, "ingreso");
   return toRepuesto(row as unknown as RepuestoRow);
 }
 
-export async function recuentoRepuestos(draft: Record<string, number>): Promise<void> {
-  const supabase = createServerClient();
-  for (const [id, stock] of Object.entries(draft)) {
-    const { error } = await supabase.from("repuestos").update({ stock }).eq("id", id);
-    if (error) throw error;
-    await addMovimiento("repuesto", id, `Recuento: stock ajustado a ${stock}`);
+/** Igual criterio que `crearRecuentoEquipos`: no ajusta `stock` todavía,
+ * queda pendiente de revisión. */
+export async function crearRecuentoRepuestos(draft: Record<string, number>): Promise<Recuento> {
+  const ids = Object.keys(draft);
+  const user = await requireUser();
+  const lineas: RecuentoLineaCantidad[] = [];
+
+  if (ids.length > 0) {
+    const supabase = createServerClient();
+    const { data: actuales, error: readError } = await supabase
+      .from("repuestos")
+      .select("id, nombre, stock")
+      .in("id", ids);
+    if (readError) throw readError;
+
+    for (const r of actuales) {
+      const contado = draft[r.id];
+      await addMovimiento(
+        "repuesto",
+        r.id,
+        `Recuento: contado ${contado} (sistema ${r.stock})`,
+        "recuento",
+      );
+      if (contado !== r.stock) {
+        lineas.push({
+          itemId: r.id,
+          detalle: r.nombre,
+          cantidadSistema: r.stock,
+          cantidadContada: contado,
+          resolucion: "pendiente",
+        });
+      }
+    }
   }
+
+  return crearRecuento("repuestos", user, lineas);
 }
 
 /** Baja lógica (nada referencia `repuestos.id` con FK, pero se usa el mismo
@@ -325,7 +423,7 @@ export async function deleteRepuesto(id: string): Promise<void> {
   const supabase = createServerClient();
   const { error } = await supabase.from("repuestos").update({ activo: false }).eq("id", id);
   if (error) throw error;
-  await addMovimiento("repuesto", id, "Baja de inventario");
+  await addMovimiento("repuesto", id, "Baja de inventario", "baja");
 }
 
 // ─────────────────────────── Otros ───────────────────────────
@@ -371,6 +469,11 @@ export async function listOtros(): Promise<OtroItem[]> {
 
 export async function updateOtro(id: string, item: OtroItem): Promise<OtroItem> {
   const supabase = createServerClient();
+  const { data: antesRow } = await supabase
+    .from("otros_items")
+    .select(OTRO_COLS)
+    .eq("id", id)
+    .single();
   const { data: row, error } = await supabase
     .from("otros_items")
     .update({
@@ -387,8 +490,10 @@ export async function updateOtro(id: string, item: OtroItem): Promise<OtroItem> 
     .select(OTRO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("otro", id, "Editado");
-  return toOtro(row as unknown as OtroRow);
+  const despues = toOtro(row as unknown as OtroRow);
+  const detalle = antesRow ? diffOtro(toOtro(antesRow as unknown as OtroRow), despues) : "Editado";
+  await addMovimiento("otro", id, detalle, "edicion");
+  return despues;
 }
 
 export async function ingresoOtroExistente(
@@ -417,7 +522,7 @@ export async function ingresoOtroExistente(
     .select(OTRO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("otro", id, `Ingreso: +${cantidad} unidades`);
+  await addMovimiento("otro", id, `Ingreso: +${cantidad} unidades`, "ingreso");
   return toOtro(updated as unknown as OtroRow);
 }
 
@@ -445,17 +550,49 @@ export async function crearOtro(data: {
     .select(OTRO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("otro", row.id, "Ingreso a inventario");
+  await addMovimiento("otro", row.id, "Ingreso a inventario", "ingreso");
   return toOtro(row as unknown as OtroRow);
 }
 
-export async function recuentoOtros(draft: Record<string, number>): Promise<void> {
-  const supabase = createServerClient();
-  for (const [id, cantidad] of Object.entries(draft)) {
-    const { error } = await supabase.from("otros_items").update({ cantidad }).eq("id", id);
-    if (error) throw error;
-    await addMovimiento("otro", id, `Recuento: cantidad ajustada a ${cantidad}`);
+/** Igual criterio que `crearRecuentoEquipos`: no ajusta `cantidad`
+ * todavía, queda pendiente de revisión. Solo cubre los no serializados
+ * (mismo alcance que tenía el recuento inmediato -- el cliente ya arma el
+ * `draft` así). */
+export async function crearRecuentoOtros(draft: Record<string, number>): Promise<Recuento> {
+  const ids = Object.keys(draft);
+  const user = await requireUser();
+  const lineas: RecuentoLineaCantidad[] = [];
+
+  if (ids.length > 0) {
+    const supabase = createServerClient();
+    const { data: actuales, error: readError } = await supabase
+      .from("otros_items")
+      .select("id, nombre, cantidad")
+      .in("id", ids);
+    if (readError) throw readError;
+
+    for (const o of actuales) {
+      const contado = draft[o.id];
+      const sistema = o.cantidad ?? 0;
+      await addMovimiento(
+        "otro",
+        o.id,
+        `Recuento: contado ${contado} (sistema ${sistema})`,
+        "recuento",
+      );
+      if (contado !== sistema) {
+        lineas.push({
+          itemId: o.id,
+          detalle: o.nombre,
+          cantidadSistema: sistema,
+          cantidadContada: contado,
+          resolucion: "pendiente",
+        });
+      }
+    }
   }
+
+  return crearRecuento("otros", user, lineas);
 }
 
 /** Baja lógica, mismo criterio que equipos/repuestos. */
@@ -463,20 +600,26 @@ export async function deleteOtro(id: string): Promise<void> {
   const supabase = createServerClient();
   const { error } = await supabase.from("otros_items").update({ activo: false }).eq("id", id);
   if (error) throw error;
-  await addMovimiento("otro", id, "Baja de inventario");
+  await addMovimiento("otro", id, "Baja de inventario", "baja");
 }
 
 // ─────────────────────────── Movimientos de stock ───────────────────────────
 
-type ItemType = "equipo" | "repuesto" | "otro";
+export type ItemType = "equipo" | "repuesto" | "otro";
 
-export async function addMovimiento(itemType: ItemType, itemId: string, detalle: string) {
+export async function addMovimiento(
+  itemType: ItemType,
+  itemId: string,
+  detalle: string,
+  tipo: MovimientoTipo,
+) {
   const user = await requireUser();
   const supabase = createServerClient();
   const { error } = await supabase.from("movimientos_stock").insert({
     item_type: itemType,
     item_id: itemId,
     detalle,
+    tipo,
     usuario_id: user.id,
     usuario_nombre: user.nombre,
   });
@@ -487,7 +630,7 @@ export async function listMovimientos(itemType: ItemType, itemId: string): Promi
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("movimientos_stock")
-    .select("fecha, detalle, usuario_nombre")
+    .select("fecha, detalle, usuario_nombre, tipo")
     .eq("item_type", itemType)
     .eq("item_id", itemId)
     .order("fecha", { ascending: false });
@@ -497,5 +640,260 @@ export async function listMovimientos(itemType: ItemType, itemId: string): Promi
     hora: fmtTime(m.fecha),
     detalle: m.detalle,
     usuario: m.usuario_nombre,
+    tipo: m.tipo as MovimientoTipo,
+  }));
+}
+
+// ─────────────────────────── Recuentos ───────────────────────────
+//
+// Un recuento queda `pendiente` con sus diferencias (`lineas`) hasta que un
+// admin lo revisa (`resolverRecuento`) -- recién ahí se toca el stock real.
+// Mismo criterio que `Conciliacion` en Cajas. Las tres `crearRecuentoX` de
+// arriba (Equipos/Repuestos/Otros) terminan acá.
+
+type RecuentoRow = {
+  id: string;
+  tipo: Recuento["tipo"];
+  fecha: string;
+  responsable_nombre: string;
+  estado: Recuento["estado"];
+  revisado_por_nombre: string | null;
+  revisado_en: string | null;
+  lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[];
+};
+
+const RECUENTO_COLS =
+  "id, tipo, fecha, responsable_id, responsable_nombre, estado, revisado_por_id, revisado_por_nombre, revisado_en, lineas";
+
+function toRecuento(row: RecuentoRow): Recuento {
+  return {
+    id: row.id,
+    tipo: row.tipo,
+    fecha: fmtDayMonth(row.fecha),
+    hora: fmtTime(row.fecha),
+    responsable: row.responsable_nombre,
+    estado: row.estado,
+    revisadoPor: row.revisado_por_nombre ?? undefined,
+    revisadoEn: row.revisado_en
+      ? `${fmtDayMonth(row.revisado_en)} ${fmtTime(row.revisado_en)}`
+      : undefined,
+    lineas: row.lineas,
+  };
+}
+
+async function crearRecuento(
+  tipo: Recuento["tipo"],
+  user: SessionUser,
+  lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[],
+): Promise<Recuento> {
+  const supabase = createServerClient();
+  const { data: row, error } = await supabase
+    .from("recuentos_stock")
+    .insert({
+      tipo,
+      responsable_id: user.id,
+      responsable_nombre: user.nombre,
+      // Sin diferencias no hay nada que decidir -- se cierra solo, sin
+      // `revisado_por` (no fue un admin el que lo resolvió).
+      estado: lineas.length === 0 ? "revisado" : "pendiente",
+      lineas,
+    })
+    .select(RECUENTO_COLS)
+    .single();
+  if (error) throw error;
+  return toRecuento(row as unknown as RecuentoRow);
+}
+
+export async function listRecuentos(): Promise<Recuento[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("recuentos_stock")
+    .select(RECUENTO_COLS)
+    .order("fecha", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data as unknown as RecuentoRow[]).map(toRecuento);
+}
+
+/** Admin revisa un recuento pendiente: cada línea necesita una resolución
+ * (`confirmado`/`restaurado` para equipos, `ajustado`/`descartado` para
+ * repuestos/otros). Recién acá se toca `equipos`/`repuestos`/`otros_items`
+ * de verdad, y cada cambio deja su propio registro en `movimientos_stock`
+ * (además del que ya había al contar) -- doble rastro: qué se contó y qué
+ * se decidió hacer con eso. */
+export async function resolverRecuento(
+  id: string,
+  resoluciones: Record<string, RecuentoResolucion>,
+): Promise<Recuento> {
+  const admin = await requireRole("admin");
+  const supabase = createServerClient();
+  const { data: row, error: readError } = await supabase
+    .from("recuentos_stock")
+    .select(RECUENTO_COLS)
+    .eq("id", id)
+    .single();
+  if (readError) throw readError;
+  const recuento = toRecuento(row as unknown as RecuentoRow);
+  if (recuento.estado === "revisado") {
+    throw new Error("Este recuento ya fue revisado.");
+  }
+
+  const lineasResueltas: (RecuentoLineaEquipo | RecuentoLineaCantidad)[] = [];
+  for (const linea of recuento.lineas) {
+    const resolucion = resoluciones[linea.itemId];
+    if (!resolucion || resolucion === "pendiente") {
+      throw new Error(`Falta resolver "${linea.detalle}".`);
+    }
+
+    if (recuento.tipo === "equipos") {
+      const l = linea as RecuentoLineaEquipo;
+      if (resolucion === "confirmado") {
+        const { error } = await supabase
+          .from("equipos")
+          .update({ estado: "extraviado" })
+          .eq("id", l.itemId);
+        if (error) throw error;
+        await addMovimiento(
+          "equipo",
+          l.itemId,
+          `Recuento revisado por ${admin.nombre}: confirmado extraviado`,
+          "recuento",
+        );
+      } else if (resolucion === "restaurado") {
+        const { error } = await supabase
+          .from("equipos")
+          .update({ estado: "disponible" })
+          .eq("id", l.itemId);
+        if (error) throw error;
+        await addMovimiento(
+          "equipo",
+          l.itemId,
+          `Recuento revisado por ${admin.nombre}: restaurado a disponible`,
+          "recuento",
+        );
+      } else if (resolucion === "descartado") {
+        await addMovimiento(
+          "equipo",
+          l.itemId,
+          `Recuento revisado por ${admin.nombre}: descartado, sin cambios`,
+          "recuento",
+        );
+      } else {
+        throw new Error(`Resolución inválida para un equipo: ${resolucion}`);
+      }
+      lineasResueltas.push({ ...l, resolucion });
+    } else {
+      const l = linea as RecuentoLineaCantidad;
+      const tabla = recuento.tipo === "repuestos" ? "repuestos" : "otros_items";
+      const campo = recuento.tipo === "repuestos" ? "stock" : "cantidad";
+      const itemType: ItemType = recuento.tipo === "repuestos" ? "repuesto" : "otro";
+      if (resolucion === "ajustado") {
+        const { error } = await supabase
+          .from(tabla)
+          .update({ [campo]: l.cantidadContada })
+          .eq("id", l.itemId);
+        if (error) throw error;
+        await addMovimiento(
+          itemType,
+          l.itemId,
+          `Recuento revisado por ${admin.nombre}: ajustado a ${l.cantidadContada}`,
+          "recuento",
+        );
+      } else if (resolucion === "descartado") {
+        await addMovimiento(
+          itemType,
+          l.itemId,
+          `Recuento revisado por ${admin.nombre}: descartado, sin cambios`,
+          "recuento",
+        );
+      } else {
+        throw new Error(`Resolución inválida para ${recuento.tipo}: ${resolucion}`);
+      }
+      lineasResueltas.push({ ...l, resolucion });
+    }
+  }
+
+  const { data: updated, error } = await supabase
+    .from("recuentos_stock")
+    .update({
+      estado: "revisado",
+      revisado_por_id: admin.id,
+      revisado_por_nombre: admin.nombre,
+      revisado_en: new Date().toISOString(),
+      lineas: lineasResueltas,
+    })
+    .eq("id", id)
+    .select(RECUENTO_COLS)
+    .single();
+  if (error) throw error;
+  return toRecuento(updated as unknown as RecuentoRow);
+}
+
+/** Vista consolidada de `movimientos_stock` mezclando equipos/repuestos/
+ * otros en una sola tabla (para /recuentos → pestaña "Movimientos"; el
+ * historial de UN ítem, en su dialog, sigue usando `listMovimientos`). Sin
+ * FK a una tabla fija (`item_id` apunta a una de tres según `item_type`),
+ * así que el nombre se resuelve acá con un `.in()` por tipo en vez de un
+ * join de SQL -- funciona incluso para ítems dados de baja porque nunca se
+ * borran de verdad (`activo = false`), siguen estando para el lookup. */
+export async function listMovimientosStock(filtro: {
+  tipo?: MovimientoTipo;
+  itemTipo?: ItemType;
+} = {}): Promise<MovimientoItem[]> {
+  const supabase = createServerClient();
+  let query = supabase
+    .from("movimientos_stock")
+    .select("item_type, item_id, fecha, detalle, usuario_nombre, tipo")
+    .order("fecha", { ascending: false })
+    .limit(200);
+  if (filtro.tipo) query = query.eq("tipo", filtro.tipo);
+  if (filtro.itemTipo) query = query.eq("item_type", filtro.itemTipo);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const idsPorTipo: Record<ItemType, Set<string>> = {
+    equipo: new Set(),
+    repuesto: new Set(),
+    otro: new Set(),
+  };
+  for (const m of data) idsPorTipo[m.item_type as ItemType].add(m.item_id);
+
+  const [equiposMap, repuestosMap, otrosMap] = await Promise.all([
+    idsPorTipo.equipo.size
+      ? supabase
+          .from("equipos")
+          .select("id, modelo, almacenamiento")
+          .in("id", [...idsPorTipo.equipo])
+          .then(({ data }) => new Map((data ?? []).map((e) => [e.id, `${e.modelo} ${e.almacenamiento ?? ""}`.trim()])))
+      : Promise.resolve(new Map<string, string>()),
+    idsPorTipo.repuesto.size
+      ? supabase
+          .from("repuestos")
+          .select("id, nombre")
+          .in("id", [...idsPorTipo.repuesto])
+          .then(({ data }) => new Map((data ?? []).map((r) => [r.id, r.nombre])))
+      : Promise.resolve(new Map<string, string>()),
+    idsPorTipo.otro.size
+      ? supabase
+          .from("otros_items")
+          .select("id, nombre")
+          .in("id", [...idsPorTipo.otro])
+          .then(({ data }) => new Map((data ?? []).map((o) => [o.id, o.nombre])))
+      : Promise.resolve(new Map<string, string>()),
+  ]);
+  const nombrePorTipo: Record<ItemType, Map<string, string>> = {
+    equipo: equiposMap,
+    repuesto: repuestosMap,
+    otro: otrosMap,
+  };
+
+  return data.map((m) => ({
+    fecha: fmtDayMonth(m.fecha),
+    hora: fmtTime(m.fecha),
+    detalle: m.detalle,
+    usuario: m.usuario_nombre,
+    tipo: m.tipo as MovimientoTipo,
+    itemTipo: m.item_type as ItemType,
+    itemNombre: nombrePorTipo[m.item_type as ItemType].get(m.item_id) ?? "—",
   }));
 }

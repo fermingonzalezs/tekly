@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/auth";
 import { listVentas } from "@/lib/db/ventas";
 import { listEquipos, listRepuestos, listOtros } from "@/lib/db/inventario";
 import { listClientes, demografiaClientes } from "@/lib/db/clientes";
@@ -7,7 +8,9 @@ import { ventasPorMes, facturacionDiaria, margenPorTipo, ventasPorRubroMes } fro
 import { FuenteClientes } from "@/components/clientes/fuente-clientes";
 import { AnaliticasClient } from "./analiticas-client";
 
+// Financiero -- no es una sección para vendedores.
 export default async function AnaliticasPage() {
+  await requireRole("admin", "tecnico");
   const [ventas, equipos, repuestos, otros, clientes, turnos, cajas, movimientosTodos, demografia] =
     await Promise.all([
       listVentas(),
