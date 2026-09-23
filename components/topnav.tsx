@@ -37,7 +37,7 @@ export function TopNav({ user }: { user: SessionUser }) {
           <div className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-white">
             <Smartphone className="h-5 w-5" />
           </div>
-          <span className="hidden text-sm font-semibold md:block">Tekly</span>
+          <span className="hidden font-grotesk text-sm font-semibold tracking-wide md:block">TEKLY</span>
         </Link>
 
         <nav

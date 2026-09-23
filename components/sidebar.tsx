@@ -16,7 +16,7 @@ export function Sidebar() {
           <Smartphone className="h-5 w-5" />
         </div>
         <div className="leading-tight">
-          <p className="text-sm font-semibold">Tekly</p>
+          <p className="font-grotesk text-sm font-semibold tracking-wide">TEKLY</p>
           <p className="text-xs text-neutral-400">Sucursal Centro</p>
         </div>
       </div>

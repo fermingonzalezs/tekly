@@ -44,7 +44,7 @@ export function MobileNavDrawer({
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-white">
             <Smartphone className="h-5 w-5" />
           </div>
-          <span className="text-sm font-semibold text-neutral-900">Tekly</span>
+          <span className="font-grotesk text-sm font-semibold tracking-wide text-neutral-900">TEKLY</span>
           <button
             onClick={onClose}
             aria-label="Cerrar menú"
