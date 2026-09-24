@@ -272,14 +272,16 @@ export async function deleteTicket(id: number): Promise<void> {
 
 // ─────────────────────────── Técnicos ───────────────────────────
 
-/** No hay tabla de "técnicos" separada -- son los `profiles` con rol
- * `tecnico` de la organización (RLS ya los acota). */
+/** No hay tabla de "técnicos" separada -- el selector ofrece cualquier
+ * usuario activo de la organización (RLS ya los acota), no solo los de
+ * rol `tecnico`: en equipos chicos el admin o un vendedor también arman
+ * tickets. */
 export async function listTecnicos(): Promise<{ id: string; nombre: string }[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("profiles")
     .select("id, nombre")
-    .eq("rol", "tecnico")
+    .eq("activo", true)
     .order("nombre");
   if (error) throw error;
   return data;

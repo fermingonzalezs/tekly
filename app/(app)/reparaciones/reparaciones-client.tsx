@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { ChecklistEditor, CHECKLIST_VACIO } from "@/components/ui/checklist-editor";
 import { Tabs } from "@/components/ui/tabs";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -37,21 +38,13 @@ import {
   ReciboChecklistComparado,
   ReciboNota,
 } from "@/components/recibos/recibo";
-import {
-  TICKET_FLOW,
-  nextTicketStatus,
-  ticketStatus,
-  dotClass,
-  CHECKLIST_ITEMS,
-  checklistItemLabel,
-} from "@/lib/status";
+import { TICKET_FLOW, nextTicketStatus, ticketStatus, dotClass } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import type {
   Checklist,
   ClienteOpcion,
   ClienteSeleccion,
-  EstadoChecklistItem,
   Repuesto,
   Servicio,
   Ticket,
@@ -73,54 +66,6 @@ import {
   updateTicketItemPrecioAction,
   deleteTicketAction,
 } from "./actions";
-
-const CHECKLIST_VACIO: Checklist = { items: {}, color: "" };
-
-const ESTADO_BTN_ACTIVO: Record<EstadoChecklistItem, string> = {
-  bien: "bg-emerald-500 text-white",
-  mal: "bg-red-500 text-white",
-  na: "bg-neutral-400 text-white",
-};
-
-/** Editor del checklist de ingreso/egreso -- 22 ítems fijos (bien/mal/n-a)
- * + color suelto. Reusado en "Nuevo ticket" (ingreso) y en "Completar
- * checklist de egreso". */
-function ChecklistEditor({
-  value,
-  onChange,
-}: {
-  value: Checklist;
-  onChange: (next: Checklist) => void;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-      {CHECKLIST_ITEMS.map((id) => (
-        <div key={id} className="rounded-lg border border-neutral-200 px-3 py-2">
-          <p className="mb-1.5 truncate text-sm text-neutral-700">{checklistItemLabel[id]}</p>
-          <div className="flex gap-1">
-            {(["bien", "mal", "na"] as const).map((estado) => (
-              <button
-                key={estado}
-                type="button"
-                onClick={() =>
-                  onChange({ ...value, items: { ...value.items, [id]: estado } })
-                }
-                className={cn(
-                  "flex-1 rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors",
-                  value.items[id] === estado
-                    ? ESTADO_BTN_ACTIVO[estado]
-                    : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200",
-                )}
-              >
-                {estado === "bien" ? "Bien" : estado === "mal" ? "Mal" : "No aplica"}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /** Fila de `ReciboLineas` para un ítem de ticket -- misma garantía/cantidad
  * en Ingreso, Presupuesto y Egreso, para no repetir el mapeo 3 veces. */
@@ -1045,6 +990,7 @@ export function ReparacionesClient({
                     ["Marca", recibo.ticket.marca || "—"],
                     ["Modelo", recibo.ticket.equipo],
                     ["Serial / IMEI", recibo.ticket.imei],
+                    ["Color", recibo.ticket.checklistIngreso?.color || "—"],
                   ]}
                 />
                 <ReciboCampos
@@ -1068,6 +1014,7 @@ export function ReparacionesClient({
               <ReciboChecklist
                 titulo="Checklist de ingreso"
                 checklist={recibo.ticket.checklistIngreso}
+                ocultarColor
               />
             )}
             <ReciboNota
@@ -1081,6 +1028,10 @@ export function ReparacionesClient({
                 total={recibo.ticket.presupuestoUsd || undefined}
               />
             )}
+            <ReciboNota
+              titulo="Aclaraciones"
+              texto={negocio.reparacionAclaracionesIngreso}
+            />
           </>
         )}
         {recibo?.tipo === "presupuesto" && (
@@ -1559,14 +1510,26 @@ function NuevoTicketDialog({
               <Input value={claveCodigo} onChange={(e) => setClaveCodigo(e.target.value)} />
             </Field>
           </div>
-          <Field label="Falla reportada">
-            <Textarea
-              rows={2}
-              value={falla}
-              onChange={(e) => setFalla(e.target.value)}
-              placeholder="Descripción de la falla…"
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Falla reportada">
+              <Textarea
+                rows={2}
+                value={falla}
+                onChange={(e) => setFalla(e.target.value)}
+                placeholder="Descripción de la falla…"
+              />
+            </Field>
+            <Field label="Técnico (opcional)">
+              <Select value={tecnicoId} onChange={(e) => setTecnicoId(e.target.value)}>
+                <option value="">Sin asignar</option>
+                {tecnicos.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
           <Field label="Descripción del equipo (opcional)">
             <Textarea
               rows={2}
@@ -1574,16 +1537,6 @@ function NuevoTicketDialog({
               onChange={(e) => setDescripcionEquipo(e.target.value)}
               placeholder="Golpes, funda, mica, accesorios que trae…"
             />
-          </Field>
-          <Field label="Técnico (opcional)">
-            <Select value={tecnicoId} onChange={(e) => setTecnicoId(e.target.value)}>
-              <option value="">Sin asignar</option>
-              {tecnicos.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.nombre}
-                </option>
-              ))}
-            </Select>
           </Field>
         </div>
 

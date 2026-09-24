@@ -51,6 +51,9 @@ export type Negocio = {
   reparacionTerminosIngreso: string;
   reparacionTerminosPresupuesto: string;
   reparacionTerminosEgreso: string;
+  /** Espacio libre al final del Ticket de ingreso para aclaraciones propias
+   * del negocio -- separado de los términos y condiciones de arriba. */
+  reparacionAclaracionesIngreso: string;
   /** % de recargo por medio de pago (ej. `{ tarjeta: 10 }`) -- aumenta lo
    * que cobra el cliente al elegir ese medio en "Nueva venta", ver
    * `montoConRecargo` en `lib/ventas.ts`. Medios sin entrada = sin recargo. */
@@ -67,7 +70,7 @@ export async function getNegocio(): Promise<Negocio> {
   const { data, error } = await supabase
     .from("organizations")
     .select(
-      "nombre, direccion, telefono, cuit, horario, objetivo_mes_usd, garantia_texto, garantia_condiciones, garantia_importante, garantia_causales, reparacion_terminos_ingreso, reparacion_terminos_presupuesto, reparacion_terminos_egreso, recargos_medios_pago, onboarding_pasos",
+      "nombre, direccion, telefono, cuit, horario, objetivo_mes_usd, garantia_texto, garantia_condiciones, garantia_importante, garantia_causales, reparacion_terminos_ingreso, reparacion_terminos_presupuesto, reparacion_terminos_egreso, reparacion_aclaraciones_ingreso, recargos_medios_pago, onboarding_pasos",
     )
     .single();
   if (error) throw error;
@@ -85,6 +88,7 @@ export async function getNegocio(): Promise<Negocio> {
     reparacionTerminosIngreso: data.reparacion_terminos_ingreso ?? "",
     reparacionTerminosPresupuesto: data.reparacion_terminos_presupuesto ?? "",
     reparacionTerminosEgreso: data.reparacion_terminos_egreso ?? "",
+    reparacionAclaracionesIngreso: data.reparacion_aclaraciones_ingreso ?? "",
     recargosMediosPago: data.recargos_medios_pago ?? {},
     onboardingPasos: data.onboarding_pasos ?? {},
   };
@@ -113,6 +117,7 @@ export async function updateNegocio(data: Negocio): Promise<void> {
       reparacion_terminos_ingreso: data.reparacionTerminosIngreso || null,
       reparacion_terminos_presupuesto: data.reparacionTerminosPresupuesto || null,
       reparacion_terminos_egreso: data.reparacionTerminosEgreso || null,
+      reparacion_aclaraciones_ingreso: data.reparacionAclaracionesIngreso || null,
       recargos_medios_pago: data.recargosMediosPago,
     })
     .eq("id", caller.organizationId);

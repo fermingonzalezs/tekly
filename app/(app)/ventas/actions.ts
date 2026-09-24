@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser, requireRole } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import { createVenta, deleteVenta, type DeleteVentaOpts } from "@/lib/db/ventas";
-import type { ClienteSeleccion, Pago, VentaItem } from "@/lib/types";
+import type { CanjeEquipo, ClienteSeleccion, Pago, VentaItem } from "@/lib/types";
 
 export async function createVentaAction(input: {
   cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
@@ -13,7 +13,7 @@ export async function createVentaAction(input: {
   procedencia?: string;
   items: VentaItem[];
   totalUsd: number;
-  pagos: Pago[];
+  pagos: (Pago & { canje?: CanjeEquipo })[];
   margenPct: number;
   tipo: "venta" | "reparacion";
   dolarVenta: number;
@@ -39,6 +39,7 @@ export async function createVentaAction(input: {
   revalidatePath("/inventario");
   revalidatePath("/cajas");
   revalidatePath("/cuentas-corrientes");
+  revalidatePath("/compras");
   return venta;
 }
 
@@ -49,4 +50,5 @@ export async function deleteVentaAction(id: string, opts: DeleteVentaOpts) {
   revalidatePath("/inventario");
   revalidatePath("/cajas");
   revalidatePath("/cuentas-corrientes");
+  revalidatePath("/compras");
 }

@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   Search,
   Trash2,
+  FileText,
   SlidersHorizontal,
   ChevronDown,
   ChevronUp,
@@ -14,41 +16,59 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  ReciboDialog,
+  ReciboCampos,
+  ReciboChecklist,
+  ReciboNota,
+} from "@/components/recibos/recibo";
 import { medioPago as medioPagoCfg, MEDIOS_CAJA, compraEstado, dotClass } from "@/lib/status";
-import { fmtUsd, fmtArs } from "@/lib/format";
+import { fmtUsd, fmtArs, fmtDateSlash } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { Compra, CompraEstado, CompraItem, MedioPago } from "@/lib/types";
+import type { Negocio } from "@/lib/db/configuracion";
 import type { SessionUser } from "@/lib/auth/types";
 import { createCompraAction, marcarRecibidaAction, deleteCompraAction } from "./actions";
 
 const MEDIOS = MEDIOS_CAJA;
 
+/** Nombre de la contraparte -- proveedor de siempre, o el cliente cuando
+ * es un canje recibido en una venta (`origen === "canje"`, ver "Ventas" en
+ * CLAUDE.md). */
+function contraparteDe(c: Compra) {
+  return c.origen === "canje" ? (c.cliente ?? "") : (c.proveedor ?? "");
+}
+
 function matchesQuery(c: Compra, q: string) {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
-  if (c.proveedor.toLowerCase().includes(needle)) return true;
+  if (contraparteDe(c).toLowerCase().includes(needle)) return true;
   return c.items.some((i) => i.detalle.toLowerCase().includes(needle));
 }
 
 export function ComprasClient({
   initialCompras,
   user,
+  negocio,
 }: {
   initialCompras: Compra[];
   user: SessionUser;
+  negocio: Negocio;
 }) {
   const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Compra[]>(initialCompras);
+  const openParam = useSearchParams().get("open");
   const [estadoFiltro, setEstadoFiltro] = useState<"todos" | CompraEstado>("todos");
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(openParam);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [recibo, setRecibo] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const filtered = useMemo(
@@ -83,7 +103,7 @@ export function ComprasClient({
         type: "item_deleted",
         actor: user.nombre,
         entity: "Compra",
-        label: `${c.id} · ${c.proveedor}`,
+        label: `${c.id} · ${contraparteDe(c)}`,
       });
     }
   }
@@ -165,7 +185,7 @@ export function ComprasClient({
 
             <div className="flex items-stretch gap-3 p-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-neutral-900">{c.proveedor}</p>
+                <p className="truncate text-sm font-medium text-neutral-900">{contraparteDe(c)}</p>
                 <p className="mt-0.5 truncate text-xs text-neutral-500">
                   {c.items.map((i) => i.detalle).join(" · ")}
                 </p>
@@ -207,7 +227,7 @@ export function ComprasClient({
           <thead>
             <tr className="border-b border-neutral-100 text-xs text-neutral-400">
               <th className={cn("px-5 py-3 text-center", thDivider)}>Compra</th>
-              <th className={cn("px-5 py-3 text-center", thDivider)}>Proveedor</th>
+              <th className={cn("px-5 py-3 text-center", thDivider)}>Contraparte</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Detalle</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Medio</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Estado</th>
@@ -225,7 +245,7 @@ export function ComprasClient({
                   {c.id}
                   <span className="block text-xs font-normal text-neutral-400">{c.fecha}</span>
                 </td>
-                <td className="px-5 py-2 text-center font-medium">{c.proveedor}</td>
+                <td className="px-5 py-2 text-center font-medium">{contraparteDe(c)}</td>
                 <td className="max-w-[240px] truncate px-5 py-2 text-start text-neutral-500">
                   {c.items.map((i) => i.detalle).join(" · ")}
                 </td>
@@ -272,7 +292,7 @@ export function ComprasClient({
         size="lg"
         accent
         title={open?.id ?? ""}
-        description={open ? `${open.fecha} · ${open.proveedor}` : ""}
+        description={open ? `${open.fecha} · ${contraparteDe(open)}` : ""}
         footer={
           open && (
             <>
@@ -290,6 +310,14 @@ export function ComprasClient({
               >
                 Cerrar
               </button>
+              {open.origen === "canje" && (
+                <button
+                  onClick={() => setRecibo(true)}
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+                >
+                  <FileText className="h-4 w-4" /> Imprimir recibo de canje
+                </button>
+              )}
               {open.estado === "pendiente" && (
                 <button
                   disabled={pending}
@@ -316,8 +344,42 @@ export function ComprasClient({
         title="¿Eliminar compra?"
         confirmLabel="Eliminar compra"
       >
-        {open && `Se eliminará «${open.id}» de ${open.proveedor}. Esta acción no se puede deshacer.`}
+        {open &&
+          `Se eliminará «${open.id}» de ${contraparteDe(open)}. Esta acción no se puede deshacer.`}
       </ConfirmDialog>
+
+      {open && open.origen === "canje" && (
+        <ReciboDialog
+          open={recibo}
+          onClose={() => setRecibo(false)}
+          titulo="Recibo de canje"
+          nro={open.id}
+          fecha={fmtDateSlash(open.fechaISO)}
+          cliente={open.cliente ?? ""}
+          negocio={negocio}
+          compacto
+        >
+          <ReciboCampos
+            filas={[
+              ["Marca", open.marca || "—"],
+              ["Modelo", open.items[0]?.detalle ?? "—"],
+              ["Serial / IMEI", open.imei || "—"],
+              ["Color", open.checklist?.color || "—"],
+            ]}
+          />
+          {open.checklist && (
+            <ReciboChecklist titulo="Checklist de ingreso" checklist={open.checklist} ocultarColor />
+          )}
+          <ReciboCampos
+            className="mt-5"
+            filas={[
+              ["Aplicado a", open.ventaId ? `Venta ${open.ventaId}` : "—"],
+              ["Valor reconocido", fmtUsd(open.totalUsd)],
+            ]}
+          />
+          <ReciboNota titulo="Aclaraciones" texto={open.aclaraciones ?? ""} />
+        </ReciboDialog>
+      )}
 
       <NuevaCompraDialog
         key={creating ? "n" : "n0"}
@@ -334,7 +396,10 @@ export function ComprasClient({
 
 function CompraDetalle({ compra }: { compra: Compra }) {
   const metaFields = [
-    { label: "Proveedor", value: compra.proveedor },
+    {
+      label: compra.origen === "canje" ? "Cliente" : "Proveedor",
+      value: contraparteDe(compra),
+    },
     { label: "Fecha", value: compra.fecha },
     { label: "Medio de pago", value: medioPagoCfg[compra.medioPago].label },
     { label: "Estado", value: compraEstado[compra.estado].label },
@@ -423,6 +488,44 @@ function CompraDetalle({ compra }: { compra: Compra }) {
           </table>
         </div>
       </div>
+
+      {compra.origen === "canje" && (
+        <div>
+          <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            Información del equipo
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Marca", value: compra.marca || "—" },
+              { label: "Serial / IMEI", value: compra.imei || "—" },
+              { label: "Color", value: compra.checklist?.color || "—" },
+              { label: "Venta", value: compra.ventaId ?? "—" },
+            ].map((f) => (
+              <Card key={f.label} className="p-2 text-center">
+                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                  {f.label}
+                </p>
+                <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{f.value}</p>
+              </Card>
+            ))}
+          </div>
+          {compra.checklist && (
+            <div className="mt-3">
+              <ReciboChecklist
+                titulo="Checklist de ingreso"
+                checklist={compra.checklist}
+                ocultarColor
+              />
+            </div>
+          )}
+          {compra.aclaraciones && (
+            <p className="mt-3 text-sm text-neutral-600">
+              <span className="font-semibold text-neutral-900">Aclaraciones: </span>
+              {compra.aclaraciones}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

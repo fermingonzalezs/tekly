@@ -378,12 +378,12 @@ export const movimientosCC: MovimientoCC[] = [
 
 // El espejo de Ventas del lado del gasto: compras a proveedores.
 export const compras: Compra[] = [
-  { id: "C-101", fecha: "07 sep", fechaISO: "2026-09-07", proveedor: "PartsAR", items: [{ detalle: "Batería iPhone 12", cantidad: 10, costoUsd: 12 }, { detalle: "Batería iPhone 11", cantidad: 10, costoUsd: 11 }], totalUsd: 230, medioPago: "transferencia", estado: "recibida" },
-  { id: "C-100", fecha: "06 sep", fechaISO: "2026-09-06", proveedor: "Tecno Import", items: [{ detalle: "Pantalla OLED iPhone 13", cantidad: 5, costoUsd: 68 }], totalUsd: 340, medioPago: "transferencia", estado: "pendiente" },
-  { id: "C-099", fecha: "04 sep", fechaISO: "2026-09-04", proveedor: "MobileFix Mayorista", items: [{ detalle: "Vidrio trasero iPhone 13", cantidad: 8, costoUsd: 14 }, { detalle: "Flex de carga iPhone 13", cantidad: 6, costoUsd: 9 }], totalUsd: 166, medioPago: "pesos", estado: "recibida", montoArs: 243190, cotizacion: 1465 },
-  { id: "C-098", fecha: "02 sep", fechaISO: "2026-09-02", proveedor: "iSupply Global", items: [{ detalle: "Pantalla OLED iPhone 15 Pro", cantidad: 3, costoUsd: 145 }], totalUsd: 435, medioPago: "cripto", estado: "pendiente" },
-  { id: "C-097", fecha: "30 ago", fechaISO: "2026-08-30", proveedor: "Accesorios del Sur", items: [{ detalle: "Cargador USB-C 20W", cantidad: 30, costoUsd: 4 }, { detalle: "Cable Lightning 1m", cantidad: 50, costoUsd: 2 }], totalUsd: 220, medioPago: "transferencia", estado: "recibida" },
-  { id: "C-096", fecha: "28 ago", fechaISO: "2026-08-28", proveedor: "PartsAR", items: [{ detalle: "Batería iPhone 13 Pro", cantidad: 12, costoUsd: 15 }], totalUsd: 180, medioPago: "dolares", estado: "recibida" },
+  { id: "C-101", fecha: "07 sep", fechaISO: "2026-09-07", origen: "proveedor", proveedor: "PartsAR", items: [{ detalle: "Batería iPhone 12", cantidad: 10, costoUsd: 12 }, { detalle: "Batería iPhone 11", cantidad: 10, costoUsd: 11 }], totalUsd: 230, medioPago: "transferencia", estado: "recibida" },
+  { id: "C-100", fecha: "06 sep", fechaISO: "2026-09-06", origen: "proveedor", proveedor: "Tecno Import", items: [{ detalle: "Pantalla OLED iPhone 13", cantidad: 5, costoUsd: 68 }], totalUsd: 340, medioPago: "transferencia", estado: "pendiente" },
+  { id: "C-099", fecha: "04 sep", fechaISO: "2026-09-04", origen: "proveedor", proveedor: "MobileFix Mayorista", items: [{ detalle: "Vidrio trasero iPhone 13", cantidad: 8, costoUsd: 14 }, { detalle: "Flex de carga iPhone 13", cantidad: 6, costoUsd: 9 }], totalUsd: 166, medioPago: "pesos", estado: "recibida", montoArs: 243190, cotizacion: 1465 },
+  { id: "C-098", fecha: "02 sep", fechaISO: "2026-09-02", origen: "proveedor", proveedor: "iSupply Global", items: [{ detalle: "Pantalla OLED iPhone 15 Pro", cantidad: 3, costoUsd: 145 }], totalUsd: 435, medioPago: "cripto", estado: "pendiente" },
+  { id: "C-097", fecha: "30 ago", fechaISO: "2026-08-30", origen: "proveedor", proveedor: "Accesorios del Sur", items: [{ detalle: "Cargador USB-C 20W", cantidad: 30, costoUsd: 4 }, { detalle: "Cable Lightning 1m", cantidad: 50, costoUsd: 2 }], totalUsd: 220, medioPago: "transferencia", estado: "recibida" },
+  { id: "C-096", fecha: "28 ago", fechaISO: "2026-08-28", origen: "proveedor", proveedor: "PartsAR", items: [{ detalle: "Batería iPhone 13 Pro", cantidad: 12, costoUsd: 15 }], totalUsd: 180, medioPago: "dolares", estado: "recibida" },
 ];
 
 // ───────────────────────── Listas de difusión ─────────────────────────

@@ -37,7 +37,7 @@ export function Dialog({
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl" | "2xl";
   accent?: boolean;
 }) {
   useEffect(() => {
@@ -64,7 +64,13 @@ export function Dialog({
           className={cn(
             "animate-toast-in relative my-8 w-full overflow-hidden rounded-2xl border bg-white shadow-2xl",
             accent ? "border-accent" : "border-neutral-200",
-            size === "lg" ? "max-w-2xl" : "max-w-md",
+            size === "2xl"
+              ? "max-w-4xl"
+              : size === "xl"
+                ? "max-w-3xl"
+                : size === "lg"
+                  ? "max-w-2xl"
+                  : "max-w-md",
           )}
         >
           <div

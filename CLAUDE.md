@@ -603,15 +603,18 @@ lleva `accent` o no:
   celda `<Card className="p-3 text-center">` con label `font-grotesk
   border-b border-neutral-300 ... uppercase` + valor `mt-2 text-sm`) como
   para los de **alta/edición** de esa misma sección (`EquipoFormDialog` en
-  Inventario, `CajaDialog` y `NuevoMovimientoDialog` en Cajas — mismo
-  `accent`, mismo footer a pills, body con `Field` normal).
+  Inventario, `CajaDialog` y `NuevoMovimientoDialog` en Cajas, **Nueva
+  venta** y `CanjeModal` en Ventas — mismo `accent`, mismo footer a pills,
+  body con `Field` normal; cada sección del form lleva su propio eyebrow
+  con línea (`border-b border-neutral-200 pb-2`, ver `Eyebrow` en
+  `ventas-client.tsx`) para que se lean como bloques separados en un form
+  largo).
 - **Header blanco (sin `accent`)** → footer con el componente **`Button`**
   (`variant="outline" size="sm"` para «Cancelar», `size="sm"
   disabled={...}` para la acción primaria). Úsala en secciones que **no**
   tienen ningún dialog de detalle/vista con `accent` todavía —
   `NuevoClienteDialog` (Clientes), `NuevoTicketDialog` (Reparaciones),
-  `ServicioDialog` (Servicios), **Nueva venta** (Ventas, el form completo —
-  ver punto 4 abajo).
+  `ServicioDialog` (Servicios).
 
 En ambas familias: body `<div className="space-y-3">` con `Field` + `Input`
 / `Select` / `Textarea` apilados (pares cortos → `grid grid-cols-2 gap-3`);
@@ -661,18 +664,35 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
    Turnos). Solo `Pago.medio` (ventas) admite un 7mo valor,
    `"cuenta_corriente"` 📒 (tipo `MedioPagoVenta`, `MEDIOS_VENTA` con los 7)
    — nunca es medio de una `Caja` real. `Venta.pagos` es `Pago[]` = `{
-   medio, montoUsd, caja, cajaId?, recargoPct? }[]` (1+ medios, pago
-   dividido; la suma de `montoUsd` cubre `totalUsd`, sin importar el
-   recargo — ver abajo). Formularios → `Dialog` + `Field`.
+   medio, montoUsd, caja, cajaId?, recargoPct?, compraId? }[]` (1+ medios,
+   pago dividido; la suma de `montoUsd` cubre `totalUsd`, sin importar el
+   recargo — ver abajo). `compraId` solo aplica a un pago `canje`: elegir la
+   caja de canje como destino abre `CanjeModal` (mismo archivo) para cargar
+   el equipo recibido + un checklist de ingreso (`ChecklistEditor`,
+   `components/ui/checklist-editor.tsx` — compartido con Reparaciones, ver
+   esa sección) + aclaraciones libres; al confirmar la venta,
+   `createVenta` (`lib/db/ventas.ts`) crea una `Compra` con
+   `origen: "canje"` (ver "Compras" más abajo) y guarda su `id` como
+   `compraId` en el pago — el detalle completo vive ahí, no en `Venta.pagos`.
+   Formularios → `Dialog` + `Field`.
    El modal de **Nueva venta** (`app/(app)/ventas/ventas-client.tsx`) es la
    referencia de form completo: eyebrows en mayúscula, cliente existente/
    nuevo, ítems desde el stock (`equipos`) o libres, y pago dividido con
    conciliación (faltan/sobran/completo + botón «Saldar» — lógica en
-   `lib/ventas.ts`, no reimplementarla inline). Cada pago elige una **caja
-   real** (`cajaId`) o "Cuenta corriente" directamente — no un medio
-   abstracto — así nunca hay que adivinar a qué caja fue la plata aunque
-   dos cajas compartan medio (ver "Cajas" más abajo); el medio/moneda
-   quedan derivados de esa elección. `Negocio.recargosMediosPago`
+   `lib/ventas.ts`, no reimplementarla inline). Cada pago es una tarjeta
+   propia (`rounded-lg border`, una fila entera por pago -- varios pagos
+   de un pago dividido quedan uno debajo del otro, nunca lado a lado) con
+   todo en una sola fila (se apila solo en mobile): primero el **medio**
+   (Select con solo los medios que tienen alguna caja activa + "Cuenta
+   corriente"), al lado la **caja** en cuanto el medio elegido tiene alguna
+   (auto-elegida la primera) — así nunca hay que adivinar a qué caja fue la
+   plata aunque dos cajas compartan medio (ver "Cajas" más abajo) — y por
+   último el campo «Cobrado», que cambia de moneda según la caja elegida:
+   si es ARS pide el monto en pesos y debajo muestra en vivo su equivalente
+   en USD (`fmtUsd(montoUsd)`, con `montoUsd = arsIngresado / dolarVenta`)
+   a la cotización vigente — es el único lugar de la app donde se tipea en
+   ARS en vez de USD, justamente porque ahí es donde el vendedor sabe
+   cuántos pesos cobró, no cuántos dólares equivalen. `Negocio.recargosMediosPago`
    (Configuración → Datos del negocio) es un % opcional por medio que
    infla lo que se **cobra/mueve** de verdad
    (`montoConRecargo` en `lib/ventas.ts`) sin tocar `montoUsd` ni la
@@ -726,7 +746,9 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
 - **Reparaciones** (`app/(app)/reparaciones/`, migrado): 2 tabs — **Tickets**
   (pipeline + tabla) y **Servicios** (`components/servicios-catalogo.tsx`,
   catálogo editable). **No hay sección `/servicios`**, vive acá. No hay
-  tabla de "técnicos": son `profiles` con `rol = 'tecnico'`
+  tabla de "técnicos": el selector de "Nuevo ticket" ofrece cualquier
+  `profiles` activo de la organización, no solo `rol = 'tecnico'` — en
+  equipos chicos el admin o un vendedor también arman tickets
   (`lib/db/reparaciones.ts` → `listTecnicos`). El detalle de ticket tiene 3
   documentos, los 3 con `compacto` (ver "Recibos / PDFs" — negocio arriba a
   la derecha en vez del logo, "Información cliente" en vez de "Datos de
@@ -739,7 +761,12 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   texto de "Términos y condiciones" (`Negocio.reparacionTerminosIngreso`/
   `reparacionTerminosPresupuesto`/`reparacionTerminosEgreso`, editables por
   separado en Configuración → Recibos, análogos a los `garantia*` de Ventas
-  pero uno por documento en vez de compartido). "Nuevo ticket" además de
+  pero uno por documento en vez de compartido). El **Ticket de ingreso**
+  además muestra el `color` del checklist de ingreso (ver más abajo) en
+  "Información del equipo", junto a Marca/Modelo/Serial, y cierra con un
+  bloque **«Aclaraciones»** propio (`Negocio.reparacionAclaracionesIngreso`,
+  mismo criterio editable que los términos y condiciones pero un texto
+  libre aparte, no una condición legal). "Nuevo ticket" además de
   Cliente/Falla/Técnico pide: `marca` (nuevo campo, casi siempre "Apple" --
   el negocio solo repara iPhones), `equipo` (el campo de siempre, se
   muestra como "Modelo"), `imei` (existía en la base pero nunca se cargaba
@@ -748,10 +775,12 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   (`Ticket.checklistIngreso`, jsonb): 22 ítems fijos
   (`CHECKLIST_ITEMS`/`checklistItemLabel` en `lib/status.ts`, tipo
   `ChecklistItemId` en `lib/types.ts`) con estado `bien`/`mal`/`na` por ítem
-  (`ChecklistEditor` en `reparaciones-client.tsx`, grilla de a 3) + `color`
-  suelto (texto libre, es un dato de identificación, no un chequeo -- se
-  carga junto con "Datos del equipo" en el form, aunque persiste dentro del
-  mismo jsonb `checklistIngreso`). El **checklist de egreso**
+  (`ChecklistEditor`, `components/ui/checklist-editor.tsx` — compartido con
+  el equipo recibido en canje de Ventas, ver "Ventas" más arriba; grilla de
+  a 3 + botones «Marcar todo bien»/«No se testeó») + `color` suelto (texto
+  libre, es un dato de identificación, no un chequeo -- se carga junto con
+  "Datos del equipo" en el form, aunque persiste dentro del mismo jsonb
+  `checklistIngreso`). El **checklist de egreso**
   (`Ticket.checklistEgreso`) es aparte a propósito: se completa con el
   botón «Checklist» en el detalle del ticket, en cualquier momento antes de
   entregar — no depende de avanzar el `estado`. `ReciboChecklist`
@@ -781,9 +810,11 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   (`lineaSinGarantia`) porque no tienen garantía de catálogo.
 - **Ventas** (`app/(app)/ventas/`, migrado): click en una fila → detalle
   (`VentaDetalle`) con botones **«Comprobante de venta»**, **«Garantía»**
-  (siempre visible, no depende de que algún ítem tenga `equipoId`) y, si hay
-  un pago `canje`, **«Recibo de equipo en parte de pago»** (ver
-  "Recibos / PDFs"). También hay ícono de Garantía en la columna Acciones de
+  (siempre visible, no depende de que algún ítem tenga `equipoId`) y, por
+  cada pago en `canje`, un link **«Ver compra de canje»** hacia
+  `/compras?open=<id>` — el detalle completo (equipo, checklist, PDF) vive
+  en Compras, acá solo la referencia (`Pago.compraId`, ver "Compras" más
+  abajo). También hay ícono de Garantía en la columna Acciones de
   la tabla de Ventas (venta completa) y de "Ítems vendidos" (un solo ítem) —
   mismo documento, mismo `garantiaContenido(items)` en `ventas-client.tsx`.
   Selector **Ventas / Ítems vendidos** (`Tabs`) sobre la tabla: la segunda
@@ -804,12 +835,13 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `RUBRO_LABEL` compartido en `lib/ventas.ts`; es opcional porque ventas
   creadas antes de este campo no lo tienen. Persistencia: tabla propia
   `venta_items` (ver "Backend y multi-tenancy"), no `jsonb` en `ventas`.
-  «Eliminar venta» (admin-only) abre un `ConfirmDialog` con hasta 4
+  «Eliminar venta» (admin-only) abre un `ConfirmDialog` con hasta 5
   checkboxes independientes, cada uno visible solo si aplica: devolver los
   equipos vendidos a `disponible`, devolver los repuestos usados al stock,
   borrar el/los movimiento(s) de caja generados, borrar el movimiento de
-  cuenta corriente generado (ver "Medios de pago" arriba) — `deleteVenta`
-  (`lib/db/ventas.ts`) recibe los 4 como un objeto de opciones.
+  cuenta corriente generado (ver "Medios de pago" arriba), borrar la
+  `Compra` de canje generada — `deleteVenta` (`lib/db/ventas.ts`) recibe
+  los 5 como un objeto de opciones.
 - **Clientes** (`app/(app)/clientes/`, migrado): tabla (no cards). Fila →
   ficha con historial cruzado real (ventas/tickets/turnos vía
   `lib/db/clientes.ts`); toolbar «Nuevo cliente». `compras`/`reparaciones`/
@@ -851,15 +883,29 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   con «Editar» (`CajaDialog`, incluye el checkbox "Caja activa" para
   desactivar/reactivar — no hay botón de desactivar aparte en la fila).
 - **Compras** (`app/(app)/compras/`, migrado): espejo de Ventas del lado del
-  gasto. Alta con proveedor (texto libre en la UI, resuelto a
-  `proveedores` igual que en Inventario — `resolveProveedorId`, exportada
-  desde `lib/db/inventario.ts` y reusada acá), ítems (detalle/cantidad/
-  costo), medio de pago, estado `pendiente`/`recibida`. Si el medio es
-  "pesos" se guarda `montoArs`/`cotizacion` con el dólar del momento
-  (`useDolar()`), igual criterio que otros montos en ARS de la app. La
-  tabla `compras` no traía una referencia legible como `ventas.numero` —
-  se le agregó (`supabase/migrations/20260914000000_compras_numero.sql`),
-  mismo patrón, expuesta como `"C-<numero>"`.
+  gasto. `Compra.origen` distingue las dos formas en que se llega acá:
+  `"proveedor"` (de siempre) — alta con proveedor (texto libre en la UI,
+  resuelto a `proveedores` igual que en Inventario — `resolveProveedorId`,
+  exportada desde `lib/db/inventario.ts` y reusada acá), ítems
+  (detalle/cantidad/costo), medio de pago, estado `pendiente`/`recibida`; o
+  `"canje"` — generada sola desde "Nueva venta" al elegir la caja de canje
+  como medio de pago (ver "Ventas" arriba): `clienteId`/`cliente` en vez de
+  `proveedor`, `ventaId` referencia esa venta, `estado` nace `"recibida"`
+  (el equipo ya está en mano), y `marca`/`imei`/`checklist`/`aclaraciones`
+  documentan el equipo recibido — `checklist` es el mismo shape que
+  `Ticket.checklistIngreso` de Reparaciones. El detalle de una compra
+  `canje` muestra ese bloque ("Información del equipo" + checklist +
+  aclaraciones) y un botón **«Imprimir recibo de canje»**
+  (`ReciboDialog`/`ReciboChecklist` reusados de `components/recibos/recibo`,
+  con la firma del cliente y de la empresa que ya trae todo recibo de la
+  app) — es el único lugar donde se ve/imprime ese PDF, por eso Ventas solo
+  linkea acá (`/compras?open=<id>`, leído con `useSearchParams` igual que el
+  `?tab=` de Configuración) en vez de reconstruirlo. Si el medio es "pesos"
+  se guarda `montoArs`/`cotizacion` con el dólar del momento (`useDolar()`),
+  igual criterio que otros montos en ARS de la app. La tabla `compras` no
+  traía una referencia legible como `ventas.numero` — se le agregó
+  (`supabase/migrations/20260914000000_compras_numero.sql`), mismo patrón,
+  expuesta como `"C-<numero>"`.
 - **Cuentas corrientes** (`app/(app)/cuentas-corrientes/`, migrado): saldo
   "fiado" por cliente — cargos suman deuda, pagos la reducen
   (`saldoDe`, extraída a `lib/cuentas-corrientes.ts` puro con test porque el
@@ -1005,8 +1051,9 @@ Los headers de tabla salen con la banda índigo oscuro global
 `@media print`: se oculta todo salvo `.recibo-print`.
 
 Usos: Reparaciones → **Ticket de ingreso**/**Ticket de egreso**/
-**Presupuesto** (ver esa sección), Ventas → comprobante de venta, recibo de
-canje y **Garantía** (venta completa o un solo ítem, botón propio en
+**Presupuesto** (ver esa sección), Compras → **Recibo de canje** (solo
+compras `origen: "canje"`, ver esa sección), Ventas → comprobante de venta y
+**Garantía** (venta completa o un solo ítem, botón propio en
 Ventas y en cada fila de "Ítems vendidos" — ya no depende de que el ítem
 tenga `equipoId`; el ítem sin `equipoId` sale con "—" en la columna
 Garantía). El membrete (nombre/dirección/CUIT/teléfono) toma `negocio` real
@@ -1023,14 +1070,19 @@ sin policy de `update` para `authenticated` -- mismo criterio que el resto
 de "Datos del negocio", se guarda por `service role` + `requireRole("admin")`
 en `updateNegocio`) y `Negocio.reparacionTerminosIngreso/
 reparacionTerminosPresupuesto/reparacionTerminosEgreso` (mismo criterio, un
-texto por documento de Reparaciones, no uno compartido): se editan en
+texto por documento de Reparaciones, no uno compartido) más
+`Negocio.reparacionAclaracionesIngreso` (mismo criterio, espacio libre al
+final del **Ticket de ingreso** para aclaraciones propias del negocio,
+separado de los términos y condiciones de ese mismo documento): se editan en
 Configuración → **Recibos** (`RecibosForm` en `configuracion-client.tsx`),
 con preview en vivo del lado de Garantía — el mismo `ReciboShell`/
 `ReciboGarantiaItems`/`ReciboNota` renderizado al lado del form, atado al
 `form` state (no al `negocio` guardado) para que el cambio se vea antes de
 guardar (los 3 campos de Reparaciones no tienen preview propio, solo el
-campo de texto). Las notas legales del recibo de canje siguen hardcodeadas
-en el client component — no forma parte de esta configuración.
+campo de texto). El recibo de canje no tiene textos editables acá a
+propósito -- sus "Aclaraciones" son libres por canje, cargadas en
+`CanjeModal` al momento de la venta (ver "Ventas"), no un texto fijo del
+negocio.
 
 ## Notificaciones en tiempo real
 
@@ -1090,3 +1142,13 @@ nombre de actor** -- eso fue un bug real que quedó de la época mock.
 - No usar los indicadores nativos (flechas de incremento/decremento) de los
   `<input type="number">` — quedan feos en montos, batería, cantidades, etc.
   Ya están ocultos globalmente en `app/globals.css`; no reintroducirlos.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

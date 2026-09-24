@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   Plus,
   Trash2,
@@ -13,24 +13,23 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ChecklistEditor, CHECKLIST_VACIO } from "@/components/ui/checklist-editor";
 import {
   ReciboDialog,
-  ReciboCampos,
   ReciboLineas,
   ReciboGarantiaItems,
   ReciboNota,
   ReciboNotaLista,
   type ReciboPagina,
 } from "@/components/recibos/recibo";
-import { medioPago as medioPagoCfg, dotClass } from "@/lib/status";
-import { fmtUsd, fmtArs, fmtDateSlash } from "@/lib/format";
+import { medioPago as medioPagoCfg, dotClass, MEDIOS_CAJA } from "@/lib/status";
+import { fmtUsd, fmtArs, fmtNum, fmtDateSlash } from "@/lib/format";
 import { otroCostoPromedio } from "@/lib/otros";
 import {
   calcularMargenPct,
@@ -47,9 +46,12 @@ import { filterPill, thDivider } from "@/lib/ui-styles";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
 import type {
   Caja,
+  CanjeEquipo,
+  Checklist,
   ClienteOpcion,
   ClienteSeleccion,
   Equipo,
+  MedioPago,
   MedioPagoVenta,
   OtroItem,
   Pago,
@@ -151,9 +153,10 @@ export function VentasClient({
   const [restituirRepuestos, setRestituirRepuestos] = useState(true);
   const [eliminarMovimientosCaja, setEliminarMovimientosCaja] = useState(true);
   const [eliminarMovimientoCC, setEliminarMovimientoCC] = useState(true);
+  const [eliminarCompraCanje, setEliminarCompraCanje] = useState(true);
   const [, startTransition] = useTransition();
   const [recibo, setRecibo] = useState<
-    | { venta: Venta; tipo: "venta" | "canje" }
+    | { venta: Venta; tipo: "venta" }
     | { venta: Venta; tipo: "garantia"; item?: VentaItem }
     | null
   >(null);
@@ -213,6 +216,7 @@ export function VentasClient({
         restituirRepuestos,
         eliminarMovimientosCaja,
         eliminarMovimientoCC,
+        eliminarCompraCanje,
       });
     });
     publish({
@@ -751,7 +755,6 @@ export function VentasClient({
         cajas={cajas}
         negocio={negocio}
         dolarVenta={dolarVenta}
-        puedeVerCosto={puedeVerCosto}
         onCreate={(v) => {
           setList((prev) => [v, ...prev]);
           setCreating(false);
@@ -782,6 +785,7 @@ export function VentasClient({
                     setRestituirRepuestos(true);
                     setEliminarMovimientosCaja(true);
                     setEliminarMovimientoCC(true);
+                    setEliminarCompraCanje(true);
                     setConfirmDelete(true);
                   }}
                   className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
@@ -795,14 +799,17 @@ export function VentasClient({
               >
                 Cerrar
               </button>
-              {open.pagos.some((p) => p.medio === "canje") && (
-                <button
-                  onClick={() => setRecibo({ venta: open, tipo: "canje" })}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-                >
-                  <FileText className="h-4 w-4" /> Recibo de canje
-                </button>
-              )}
+              {open.pagos
+                .filter((p) => p.medio === "canje" && p.compraId)
+                .map((p) => (
+                  <a
+                    key={p.compraId}
+                    href={`/compras?open=${p.compraId}`}
+                    className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+                  >
+                    <FileText className="h-4 w-4" /> Ver compra de canje {p.compraId}
+                  </a>
+                ))}
               <button
                 onClick={() => setRecibo({ venta: open, tipo: "garantia" })}
                 className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
@@ -882,6 +889,17 @@ export function VentasClient({
                 por esta venta
               </label>
             )}
+            {open.pagos.some((p) => p.medio === "canje" && p.compraId) && (
+              <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={eliminarCompraCanje}
+                  onChange={(e) => setEliminarCompraCanje(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+                />
+                Eliminar también la compra de canje generada por esta venta
+              </label>
+            )}
           </>
         )}
       </ConfirmDialog>
@@ -896,13 +914,7 @@ export function VentasClient({
         }
         open={!!recibo}
         onClose={() => setRecibo(null)}
-        titulo={
-          recibo?.tipo === "canje"
-            ? "Recibo de equipo en parte de pago"
-            : recibo?.tipo === "garantia"
-              ? "Garantía"
-              : "Recibo"
-        }
+        titulo={recibo?.tipo === "garantia" ? "Garantía" : "Recibo"}
         nro={recibo?.venta.id ?? ""}
         fecha={recibo ? fmtDateSlash(recibo.venta.fechaISO) : ""}
         cliente={recibo?.venta.cliente ?? ""}
@@ -910,44 +922,7 @@ export function VentasClient({
         clienteEmail={recibo ? clientesPorId.get(recibo.venta.clienteId)?.email : undefined}
         negocio={negocio}
         paginas={recibo?.tipo === "garantia" ? garantiaPagina : paginasVenta}
-      >
-        {recibo?.tipo === "canje" && (
-          <>
-            <ReciboCampos
-              filas={[
-                ["Aplicado a", `Venta ${recibo.venta.id}`],
-                [
-                  "Valor reconocido",
-                  fmtUsd(
-                    recibo.venta.pagos
-                      .filter((p) => p.medio === "canje")
-                      .reduce((a, p) => a + p.montoUsd, 0),
-                  ),
-                ],
-              ]}
-            />
-            <div className="mt-5 space-y-3 text-sm">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                Equipo recibido (completar a mano)
-              </p>
-              {["Modelo y capacidad", "IMEI / Serie", "Estado y accesorios"].map(
-                (l) => (
-                  <p
-                    key={l}
-                    className="border-b border-dashed border-neutral-300 pb-6 text-xs text-neutral-400"
-                  >
-                    {l}
-                  </p>
-                ),
-              )}
-            </div>
-            <p className="mt-4 text-xs text-neutral-500">
-              El cliente declara ser titular del equipo entregado y que no tiene
-              pedido de secuestro ni deudas asociadas.
-            </p>
-          </>
-        )}
-      </ReciboDialog>
+      />
     </>
   );
 }
@@ -1277,7 +1252,7 @@ const rid = () => Math.random().toString(36).slice(2);
 
 type Origen = "equipo" | "otro" | "servicio" | "libre";
 type DraftItem = VentaItem & { _k: string; origen: Origen };
-type DraftPago = Pago & { _k: string };
+type DraftPago = Pago & { _k: string; canje?: CanjeEquipo };
 
 type CatItem = {
   key: string;
@@ -1286,6 +1261,8 @@ type CatItem = {
   nombre: string;
   costoUsd: number;
   precioUsd: number;
+  /** Serial/IMEI -- solo los ítems `origen: "equipo"` lo traen. */
+  serial?: string;
 };
 
 const origenTone: Record<Origen, "violet" | "blue" | "green" | "gray"> = {
@@ -1301,20 +1278,11 @@ const origenLabel: Record<Origen, string> = {
   libre: "Libre",
 };
 
-function Eyebrow({
-  children,
-  right,
-}: {
-  children: React.ReactNode;
-  right?: React.ReactNode;
-}) {
+function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-2 flex items-center justify-between gap-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-        {children}
-      </p>
-      {right}
-    </div>
+    <p className="mb-2 border-b border-neutral-200 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+      {children}
+    </p>
   );
 }
 
@@ -1350,6 +1318,7 @@ function ItemBuscador({
           nombre: `${e.modelo} ${e.almacenamiento} ${e.color}`,
           costoUsd: e.costoUsd,
           precioUsd: e.precioUsd,
+          serial: e.imei,
         })),
       ...otros.map((o) => ({
         key: `o-${o.id}`,
@@ -1373,16 +1342,18 @@ function ItemBuscador({
     [equipos, otros, servicios],
   );
 
-  const matches = catalogo.filter(
-    (c) =>
-      c.nombre.toLowerCase().includes(q.toLowerCase()) &&
-      !(c.origen === "equipo" && yaAgregados.includes(c.refId)),
-  );
+  const matches = catalogo.filter((c) => {
+    const needle = q.trim().toLowerCase();
+    const coincide =
+      c.nombre.toLowerCase().includes(needle) ||
+      (c.serial?.toLowerCase().includes(needle) ?? false);
+    return coincide && !(c.origen === "equipo" && yaAgregados.includes(c.refId));
+  });
 
   return (
     <div ref={ref} className="relative">
       <Input
-        placeholder="Buscar equipo, producto o servicio por nombre…"
+        placeholder="Buscar por nombre, color o IMEI/serial…"
         value={q}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
@@ -1406,6 +1377,9 @@ function ItemBuscador({
               <span className="flex min-w-0 items-center gap-2">
                 <Badge tone={origenTone[c.origen]}>{origenLabel[c.origen]}</Badge>
                 <span className="truncate">{c.nombre}</span>
+                {c.serial && c.serial !== "—" && (
+                  <span className="shrink-0 text-[11px] text-neutral-400">{c.serial}</span>
+                )}
               </span>
               <span className="shrink-0 font-semibold text-neutral-500">
                 {fmtUsd(c.precioUsd)}
@@ -1451,7 +1425,6 @@ function NuevaVentaDialog({
   cajas,
   negocio,
   dolarVenta,
-  puedeVerCosto,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1465,7 +1438,6 @@ function NuevaVentaDialog({
   cajas: Caja[];
   negocio: Negocio;
   dolarVenta: number;
-  puedeVerCosto: boolean;
 }) {
   const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
 
@@ -1492,6 +1464,29 @@ function NuevaVentaDialog({
   };
   const destinoDe = (p: DraftPago) => p.cajaId ?? p.medio;
 
+  // Selector de pago en dos pasos: primero el medio, después -- solo si
+  // hay más de una caja activa para ese medio -- cuál caja específica.
+  const cajasDeMedio = (medio: MedioPago) =>
+    cajasActivas.filter((c) => c.medioPago === medio);
+  const mediosDisponibles = MEDIOS_CAJA.filter((m) => cajasDeMedio(m).length > 0);
+  const medioAPago = (medio: MedioPagoVenta): Partial<DraftPago> => {
+    if (medio === "cuenta_corriente") {
+      return {
+        medio,
+        cajaId: undefined,
+        caja: "usd",
+        recargoPct: negocio.recargosMediosPago.cuenta_corriente,
+      };
+    }
+    const caja = cajasDeMedio(medio)[0];
+    return {
+      medio,
+      cajaId: caja?.id,
+      caja: caja?.moneda ?? "usd",
+      recargoPct: negocio.recargosMediosPago[medio],
+    };
+  };
+
   const [items, setItems] = useState<DraftItem[]>([]);
   const [pagos, setPagos] = useState<DraftPago[]>([
     {
@@ -1500,6 +1495,8 @@ function NuevaVentaDialog({
       montoUsd: 0,
     } as DraftPago,
   ]);
+  const [canjeModalKey, setCanjeModalKey] = useState<string | null>(null);
+  const [confirmMonto, setConfirmMonto] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const totalPrecio = items.reduce((a, i) => a + i.cantidad * i.precioUsd, 0);
@@ -1510,20 +1507,20 @@ function NuevaVentaDialog({
   const margenPct = calcularMargenPct(totalPrecio, totalCosto);
   const restante = calcularRestante(totalPrecio, pagos);
 
-  useEffect(() => {
-    setPagos((prev) =>
-      prev.length === 1 ? [{ ...prev[0], montoUsd: totalPrecio }] : prev,
-    );
-  }, [totalPrecio]);
-
   const clienteNombre = cliente?.nombre ?? "";
 
+  // El monto de cada pago se escribe a mano -- no se auto-completa al
+  // agregar ítems (era confuso: el vendedor no sabía si ese número lo
+  // había escrito él o lo puso la app). Si al confirmar no coincide con
+  // el total, `confirmMonto` pide una confirmación aparte en vez de
+  // bloquear el botón -- puede ser una diferencia real (redondeo,
+  // descuento de último momento) y no un error de tipeo.
   const valid =
     totalPrecio > 0 &&
     items.every((i) => i.detalle.trim() && i.precioUsd > 0) &&
     clienteNombre.length > 0 &&
     pagos.every((p) => p.montoUsd > 0) &&
-    Math.abs(restante) < 0.005;
+    pagos.every((p) => p.medio !== "canje" || p.canje?.equipo.trim());
 
   function addCatalogo(c: CatItem) {
     setItems((p) => [
@@ -1638,73 +1635,79 @@ function NuevaVentaDialog({
     });
   }
 
+  function confirmarClick() {
+    if (Math.abs(restante) < 0.005) {
+      submit();
+    } else {
+      setConfirmMonto(true);
+    }
+  }
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      size="lg"
+      size="xl"
+      accent
       title="Nueva venta"
       description="El número de venta se asigna al confirmar"
       footer={
         <>
-          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClose}>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+          >
             Cancelar
-          </Button>
-          <Button
-            size="sm"
-            className="w-full sm:w-auto"
+          </button>
+          <button
             disabled={!valid || pending}
-            onClick={submit}
+            onClick={confirmarClick}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
           >
             {pending ? "Confirmando…" : `Confirmar venta · ${fmtUsd(totalPrecio)}`}
-          </Button>
+          </button>
         </>
       }
     >
       <div className="space-y-5">
         {/* Cliente */}
-        <section>
+        <Card className="p-4">
           <Eyebrow>Cliente</Eyebrow>
           <ClientePicker clientes={clientesOpciones} value={cliente} onChange={setCliente} />
-        </section>
+        </Card>
 
         {/* Vendedor + Procedencia */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Vendedor" labelClassName="text-center">
-            <Select
-              value={vendedorId}
-              onChange={(e) => setVendedorId(e.target.value)}
-            >
-              {vendedores.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.nombre}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Procedencia" labelClassName="text-center">
-            <Select
-              value={procedencia}
-              onChange={(e) => setProcedencia(e.target.value)}
-            >
-              {PROCEDENCIAS.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+        <Card className="p-4">
+          <Eyebrow>Datos de la venta</Eyebrow>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Vendedor">
+              <Select
+                value={vendedorId}
+                onChange={(e) => setVendedorId(e.target.value)}
+              >
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nombre}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Procedencia">
+              <Select
+                value={procedencia}
+                onChange={(e) => setProcedencia(e.target.value)}
+              >
+                {PROCEDENCIAS.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        </Card>
 
         {/* Ítems */}
-        <section>
-          <Eyebrow
-            right={
-              <span className="text-xs text-neutral-400">
-                {items.length} ítem{items.length === 1 ? "" : "s"}
-              </span>
-            }
-          >
-            Ítems
-          </Eyebrow>
+        <Card className="p-4">
+          <Eyebrow>Ítems</Eyebrow>
 
           <ItemBuscador
             equipos={equipos}
@@ -1724,7 +1727,7 @@ function NuevaVentaDialog({
           ) : (
             <div className="mt-3 space-y-2">
               <div className="hidden items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 sm:flex">
-                <span className="flex-1">Ítem</span>
+                <span className="flex-1 text-start">Ítem</span>
                 <span className="w-12 text-center">Cant</span>
                 <span className="w-24 text-center">Precio</span>
                 <span className="w-9" />
@@ -1752,7 +1755,7 @@ function NuevaVentaDialog({
                         }
                       />
                       <Input
-                        className="flex-1 sm:w-24 sm:flex-none"
+                        className="flex-1 text-center sm:w-24 sm:flex-none"
                         type="number"
                         min={0}
                         placeholder="U$"
@@ -1823,58 +1826,97 @@ function NuevaVentaDialog({
                   )}
                 </div>
               ))}
+              <div
+                className="flex items-center justify-between gap-2 rounded-lg px-5 py-2"
+                style={{ backgroundColor: "#edecf8" }}
+              >
+                <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
+                  Total
+                </span>
+                <span className="text-sm font-semibold tabular-nums">{fmtUsd(totalPrecio)}</span>
+              </div>
             </div>
           )}
-        </section>
+        </Card>
 
         {/* Pago */}
-        <section>
-          <Eyebrow
-            right={
-              <span className="text-sm font-semibold tabular-nums">
-                Total {fmtUsd(totalPrecio)}
-                {puedeVerCosto && (
-                  <span className="ml-2 text-xs font-normal text-neutral-400">
-                    margen {margenPct.toFixed(0)}%
-                  </span>
-                )}
-              </span>
-            }
-          >
-            Pago
-          </Eyebrow>
+        <Card className="p-4">
+          <Eyebrow>Pago</Eyebrow>
 
           <div className="space-y-2">
             {pagos.map((p) => {
               const recargoPct = p.recargoPct ?? 0;
+              const cajasMedio = p.medio !== "cuenta_corriente" ? cajasDeMedio(p.medio) : [];
               return (
-                <div key={p._k}>
+                <div key={p._k} className="space-y-1.5 rounded-lg border border-neutral-200 p-3">
                   <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
                     <Select
-                      value={destinoDe(p)}
-                      onChange={(e) => updPago(p._k, destinoPago(e.target.value))}
-                      className="w-full sm:w-48"
+                      value={p.medio}
+                      onChange={(e) => {
+                        const medio = e.target.value as MedioPagoVenta;
+                        updPago(p._k, { ...medioAPago(medio), canje: undefined });
+                        if (medio === "canje") setCanjeModalKey(p._k);
+                      }}
+                      className="w-full text-center sm:w-40"
                     >
                       <option value="cuenta_corriente">
                         {medioPagoCfg.cuenta_corriente.emoji} Cuenta corriente
                       </option>
-                      {cajasActivas.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {medioPagoCfg[c.medioPago].emoji} {c.nombre}
+                      {mediosDisponibles.map((m) => (
+                        <option key={m} value={m}>
+                          {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
                         </option>
                       ))}
                     </Select>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        className="flex-1"
-                        type="number"
-                        min={0}
-                        placeholder="U$"
-                        value={p.montoUsd || ""}
-                        onChange={(e) =>
-                          updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
-                        }
-                      />
+                    {cajasMedio.length > 0 && (
+                      <Select
+                        value={p.cajaId}
+                        onChange={(e) => {
+                          const caja = cajasMedio.find((c) => c.id === e.target.value);
+                          if (caja) updPago(p._k, { cajaId: caja.id, caja: caja.moneda });
+                        }}
+                        className="w-full text-center sm:w-36"
+                      >
+                        {cajasMedio.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                    <div className="flex items-center gap-2 sm:flex-1">
+                      {p.caja === "ars" ? (
+                        <div className="flex h-9 flex-1 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-sm transition-colors focus-within:border-accent">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Cobrado $"
+                            className="min-w-0 flex-1 text-center outline-none"
+                            value={p.montoUsd ? fmtNum(Math.round(p.montoUsd * dolarVenta)) : ""}
+                            onChange={(e) => {
+                              const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
+                              updPago(p._k, { montoUsd: raw / dolarVenta });
+                            }}
+                          />
+                          {p.montoUsd > 0 && (
+                            <span className="shrink-0 text-[11px] text-neutral-400">
+                              ≈ {fmtUsd(p.montoUsd)}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <Input
+                          className="flex-1 text-center"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Cobrado U$"
+                          value={p.montoUsd ? fmtNum(Math.round(p.montoUsd)) : ""}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
+                            updPago(p._k, { montoUsd: raw });
+                          }}
+                        />
+                      )}
                       <button
                         type="button"
                         onClick={() => rmPago(p._k)}
@@ -1886,11 +1928,35 @@ function NuevaVentaDialog({
                     </div>
                   </div>
                   {recargoPct > 0 && p.montoUsd > 0 && (
-                    <p className="mt-1 pl-1 text-[11px] text-amber-600">
+                    <p className="pl-1 text-[11px] text-amber-600">
                       + {recargoPct}% recargo → cobra{" "}
                       {fmtUsd(montoConRecargo(p.montoUsd, recargoPct))}
                     </p>
                   )}
+                  {p.medio === "canje" &&
+                    (p.canje ? (
+                      <div className="flex items-center gap-2 pl-1 text-[11px] text-neutral-500">
+                        <span className="truncate">📦 {p.canje.equipo}</span>
+                        <button
+                          type="button"
+                          onClick={() => setCanjeModalKey(p._k)}
+                          className="font-semibold text-accent hover:underline"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 pl-1 text-[11px] text-amber-600">
+                        <span>Falta completar el equipo canjeado</span>
+                        <button
+                          type="button"
+                          onClick={() => setCanjeModalKey(p._k)}
+                          className="font-semibold underline"
+                        >
+                          Completar
+                        </button>
+                      </div>
+                    ))}
                 </div>
               );
             })}
@@ -1927,7 +1993,160 @@ function NuevaVentaDialog({
               </span>
             )}
           </div>
-        </section>
+        </Card>
+      </div>
+
+      <CanjeModal
+        key={canjeModalKey ?? "none"}
+        open={!!canjeModalKey}
+        onClose={() => setCanjeModalKey(null)}
+        initial={pagos.find((p) => p._k === canjeModalKey)?.canje}
+        onSave={(canje) => {
+          if (canjeModalKey) updPago(canjeModalKey, { canje });
+          setCanjeModalKey(null);
+        }}
+      />
+
+      <Dialog
+        open={confirmMonto}
+        onClose={() => setConfirmMonto(false)}
+        accent
+        title="El monto no coincide"
+        footer={
+          <>
+            <button
+              onClick={() => setConfirmMonto(false)}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            >
+              Revisar pagos
+            </button>
+            <button
+              disabled={pending}
+              onClick={() => {
+                setConfirmMonto(false);
+                submit();
+              }}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            >
+              Confirmar de todas formas
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-neutral-600">
+          Cargaste {fmtUsd(totalPrecio - restante)} en pagos, pero el total de la venta es{" "}
+          {fmtUsd(totalPrecio)} ({restante > 0 ? "faltan" : "sobran"}{" "}
+          {fmtUsd(Math.abs(restante))}). ¿Confirmar la venta igual?
+        </p>
+      </Dialog>
+    </Dialog>
+  );
+}
+
+/** Datos del equipo recibido en canje -- se abre al elegir la caja de
+ * canje como medio de pago en "Nueva venta". Guarda un `CanjeEquipo` en el
+ * pago correspondiente; recién se persiste como `Compra` (con el cliente
+ * ya resuelto y el `Venta.id`) cuando se confirma la venta
+ * (`lib/db/ventas.ts` → `createVenta`), mismo criterio de "creación
+ * diferida" que `ClientePicker`. */
+function CanjeModal({
+  open,
+  onClose,
+  initial,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial?: CanjeEquipo;
+  onSave: (canje: CanjeEquipo) => void;
+}) {
+  const [marca, setMarca] = useState(initial?.marca ?? "");
+  const [equipo, setEquipo] = useState(initial?.equipo ?? "");
+  const [imei, setImei] = useState(initial?.imei ?? "");
+  const [checklist, setChecklist] = useState<Checklist>(initial?.checklist ?? CHECKLIST_VACIO);
+  const [aclaraciones, setAclaraciones] = useState(initial?.aclaraciones ?? "");
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="lg"
+      accent
+      title="Equipo recibido en canje"
+      description="Se guarda como una compra al confirmar la venta"
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={!equipo.trim()}
+            onClick={() => onSave({ marca, equipo, imei, checklist, aclaraciones })}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+          >
+            Guardar
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <div>
+          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            Datos del equipo
+          </p>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Marca">
+                <Input
+                  value={marca}
+                  onChange={(e) => setMarca(e.target.value)}
+                  placeholder="Apple"
+                />
+              </Field>
+              <Field label="Equipo">
+                <Input
+                  value={equipo}
+                  onChange={(e) => setEquipo(e.target.value)}
+                  placeholder="iPhone 13 Pro 128GB"
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Serial / IMEI (opcional)">
+                <Input value={imei} onChange={(e) => setImei(e.target.value)} />
+              </Field>
+              <Field label="Color (opcional)">
+                <Input
+                  value={checklist.color}
+                  onChange={(e) => setChecklist((c) => ({ ...c, color: e.target.value }))}
+                  placeholder="Ej: Negro"
+                />
+              </Field>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            Checklist de ingreso
+          </p>
+          <ChecklistEditor value={checklist} onChange={setChecklist} />
+        </div>
+
+        <div>
+          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            Aclaraciones
+          </p>
+          <Textarea
+            rows={3}
+            value={aclaraciones}
+            onChange={(e) => setAclaraciones(e.target.value)}
+            placeholder="Ej: no incluye cargador ni caja."
+          />
+        </div>
       </div>
     </Dialog>
   );

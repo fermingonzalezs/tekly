@@ -369,6 +369,22 @@ export type Pago = {
    * `montoUsd * (1 + recargoPct/100)`, `montoUsd` sigue siendo la parte
    * del total de la venta que cubre este pago. */
   recargoPct?: number;
+  /** Si `medio === "canje"`: `Compra.id` de la compra generada para el
+   * equipo recibido (ver `CanjeEquipo` -- el detalle completo vive ahí,
+   * no acá, para no duplicar/desincronizar). */
+  compraId?: string;
+};
+
+/** Datos del equipo recibido en canje, cargados en el modal de "Nueva
+ * venta" al elegir la caja de canje como medio de pago -- no se guardan en
+ * `Venta.pagos`, solo viajan para crear la `Compra` vinculada
+ * (`Pago.compraId`). */
+export type CanjeEquipo = {
+  marca?: string;
+  equipo: string;
+  imei?: string;
+  checklist: Checklist;
+  aclaraciones?: string;
 };
 
 export type Venta = {
@@ -471,12 +487,23 @@ export type CompraItem = {
   costoUsd: number;
 };
 
-/** Compra a proveedor — el espejo de `Venta` del lado del gasto. */
+/** Compra — el espejo de `Venta` del lado del gasto. `origen` distingue una
+ * compra a proveedor (de siempre, `proveedor` cargado a mano) de un canje
+ * recibido en una venta (`origen === "canje"`, generada automáticamente
+ * desde "Nueva venta" al elegir la caja de canje como medio de pago —
+ * `clienteId`/`cliente` en vez de `proveedor`, `ventaId` referencia esa
+ * venta, y `marca`/`imei`/`checklist`/`aclaraciones` documentan el equipo
+ * recibido para el PDF firmable, ver "Ventas" en CLAUDE.md). */
 export type Compra = {
   id: string;
   fecha: string;
   fechaISO: string;
-  proveedor: string;
+  origen: "proveedor" | "canje";
+  proveedor?: string;
+  clienteId?: string;
+  cliente?: string;
+  /** `Venta.id` (formato `"V-123"`) que generó este canje. */
+  ventaId?: string;
   items: CompraItem[];
   totalUsd: number;
   medioPago: MedioPago;
@@ -487,6 +514,13 @@ export type Compra = {
    * valor actual, para que el registro histórico no cambie con el tiempo. */
   montoArs?: number;
   cotizacion?: number;
+  /** Solo `origen === "canje"`: datos del equipo recibido para el PDF
+   * (checklist de ingreso, mismo shape que `Ticket.checklistIngreso` de
+   * Reparaciones) y las aclaraciones cargadas en el modal. */
+  marca?: string;
+  imei?: string;
+  checklist?: Checklist;
+  aclaraciones?: string;
 };
 
 /** Regla que trae TODOS los equipos vendibles (disponible) de una o más

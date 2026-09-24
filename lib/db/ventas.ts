@@ -3,8 +3,9 @@ import { createServerClient } from "@/lib/auth/supabase";
 import { fmtDayMonth } from "@/lib/format";
 import { addMovimiento } from "@/lib/db/inventario";
 import { createMovimientoCC } from "@/lib/db/cuentas-corrientes";
+import { createCompra } from "@/lib/db/compras";
 import { montoConRecargo } from "@/lib/ventas";
-import type { Pago, Venta, VentaItem } from "@/lib/types";
+import type { CanjeEquipo, Pago, Venta, VentaItem } from "@/lib/types";
 
 /** Cantidad de ventas por procedencia (canal) -- usado por
  * `FuenteClientes` en Clientes. */
@@ -126,7 +127,10 @@ export type CreateVentaInput = {
   procedencia?: string;
   items: VentaItem[];
   totalUsd: number;
-  pagos: Pago[];
+  /** `canje` (solo en pagos con `medio === "canje"`) viaja acá para crear
+   * la `Compra` vinculada -- nunca se persiste en `Venta.pagos`, ver
+   * `createVenta`. */
+  pagos: (Pago & { canje?: CanjeEquipo })[];
   margenPct: number;
   tipo: "venta" | "reparacion";
   /** Cotización blue vigente al momento de la venta -- para convertir a
@@ -152,6 +156,9 @@ export type CreateVentaInput = {
  * función de Postgres más adelante si hace falta atomicidad estricta. */
 export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   const supabase = createServerClient();
+  // `canje` nunca se persiste en `Venta.pagos` -- solo viaja para crear la
+  // `Compra` vinculada más abajo, que es donde vive el detalle completo.
+  const pagosSinCanje: Pago[] = data.pagos.map(({ canje, ...p }) => p);
   const { data: ventaRow, error } = await supabase
     .from("ventas")
     .insert({
@@ -160,7 +167,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       vendedor_id: data.vendedorId || null,
       procedencia: data.procedencia ?? null,
       total_usd: data.totalUsd,
-      pagos: data.pagos,
+      pagos: pagosSinCanje,
       margen_pct: data.margenPct,
       tipo: data.tipo,
     })
@@ -230,9 +237,13 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     }
   }
 
-  // Pagos -- cada uno genera su movimiento de caja o de cuenta corriente.
+  // Pagos -- cada uno genera su movimiento de caja o de cuenta corriente;
+  // un pago en canje además genera la `Compra` que documenta el equipo
+  // recibido (checklist + PDF firmable, ver "Ventas" en CLAUDE.md).
   const concepto = `Venta V-${ventaRow.numero} · ${data.cliente}`;
-  for (const pago of data.pagos) {
+  const compraIdPorIndice = new Map<number, string>();
+  for (let i = 0; i < data.pagos.length; i++) {
+    const pago = data.pagos[i];
     const montoReal = montoConRecargo(pago.montoUsd, pago.recargoPct);
     if (pago.medio === "cuenta_corriente") {
       if (!data.clienteId) continue;
@@ -257,6 +268,35 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       });
       if (movError) throw movError;
     }
+
+    if (pago.medio === "canje" && pago.canje) {
+      const compra = await createCompra({
+        origen: "canje",
+        clienteId: data.clienteId,
+        clienteNombre: data.cliente,
+        ventaId: ventaRow.id,
+        items: [{ detalle: pago.canje.equipo, cantidad: 1, costoUsd: pago.montoUsd }],
+        totalUsd: pago.montoUsd,
+        medioPago: "canje",
+        estado: "recibida",
+        marca: pago.canje.marca,
+        imei: pago.canje.imei,
+        checklist: pago.canje.checklist,
+        aclaraciones: pago.canje.aclaraciones,
+      });
+      compraIdPorIndice.set(i, compra.id);
+    }
+  }
+
+  if (compraIdPorIndice.size > 0) {
+    for (const [i, compraId] of compraIdPorIndice) {
+      pagosSinCanje[i] = { ...pagosSinCanje[i], compraId };
+    }
+    const { error: pagosUpdateError } = await supabase
+      .from("ventas")
+      .update({ pagos: pagosSinCanje })
+      .eq("id", ventaRow.id);
+    if (pagosUpdateError) throw pagosUpdateError;
   }
 
   const { data: row, error: selectError } = await supabase
@@ -276,10 +316,11 @@ export type DeleteVentaOpts = {
   restituirRepuestos: boolean;
   eliminarMovimientosCaja: boolean;
   eliminarMovimientoCC: boolean;
+  eliminarCompraCanje: boolean;
 };
 
 /** Borra la venta (sus `venta_items` caen solos por `on delete cascade`,
- * y con ellos `venta_item_repuestos`). Cuatro reversiones independientes,
+ * y con ellos `venta_item_repuestos`). Cinco reversiones independientes,
  * elegidas en el checkbox del modal de confirmación (`ventas-client.tsx`):
  * - `restituirEquipos`: los equipos vendidos vuelven a `disponible`.
  * - `restituirRepuestos`: los repuestos consumidos vuelven al stock.
@@ -287,6 +328,8 @@ export type DeleteVentaOpts = {
  *   movimiento generado por los pagos de esta venta -- si se deja en
  *   `false`, el movimiento sobrevive huérfano (`venta_id` vuelve a `null`
  *   solo por el `on delete set null` de la FK), como si fuera manual.
+ * - `eliminarCompraCanje`: mismo criterio, para la `Compra` que haya
+ *   generado un pago en canje (ver "Ventas" en CLAUDE.md).
  *
  * `id` es el `Venta.id` de la app (`"V-1042"`) -- no el uuid real de la
  * fila, que `toVenta` nunca expone hacia afuera. Se resuelve acá contra
@@ -375,6 +418,14 @@ export async function deleteVenta(id: string, opts: DeleteVentaOpts): Promise<vo
       .delete()
       .eq("venta_id", ventaRow.id);
     if (ccError) throw ccError;
+  }
+
+  if (opts.eliminarCompraCanje) {
+    const { error: compraError } = await supabase
+      .from("compras")
+      .delete()
+      .eq("venta_id", ventaRow.id);
+    if (compraError) throw compraError;
   }
 
   const { error } = await supabase.from("ventas").delete().eq("id", ventaRow.id);

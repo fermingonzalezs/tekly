@@ -4,14 +4,13 @@ import { useState, useTransition } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  ChevronDown,
-  ChevronUp,
   ClipboardCheck,
   Pencil,
   Plus,
   Search,
   Trash2,
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { StatCard } from "@/components/ui/stat-card";
@@ -22,7 +21,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { medioPago as medioPagoCfg, MEDIOS_CAJA, dotClass } from "@/lib/status";
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
-import { enArs, netoMovimientos, signo } from "@/lib/cajas";
+import { enArs, netoMovimientos } from "@/lib/cajas";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
@@ -44,7 +43,12 @@ import type { SessionUser } from "@/lib/auth/types";
 
 const MEDIOS = MEDIOS_CAJA;
 
-const STAT_MEDIOS: MedioPago[] = ["transferencia", "pesos", "tarjeta", "canje"];
+/** Tarjetas de arriba: todos los medios de caja menos "canje" (mercadería). */
+const STAT_MEDIOS: MedioPago[] = MEDIOS.filter((m) => m !== "canje");
+
+/** Tabs de sección -- `?tab=` en la URL para linkear directo (como Configuración). */
+type Tab = "movimientos" | "conciliaciones" | "cajas";
+const TABS: Tab[] = ["movimientos", "conciliaciones", "cajas"];
 
 const HEAD = "text-[11px] font-semibold uppercase tracking-wider text-neutral-400";
 
@@ -77,8 +81,13 @@ export function CajasClient({
   const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
   const [, startDeleteTransition] = useTransition();
+  const tabParam = useSearchParams().get("tab");
+  const [tab, setTab] = useState<Tab>(
+    tabParam && TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "movimientos",
+  );
   const [vista, setVista] = useState<"dia" | "historial">("dia");
   const [medioFiltro, setMedioFiltro] = useState<MedioPago | null>(null);
+  const [cajaFiltro, setCajaFiltro] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [openMov, setOpenMov] = useState<MovimientoCaja | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -87,7 +96,6 @@ export function CajasClient({
   const [editingCaja, setEditingCaja] = useState<{ id: string | null; data: CajaInput } | null>(
     null,
   );
-  const [cajasOpen, setCajasOpen] = useState(true);
   const [conciliarOpen, setConciliarOpen] = useState(false);
   const [movimientosHoy, setMovimientosHoy] = useState<MovimientoCaja[]>(
     initialMovimientosSinConciliar,
@@ -141,14 +149,6 @@ export function CajasClient({
     setConciliarOpen(false);
   };
 
-  const netoUsd = movimientosHoy
-    .filter((m) => cajaDe(m).moneda === "usd")
-    .reduce((a, m) => a + signo(m), 0);
-  const netoArs = movimientosHoy
-    .filter((m) => cajaDe(m).moneda === "ars")
-    .reduce((a, m) => a + signo(m), 0);
-  const totalArs = netoArs + netoUsd * RATE;
-
   // Por medio de pago -- consolidado en ARS. Las tarjetas de arriba funcionan
   // como filtro, igual que el pipeline de Reparaciones.
   const totalPorMedio = (medio: MedioPago) =>
@@ -174,47 +174,75 @@ export function CajasClient({
   const movs = (vista === "dia" ? movimientosHoy : movimientosTodos).filter(
     (m) =>
       (!medioFiltro || m.medioPago === medioFiltro) &&
+      (!cajaFiltro || m.cajaId === cajaFiltro) &&
       (!query ||
         m.concepto.toLowerCase().includes(query) ||
         cajaDe(m).nombre.toLowerCase().includes(query) ||
         m.usuario.toLowerCase().includes(query) ||
         medioPagoCfg[m.medioPago].label.toLowerCase().includes(query)),
   );
+  const hayFiltros = !!medioFiltro || !!cajaFiltro;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {statMedios.map(({ medio, total }) => (
-          <StatCard
-            key={medio}
-            align="left"
-            label={medioPagoCfg[medio].label}
-            value={fmtArs(total)}
-            hint={`≈ ${fmtUsd(total / RATE)}`}
-            valueClassName={total < 0 ? "text-red-500" : undefined}
-            active={medioFiltro === medio}
-            onClick={() => setMedioFiltro(medioFiltro === medio ? null : medio)}
-          />
-        ))}
-        <StatCard
-          className="col-span-2 lg:col-span-1"
-          align="left"
-          label="Total (ARS)"
-          value={fmtArs(totalArs)}
-          hint={`≈ ${fmtUsd(totalArs / RATE)} · dólar ${fmtArs(RATE)}`}
-        />
-      </div>
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "movimientos", label: "Movimientos" },
+          { value: "conciliaciones", label: "Conciliaciones" },
+          { value: "cajas", label: "Cajas" },
+        ]}
+      />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por concepto, caja, usuario o medio…"
-            className={cn("w-full pl-9", filterPill)}
-          />
+      {tab === "movimientos" && (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          {statMedios.map(({ medio, total }) => (
+            <StatCard
+              key={medio}
+              align="left"
+              label={medioPagoCfg[medio].label}
+              value={fmtArs(total)}
+              hint={`≈ ${fmtUsd(total / RATE)}`}
+              valueClassName={total < 0 ? "text-red-500" : undefined}
+              active={medioFiltro === medio}
+              onClick={() => setMedioFiltro(medioFiltro === medio ? null : medio)}
+            />
+          ))}
         </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Tabs
+            value={vista}
+            onChange={setVista}
+            className="w-full justify-between sm:w-auto sm:justify-start"
+            options={[
+              { value: "dia", label: "Desde conciliación" },
+              { value: "historial", label: "Historial" },
+            ]}
+          />
+          <div className="relative w-full sm:w-52">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar movimientos…"
+              className={cn("w-full pl-9", filterPill)}
+            />
+          </div>
+          <Select
+            value={cajaFiltro ?? ""}
+            onChange={(e) => setCajaFiltro(e.target.value || null)}
+            className={cn("w-full sm:w-44", filterPill)}
+          >
+            <option value="">Todas las cajas</option>
+            {cajas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </Select>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 md:ml-auto">
           <button
             onClick={() => setNuevoOpen(true)}
@@ -223,387 +251,344 @@ export function CajasClient({
             <Plus className="h-4 w-4" />
             Nuevo movimiento
           </button>
-          <button
-            onClick={() => setConciliarOpen(true)}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-          >
-            <ClipboardCheck className="h-4 w-4" />
-            Conciliar cajas
-          </button>
         </div>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className={HEAD}>
-          {vista === "dia" ? "Movimientos desde la conciliación" : "Historial de movimientos"}
-        </p>
-        <Tabs
-          value={vista}
-          onChange={setVista}
-          className="w-full justify-between sm:w-auto sm:justify-start"
-          options={[
-            { value: "dia", label: "Desde conciliación" },
-            { value: "historial", label: "Historial" },
-          ]}
-        />
-      </div>
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_320px]">
-        <Card className="overflow-hidden">
-          <div className="space-y-2 p-3 md:hidden">
-            {movs.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setOpenMov(m)}
-                className="flex w-full items-center gap-2 rounded-xl border border-neutral-100 px-3 py-2 text-left transition-colors hover:bg-neutral-50"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 truncate text-sm text-neutral-900">
-                    {m.tipo === "ingreso" ? (
-                      <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                    ) : (
-                      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_320px]">
+          <Card className="overflow-hidden">
+            <div className="space-y-2 p-3 md:hidden">
+              {movs.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setOpenMov(m)}
+                  className="flex w-full items-center gap-2 rounded-xl border border-neutral-100 px-3 py-2 text-left transition-colors hover:bg-neutral-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-1.5 truncate text-sm text-neutral-900">
+                      {m.tipo === "ingreso" ? (
+                        <ArrowDownLeft className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      ) : (
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                      )}
+                      <span className="truncate">{m.concepto}</span>
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-neutral-500">
+                      {vista === "historial" ? `${m.fecha} · ` : ""}
+                      {m.hora} · {cajaDe(m).nombre} · {medioPagoCfg[m.medioPago].label}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-end">
+                    <p
+                      className={cn(
+                        "text-sm font-semibold tabular-nums",
+                        m.tipo === "ingreso" ? "text-emerald-600" : "text-red-500",
+                      )}
+                    >
+                      {m.tipo === "ingreso" ? "+" : "−"}
+                      {money(cajaDe(m).moneda, m.monto)}
+                    </p>
+                    {cajaDe(m).moneda === "ars" && (
+                      <p className="text-[11px] text-neutral-400">≈ {fmtUsd(m.monto / RATE)}</p>
                     )}
-                    <span className="truncate">{m.concepto}</span>
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-neutral-500">
-                    {vista === "historial" ? `${m.fecha} · ` : ""}
-                    {m.hora} · {cajaDe(m).nombre} · {medioPagoCfg[m.medioPago].label}
-                  </p>
-                </div>
-                <div className="shrink-0 text-end">
-                  <p
-                    className={cn(
-                      "text-sm font-semibold tabular-nums",
-                      m.tipo === "ingreso" ? "text-emerald-600" : "text-red-500",
-                    )}
-                  >
-                    {m.tipo === "ingreso" ? "+" : "−"}
-                    {money(cajaDe(m).moneda, m.monto)}
-                  </p>
-                  {cajaDe(m).moneda === "ars" && (
-                    <p className="text-[11px] text-neutral-400">≈ {fmtUsd(m.monto / RATE)}</p>
+                  </div>
+                </button>
+              ))}
+              {movs.length === 0 && (
+                <p className="px-3 py-10 text-center text-sm text-neutral-400">
+                  {query
+                    ? "Sin movimientos que coincidan con la búsqueda."
+                    : hayFiltros
+                      ? "Sin movimientos para los filtros seleccionados."
+                      : vista === "dia"
+                        ? "Sin movimientos desde la última conciliación."
+                        : "Sin movimientos en el historial."}
+                </p>
+              )}
+            </div>
+
+            <table className="mt-3 hidden w-full text-sm md:table">
+              <thead>
+                <tr className="border-b border-neutral-100 text-xs text-neutral-400">
+                  {vista === "historial" && (
+                    <th className={cn("px-5 py-2 text-center", thDivider)}>Fecha</th>
                   )}
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Hora</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Concepto</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Caja</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Moneda</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Medio</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Usuario</th>
+                  <th className="px-5 py-2 text-center">Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movs.map((m) => (
+                  <tr
+                    key={m.id}
+                    onClick={() => setOpenMov(m)}
+                    className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
+                  >
+                    {vista === "historial" && (
+                      <td className="px-5 py-2 text-center text-neutral-400">{m.fecha}</td>
+                    )}
+                    <td className="px-5 py-2 text-center text-neutral-400">{m.hora}</td>
+                    <td className="max-w-[220px] truncate px-5 py-2 text-start">
+                      <span className="inline-flex items-center gap-2">
+                        {m.tipo === "ingreso" ? (
+                          <ArrowDownLeft className="h-4 w-4 shrink-0 text-emerald-500" />
+                        ) : (
+                          <ArrowUpRight className="h-4 w-4 shrink-0 text-red-400" />
+                        )}
+                        {m.concepto}
+                      </span>
+                    </td>
+                    <td className="px-5 py-2 text-center text-neutral-500">{cajaDe(m).nombre}</td>
+                    <td className="px-5 py-2 text-center">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                        <span
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full",
+                            cajaDe(m).moneda === "usd" ? dotClass.blue : dotClass.green,
+                          )}
+                        />
+                        {cajaDe(m).moneda.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="px-5 py-2 text-center">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                        <span
+                          className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[m.medioPago].tone])}
+                        />
+                        {medioPagoCfg[m.medioPago].label}
+                      </span>
+                    </td>
+                    <td className="px-5 py-2 text-center text-neutral-500">{m.usuario}</td>
+                    <td
+                      className={cn(
+                        "px-5 py-2 text-center tabular-nums",
+                        m.tipo === "ingreso" ? "text-emerald-600" : "text-red-500",
+                      )}
+                    >
+                      {m.tipo === "ingreso" ? "+" : "−"}
+                      {money(cajaDe(m).moneda, m.monto)}
+                      {cajaDe(m).moneda === "ars" && (
+                        <span className="block text-[11px] font-normal text-neutral-400">
+                          ≈ {fmtUsd(m.monto / RATE)}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {movs.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={vista === "historial" ? 8 : 7}
+                      className="px-5 py-10 text-center text-sm text-neutral-400"
+                    >
+                      {query
+                        ? "Sin movimientos que coincidan con la búsqueda."
+                        : hayFiltros
+                          ? "Sin movimientos para los filtros seleccionados."
+                          : vista === "dia"
+                            ? "Sin movimientos desde la última conciliación."
+                            : "Sin movimientos en el historial."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="p-5">
+              <ChartTitle align="left" divider>
+                Por medio de pago (ARS)
+              </ChartTitle>
+              <ul className="space-y-2 text-sm">
+                {porMedio.length === 0 && <li className="text-neutral-400">Sin movimientos hoy.</li>}
+                {porMedio.map((p) => (
+                  <li key={p.medio} className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                      <span
+                        className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[p.medio].tone])}
+                      />
+                      {medioPagoCfg[p.medio].label}
+                    </span>
+                    <span className="text-end tabular-nums">
+                      <span className="block">{fmtArs(p.total)}</span>
+                      <span className="block text-[11px] font-normal text-neutral-400">
+                        ≈ {fmtUsd(p.total / RATE)}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {tab === "conciliaciones" && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              onClick={() => setConciliarOpen(true)}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+            >
+              <ClipboardCheck className="h-4 w-4" />
+              Conciliar cajas
+            </button>
+          </div>
+          <ConciliacionesTab conciliaciones={conciliaciones} cajas={cajas} />
+        </div>
+      )}
+
+      {tab === "cajas" && (
+      <div>
+        <Card className="overflow-hidden">
+          <div className="flex flex-col gap-2 border-b border-neutral-100 px-5 pt-5 pb-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className={HEAD}>
+              {cajas.filter((c) => c.activa).length} de {cajas.length} activas
+            </p>
+            <button
+              onClick={() => setEditingCaja({ id: null, data: blankCaja })}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              Nueva caja
+            </button>
+          </div>
+
+          <div className="space-y-2 p-3 md:hidden">
+            {cajas.map((c) => (
+              <Card key={c.id} className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-neutral-900">{c.nombre}</p>
+                    {c.descripcion && (
+                      <p className="truncate text-xs text-neutral-500">{c.descripcion}</p>
+                    )}
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                    <span
+                      className={cn("h-1.5 w-1.5 rounded-full", c.activa ? dotClass.green : dotClass.gray)}
+                    />
+                    {c.activa ? "Activa" : "Inactiva"}
+                  </span>
                 </div>
-              </button>
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                    <span
+                      className={cn("h-1.5 w-1.5 rounded-full", c.moneda === "usd" ? dotClass.blue : dotClass.green)}
+                    />
+                    {c.moneda.toUpperCase()}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                    <span
+                      className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[c.medioPago].tone])}
+                    />
+                    {medioPagoCfg[c.medioPago].label}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setEditingCaja({
+                        id: c.id,
+                        data: {
+                          nombre: c.nombre,
+                          moneda: c.moneda,
+                          activa: c.activa,
+                          descripcion: c.descripcion,
+                          medioPago: c.medioPago,
+                        },
+                      })
+                    }
+                    className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Editar
+                  </button>
+                </div>
+              </Card>
             ))}
-            {movs.length === 0 && (
-              <p className="px-3 py-10 text-center text-sm text-neutral-400">
-                {query
-                  ? "Sin movimientos que coincidan con la búsqueda."
-                  : "Sin movimientos para este medio de pago."}
-              </p>
-            )}
           </div>
 
           <table className="mt-3 hidden w-full text-sm md:table">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                {vista === "historial" && (
-                  <th className={cn("px-5 py-2 text-center", thDivider)}>Fecha</th>
-                )}
-                <th className={cn("px-5 py-2 text-center", thDivider)}>Hora</th>
-                <th className={cn("px-5 py-2 text-center", thDivider)}>Concepto</th>
+                <th className={cn("px-5 py-2 text-center", thDivider)}>Creada</th>
                 <th className={cn("px-5 py-2 text-center", thDivider)}>Caja</th>
+                <th className={cn("px-5 py-2 text-center", thDivider)}>Descripción</th>
                 <th className={cn("px-5 py-2 text-center", thDivider)}>Moneda</th>
                 <th className={cn("px-5 py-2 text-center", thDivider)}>Medio</th>
-                <th className={cn("px-5 py-2 text-center", thDivider)}>Usuario</th>
-                <th className="px-5 py-2 text-center">Monto</th>
+                <th className={cn("px-5 py-2 text-center", thDivider)}>Estado</th>
+                <th className="px-5 py-2 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {movs.map((m) => (
-                <tr
-                  key={m.id}
-                  onClick={() => setOpenMov(m)}
-                  className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
-                >
-                  {vista === "historial" && (
-                    <td className="px-5 py-2 text-center text-neutral-400">{m.fecha}</td>
-                  )}
-                  <td className="px-5 py-2 text-center text-neutral-400">{m.hora}</td>
-                  <td className="max-w-[220px] truncate px-5 py-2 text-start">
-                    <span className="inline-flex items-center gap-2">
-                      {m.tipo === "ingreso" ? (
-                        <ArrowDownLeft className="h-4 w-4 shrink-0 text-emerald-500" />
-                      ) : (
-                        <ArrowUpRight className="h-4 w-4 shrink-0 text-red-400" />
-                      )}
-                      {m.concepto}
-                    </span>
-                  </td>
-                  <td className="px-5 py-2 text-center text-neutral-500">{cajaDe(m).nombre}</td>
-                  <td className="px-5 py-2 text-center">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          cajaDe(m).moneda === "usd" ? dotClass.blue : dotClass.green,
-                        )}
-                      />
-                      {cajaDe(m).moneda.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-5 py-2 text-center">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                      <span
-                        className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[m.medioPago].tone])}
-                      />
-                      {medioPagoCfg[m.medioPago].label}
-                    </span>
-                  </td>
-                  <td className="px-5 py-2 text-center text-neutral-500">{m.usuario}</td>
+              {cajas.map((c) => (
+                <tr key={c.id} className="border-t border-neutral-100 first:border-t-0">
+                  <td className="px-5 py-2.5 text-center text-neutral-500">{c.creadaEl}</td>
+                  <td className="px-5 py-2.5 text-center font-medium">{c.nombre}</td>
                   <td
                     className={cn(
-                      "px-5 py-2 text-center tabular-nums",
-                      m.tipo === "ingreso" ? "text-emerald-600" : "text-red-500",
+                      "max-w-[260px] truncate px-5 py-2.5 text-neutral-500",
+                      c.descripcion ? "text-start" : "text-center",
                     )}
                   >
-                    {m.tipo === "ingreso" ? "+" : "−"}
-                    {money(cajaDe(m).moneda, m.monto)}
-                    {cajaDe(m).moneda === "ars" && (
-                      <span className="block text-[11px] font-normal text-neutral-400">
-                        ≈ {fmtUsd(m.monto / RATE)}
-                      </span>
-                    )}
+                    {c.descripcion || "—"}
                   </td>
-                </tr>
-              ))}
-              {movs.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={vista === "historial" ? 8 : 7}
-                    className="px-5 py-10 text-center text-sm text-neutral-400"
-                  >
-                    {query ? "Sin movimientos que coincidan con la búsqueda." : "Sin movimientos para este medio de pago."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </Card>
-
-        <div className="space-y-6">
-          <Card className="p-5">
-            <ChartTitle align="left" divider>
-              Por medio de pago (ARS)
-            </ChartTitle>
-            <ul className="space-y-2 text-sm">
-              {porMedio.length === 0 && <li className="text-neutral-400">Sin movimientos hoy.</li>}
-              {porMedio.map((p) => (
-                <li key={p.medio} className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                    <span
-                      className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[p.medio].tone])}
-                    />
-                    {medioPagoCfg[p.medio].label}
-                  </span>
-                  <span className="text-end tabular-nums">
-                    <span className="block">{fmtArs(p.total)}</span>
-                    <span className="block text-[11px] font-normal text-neutral-400">
-                      ≈ {fmtUsd(p.total / RATE)}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card className="p-5">
-            <ChartTitle align="left" divider>
-              Conciliaciones anteriores
-            </ChartTitle>
-            <ul className="space-y-3 text-sm">
-              {conciliaciones.length === 0 && (
-                <li className="text-neutral-400">Todavía no se concilió ninguna caja.</li>
-              )}
-              {conciliaciones.map((c) => {
-                const diffs = c.lineas.filter((l) => l.montoReal !== l.montoSistema);
-                return (
-                  <li key={c.id}>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">
-                        {c.fecha} · {c.hora}
-                      </span>
-                      <span className={diffs.length ? "text-xs text-red-500" : "text-xs text-emerald-600"}>
-                        {diffs.length ? `${diffs.length} con diferencia` : "Sin diferencias"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-neutral-400">{c.responsable}</p>
-                    {diffs.map((l) => {
-                      const caja = cajaById.get(l.cajaId);
-                      const diff = l.montoReal - l.montoSistema;
-                      return (
-                        <p key={l.cajaId} className="mt-1 text-xs text-neutral-500">
-                          <span className="font-medium text-neutral-700">
-                            {caja?.nombre ?? l.cajaId}:
-                          </span>{" "}
-                          {diff > 0 ? "+" : ""}
-                          {money(caja?.moneda ?? "ars", diff)}
-                          {l.comentario && ` — ${l.comentario}`}
-                        </p>
-                      );
-                    })}
-                    {c.comentario && (
-                      <p className="mt-1 text-xs italic text-neutral-500">{c.comentario}</p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        </div>
-      </div>
-
-      <div>
-        <button
-          onClick={() => setCajasOpen((v) => !v)}
-          className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
-        >
-          {cajasOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {cajasOpen ? "Ocultar cajas" : "Mostrar cajas"}
-        </button>
-        {cajasOpen && (
-          <Card className="mt-3 overflow-hidden">
-            <div className="flex flex-col gap-2 border-b border-neutral-100 px-5 pt-5 pb-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className={HEAD}>Cajas</p>
-              <button
-                onClick={() => setEditingCaja({ id: null, data: blankCaja })}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-              >
-                <Plus className="h-4 w-4" />
-                Nueva caja
-              </button>
-            </div>
-
-            <div className="space-y-2 p-3 md:hidden">
-              {cajas.map((c) => (
-                <Card key={c.id} className="p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-neutral-900">{c.nombre}</p>
-                      {c.descripcion && (
-                        <p className="truncate text-xs text-neutral-500">{c.descripcion}</p>
-                      )}
-                    </div>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                      <span
-                        className={cn("h-1.5 w-1.5 rounded-full", c.activa ? dotClass.green : dotClass.gray)}
-                      />
-                      {c.activa ? "Activa" : "Inactiva"}
-                    </span>
-                  </div>
-                  <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5">
+                  <td className="px-5 py-2.5 text-center">
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                       <span
                         className={cn("h-1.5 w-1.5 rounded-full", c.moneda === "usd" ? dotClass.blue : dotClass.green)}
                       />
                       {c.moneda.toUpperCase()}
                     </span>
+                  </td>
+                  <td className="px-5 py-2.5 text-center">
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                       <span
                         className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[c.medioPago].tone])}
                       />
                       {medioPagoCfg[c.medioPago].label}
                     </span>
-                    <button
-                      onClick={() =>
-                        setEditingCaja({
-                          id: c.id,
-                          data: {
-                            nombre: c.nombre,
-                            moneda: c.moneda,
-                            activa: c.activa,
-                            descripcion: c.descripcion,
-                            medioPago: c.medioPago,
-                          },
-                        })
-                      }
-                      className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Editar
-                    </button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-
-            <table className="mt-3 hidden w-full text-sm md:table">
-              <thead>
-                <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                  <th className={cn("px-5 py-2 text-center", thDivider)}>Creada</th>
-                  <th className={cn("px-5 py-2 text-center", thDivider)}>Caja</th>
-                  <th className={cn("px-5 py-2 text-center", thDivider)}>Descripción</th>
-                  <th className={cn("px-5 py-2 text-center", thDivider)}>Moneda</th>
-                  <th className={cn("px-5 py-2 text-center", thDivider)}>Medio</th>
-                  <th className={cn("px-5 py-2 text-center", thDivider)}>Estado</th>
-                  <th className="px-5 py-2 text-center">Acciones</th>
+                  </td>
+                  <td className="px-5 py-2.5 text-center">
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                      <span
+                        className={cn("h-1.5 w-1.5 rounded-full", c.activa ? dotClass.green : dotClass.gray)}
+                      />
+                      {c.activa ? "Activa" : "Inactiva"}
+                    </span>
+                  </td>
+                  <td className="px-5 py-2.5">
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={() =>
+                          setEditingCaja({
+                            id: c.id,
+                            data: {
+                              nombre: c.nombre,
+                              moneda: c.moneda,
+                              activa: c.activa,
+                              descripcion: c.descripcion,
+                              medioPago: c.medioPago,
+                            },
+                          })
+                        }
+                        className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Editar
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {cajas.map((c) => (
-                  <tr key={c.id} className="border-t border-neutral-100 first:border-t-0">
-                    <td className="px-5 py-2.5 text-center text-neutral-500">{c.creadaEl}</td>
-                    <td className="px-5 py-2.5 text-center font-medium">{c.nombre}</td>
-                    <td
-                      className={cn(
-                        "max-w-[260px] truncate px-5 py-2.5 text-neutral-500",
-                        c.descripcion ? "text-start" : "text-center",
-                      )}
-                    >
-                      {c.descripcion || "—"}
-                    </td>
-                    <td className="px-5 py-2.5 text-center">
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                        <span
-                          className={cn("h-1.5 w-1.5 rounded-full", c.moneda === "usd" ? dotClass.blue : dotClass.green)}
-                        />
-                        {c.moneda.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-5 py-2.5 text-center">
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                        <span
-                          className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[c.medioPago].tone])}
-                        />
-                        {medioPagoCfg[c.medioPago].label}
-                      </span>
-                    </td>
-                    <td className="px-5 py-2.5 text-center">
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                        <span
-                          className={cn("h-1.5 w-1.5 rounded-full", c.activa ? dotClass.green : dotClass.gray)}
-                        />
-                        {c.activa ? "Activa" : "Inactiva"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-2.5">
-                      <div className="flex items-center justify-center">
-                        <button
-                          onClick={() =>
-                            setEditingCaja({
-                              id: c.id,
-                              data: {
-                                nombre: c.nombre,
-                                moneda: c.moneda,
-                                activa: c.activa,
-                                descripcion: c.descripcion,
-                                medioPago: c.medioPago,
-                              },
-                            })
-                          }
-                          className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
-                        >
-                          <Pencil className="h-3.5 w-3.5" /> Editar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        )}
+              ))}
+            </tbody>
+          </table>
+        </Card>
       </div>
+      )}
 
       <Dialog
         open={!!openMov}
@@ -1001,7 +986,7 @@ function ConciliarDialog({
       open={open}
       onClose={onClose}
       accent
-      size="lg"
+      size="2xl"
       title="Conciliar cajas"
       description="Contá cada caja y anotá el monto real — la diferencia con el sistema queda guardada."
       footer={
@@ -1161,5 +1146,143 @@ function ConciliarDialog({
         </Field>
       </div>
     </Dialog>
+  );
+}
+
+function ConciliacionesTab({
+  conciliaciones,
+  cajas,
+}: {
+  conciliaciones: Conciliacion[];
+  cajas: Caja[];
+}) {
+  const cajaById = new Map(cajas.map((c) => [c.id, c]));
+
+  if (conciliaciones.length === 0) {
+    return (
+      <Card className="p-10 text-center text-sm text-neutral-400">
+        Todavía no se concilió ninguna caja.
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {conciliaciones.map((c) => {
+        const diffs = c.lineas.filter((l) => l.montoReal !== l.montoSistema);
+        return (
+          <Card key={c.id} className="overflow-hidden">
+            <div className="flex flex-col gap-1 border-b border-neutral-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {c.fecha} · {c.hora}
+                </p>
+                <p className="text-xs text-neutral-400">{c.responsable}</p>
+              </div>
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  diffs.length ? "text-red-500" : "text-emerald-600",
+                )}
+              >
+                {diffs.length
+                  ? `${diffs.length} ${diffs.length === 1 ? "caja con diferencia" : "cajas con diferencia"}`
+                  : "Sin diferencias"}
+              </span>
+            </div>
+
+            <div className="px-5 py-2 md:hidden">
+              {c.lineas.map((l) => {
+                const caja = cajaById.get(l.cajaId);
+                const moneda = caja?.moneda ?? "ars";
+                const diff = l.montoReal - l.montoSistema;
+                return (
+                  <div
+                    key={l.cajaId}
+                    className="flex items-center justify-between gap-2 border-b border-neutral-100 py-2 last:border-b-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-neutral-900">
+                        {caja?.nombre ?? l.cajaId}
+                        <span className="ml-1.5 text-xs font-normal text-neutral-400">
+                          {moneda.toUpperCase()}
+                        </span>
+                      </p>
+                      <p className="text-xs text-neutral-400">
+                        Sistema {money(moneda, l.montoSistema)} · contado{" "}
+                        {money(moneda, l.montoReal)}
+                      </p>
+                      {l.comentario && (
+                        <p className="truncate text-xs italic text-neutral-400">{l.comentario}</p>
+                      )}
+                    </div>
+                    <p
+                      className={cn(
+                        "shrink-0 text-sm font-semibold tabular-nums",
+                        diff === 0 ? "text-emerald-600" : "text-red-500",
+                      )}
+                    >
+                      {diff > 0 ? "+" : ""}
+                      {money(moneda, diff)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <table className="hidden w-full text-sm md:table">
+              <thead>
+                <tr className="text-xs">
+                  <th className={cn("px-5 py-2", thDivider)}>Caja</th>
+                  <th className={cn("px-5 py-2 text-end", thDivider)}>Sistema</th>
+                  <th className={cn("px-5 py-2 text-end", thDivider)}>Contado</th>
+                  <th className={cn("px-5 py-2 text-end", thDivider)}>Diferencia</th>
+                  <th className="px-5 py-2">Comentario</th>
+                </tr>
+              </thead>
+              <tbody>
+                {c.lineas.map((l) => {
+                  const caja = cajaById.get(l.cajaId);
+                  const moneda = caja?.moneda ?? "ars";
+                  const diff = l.montoReal - l.montoSistema;
+                  return (
+                    <tr key={l.cajaId} className="border-t border-neutral-100 first:border-t-0">
+                      <td className="px-5 py-2">
+                        <span className="font-medium text-neutral-900">{caja?.nombre ?? l.cajaId}</span>
+                        <span className="ml-1.5 text-xs text-neutral-400">{moneda.toUpperCase()}</span>
+                      </td>
+                      <td className="px-5 py-2 text-end tabular-nums text-neutral-500">
+                        {money(moneda, l.montoSistema)}
+                      </td>
+                      <td className="px-5 py-2 text-end tabular-nums">
+                        {money(moneda, l.montoReal)}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-5 py-2 text-end font-semibold tabular-nums",
+                          diff === 0 ? "text-emerald-600" : "text-red-500",
+                        )}
+                      >
+                        {diff > 0 ? "+" : ""}
+                        {money(moneda, diff)}
+                      </td>
+                      <td className="max-w-[260px] truncate px-5 py-2 text-neutral-500">
+                        {l.comentario || "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {c.comentario && (
+              <p className="border-t border-neutral-100 px-5 py-3 text-xs italic text-neutral-500">
+                {c.comentario}
+              </p>
+            )}
+          </Card>
+        );
+      })}
+    </div>
   );
 }

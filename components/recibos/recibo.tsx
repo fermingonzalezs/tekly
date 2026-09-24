@@ -547,9 +547,13 @@ function EstadoChecklistBadge({ estado }: { estado?: EstadoChecklistItem }) {
 export function ReciboChecklist({
   titulo,
   checklist,
+  ocultarColor,
 }: {
   titulo: string;
   checklist: Checklist;
+  /** El color ya se muestra en "Información del equipo" (Ticket de
+   * ingreso) -- no repetirlo acá abajo. */
+  ocultarColor?: boolean;
 }) {
   return (
     <div className="mt-10 print:break-inside-avoid-page">
@@ -567,7 +571,7 @@ export function ReciboChecklist({
           </div>
         ))}
       </div>
-      {checklist.color && (
+      {!ocultarColor && checklist.color && (
         <p className="mt-3 text-xs text-neutral-500">
           <span className="font-semibold text-neutral-700">Color: </span>
           {checklist.color}

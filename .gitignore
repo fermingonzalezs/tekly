@@ -5,3 +5,4 @@ next-env.d.ts
 
 # build info
 tsconfig.tsbuildinfo
+graphify-out
