@@ -1159,6 +1159,10 @@ export function ReparacionesClient({
               titulo="Términos y condiciones"
               texto={negocio.reparacionTerminosEgreso}
             />
+            <ReciboNota
+              titulo="Aclaraciones"
+              texto={negocio.reparacionAclaracionesEgreso}
+            />
           </>
         )}
       </ReciboDialog>

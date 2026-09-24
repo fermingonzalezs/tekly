@@ -694,6 +694,7 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
                     lineas={SERVICIOS_PREVIEW}
                     total={120}
                   />
+                  <ReciboNota titulo="Aclaraciones" texto={form.reparacionAclaracionesEgreso} />
                 </>
               ),
             };
@@ -780,16 +781,28 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
               </Field>
             )}
             {docTab === "egreso" && (
-              <Field label="Términos y condiciones">
-                <Textarea
-                  rows={4}
-                  value={form.reparacionTerminosEgreso}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, reparacionTerminosEgreso: e.target.value }))
-                  }
-                  placeholder="Párrafos separados por una línea en blanco."
-                />
-              </Field>
+              <>
+                <Field label="Términos y condiciones">
+                  <Textarea
+                    rows={4}
+                    value={form.reparacionTerminosEgreso}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, reparacionTerminosEgreso: e.target.value }))
+                    }
+                    placeholder="Párrafos separados por una línea en blanco."
+                  />
+                </Field>
+                <Field label="Aclaraciones">
+                  <Textarea
+                    rows={4}
+                    value={form.reparacionAclaracionesEgreso}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, reparacionAclaracionesEgreso: e.target.value }))
+                    }
+                    placeholder="Párrafos separados por una línea en blanco."
+                  />
+                </Field>
+              </>
             )}
             {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
             <button
