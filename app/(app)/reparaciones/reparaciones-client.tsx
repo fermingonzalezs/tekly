@@ -1157,6 +1157,10 @@ export function ReparacionesClient({
                 total={recibo.ticket.presupuestoUsd}
               />
             )}
+            <ReciboNota
+              titulo="Aclaraciones"
+              texto={negocio.reparacionAclaracionesEgreso}
+            />
           </>
         )}
       </ReciboDialog>
