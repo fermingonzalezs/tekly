@@ -38,13 +38,19 @@ import {
   ReciboChecklistComparado,
   ReciboNota,
 } from "@/components/recibos/recibo";
-import { TICKET_FLOW, nextTicketStatus, ticketStatus, dotClass } from "@/lib/status";
-import { fmtUsd } from "@/lib/format";
+import { TICKET_FLOW, nextTicketStatus, ticketStatus, dotClass, medioPago as medioPagoCfg, MEDIOS_CAJA } from "@/lib/status";
+import { fmtUsd, fmtArs, fmtNum } from "@/lib/format";
+import { calcularRestante, saldarUltimoPago, montoConRecargo } from "@/lib/ventas";
+import { useDolar } from "@/lib/dolar";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import type {
+  Caja,
   Checklist,
   ClienteOpcion,
   ClienteSeleccion,
+  MedioPago,
+  MedioPagoVenta,
+  Pago,
   Repuesto,
   Servicio,
   Ticket,
@@ -59,6 +65,7 @@ import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
 import {
   addTicketItemAction,
   createTicketAction,
+  entregarTicketAction,
   removeTicketItemAction,
   saveServicioAction,
   setChecklistEgresoAction,
@@ -106,6 +113,7 @@ export function ReparacionesClient({
   repuestos,
   tecnicos,
   clientesOpciones,
+  cajas,
   negocio,
   user,
 }: {
@@ -114,6 +122,7 @@ export function ReparacionesClient({
   repuestos: Repuesto[];
   tecnicos: { id: string; nombre: string }[];
   clientesOpciones: ClienteOpcion[];
+  cajas: Caja[];
   negocio: Negocio;
   user: SessionUser;
 }) {
@@ -136,6 +145,8 @@ export function ReparacionesClient({
     tipo: "ingreso" | "presupuesto" | "egreso";
   } | null>(null);
   const [checklistEgresoTicket, setChecklistEgresoTicket] = useState<Ticket | null>(null);
+  const [entregando, setEntregando] = useState<Ticket | null>(null);
+  const dolarVenta = useDolar().venta;
   const [agregandoItemA, setAgregandoItemA] = useState<Ticket | null>(null);
   const [editandoPrecio, setEditandoPrecio] = useState<{
     ticketId: number;
@@ -621,6 +632,14 @@ export function ReparacionesClient({
                   )}
                 </button>
               )}
+              {open.estado === "listo" && (
+                <button
+                  onClick={() => setEntregando(open)}
+                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
+                >
+                  Entregar equipo <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
             </>
           )
         }
@@ -916,8 +935,10 @@ export function ReparacionesClient({
               )}
               {["listo", "entregado"].includes(open.estado) && (
                 <button
-                  onClick={() => setRecibo({ ticket: open, tipo: "egreso" })}
-                  className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                  onClick={() => open.checklistEgreso && setRecibo({ ticket: open, tipo: "egreso" })}
+                  disabled={!open.checklistEgreso}
+                  title={!open.checklistEgreso ? "Completá el checklist de egreso primero" : undefined}
+                  className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-accent/40 disabled:hover:bg-transparent"
                 >
                   <FileCheck2 className="h-3.5 w-3.5" /> Ticket de egreso
                 </button>
@@ -1157,6 +1178,18 @@ export function ReparacionesClient({
                 total={recibo.ticket.presupuestoUsd}
               />
             )}
+            {recibo.ticket.pagos && recibo.ticket.pagos.length > 0 && (
+              <ReciboLineas
+                titulo="Forma de pago"
+                lineas={recibo.ticket.pagos.map((p) => ({
+                  detalle: medioPagoCfg[p.medio].label,
+                  montoUsd: p.montoUsd,
+                  montoLabel:
+                    p.caja === "ars" ? fmtArs(p.montoUsd * dolarVenta) : fmtUsd(p.montoUsd),
+                }))}
+                total={recibo.ticket.pagos.reduce((a, p) => a + p.montoUsd, 0)}
+              />
+            )}
           </>
         )}
       </ReciboDialog>
@@ -1209,6 +1242,19 @@ export function ReparacionesClient({
         onAdd={(item) => agregandoItemA && agregarItem(agregandoItemA.id, item)}
         servicios={initialServicios}
         repuestos={repuestos}
+      />
+
+      <EntregarEquipoDialog
+        key={entregando ? String(entregando.id) : "none"}
+        ticket={entregando}
+        cajas={cajas}
+        negocio={negocio}
+        dolarVenta={dolarVenta}
+        onClose={() => setEntregando(null)}
+        onEntregar={(actualizado) => {
+          setList((prev) => prev.map((t) => (t.id === actualizado.id ? actualizado : t)));
+          setEntregando(null);
+        }}
       />
     </>
   );
@@ -1547,6 +1593,371 @@ function NuevoTicketDialog({
           <ChecklistEditor value={checklist} onChange={setChecklist} />
         </div>
       </div>
+    </Dialog>
+  );
+}
+
+// ─────────────────────────── Entregar equipo ───────────────────────────
+
+const rid = () => Math.random().toString(36).slice(2);
+
+/** Igual que el `DraftPago` de "Nueva venta" (ventas-client.tsx), sin
+ * `canje` -- un ticket no genera `Compra`s, no hay `CanjeModal` acá. */
+type DraftPago = Pago & { _k: string };
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-2 border-b border-neutral-200 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+      {children}
+    </p>
+  );
+}
+
+/** "Entregar equipo" -- el paso final del pipeline (`estado` a
+ * "entregado"): completa/edita el checklist de egreso (parte del
+ * `checklistEgreso` ya cargado, si había) y registra el/los medio(s) de
+ * pago con el mismo patrón que el bloque "Pago" de "Nueva venta" (medio →
+ * caja si hay más de una → monto, pago simple o dividido). Al confirmar
+ * genera el movimiento de caja/cuenta corriente por cada pago
+ * (`entregarTicket` en `lib/db/reparaciones.ts`). */
+function EntregarEquipoDialog({
+  ticket,
+  cajas,
+  negocio,
+  dolarVenta,
+  onClose,
+  onEntregar,
+}: {
+  ticket: Ticket | null;
+  cajas: Caja[];
+  negocio: Negocio;
+  dolarVenta: number;
+  onClose: () => void;
+  onEntregar: (t: Ticket) => void;
+}) {
+  const [checklist, setChecklist] = useState<Checklist>(
+    ticket?.checklistEgreso ?? CHECKLIST_VACIO,
+  );
+
+  // Sin la caja de canje: un ticket no genera compras de canje, ese medio
+  // no se ofrece ni se auto-completa al agregar un pago.
+  const cajasActivas = cajas.filter((c) => c.activa && c.medioPago !== "canje");
+  const destinoPago = (destino: string): Partial<DraftPago> => {
+    if (destino === "cuenta_corriente") {
+      return {
+        medio: "cuenta_corriente",
+        cajaId: undefined,
+        caja: "usd",
+        recargoPct: negocio.recargosMediosPago.cuenta_corriente,
+      };
+    }
+    const caja = cajasActivas.find((c) => c.id === destino);
+    return {
+      medio: caja?.medioPago ?? "transferencia",
+      cajaId: caja?.id,
+      caja: caja?.moneda ?? "usd",
+      recargoPct: caja ? negocio.recargosMediosPago[caja.medioPago] : undefined,
+    };
+  };
+  const destinoDe = (p: DraftPago) => p.cajaId ?? p.medio;
+
+  // Selector de pago en dos pasos: primero el medio, después -- solo si
+  // hay más de una caja activa para ese medio -- cuál caja específica.
+  const cajasDeMedio = (medio: MedioPago) =>
+    cajasActivas.filter((c) => c.medioPago === medio);
+  const mediosDisponibles = MEDIOS_CAJA.filter((m) => cajasDeMedio(m).length > 0);
+  const medioAPago = (medio: MedioPagoVenta): Partial<DraftPago> => {
+    if (medio === "cuenta_corriente") {
+      return {
+        medio,
+        cajaId: undefined,
+        caja: "usd",
+        recargoPct: negocio.recargosMediosPago.cuenta_corriente,
+      };
+    }
+    const caja = cajasDeMedio(medio)[0];
+    return {
+      medio,
+      cajaId: caja?.id,
+      caja: caja?.moneda ?? "usd",
+      recargoPct: negocio.recargosMediosPago[medio],
+    };
+  };
+
+  // Con costo arranca con un pago por completar (igual que "Nueva venta");
+  // sin costo (ej. reparación bajo garantía) no se exige ninguno.
+  const [pagos, setPagos] = useState<DraftPago[]>(() =>
+    ticket && ticket.presupuestoUsd > 0
+      ? [
+          {
+            _k: rid(),
+            ...destinoPago(cajasActivas[0]?.id ?? "cuenta_corriente"),
+            montoUsd: 0,
+          } as DraftPago,
+        ]
+      : [],
+  );
+  const [confirmMonto, setConfirmMonto] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  // El total a cobrar es fijo -- es el presupuesto del ticket, no hay
+  // ítems que armar como en "Nueva venta".
+  const total = ticket?.presupuestoUsd ?? 0;
+  const restante = calcularRestante(total, pagos);
+
+  // No hace falta validar cliente ni ítems -- el ticket ya los tiene.
+  const valid = total === 0 || pagos.every((p) => p.montoUsd > 0);
+
+  const destinos = ["cuenta_corriente", ...cajasActivas.map((c) => c.id)];
+  const updPago = (k: string, patch: Partial<DraftPago>) =>
+    setPagos((p) => p.map((x) => (x._k === k ? { ...x, ...patch } : x)));
+  const rmPago = (k: string) =>
+    setPagos((p) => (p.length > 1 ? p.filter((x) => x._k !== k) : p));
+  const addPago = () =>
+    setPagos((p) => {
+      const usados = p.map(destinoDe);
+      const destino = destinos.find((d) => !usados.includes(d)) ?? destinos[0];
+      return [
+        ...p,
+        {
+          _k: rid(),
+          ...destinoPago(destino),
+          montoUsd: restante > 0 ? restante : 0,
+        } as DraftPago,
+      ];
+    });
+  const saldar = () => setPagos((p) => saldarUltimoPago(p, restante));
+
+  function submit() {
+    if (!ticket) return;
+    startTransition(async () => {
+      const actualizado = await entregarTicketAction(ticket.id, {
+        checklist,
+        pagos: pagos.map(({ _k, ...p }) => p),
+        dolarVenta,
+      });
+      onEntregar(actualizado);
+    });
+  }
+
+  // Igual que "Nueva venta": si el total no cierra exacto, se pide una
+  // confirmación aparte en vez de bloquear -- puede ser una diferencia
+  // real (redondeo, descuento de último minuto) y no un error de tipeo.
+  function confirmarClick() {
+    if (Math.abs(restante) < 0.005) {
+      submit();
+    } else {
+      setConfirmMonto(true);
+    }
+  }
+
+  return (
+    <Dialog
+      open={!!ticket}
+      onClose={onClose}
+      size="lg"
+      accent
+      title="Entregar equipo"
+      description={ticket ? `Ticket #${ticket.id} · ${ticket.cliente}` : ""}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={confirmarClick}
+            disabled={!valid || pending}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+          >
+            {pending ? "Entregando…" : "Confirmar entrega"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {/* Checklist de egreso */}
+        <Card className="p-4">
+          <Eyebrow>Checklist de egreso</Eyebrow>
+          <ChecklistEditor value={checklist} onChange={setChecklist} />
+        </Card>
+
+        {/* Pago */}
+        <Card className="p-4">
+          <Eyebrow>Pago · Total {fmtUsd(total)}</Eyebrow>
+
+          <div className="space-y-2">
+            {pagos.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-neutral-200 px-3 py-4 text-center text-[13px] text-neutral-400">
+                Reparación sin costo -- no se registra ningún pago.
+              </p>
+            ) : (
+              pagos.map((p) => {
+                const recargoPct = p.recargoPct ?? 0;
+                const cajasMedio =
+                  p.medio !== "cuenta_corriente" ? cajasDeMedio(p.medio) : [];
+                return (
+                  <div
+                    key={p._k}
+                    className="space-y-1.5 rounded-lg border border-neutral-200 p-3"
+                  >
+                    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                      <Select
+                        value={p.medio}
+                        onChange={(e) => {
+                          const medio = e.target.value as MedioPagoVenta;
+                          updPago(p._k, medioAPago(medio));
+                        }}
+                        className="w-full text-center sm:w-40"
+                      >
+                        <option value="cuenta_corriente">
+                          {medioPagoCfg.cuenta_corriente.emoji} Cuenta corriente
+                        </option>
+                        {mediosDisponibles.map((m) => (
+                          <option key={m} value={m}>
+                            {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
+                          </option>
+                        ))}
+                      </Select>
+                      {cajasMedio.length > 0 && (
+                        <Select
+                          value={p.cajaId}
+                          onChange={(e) => {
+                            const caja = cajasMedio.find((c) => c.id === e.target.value);
+                            if (caja) updPago(p._k, { cajaId: caja.id, caja: caja.moneda });
+                          }}
+                          className="w-full text-center sm:w-36"
+                        >
+                          {cajasMedio.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.nombre}
+                            </option>
+                          ))}
+                        </Select>
+                      )}
+                      <div className="flex items-center gap-2 sm:flex-1">
+                        {p.caja === "ars" ? (
+                          <div className="flex h-9 flex-1 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-sm transition-colors focus-within:border-accent">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="Cobrado $"
+                              className="min-w-0 flex-1 text-center outline-none"
+                              value={
+                                p.montoUsd ? fmtNum(Math.round(p.montoUsd * dolarVenta)) : ""
+                              }
+                              onChange={(e) => {
+                                const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
+                                updPago(p._k, { montoUsd: raw / dolarVenta });
+                              }}
+                            />
+                            {p.montoUsd > 0 && (
+                              <span className="shrink-0 text-[11px] text-neutral-400">
+                                ≈ {fmtUsd(p.montoUsd)}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <Input
+                            className="flex-1 text-center"
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Cobrado U$"
+                            value={p.montoUsd ? fmtNum(Math.round(p.montoUsd)) : ""}
+                            onChange={(e) => {
+                              const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
+                              updPago(p._k, { montoUsd: raw });
+                            }}
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => rmPago(p._k)}
+                          disabled={pagos.length === 1}
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    {recargoPct > 0 && p.montoUsd > 0 && (
+                      <p className="pl-1 text-[11px] text-amber-600">
+                        + {recargoPct}% recargo → cobra{" "}
+                        {fmtUsd(montoConRecargo(p.montoUsd, recargoPct))}
+                      </p>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={addPago}
+              disabled={pagos.length >= destinos.length}
+              className="text-xs font-medium text-accent hover:underline disabled:opacity-40"
+            >
+              + Agregar medio
+            </button>
+            {Math.abs(restante) < 0.005 ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                <Check className="h-3.5 w-3.5" /> Pago completo
+              </span>
+            ) : (
+              <span className="flex items-center gap-2 text-xs font-semibold">
+                <span className={restante > 0 ? "text-amber-600" : "text-red-500"}>
+                  {restante > 0 ? "Faltan " : "Sobran "}
+                  {fmtUsd(Math.abs(restante))}
+                </span>
+                <button
+                  type="button"
+                  onClick={saldar}
+                  className="rounded-md border border-neutral-200 px-2 py-0.5 text-[11px] font-medium text-neutral-600 hover:bg-neutral-50"
+                >
+                  Saldar
+                </button>
+              </span>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <Dialog
+        open={confirmMonto}
+        onClose={() => setConfirmMonto(false)}
+        accent
+        title="El monto no coincide"
+        footer={
+          <>
+            <button
+              onClick={() => setConfirmMonto(false)}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            >
+              Revisar pagos
+            </button>
+            <button
+              disabled={pending}
+              onClick={() => {
+                setConfirmMonto(false);
+                submit();
+              }}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            >
+              Confirmar de todas formas
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-neutral-600">
+          Cargaste {fmtUsd(total - restante)} en pagos, pero el total del ticket es{" "}
+          {fmtUsd(total)} ({restante > 0 ? "faltan" : "sobran"}{" "}
+          {fmtUsd(Math.abs(restante))}). ¿Confirmar la entrega igual?
+        </p>
+      </Dialog>
     </Dialog>
   );
 }

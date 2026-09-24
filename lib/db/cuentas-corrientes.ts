@@ -49,6 +49,9 @@ export async function createMovimientoCC(data: {
    * `lib/db/ventas.ts`. `undefined` para los movimientos manuales de
    * siempre ("Registrar pago" en Cuentas corrientes). */
   ventaId?: string;
+  /** Ticket que generó este movimiento (pago a "cuenta corriente" al
+   * entregar el equipo, ver `lib/db/reparaciones.ts` → `entregarTicket`). */
+  ticketId?: number;
 }): Promise<MovimientoCC> {
   const user = await requireUser();
   const supabase = createServerClient();
@@ -62,6 +65,7 @@ export async function createMovimientoCC(data: {
       usuario_id: user.id,
       usuario_nombre: user.nombre,
       venta_id: data.ventaId ?? null,
+      ticket_id: data.ticketId ?? null,
     })
     .select(COLS)
     .single();

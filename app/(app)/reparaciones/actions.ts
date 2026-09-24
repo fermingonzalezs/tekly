@@ -6,6 +6,7 @@ import { resolveCliente } from "@/lib/db/clientes";
 import {
   addTicketItem,
   createTicket,
+  entregarTicket,
   removeTicketItem,
   saveServicio,
   setChecklistEgreso,
@@ -13,7 +14,14 @@ import {
   updateTicketItemPrecio,
   deleteTicket,
 } from "@/lib/db/reparaciones";
-import type { Checklist, ClienteSeleccion, Servicio, TicketServicio, TicketStatus } from "@/lib/types";
+import type {
+  Checklist,
+  ClienteSeleccion,
+  Pago,
+  Servicio,
+  TicketServicio,
+  TicketStatus,
+} from "@/lib/types";
 
 export async function createTicketAction(data: {
   cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
@@ -49,6 +57,18 @@ export async function setChecklistEgresoAction(id: number, checklist: Checklist)
   await requireUser();
   const ticket = await setChecklistEgreso(id, checklist);
   revalidatePath("/reparaciones");
+  return ticket;
+}
+
+export async function entregarTicketAction(
+  id: number,
+  data: { checklist: Checklist; pagos: Pago[]; dolarVenta: number },
+) {
+  await requireUser();
+  const ticket = await entregarTicket(id, data);
+  revalidatePath("/reparaciones");
+  revalidatePath("/cajas");
+  revalidatePath("/cuentas-corrientes");
   return ticket;
 }
 
