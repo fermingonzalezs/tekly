@@ -1,8 +1,11 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
+import { requireUser } from "@/lib/auth";
 import { addMovimiento } from "@/lib/db/inventario";
+import { createMovimientoCC } from "@/lib/db/cuentas-corrientes";
+import { montoConRecargo } from "@/lib/ventas";
 import { fmtDayMonth, fmtTime } from "@/lib/format";
-import type { Checklist, Servicio, Ticket, TicketServicio, TicketStatus } from "@/lib/types";
+import type { Checklist, Pago, Servicio, Ticket, TicketServicio, TicketStatus } from "@/lib/types";
 
 // ─────────────────────────── Tickets ───────────────────────────
 
@@ -25,11 +28,12 @@ type TicketRow = {
   ingreso: string;
   presupuesto_usd: number;
   servicios: TicketServicio[];
+  pagos: Pago[] | null;
   nota: string | null;
 };
 
 const TICKET_COLS =
-  "id, cliente_id, clientes(nombre), marca, equipo, imei, falla, reparacion_solicitada, clave_codigo, descripcion_equipo, checklist_ingreso, checklist_egreso, tecnico_id, profiles(nombre), estado, ingreso, presupuesto_usd, servicios, nota";
+  "id, cliente_id, clientes(nombre), marca, equipo, imei, falla, reparacion_solicitada, clave_codigo, descripcion_equipo, checklist_ingreso, checklist_egreso, tecnico_id, profiles(nombre), estado, ingreso, presupuesto_usd, servicios, pagos, nota";
 
 function toTicket(row: TicketRow): Ticket {
   const ingreso = new Date(row.ingreso);
@@ -53,6 +57,7 @@ function toTicket(row: TicketRow): Ticket {
     fechaISO: ingreso.toISOString().slice(0, 10),
     presupuestoUsd: row.presupuesto_usd,
     servicios: row.servicios ?? [],
+    pagos: row.pagos ?? undefined,
     nota: row.nota ?? undefined,
   };
 }
@@ -109,6 +114,79 @@ export async function setChecklistEgreso(id: number, checklist: Checklist): Prom
   const { data: row, error } = await supabase
     .from("tickets")
     .update({ checklist_egreso: checklist })
+    .eq("id", id)
+    .select(TICKET_COLS)
+    .single();
+  if (error) throw error;
+  return toTicket(row as unknown as TicketRow);
+}
+
+export type EntregarTicketInput = {
+  checklist: Checklist;
+  pagos: Pago[];
+  /** Cotización blue vigente -- para convertir a pesos el monto de los
+   * pagos que van a una caja ARS, mismo criterio que `createVenta`. */
+  dolarVenta: number;
+};
+
+/** Entrega el equipo: guarda el checklist de egreso (si se completó/editó en
+ * el modal) + los pagos registrados, genera el movimiento correspondiente
+ * por cada pago (caja o cuenta corriente -- mismo patrón que `createVenta`
+ * en `lib/db/ventas.ts`, sin stock de por medio: un ticket no descuenta
+ * equipos/repuestos al entregar) y pasa `estado` a `"entregado"`. */
+export async function entregarTicket(id: number, data: EntregarTicketInput): Promise<Ticket> {
+  const user = await requireUser();
+  const supabase = createServerClient();
+
+  const { data: readData, error: readError } = await supabase
+    .from("tickets")
+    .select("cliente_id, clientes(nombre)")
+    .eq("id", id)
+    .single();
+  if (readError) throw readError;
+  // `clientes(nombre)` lo tipa como array el parser de select de
+  // supabase-js -- mismo cast a fila-plana que hace `TicketRow` arriba.
+  const ticketRow = readData as unknown as {
+    cliente_id: string | null;
+    clientes: { nombre: string } | null;
+  };
+
+  const concepto = `Entrega ticket #${id} · ${ticketRow.clientes?.nombre ?? "—"}`;
+
+  for (const pago of data.pagos) {
+    const montoReal = montoConRecargo(pago.montoUsd, pago.recargoPct);
+    if (pago.medio === "cuenta_corriente") {
+      if (!ticketRow.cliente_id) continue;
+      await createMovimientoCC({
+        clienteId: ticketRow.cliente_id,
+        tipo: "cargo",
+        concepto,
+        montoUsd: montoReal,
+        ticketId: id,
+      });
+    } else if (pago.cajaId) {
+      const monto = pago.caja === "ars" ? Math.round(montoReal * data.dolarVenta) : montoReal;
+      const { error: movError } = await supabase.from("movimientos_caja").insert({
+        caja_id: pago.cajaId,
+        concepto,
+        medio_pago: pago.medio,
+        tipo: "ingreso",
+        monto,
+        usuario_id: user.id,
+        usuario_nombre: user.nombre,
+        ticket_id: id,
+      });
+      if (movError) throw movError;
+    }
+  }
+
+  const { data: row, error } = await supabase
+    .from("tickets")
+    .update({
+      checklist_egreso: data.checklist,
+      pagos: data.pagos,
+      estado: "entregado" satisfies TicketStatus,
+    })
     .eq("id", id)
     .select(TICKET_COLS)
     .single();

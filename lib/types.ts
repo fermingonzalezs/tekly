@@ -180,6 +180,10 @@ export type Ticket = {
    * botón en el detalle del ticket, no necesariamente junto con el cambio
    * de estado a "Entregado". */
   checklistEgreso?: Checklist;
+  /** Medio(s) de pago registrados al entregar el equipo (pago simple o
+   * dividido, mismo shape que `Venta.pagos`) -- `undefined` hasta que se
+   * entrega. `compraId` (canje) no aplica acá, un ticket no genera compras. */
+  pagos?: Pago[];
   tecnicoId: string | null;
   tecnico: string | null;
   estado: TicketStatus;
