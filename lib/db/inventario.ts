@@ -193,18 +193,17 @@ export async function createEquiposBulk(
 }
 
 /** Recuento (auditoría física): `draft` mapea id de equipo -> si se
- * encontró al revisarlo. Solo cubre equipos que no estén `vendido` (esos ya
- * no están en el local, no hay nada que auditar) -- lo filtra `startRecuento`
- * en el cliente. Un equipo no encontrado pasa a `extraviado`; si vuelve a
- * aparecer en un recuento posterior, se restaura a `disponible`. Cada id
- * deja su registro en `movimientos_stock`, se haya movido el estado o no,
- * mismo criterio que `recuentoRepuestos`/`recuentoOtros`. */
-/** Recuento (auditoría física): registra qué se encontró y qué no, pero NO
- * toca `equipos.estado` todavía -- queda `pendiente` hasta que un admin lo
+ * encontró al revisarlo; `comentarios`, id de equipo -> nota libre cargada
+ * al tildarlo "no encontrado" (ver `RecuentoLineaEquipo.comentario`, vacío
+ * para el resto). Registra qué se encontró y qué no, pero NO toca
+ * `equipos.estado` todavía -- queda `pendiente` hasta que un admin lo
  * revise (`resolverRecuento`). Solo las diferencias (esperaba una cosa,
  * contó otra) entran a `lineas`; lo que coincide con lo esperado igual deja
  * su registro en `movimientos_stock`, pero no requiere revisión. */
-export async function crearRecuentoEquipos(draft: Record<string, boolean>): Promise<Recuento> {
+export async function crearRecuentoEquipos(
+  draft: Record<string, boolean>,
+  comentarios: Record<string, string>,
+): Promise<Recuento> {
   const ids = Object.keys(draft);
   const user = await requireUser();
   const lineas: RecuentoLineaEquipo[] = [];
@@ -229,8 +228,21 @@ export async function crearRecuentoEquipos(draft: Record<string, boolean>): Prom
       } else if (eraExtraviado) {
         await addMovimiento("equipo", eq.id, "Recuento: sigue sin encontrarse", "recuento");
       } else {
-        await addMovimiento("equipo", eq.id, "Recuento: no encontrado (pendiente de revisión)", "recuento");
-        lineas.push({ itemId: eq.id, detalle, eraExtraviado: false, encontrado: false, resolucion: "pendiente" });
+        const comentario = comentarios[eq.id]?.trim() || undefined;
+        await addMovimiento(
+          "equipo",
+          eq.id,
+          `Recuento: no encontrado (pendiente de revisión)${comentario ? ` -- ${comentario}` : ""}`,
+          "recuento",
+        );
+        lineas.push({
+          itemId: eq.id,
+          detalle,
+          eraExtraviado: false,
+          encontrado: false,
+          resolucion: "pendiente",
+          comentario,
+        });
       }
     }
   }

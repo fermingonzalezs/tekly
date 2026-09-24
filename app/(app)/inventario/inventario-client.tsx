@@ -205,6 +205,7 @@ export function InventarioClient({
   const [recuento, setRecuento] = useState(false);
   const [draft, setDraft] = useState<Record<string, number>>({});
   const [draftEncontrados, setDraftEncontrados] = useState<Record<string, boolean>>({});
+  const [draftComentarios, setDraftComentarios] = useState<Record<string, string>>({});
   const [savingRecuento, startRecuentoSave] = useTransition();
   const [q, setQ] = useState("");
   const [statsOpen, setStatsOpen] = useState(true);
@@ -285,6 +286,7 @@ export function InventarioClient({
       const d: Record<string, boolean> = {};
       equipos.forEach((e) => e.estado !== "vendido" && (d[e.id] = true));
       setDraftEncontrados(d);
+      setDraftComentarios({});
     } else {
       const d: Record<string, number> = {};
       if (tab === "repuestos") repuestos.forEach((r) => (d[r.id] = r.stock));
@@ -299,7 +301,7 @@ export function InventarioClient({
   // lib/db/inventario.ts). El cambio real recién se aplica ahí.
   function saveRecuento() {
     startRecuentoSave(async () => {
-      if (tab === "equipos") await crearRecuentoEquiposAction(draftEncontrados);
+      if (tab === "equipos") await crearRecuentoEquiposAction(draftEncontrados, draftComentarios);
       else if (tab === "repuestos") await crearRecuentoRepuestosAction(draft);
       else await crearRecuentoOtrosAction(draft);
       setRecuento(false);
@@ -663,6 +665,21 @@ export function InventarioClient({
                           </div>
                         )}
                       </div>
+                      {recuento && draftEncontrados[e.id] === false && (
+                        <div
+                          onClick={(ev) => ev.stopPropagation()}
+                          className="border-t border-neutral-100 bg-amber-50 p-3"
+                        >
+                          <Input
+                            value={draftComentarios[e.id] ?? ""}
+                            onChange={(ev) =>
+                              setDraftComentarios((c) => ({ ...c, [e.id]: ev.target.value }))
+                            }
+                            placeholder="¿Qué pasó con este equipo? (opcional)"
+                            className="text-sm"
+                          />
+                        </div>
+                      )}
                     </Card>
                   ))}
                   {equiposParaMostrar.length === 0 && (
@@ -715,8 +732,8 @@ export function InventarioClient({
                     </thead>
                     <tbody>
                       {equiposParaMostrar.map((e) => (
+                        <Fragment key={e.id}>
                         <tr
-                          key={e.id}
                           onClick={() => !recuento && setOpenEquipoId(e.id)}
                           className={cn(
                             "border-t border-neutral-100 first:border-t-0",
@@ -784,6 +801,21 @@ export function InventarioClient({
                             )}
                           </td>
                         </tr>
+                        {recuento && draftEncontrados[e.id] === false && (
+                          <tr className="border-t border-neutral-100 bg-amber-50">
+                            <td colSpan={puedeVerCosto ? 10 : 8} className="px-5 py-2">
+                              <Input
+                                value={draftComentarios[e.id] ?? ""}
+                                onChange={(ev) =>
+                                  setDraftComentarios((c) => ({ ...c, [e.id]: ev.target.value }))
+                                }
+                                placeholder="¿Qué pasó con este equipo? (opcional)"
+                                className="text-sm"
+                              />
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       ))}
                       {equiposParaMostrar.length === 0 && (
                         <tr>

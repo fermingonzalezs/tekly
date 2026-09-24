@@ -297,6 +297,11 @@ export type RecuentoLineaEquipo = {
   eraExtraviado: boolean;
   encontrado: boolean;
   resolucion: RecuentoResolucion;
+  /** Solo para `encontrado: false` -- qué pasó con el equipo, cargado al
+   * tildar "no encontrado" en el recuento (ej. "lo tiene el técnico Dani
+   * en el banco de trabajo", "se ve en la cámara que salió con un
+   * cliente"). Ayuda a decidir la resolución sin tener que ir a preguntar. */
+  comentario?: string;
 };
 
 /** Una diferencia de un recuento de Repuestos/Otros: cantidad que el

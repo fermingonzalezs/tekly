@@ -464,6 +464,11 @@ function RevisarRecuentoDialog({
                       : "Se esperaba presente · no se encontró"
                     : `Sistema: ${cantidadLinea.cantidadSistema} · Contado: ${cantidadLinea.cantidadContada}`}
                 </p>
+                {esEquipo && !equipoLinea.encontrado && equipoLinea.comentario && (
+                  <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+                    "{equipoLinea.comentario}"
+                  </p>
+                )}
                 <div className="mt-2 flex rounded-lg border border-neutral-200 p-0.5">
                   {opciones.map((opt) => (
                     <button

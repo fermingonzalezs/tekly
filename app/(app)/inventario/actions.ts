@@ -43,9 +43,12 @@ export async function deleteEquipoAction(id: string) {
   revalidatePath("/inventario");
 }
 
-export async function crearRecuentoEquiposAction(draft: Record<string, boolean>) {
+export async function crearRecuentoEquiposAction(
+  draft: Record<string, boolean>,
+  comentarios: Record<string, string>,
+) {
   await requireUser();
-  const recuento = await crearRecuentoEquipos(draft);
+  const recuento = await crearRecuentoEquipos(draft, comentarios);
   revalidatePath("/recuentos");
   return recuento;
 }
