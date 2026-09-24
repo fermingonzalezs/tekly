@@ -1689,10 +1689,11 @@ function NuevaVentaDialog({
         <Card className="p-4">
           <Eyebrow>Datos de la venta</Eyebrow>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Vendedor">
+            <Field label="Vendedor" labelClassName="text-center">
               <Select
                 value={vendedorId}
                 onChange={(e) => setVendedorId(e.target.value)}
+                className="text-center"
               >
                 {vendedores.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -1701,20 +1702,22 @@ function NuevaVentaDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Procedencia">
+            <Field label="Procedencia" labelClassName="text-center">
               <Select
                 value={procedencia}
                 onChange={(e) => setProcedencia(e.target.value)}
+                className="text-center"
               >
                 {PROCEDENCIAS.map((p) => (
                   <option key={p}>{p}</option>
                 ))}
               </Select>
             </Field>
-            <Field label="Modalidad">
+            <Field label="Modalidad" labelClassName="text-center">
               <Select
                 value={modalidad}
                 onChange={(e) => setModalidad(e.target.value as ModalidadVenta)}
+                className="text-center"
               >
                 {(Object.keys(MODALIDAD_LABEL) as ModalidadVenta[]).map((m) => (
                   <option key={m} value={m}>
