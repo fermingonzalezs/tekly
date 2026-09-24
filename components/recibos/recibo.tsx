@@ -41,6 +41,22 @@ function ReciboClienteContacto({
   return <p className="mt-1 text-xs text-neutral-500">{datos.join(" · ")}</p>;
 }
 
+/** Líneas de firma del pie de hoja -- también se usa sola, inline en el
+ * cuerpo (ej. ticket de egreso: las firmas van arriba, en la primera
+ * hoja, y el detalle después). */
+export function ReciboFirmas({ negocio }: { negocio: Negocio }) {
+  return (
+    <div className="grid grid-cols-2 gap-10 text-xs text-neutral-500">
+      <div className="border-t border-neutral-300 pt-3 text-center">
+        Firma del cliente · aclaración
+      </div>
+      <div className="border-t border-neutral-300 pt-3 text-center">
+        Firma y sello — {negocio.nombre}
+      </div>
+    </div>
+  );
+}
+
 /** Una hoja individual -- lo que imprime `page-break-after` como una página
  * propia. Banda superior en `accent` con el título/número/fecha del
  * documento en blanco + un ícono placeholder de logo a la derecha (todavía
@@ -60,6 +76,7 @@ function ReciboHoja({
   negocio,
   compacto = false,
   sello = false,
+  sinFirmas = false,
   children,
 }: {
   titulo: string;
@@ -71,6 +88,10 @@ function ReciboHoja({
   negocio: Negocio;
   compacto?: boolean;
   sello?: boolean;
+  /** Sin el bloque de firmas al pie -- para documentos que firman "en el
+   * cuerpo" (ej. el ticket de egreso de Reparaciones pone las firmas
+   * arriba, en la primera hoja, y el detalle después). */
+  sinFirmas?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -146,14 +167,11 @@ function ReciboHoja({
 
         <div className="text-sm">{children}</div>
 
-        <div className="mt-auto grid grid-cols-2 gap-10 pt-10 text-xs text-neutral-500">
-          <div className="border-t border-neutral-300 pt-3 text-center">
-            Firma del cliente · aclaración
+        {!sinFirmas && (
+          <div className="mt-auto pt-10">
+            <ReciboFirmas negocio={negocio} />
           </div>
-          <div className="border-t border-neutral-300 pt-3 text-center">
-            Firma y sello — {negocio.nombre}
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="recibo-print-footer flex shrink-0 items-center justify-center gap-1.5 bg-accent px-6 py-3 text-center print:px-[14mm]">
@@ -180,6 +198,7 @@ export function ReciboShell({
   negocio = negocioSeed,
   compacto,
   sello,
+  sinFirmas,
   children,
 }: {
   paginas?: ReciboPagina[];
@@ -194,6 +213,8 @@ export function ReciboShell({
    * `paginas`) -- con `paginas`, cada `ReciboPagina` trae los suyos. */
   compacto?: boolean;
   sello?: boolean;
+  /** Se aplica a todas las hojas (ver `ReciboHoja`). */
+  sinFirmas?: boolean;
   children?: React.ReactNode;
 }) {
   const hojas = paginas ?? [{ titulo: titulo ?? "", children, compacto, sello }];
@@ -217,6 +238,7 @@ export function ReciboShell({
             negocio={negocio}
             compacto={h.compacto}
             sello={h.sello}
+            sinFirmas={sinFirmas}
           >
             {h.children}
           </ReciboHoja>
@@ -238,6 +260,7 @@ export function ReciboDialog({
   negocio,
   compacto,
   sello,
+  sinFirmas,
   paginas,
   children,
 }: {
@@ -252,6 +275,7 @@ export function ReciboDialog({
   negocio?: Negocio;
   compacto?: boolean;
   sello?: boolean;
+  sinFirmas?: boolean;
   paginas?: ReciboPagina[];
   children?: React.ReactNode;
 }) {
@@ -291,6 +315,7 @@ export function ReciboDialog({
           negocio={negocio}
           compacto={compacto}
           sello={sello}
+          sinFirmas={sinFirmas}
           paginas={paginas}
         >
           {children}
@@ -313,6 +338,7 @@ export function ReciboDialog({
               negocio={negocio}
               compacto={compacto}
               sello={sello}
+              sinFirmas={sinFirmas}
               paginas={paginas}
             >
               {children}

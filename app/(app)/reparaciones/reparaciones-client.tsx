@@ -35,8 +35,8 @@ import {
   ReciboCampos,
   ReciboLineas,
   ReciboChecklist,
-  ReciboChecklistComparado,
   ReciboNota,
+  ReciboFirmas,
 } from "@/components/recibos/recibo";
 import { TICKET_FLOW, nextTicketStatus, ticketStatus, dotClass } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
@@ -974,6 +974,7 @@ export function ReparacionesClient({
         clienteEmail={recibo ? clientesPorId.get(recibo.ticket.clienteId)?.email : undefined}
         negocio={negocio}
         compacto
+        sinFirmas={recibo?.tipo === "egreso"}
       >
         {recibo?.tipo === "ingreso" && (
           <>
@@ -1068,10 +1069,6 @@ export function ReparacionesClient({
                 filas={[["Observaciones", recibo.ticket.descripcionEquipo || "—"]]}
               />
             </div>
-            <ReciboChecklistComparado
-              ingreso={recibo.ticket.checklistIngreso}
-              egreso={recibo.ticket.checklistEgreso}
-            />
             {(() => {
               const servicios = recibo.ticket.servicios.filter(
                 (s) => (s.origen ?? "servicio") === "servicio",
@@ -1140,6 +1137,18 @@ export function ReparacionesClient({
                 filas={[["Observaciones", recibo.ticket.descripcionEquipo || "—"]]}
               />
             </div>
+            {/* Firmas arriba, en la primera hoja -- el detalle va después
+                (por eso el ReciboDialog lleva `sinFirmas`). */}
+            <div className="mt-10 print:break-inside-avoid-page">
+              <ReciboFirmas negocio={negocio} />
+            </div>
+            {recibo.ticket.servicios.length > 0 && (
+              <ReciboLineas
+                titulo="Servicios realizados"
+                lineas={recibo.ticket.servicios.map(lineaDeItem)}
+                total={recibo.ticket.presupuestoUsd}
+              />
+            )}
             {recibo.ticket.checklistEgreso && (
               <ReciboChecklist
                 titulo="Checklist de egreso"
@@ -1150,13 +1159,6 @@ export function ReparacionesClient({
               titulo="Términos y condiciones"
               texto={negocio.reparacionTerminosEgreso}
             />
-            {recibo.ticket.servicios.length > 0 && (
-              <ReciboLineas
-                titulo="Servicios realizados"
-                lineas={recibo.ticket.servicios.map(lineaDeItem)}
-                total={recibo.ticket.presupuestoUsd}
-              />
-            )}
           </>
         )}
       </ReciboDialog>

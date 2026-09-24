@@ -27,7 +27,6 @@ import {
   ReciboCampos,
   ReciboLineas,
   ReciboChecklist,
-  ReciboChecklistComparado,
   ReciboNota,
   ReciboNotaLista,
 } from "@/components/recibos/recibo";
@@ -590,6 +589,8 @@ const SERVICIOS_PREVIEW = [
   { detalle: "Cambio de módulo", cantidad: 1, montoUsd: 120, garantia: "90 días" },
 ];
 
+const REPUESTOS_PREVIEW = [{ detalle: "Módulo iPhone 13", cantidad: 1, montoUsd: 80 }];
+
 /** Textos editables de los 4 documentos con recibo (Garantía de Ventas +
  * los 3 de Reparaciones) -- separados por tab (`DOC_TABS`) para que cada
  * uno edite y previsualice solo el suyo, en vez de un formulario largo con
@@ -668,15 +669,11 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
               children: (
                 <>
                   <InfoEquipoPreview />
-                  <ReciboChecklistComparado ingreso={CHECKLIST_PREVIEW} egreso={CHECKLIST_PREVIEW} />
+                  <ReciboLineas titulo="Servicios" lineas={SERVICIOS_PREVIEW} />
+                  <ReciboLineas titulo="Repuestos" lineas={REPUESTOS_PREVIEW} total={200} />
                   <ReciboNota
                     titulo="Términos y condiciones"
                     texto={form.reparacionTerminosPresupuesto}
-                  />
-                  <ReciboLineas
-                    titulo="Servicios"
-                    lineas={SERVICIOS_PREVIEW}
-                    total={120}
                   />
                 </>
               ),
