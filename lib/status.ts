@@ -1,6 +1,8 @@
 import type {
+  ChecklistItemId,
   CompraEstado,
   EquipoStatus,
+  EstadoChecklistItem,
   MedioPago,
   MedioPagoVenta,
   MovimientoTipo,
@@ -76,6 +78,64 @@ export function nextTicketStatus(s: TicketStatus): TicketStatus | null {
   const i = TICKET_FLOW.indexOf(s);
   return i >= 0 && i < TICKET_FLOW.length - 1 ? TICKET_FLOW[i + 1] : null;
 }
+
+/** Orden del checklist de ingreso/egreso -- mismo orden en el form de
+ * carga y en el ticket impreso. */
+export const CHECKLIST_ITEMS: ChecklistItemId[] = [
+  "enciende",
+  "modulo",
+  "tactil",
+  "faceId",
+  "camaraFrontal",
+  "camaraTrasera",
+  "flash",
+  "altavoz",
+  "microfono",
+  "wifi",
+  "redSenal",
+  "pinCarga",
+  "botonPower",
+  "botonVolumen",
+  "botonSilencioAccion",
+  "sensorProximidad",
+  "trueTone",
+  "vidrioCamaraTrasera",
+  "vidrioTrasero",
+  "tornillos",
+  "bandejaSim",
+  "bateria",
+];
+
+export const checklistItemLabel: Record<ChecklistItemId, string> = {
+  enciende: "Enciende",
+  modulo: "Módulo (pantalla)",
+  tactil: "Táctil",
+  faceId: "Face ID",
+  camaraFrontal: "Cámara frontal",
+  camaraTrasera: "Cámara trasera",
+  flash: "Flash",
+  altavoz: "Altavoz",
+  microfono: "Micrófono",
+  wifi: "Wi-Fi",
+  redSenal: "Red / Señal",
+  pinCarga: "Pin de carga",
+  botonPower: "Botón power",
+  botonVolumen: "Botón volumen",
+  botonSilencioAccion: "Botón silencio/acción",
+  sensorProximidad: "Sensor de proximidad",
+  trueTone: "True Tone",
+  vidrioCamaraTrasera: "Vidrio cámara trasera",
+  vidrioTrasero: "Vidrio trasero",
+  tornillos: "Tornillos",
+  bandejaSim: "Bandeja SIM",
+  bateria: "Batería",
+};
+
+export const estadoChecklistItem: Record<EstadoChecklistItem, { label: string; tone: Tone }> = {
+  bien: { label: "Bien", tone: "green" },
+  mal: { label: "Mal", tone: "red" },
+  na: { label: "No aplica", tone: "gray" },
+};
 
 // ── Equipos de inventario ──────────────────────────────────────
 

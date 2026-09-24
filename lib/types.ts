@@ -17,6 +17,46 @@ export type EquipoStatus =
   | "vendido"
   | "extraviado";
 
+/** Ítem del checklist de estado físico/funcional de un ticket de
+ * reparación -- ver `CHECKLIST_ITEMS`/`checklistItemLabel` en
+ * `lib/status.ts` para el orden y las etiquetas. */
+export type ChecklistItemId =
+  | "enciende"
+  | "modulo"
+  | "tactil"
+  | "faceId"
+  | "camaraFrontal"
+  | "camaraTrasera"
+  | "flash"
+  | "altavoz"
+  | "microfono"
+  | "wifi"
+  | "redSenal"
+  | "pinCarga"
+  | "botonPower"
+  | "botonVolumen"
+  | "botonSilencioAccion"
+  | "sensorProximidad"
+  | "trueTone"
+  | "vidrioCamaraTrasera"
+  | "vidrioTrasero"
+  | "tornillos"
+  | "bandejaSim"
+  | "bateria";
+
+export type EstadoChecklistItem = "bien" | "mal" | "na";
+
+/** Relevamiento de estado del equipo -- al ingreso (`Ticket.checklistIngreso`)
+ * y, por separado, al egreso (`Ticket.checklistEgreso`, se completa con un
+ * botón aparte en el detalle del ticket, no junto con el alta). `color` va
+ * suelto porque es un dato de identificación del equipo, no un chequeo
+ * bien/mal/n-a. `items` es parcial: un ticket viejo (de antes de esta
+ * feature) no tiene ninguno cargado. */
+export type Checklist = {
+  items: Partial<Record<ChecklistItemId, EstadoChecklistItem>>;
+  color: string;
+};
+
 export type MedioPago =
   | "pesos"
   | "dolares"
@@ -67,7 +107,7 @@ export type Cliente = {
 
 /** Opción liviana para los selectores de cliente (`ClientePicker`) --
  * no trae `compras`/`reparaciones`/`gastadoUsd` (no hacen falta para elegir). */
-export type ClienteOpcion = { id: string; nombre: string; telefono: string };
+export type ClienteOpcion = { id: string; nombre: string; telefono: string; email: string };
 
 /** Resultado de `ClientePicker`: un cliente ya existente, uno a crear (se
  * persiste recién cuando la acción del formulario que lo usa se confirma,
@@ -87,19 +127,59 @@ export type Servicio = {
   activo: boolean;
 };
 
+/** Ítem cargado a un ticket ("Servicios asociados") -- tres orígenes:
+ * `servicio` (catálogo de Reparaciones, `servicioId`), `repuesto`
+ * (inventario, `repuestoId` + `cantidad`, descuenta stock al agregarlo y
+ * lo repone si se quita -- sin precio de venta propio en `Repuesto`, se
+ * carga a mano igual que un ítem libre) o `libre` (nombre + precio a
+ * mano, sin ligar a nada). `origen` ausente = ticket de antes de esta
+ * feature, se trata como `servicio`. */
 export type TicketServicio = {
-  servicioId: string;
+  origen?: "servicio" | "repuesto" | "libre";
+  servicioId?: string;
+  repuestoId?: string;
   nombre: string;
   precioUsd: number;
+  /** Solo relevante para `origen: "repuesto"` -- en servicio/libre es 1. */
+  cantidad?: number;
+  /** Snapshot de `Servicio.garantiaDias` al momento de agregarlo -- sale en
+   * la columna Garantía del "Ticket de egreso". `undefined` para repuesto/
+   * libre (no tienen garantía propia en el catálogo). */
+  garantiaDias?: number;
 };
 
 export type Ticket = {
   id: number;
   clienteId: string;
   cliente: string;
+  /** Marca del equipo (ej. "Apple") -- el negocio solo repara iPhones así
+   * que hoy es casi siempre el mismo valor, pero queda como campo propio
+   * para el ticket de ingreso/egreso ("Datos del equipo"). */
+  marca?: string;
+  /** Modelo del equipo (ej. "iPhone 13 Pro 128GB") -- el campo ya existía,
+   * se reutiliza como "Modelo" en "Datos del equipo" sin tocar cómo se usa
+   * en el resto de la app (dashboard, analíticas, listados). */
   equipo: string;
   imei: string;
   falla: string;
+  /** Reparación puntual que pide el cliente (ej. "Cambio de pantalla") --
+   * distinto de `falla` (el problema que describe) y de `servicios` (el
+   * presupuesto real una vez diagnosticado). */
+  reparacionSolicitada?: string;
+  /** Clave/código de desbloqueo del equipo, para que el técnico pueda
+   * probarlo -- dato sensible, solo vive en el ticket. */
+  claveCodigo?: string;
+  /** Descripción libre del equipo al ingreso (golpes, funda, mica, etc.),
+   * complementaria al checklist estructurado. */
+  descripcionEquipo?: string;
+  /** Checklist de estado físico/funcional relevado al ingreso -- se
+   * completa al crear el ticket. `undefined` en tickets de antes de esta
+   * feature. */
+  checklistIngreso?: Checklist;
+  /** Mismo checklist relevado al egreso -- se completa aparte, con un
+   * botón en el detalle del ticket, no necesariamente junto con el cambio
+   * de estado a "Entregado". */
+  checklistEgreso?: Checklist;
   tecnicoId: string | null;
   tecnico: string | null;
   estado: TicketStatus;

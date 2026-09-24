@@ -5,31 +5,72 @@ import { Printer, ShieldCheck, Store } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { negocio as negocioSeed } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
+import { CHECKLIST_ITEMS, checklistItemLabel, estadoChecklistItem, dotClass } from "@/lib/status";
+import type { Checklist, EstadoChecklistItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type Negocio = { nombre: string; direccion: string; telefono: string; cuit: string };
 
-export type ReciboPagina = { titulo: string; children: React.ReactNode };
+export type ReciboPagina = {
+  titulo: string;
+  children: React.ReactNode;
+  /** Hoja "compacta": en vez de las dos tarjetas "Facturado por"/
+   * "Facturado a" (pensadas para un comprobante), el negocio pasa a la
+   * banda superior (donde iría el logo) y el cliente queda en una única
+   * tarjeta "Información cliente" -- para documentos que no son una
+   * factura (Garantía de Ventas, tickets de Reparaciones). */
+  compacto?: boolean;
+  /** Sello de garantía superpuesto sobre "Información cliente" -- solo
+   * tiene sentido con `compacto`, y solo lo usa el documento de Garantía
+   * de Ventas (no los tickets de Reparaciones). */
+  sello?: boolean;
+};
+
+/** Teléfono/email del cliente debajo de su nombre, en "Facturado a" /
+ * "Información cliente" -- `undefined`/`"—"` (placeholder de
+ * `listClientesOpciones` cuando el dato no está cargado) no se muestran. */
+function ReciboClienteContacto({
+  telefono,
+  email,
+}: {
+  telefono?: string;
+  email?: string;
+}) {
+  const datos = [telefono, email].filter((v) => v && v !== "—");
+  if (datos.length === 0) return null;
+  return <p className="mt-1 text-xs text-neutral-500">{datos.join(" · ")}</p>;
+}
 
 /** Una hoja individual -- lo que imprime `page-break-after` como una página
  * propia. Banda superior en `accent` con el título/número/fecha del
  * documento en blanco + un ícono placeholder de logo a la derecha (todavía
- * no hay campo de logo real en Configuración) + dos tarjetas "Facturado
- * por"/"Facturado a" (negocio / cliente) -- las tablas de
- * `ReciboLineas`/`ReciboGarantiaItems` ya salen con el header índigo oscuro
- * de las tablas globales (`app/globals.css`), sin pedirlo a mano. */
+ * no hay campo de logo real en Configuración), o los datos del negocio si
+ * `compacto` + dos tarjetas "Facturado por"/"Facturado a" (negocio /
+ * cliente), o una única "Información cliente" (+ `sello` opcional) si
+ * `compacto` -- las tablas de `ReciboLineas`/`ReciboGarantiaItems` ya salen
+ * con el header índigo oscuro de las tablas globales (`app/globals.css`),
+ * sin pedirlo a mano. */
 function ReciboHoja({
   titulo,
   nro,
   fecha,
   cliente,
+  clienteTelefono,
+  clienteEmail,
   negocio,
+  compacto = false,
+  sello = false,
   children,
 }: {
   titulo: string;
   nro: string;
   fecha: string;
   cliente: string;
+  clienteTelefono?: string;
+  clienteEmail?: string;
   negocio: Negocio;
+  compacto?: boolean;
+  sello?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -41,54 +82,83 @@ function ReciboHoja({
             {fecha} - {nro}
           </p>
         </div>
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15">
-          <Store className="h-6 w-6" />
-        </div>
+        {compacto ? (
+          <div className="shrink-0 text-right">
+            <p className="font-grotesk text-sm font-semibold">{negocio.nombre}</p>
+            <p className="text-[11px] text-white/70">{negocio.direccion}</p>
+            <p className="text-[11px] text-white/70">
+              CUIT {negocio.cuit} · {negocio.telefono}
+            </p>
+          </div>
+        ) : (
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15">
+            <Store className="h-6 w-6" />
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-1 flex-col px-6 py-5 print:px-[14mm] print:py-8">
-        <div className="grid grid-cols-2 gap-4 border-b border-accent/15 pb-5">
-          <div className="rounded-lg bg-accent-soft p-4">
-            <p className="border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
-              Facturado por
+      <div className="flex flex-1 flex-col px-6 py-5 print:px-[14mm] print:py-8 print:pb-16">
+        {compacto ? (
+          <div className="relative">
+            <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
+              Información cliente
             </p>
-            <div className="pt-3">
-              <p className="font-grotesk text-base font-semibold">{negocio.nombre}</p>
-              <p className="mt-1 text-xs text-neutral-500">{negocio.direccion}</p>
-              <p className="text-xs text-neutral-500">
-                CUIT {negocio.cuit} · {negocio.telefono}
-              </p>
-            </div>
-          </div>
-          <div className="rounded-lg bg-accent-soft p-4">
-            <p className="border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
-              Facturado a
-            </p>
-            <div className="pt-3">
+            <div className="rounded-lg bg-accent-soft p-4 text-center">
               <p className="font-grotesk text-base font-semibold">{cliente}</p>
+              <ReciboClienteContacto telefono={clienteTelefono} email={clienteEmail} />
+            </div>
+            {sello && (
+              <div className="absolute -top-4 -right-2">
+                <ReciboSello />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
+              Datos de facturación
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-lg bg-accent-soft p-4">
+                <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Facturado por
+                </p>
+                <div className="pt-3">
+                  <p className="font-grotesk text-base font-semibold">{negocio.nombre}</p>
+                  <p className="mt-1 text-xs text-neutral-500">{negocio.direccion}</p>
+                  <p className="text-xs text-neutral-500">
+                    CUIT {negocio.cuit} · {negocio.telefono}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-lg bg-accent-soft p-4">
+                <p className="text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Facturado a
+                </p>
+                <div className="pt-3">
+                  <p className="font-grotesk text-base font-semibold">{cliente}</p>
+                  <ReciboClienteContacto telefono={clienteTelefono} email={clienteEmail} />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="text-sm">{children}</div>
 
         <div className="mt-auto grid grid-cols-2 gap-10 pt-10 text-xs text-neutral-500">
-          <div className="border-t border-neutral-300 pt-1 text-center">
+          <div className="border-t border-neutral-300 pt-3 text-center">
             Firma del cliente · aclaración
           </div>
-          <div className="border-t border-neutral-300 pt-1 text-center">
+          <div className="border-t border-neutral-300 pt-3 text-center">
             Firma y sello — {negocio.nombre}
           </div>
         </div>
       </div>
 
-      <div className="shrink-0 bg-accent px-6 py-3 text-center print:px-[14mm]">
+      <div className="recibo-print-footer flex shrink-0 items-center justify-center gap-1.5 bg-accent px-6 py-3 text-center print:px-[14mm]">
         <p className="text-[10px] text-white/70">
-          Documento no válido como factura · Comprobante interno de{" "}
-          {titulo.toLowerCase()}
-        </p>
-        <p className="mt-1 text-[11px] font-semibold text-white">
-          Hecho con Tekly · tekly.tech
+          Documento no válido como factura · Comprobante hecho con tekly.tech
         </p>
       </div>
     </div>
@@ -105,7 +175,11 @@ export function ReciboShell({
   nro,
   fecha,
   cliente,
+  clienteTelefono,
+  clienteEmail,
   negocio = negocioSeed,
+  compacto,
+  sello,
   children,
 }: {
   paginas?: ReciboPagina[];
@@ -113,10 +187,16 @@ export function ReciboShell({
   nro: string;
   fecha: string;
   cliente: string;
+  clienteTelefono?: string;
+  clienteEmail?: string;
   negocio?: Negocio;
+  /** Solo aplican al uso de una sola hoja (`titulo`+`children`, sin
+   * `paginas`) -- con `paginas`, cada `ReciboPagina` trae los suyos. */
+  compacto?: boolean;
+  sello?: boolean;
   children?: React.ReactNode;
 }) {
-  const hojas = paginas ?? [{ titulo: titulo ?? "", children }];
+  const hojas = paginas ?? [{ titulo: titulo ?? "", children, compacto, sello }];
   const multi = hojas.length > 1;
   return (
     <div>
@@ -127,7 +207,17 @@ export function ReciboShell({
               Página {i + 1} de {hojas.length} · {h.titulo}
             </p>
           )}
-          <ReciboHoja titulo={h.titulo} nro={nro} fecha={fecha} cliente={cliente} negocio={negocio}>
+          <ReciboHoja
+            titulo={h.titulo}
+            nro={nro}
+            fecha={fecha}
+            cliente={cliente}
+            clienteTelefono={clienteTelefono}
+            clienteEmail={clienteEmail}
+            negocio={negocio}
+            compacto={h.compacto}
+            sello={h.sello}
+          >
             {h.children}
           </ReciboHoja>
         </div>
@@ -143,7 +233,11 @@ export function ReciboDialog({
   nro,
   fecha,
   cliente,
+  clienteTelefono,
+  clienteEmail,
   negocio,
+  compacto,
+  sello,
   paginas,
   children,
 }: {
@@ -153,7 +247,11 @@ export function ReciboDialog({
   nro: string;
   fecha: string;
   cliente: string;
+  clienteTelefono?: string;
+  clienteEmail?: string;
   negocio?: Negocio;
+  compacto?: boolean;
+  sello?: boolean;
   paginas?: ReciboPagina[];
   children?: React.ReactNode;
 }) {
@@ -188,7 +286,11 @@ export function ReciboDialog({
           nro={nro}
           fecha={fecha}
           cliente={cliente}
+          clienteTelefono={clienteTelefono}
+          clienteEmail={clienteEmail}
           negocio={negocio}
+          compacto={compacto}
+          sello={sello}
           paginas={paginas}
         >
           {children}
@@ -206,7 +308,11 @@ export function ReciboDialog({
               nro={nro}
               fecha={fecha}
               cliente={cliente}
+              clienteTelefono={clienteTelefono}
+              clienteEmail={clienteEmail}
               negocio={negocio}
+              compacto={compacto}
+              sello={sello}
               paginas={paginas}
             >
               {children}
@@ -222,27 +328,70 @@ export function ReciboDialog({
 
 export function ReciboCampos({
   filas,
+  className = "mt-10 print:break-inside-avoid-page",
+  separadores = false,
+  variant = "grid",
 }: {
   filas: [string, React.ReactNode][];
+  /** Margen/comportamiento de corte del bloque -- default de siempre;
+   * se pisa a `""` cuando va anidado dentro de otro bloque que ya pone su
+   * propio margen (ej. dos `ReciboCampos` lado a lado en una grilla). */
+  className?: string;
+  /** Línea fina debajo de cada fila -- para listas más largas donde el
+   * espaciado solo (`gap-y`) no alcanza para leerlas separadas (ej.
+   * "Información del equipo" de Reparaciones). */
+  separadores?: boolean;
+  /** "inline" -- cada fila es un párrafo compacto "Label: valor" (mismo
+   * tamaño/peso base para label y valor) en vez de la grilla de dos
+   * columnas -- evita el hueco vacío que deja la columna `1fr` del valor
+   * cuando el texto es corto (ej. "Marca: Apple"). */
+  variant?: "grid" | "inline";
 }) {
+  if (variant === "inline") {
+    return (
+      <dl className={className}>
+        {filas.map(([k, v]) => (
+          <div
+            key={k}
+            className={cn("py-1.5 text-sm", separadores && "border-b border-neutral-100 last:border-b-0")}
+          >
+            <dt className="inline">{k}:</dt>{" "}
+            <dd className="inline font-medium">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5">
+    <dl className={cn(className, "grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5")}>
       {filas.map(([k, v]) => (
         <div key={k} className="contents">
-          <dt className="text-neutral-400">{k}</dt>
-          <dd className="font-medium">{v}</dd>
+          <dt
+            className={cn(
+              "text-neutral-400",
+              separadores && "border-b border-neutral-100 pb-1.5",
+            )}
+          >
+            {k}
+          </dt>
+          <dd
+            className={cn("font-medium", separadores && "border-b border-neutral-100 pb-1.5")}
+          >
+            {v}
+          </dd>
         </div>
       ))}
     </dl>
   );
 }
 
-/** Tabla de ítems del recibo. `serial` es opcional por línea -- en cuanto
- * alguna lo trae, la tabla pasa a columnas explícitas (Producto/Serial/
- * Cantidad/Precio) con header; si ninguna lo trae, queda el formato
- * compacto de siempre ("2× Detalle" + un monto), sin romper los usos
- * existentes (servicios de Reparaciones, forma de pago) que no tienen
- * serial. */
+/** Tabla de ítems del recibo. `serial`/`garantia` son opcionales por línea
+ * -- en cuanto alguna trae `serial`, la tabla pasa a columnas explícitas
+ * (Producto/Serial/Cantidad/Precio) con header; si alguna trae `garantia`
+ * se agrega esa columna también (ej. "Servicios utilizados" de
+ * Reparaciones: Producto/Cantidad/Garantía/Precio, sin Serial). Si ninguna
+ * trae ni una cosa ni la otra, queda el formato compacto de siempre
+ * ("2× Detalle" + un monto). */
 export function ReciboLineas({
   titulo,
   lineas,
@@ -255,6 +404,9 @@ export function ReciboLineas({
     cantidad?: number;
     montoUsd: number;
     serial?: string;
+    /** Garantía de este ítem puntual (ej. "90 días", "—") -- agrega la
+     * columna Garantía a la tabla cuando alguna línea la trae. */
+    garantia?: string;
     /** Texto ya formateado para la columna de monto -- pisa `fmtUsd(montoUsd)`
      * cuando el pago fue en otra moneda (ej. "Forma de pago" con un medio
      * en pesos: `montoUsd` sigue siendo el valor en dólares que se
@@ -267,28 +419,34 @@ export function ReciboLineas({
    * lo necesita siempre, no solo cuando hay algún equipo con IMEI. */
   forzarTabla?: boolean;
 }) {
-  const conSerial = forzarTabla || lineas.some((l) => l.serial);
+  const conSerial = lineas.some((l) => l.serial);
+  const conGarantia = lineas.some((l) => l.garantia !== undefined);
+  const tabla = forzarTabla || conSerial || conGarantia;
   return (
-    <div className="mt-5">
-      <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
+    <div className="mt-10 print:break-inside-avoid-page">
+      <p className="mb-2 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
         {titulo}
       </p>
       <table className="w-full border border-accent/15 text-sm">
-        {conSerial && (
+        {tabla && (
           <thead>
-            <tr>
+            <tr className="divide-x divide-accent/15">
               <th className="px-3 py-2 text-start">Producto</th>
-              <th className="px-3 py-2 text-center">Serial</th>
+              {conSerial && <th className="px-3 py-2 text-center">Serial</th>}
               <th className="px-3 py-2 text-center">Cantidad</th>
+              {conGarantia && <th className="px-3 py-2 text-center">Garantía</th>}
               <th className="px-3 py-2 text-center">Precio</th>
             </tr>
           </thead>
         )}
         <tbody>
           {lineas.map((l, i) => (
-            <tr key={i} className="border-b border-accent/10 last:border-b-0">
+            <tr
+              key={i}
+              className="divide-x divide-accent/10 border-b border-accent/10 last:border-b-0"
+            >
               <td className="px-3 py-2 text-start">
-                {!conSerial && l.cantidad ? `${l.cantidad}× ` : ""}
+                {!tabla && l.cantidad ? `${l.cantidad}× ` : ""}
                 {l.detalle}
               </td>
               {conSerial && (
@@ -296,35 +454,33 @@ export function ReciboLineas({
                   {l.serial ?? "—"}
                 </td>
               )}
-              {conSerial && (
+              {tabla && (
                 <td className="px-3 py-2 text-center tabular-nums text-neutral-500">
                   {l.cantidad ?? 1}
                 </td>
               )}
+              {conGarantia && (
+                <td className="px-3 py-2 text-center text-neutral-500">{l.garantia ?? "—"}</td>
+              )}
               <td
-                className={`px-3 py-2 font-medium tabular-nums ${conSerial ? "text-center" : "text-end"}`}
+                className={`px-3 py-2 font-medium tabular-nums ${tabla ? "text-center" : "text-end"}`}
               >
                 {l.montoLabel ?? fmtUsd(l.montoUsd)}
               </td>
             </tr>
           ))}
-          {total !== undefined && (
-            <tr className="border-t border-accent/30 bg-accent/20">
-              <td
-                className="px-3 py-2 text-start text-xs font-semibold uppercase tracking-wide text-neutral-500"
-                colSpan={conSerial ? 3 : 1}
-              >
-                Total
-              </td>
-              <td
-                className={`px-3 py-2 font-grotesk text-lg font-semibold tabular-nums ${conSerial ? "text-center" : "text-end"}`}
-              >
-                {fmtUsd(total)}
-              </td>
-            </tr>
-          )}
         </tbody>
       </table>
+      {total !== undefined && (
+        <div className="mt-2 flex items-center justify-between rounded-lg bg-accent/20 px-3 py-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Total
+          </span>
+          <span className="font-grotesk text-lg font-semibold tabular-nums">
+            {fmtUsd(total)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -335,30 +491,29 @@ export function ReciboLineas({
 export function ReciboGarantiaItems({
   items,
 }: {
-  items: { detalle: string; serial?: string; garantia: string; precioUsd: number }[];
+  items: { detalle: string; serial?: string; garantia: string }[];
 }) {
   return (
-    <div className="mt-5">
+    <div className="mt-10 print:break-inside-avoid-page">
       <table className="w-full border border-accent/15 text-sm">
         <thead>
-          <tr>
+          <tr className="divide-x divide-accent/15">
             <th className="px-3 py-2 text-start">Ítem</th>
-            <th className="px-3 py-2 text-start">Serial</th>
-            <th className="px-3 py-2 text-start">Garantía</th>
-            <th className="px-3 py-2 text-end">Precio</th>
+            <th className="px-3 py-2 text-center">Serial</th>
+            <th className="px-3 py-2 text-center">Garantía</th>
           </tr>
         </thead>
         <tbody>
           {items.map((it, i) => (
-            <tr key={i} className="border-b border-accent/10 last:border-b-0">
+            <tr
+              key={i}
+              className="divide-x divide-accent/10 border-b border-accent/10 last:border-b-0"
+            >
               <td className="px-3 py-2 text-start">{it.detalle}</td>
-              <td className="px-3 py-2 text-start font-mono text-[11px] tabular-nums text-neutral-500">
+              <td className="px-3 py-2 text-center font-mono text-[11px] tabular-nums text-neutral-500">
                 {it.serial ?? "—"}
               </td>
-              <td className="px-3 py-2 text-start text-neutral-500">{it.garantia}</td>
-              <td className="px-3 py-2 text-end font-medium tabular-nums">
-                {fmtUsd(it.precioUsd)}
-              </td>
+              <td className="px-3 py-2 text-center text-neutral-500">{it.garantia}</td>
             </tr>
           ))}
         </tbody>
@@ -367,16 +522,125 @@ export function ReciboGarantiaItems({
   );
 }
 
-const NOTA_TONE = {
-  accent: "bg-accent text-white",
-  warning: "bg-amber-500 text-white",
-} as const;
+/** Checklist de estado físico/funcional de un ticket de reparación (ingreso
+ * o egreso) -- grilla de ítem + estado (Bien/Mal/N-A, mismo `dotClass` de
+ * `lib/status.ts` que el resto de la app) más el color suelto al final,
+ * ya que es un dato de identificación y no un chequeo. Un ítem sin estado
+ * cargado (ticket de antes de esta feature, o casilla sin completar) sale
+ * como "—". */
+/** Badge de estado de un ítem del checklist -- "—" si no se cargó. Mismo
+ * `dotClass` de `lib/status.ts` que el resto de la app. */
+function EstadoChecklistBadge({ estado }: { estado?: EstadoChecklistItem }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-700">
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          dotClass[estado ? estadoChecklistItem[estado].tone : "gray"],
+        )}
+      />
+      {estado ? estadoChecklistItem[estado].label : "—"}
+    </span>
+  );
+}
 
-/** Bloque de nota con header de color y cuerpo gris -- párrafos separados
- * por línea en blanco. `tono="warning"` (ámbar, mismo tono semántico que
- * `lib/status.ts` usa para urgencia en el resto de la app) para una nota
- * de advertencia como "Importante"; `null` si no hay texto cargado
- * (Configuración → Recibos), en vez de mostrar un bloque vacío. */
+export function ReciboChecklist({
+  titulo,
+  checklist,
+}: {
+  titulo: string;
+  checklist: Checklist;
+}) {
+  return (
+    <div className="mt-10 print:break-inside-avoid-page">
+      <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
+        {titulo}
+      </p>
+      <div className="grid grid-cols-2 gap-x-6 sm:grid-cols-3">
+        {CHECKLIST_ITEMS.map((id) => (
+          <div
+            key={id}
+            className="flex items-center justify-between gap-2 border-b border-neutral-100 py-1 text-xs"
+          >
+            <span className="text-neutral-600">{checklistItemLabel[id]}</span>
+            <EstadoChecklistBadge estado={checklist.items[id]} />
+          </div>
+        ))}
+      </div>
+      {checklist.color && (
+        <p className="mt-3 text-xs text-neutral-500">
+          <span className="font-semibold text-neutral-700">Color: </span>
+          {checklist.color}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Checklist combinado ingreso/egreso -- un ítem por fila, con el estado
+ * relevado en cada momento uno al lado del otro (para el Presupuesto, que
+ * se manda al cliente y quiere mostrar "antes y después" en una sola
+ * tabla en vez de dos bloques separados). `undefined` en cualquiera de los
+ * dos (ticket todavía sin ese checklist completado) sale como "—". */
+export function ReciboChecklistComparado({
+  ingreso,
+  egreso,
+}: {
+  ingreso?: Checklist;
+  egreso?: Checklist;
+}) {
+  if (!ingreso && !egreso) return null;
+  const color = ingreso?.color || egreso?.color;
+  return (
+    <div className="mt-10 print:break-inside-avoid-page">
+      <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
+        Estado del equipo
+      </p>
+      <table className="w-full border border-accent/15 text-sm">
+        <thead>
+          <tr className="divide-x divide-accent/15">
+            <th className="px-3 py-2 text-start">Ítem</th>
+            <th className="px-3 py-2 text-center">Ingreso</th>
+            <th className="px-3 py-2 text-center">Egreso</th>
+          </tr>
+        </thead>
+        <tbody>
+          {CHECKLIST_ITEMS.map((id) => (
+            <tr
+              key={id}
+              className="divide-x divide-accent/10 border-b border-accent/10 last:border-b-0"
+            >
+              <td className="px-3 py-2 text-start text-neutral-600">
+                {checklistItemLabel[id]}
+              </td>
+              <td className="px-3 py-2 text-center">
+                <EstadoChecklistBadge estado={ingreso?.items[id]} />
+              </td>
+              <td className="px-3 py-2 text-center">
+                <EstadoChecklistBadge estado={egreso?.items[id]} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {color && (
+        <p className="mt-3 text-xs text-neutral-500">
+          <span className="font-semibold text-neutral-700">Color: </span>
+          {color}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Bloque de nota -- mismo patrón título centrado + línea abajo que el
+ * resto del documento (`ReciboLineas`, "Datos de facturación"), en violeta
+ * igual que esos títulos. `tono="warning"` (ej. "Importante") rompe el
+ * patrón a propósito: recuadro rojo claro para que resalte como
+ * advertencia, en vez de mezclarse con el resto de las notas -- ver
+ * `garantiaContenido` en Ventas, que la manda al final del documento por
+ * eso mismo. `null` si no hay texto cargado (Configuración → Recibos), en
+ * vez de mostrar un bloque vacío. */
 export function ReciboNota({
   titulo,
   texto,
@@ -384,21 +648,33 @@ export function ReciboNota({
 }: {
   titulo: string;
   texto: string;
-  tono?: keyof typeof NOTA_TONE;
+  tono?: "accent" | "warning";
 }) {
   const parrafos = texto
     .split(/\n{2,}/)
     .map((p) => p.trim())
     .filter(Boolean);
   if (parrafos.length === 0) return null;
+  if (tono === "warning") {
+    return (
+      <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 print:break-inside-avoid-page">
+        <p className="mb-1.5 text-center text-[11px] font-semibold uppercase tracking-wider text-red-600">
+          {titulo}
+        </p>
+        <div className="space-y-2 text-xs leading-relaxed text-red-700">
+          {parrafos.map((p, i) => (
+            <p key={i}>{p}</p>
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="mt-5 overflow-hidden rounded-lg border border-neutral-200">
-      <p
-        className={`px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ${NOTA_TONE[tono]}`}
-      >
+    <div className="mt-5 print:break-inside-avoid-page">
+      <p className="mb-1.5 border-b border-accent/20 pb-1.5 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
         {titulo}
       </p>
-      <div className="space-y-2 bg-neutral-50 px-3 py-3 text-xs leading-relaxed text-neutral-600">
+      <div className="space-y-2 text-xs leading-relaxed text-neutral-600">
         {parrafos.map((p, i) => (
           <p key={i}>{p}</p>
         ))}
@@ -411,11 +687,9 @@ export function ReciboNota({
 export function ReciboNotaLista({
   titulo,
   texto,
-  tono = "accent",
 }: {
   titulo: string;
   texto: string;
-  tono?: keyof typeof NOTA_TONE;
 }) {
   const items = texto
     .split("\n")
@@ -423,13 +697,11 @@ export function ReciboNotaLista({
     .filter(Boolean);
   if (items.length === 0) return null;
   return (
-    <div className="mt-5 overflow-hidden rounded-lg border border-neutral-200">
-      <p
-        className={`px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ${NOTA_TONE[tono]}`}
-      >
+    <div className="mt-5 print:break-inside-avoid-page">
+      <p className="mb-1.5 border-b border-accent/20 pb-1.5 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
         {titulo}
       </p>
-      <ul className="list-disc space-y-1 bg-neutral-50 px-3 py-3 pl-7 text-xs leading-relaxed text-neutral-600">
+      <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-neutral-600">
         {items.map((it, i) => (
           <li key={i}>{it}</li>
         ))}
@@ -438,18 +710,17 @@ export function ReciboNotaLista({
   );
 }
 
-/** Sello de garantía -- el único gesto "de más" del recibo de Garantía,
- * a propósito nada más lo tiene: un sello de goma es lo que un cliente
- * reconoce como respaldo real en un papel de garantía. Insignia en línea
- * (no `position: absolute`) para no depender de cómo cada motor de
- * impresión del navegador resuelve el posicionamiento absoluto en print. */
+/** Sello de garantía -- el único gesto "de más" del recibo de Garantía, a
+ * propósito nada más lo tiene: un sello de goma es lo que un cliente
+ * reconoce como respaldo real en un papel de garantía. Se superpone (el
+ * padre lo posiciona con `absolute`) sobre la tarjeta "Información
+ * cliente" en vez de ocupar su propia fila -- fondo blanco para que se
+ * note como sello encima, no mezclado con el violeta claro de la tarjeta. */
 export function ReciboSello() {
   return (
-    <div className="mt-4 flex justify-end">
-      <div className="flex h-20 w-20 -rotate-12 flex-col items-center justify-center rounded-full border-2 border-dashed border-accent/40 text-accent">
-        <ShieldCheck className="h-5 w-5" />
-        <p className="mt-1 text-[8px] font-bold uppercase tracking-widest">Garantía</p>
-      </div>
+    <div className="flex h-20 w-20 rotate-12 flex-col items-center justify-center rounded-full border-2 border-dashed border-accent/40 bg-white text-accent shadow-sm">
+      <ShieldCheck className="h-5 w-5" />
+      <p className="mt-1 text-[8px] font-bold uppercase tracking-widest">Garantía</p>
     </div>
   );
 }

@@ -51,6 +51,12 @@ td {
     background-image: none;
     background-color: #edecf8;
   }
+  /* el peso 700 del `th` global se ve exagerado en el papel -- las tablas
+     del recibo bajan a semibold, mismo peso que el resto de las etiquetas
+     en mayúscula del documento (`ReciboLineas`/`ReciboGarantiaItems`). */
+  .recibo-print th {
+    font-weight: 600;
+  }
 }
 
 /* Opt-out por celda para números / acciones: centrar o alinear a la derecha. */
@@ -141,5 +147,16 @@ input[type="number"]::-webkit-inner-spin-button {
   }
   .recibo-print:last-child {
     break-after: auto;
+  }
+  /* `position: fixed` en impresión se repite en cada página física que
+     ocupe el contenido de esa `.recibo-print` -- así el footer sale en
+     todas las hojas si una sección no entra en una sola (en vez de una
+     sola vez, al final de todo el contenido). El `print:pb-16` del cuerpo
+     (arriba, en `recibo.tsx`) le deja el hueco para no quedar tapado. */
+  .recibo-print-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
 }

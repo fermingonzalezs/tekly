@@ -6,6 +6,7 @@ import {
   Trash2,
   Check,
   FileText,
+  ShieldCheck,
   Search,
   SlidersHorizontal,
   ChevronDown,
@@ -26,7 +27,6 @@ import {
   ReciboGarantiaItems,
   ReciboNota,
   ReciboNotaLista,
-  ReciboSello,
   type ReciboPagina,
 } from "@/components/recibos/recibo";
 import { medioPago as medioPagoCfg, dotClass } from "@/lib/status";
@@ -152,14 +152,20 @@ export function VentasClient({
   const [eliminarMovimientosCaja, setEliminarMovimientosCaja] = useState(true);
   const [eliminarMovimientoCC, setEliminarMovimientoCC] = useState(true);
   const [, startTransition] = useTransition();
-  const [recibo, setRecibo] = useState<{
-    venta: Venta;
-    tipo: "venta" | "canje";
-  } | null>(null);
+  const [recibo, setRecibo] = useState<
+    | { venta: Venta; tipo: "venta" | "canje" }
+    | { venta: Venta; tipo: "garantia"; item?: VentaItem }
+    | null
+  >(null);
 
   const equiposPorId = useMemo(
     () => new Map(equipos.map((e) => [e.id, e])),
     [equipos],
+  );
+
+  const clientesPorId = useMemo(
+    () => new Map(clientesOpciones.map((c) => [c.id, c])),
+    [clientesOpciones],
   );
 
   const range =
@@ -223,6 +229,29 @@ export function VentasClient({
       ? filtered.reduce((a, v) => a + v.margenPct, 0) / filtered.length
       : 0;
 
+  // Contenido del documento de Garantía -- reusado tanto standalone (botón
+  // "Garantía" del detalle de venta / de una fila de "Ítems vendidos") como
+  // embebido en "Comprobante de venta" (para poder imprimir todo junto).
+  function garantiaContenido(items: VentaItem[]) {
+    return (
+      <>
+        <ReciboGarantiaItems
+          items={items.map((i) => ({
+            detalle: i.detalle,
+            serial: i.equipoId ? equiposPorId.get(i.equipoId)?.imei : undefined,
+            garantia: i.equipoId ? negocio.garantiaTexto || "—" : "—",
+          }))}
+        />
+        <ReciboNota titulo="Condiciones de garantía" texto={negocio.garantiaCondiciones} />
+        <ReciboNotaLista
+          titulo="Causales de anulación de la garantía"
+          texto={negocio.garantiaCausales}
+        />
+        <ReciboNota titulo="Importante" texto={negocio.garantiaImportante} tono="warning" />
+      </>
+    );
+  }
+
   const paginasVenta: ReciboPagina[] | undefined =
     recibo?.tipo === "venta"
       ? [
@@ -256,37 +285,24 @@ export function VentasClient({
             ? [
                 {
                   titulo: "Garantía",
-                  children: (
-                    <>
-                      <ReciboGarantiaItems
-                        items={recibo.venta.items.map((i) => ({
-                          detalle: i.detalle,
-                          serial: i.equipoId
-                            ? equiposPorId.get(i.equipoId)?.imei
-                            : undefined,
-                          garantia: i.equipoId ? negocio.garantiaTexto || "—" : "—",
-                          precioUsd: i.cantidad * i.precioUsd,
-                        }))}
-                      />
-                      <ReciboSello />
-                      <ReciboNota
-                        titulo="Condiciones de garantía"
-                        texto={negocio.garantiaCondiciones}
-                      />
-                      <ReciboNota
-                        titulo="Importante"
-                        texto={negocio.garantiaImportante}
-                        tono="warning"
-                      />
-                      <ReciboNotaLista
-                        titulo="Causales de anulación de la garantía"
-                        texto={negocio.garantiaCausales}
-                      />
-                    </>
-                  ),
+                  compacto: true,
+                  sello: true,
+                  children: garantiaContenido(recibo.venta.items),
                 },
               ]
             : []),
+        ]
+      : undefined;
+
+  const garantiaPagina: ReciboPagina[] | undefined =
+    recibo?.tipo === "garantia"
+      ? [
+          {
+            titulo: "Garantía",
+            compacto: true,
+            sello: true,
+            children: garantiaContenido(recibo.item ? [recibo.item] : recibo.venta.items),
+          },
         ]
       : undefined;
 
@@ -436,9 +452,21 @@ export function VentasClient({
                 onClick={() => setOpenId(v.id)}
                 className="cursor-pointer p-4"
               >
-                <p className="text-xs text-neutral-400">
-                  {v.id} · {v.fecha} · {v.cliente}
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-neutral-400">
+                    {v.id} · {v.fecha} · {v.cliente}
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRecibo({ venta: v, tipo: "garantia", item: i });
+                    }}
+                    title="Ver garantía"
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-accent-soft hover:text-accent"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 <div className="mt-1 flex items-start justify-between gap-2">
                   <p className="min-w-0 truncate text-sm font-medium text-neutral-900">
                     {i.detalle}
@@ -488,7 +516,7 @@ export function VentasClient({
               </p>
             )}
           </div>
-          <Card className="hidden overflow-hidden md:block">
+          <Card className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -496,13 +524,14 @@ export function VentasClient({
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Cliente</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Ítem</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Serie</th>
-                  <th className={cn("px-5 py-3 text-center", thDivider)}>Categoría</th>
-                  <th className={cn("px-5 py-3 text-center", thDivider)}>Cant.</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Precio</th>
                   {puedeVerCosto && (
                     <th className={cn("px-5 py-3 text-center", thDivider)}>Costo</th>
                   )}
-                  {puedeVerCosto && <th className="px-5 py-3 text-center">Margen</th>}
+                  {puedeVerCosto && (
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>Margen</th>
+                  )}
+                  <th className="px-5 py-3 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -527,12 +556,6 @@ export function VentasClient({
                     <td className="px-5 py-2 text-center font-mono text-xs tabular-nums text-neutral-500">
                       {i.equipoId ? (equiposPorId.get(i.equipoId)?.imei ?? "—") : "—"}
                     </td>
-                    <td className="px-5 py-2 text-center text-neutral-500">
-                      {RUBRO_LABEL[categoriaDe(i)]}
-                    </td>
-                    <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
-                      {i.cantidad}
-                    </td>
                     <td className="px-5 py-2 text-center tabular-nums">
                       {fmtUsd(i.precioUsd)}
                     </td>
@@ -548,12 +571,24 @@ export function VentasClient({
                           : "—"}
                       </td>
                     )}
+                    <td className="px-5 py-2 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRecibo({ venta: v, tipo: "garantia", item: i });
+                        }}
+                        title="Ver garantía"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-accent-soft hover:text-accent"
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {itemRows.length === 0 && (
                   <tr>
                     <td
-                      colSpan={puedeVerCosto ? 9 : 7}
+                      colSpan={puedeVerCosto ? 8 : 6}
                       className="px-5 py-10 text-center text-sm text-neutral-400"
                     >
                       Sin ítems para estos filtros.
@@ -574,6 +609,7 @@ export function VentasClient({
               dolarVenta={dolarVenta}
               onOpen={() => setOpenId(v.id)}
               onRecibo={() => setRecibo({ venta: v, tipo: "venta" })}
+              onGarantia={() => setRecibo({ venta: v, tipo: "garantia" })}
               puedeVerCosto={puedeVerCosto}
             />
           ))}
@@ -583,7 +619,7 @@ export function VentasClient({
             </p>
           )}
         </div>
-        <Card className="hidden overflow-hidden md:block">
+        <Card className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
@@ -660,16 +696,28 @@ export function VentasClient({
                     {fmtUsd(v.totalUsd)}
                   </td>
                   <td className="px-5 py-2 text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRecibo({ venta: v, tipo: "venta" });
-                      }}
-                      title="Ver recibo"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-accent-soft hover:text-accent"
-                    >
-                      <FileText className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRecibo({ venta: v, tipo: "venta" });
+                        }}
+                        title="Ver recibo"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-accent-soft hover:text-accent"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRecibo({ venta: v, tipo: "garantia" });
+                        }}
+                        title="Ver garantía"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-accent-soft hover:text-accent"
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -756,6 +804,12 @@ export function VentasClient({
                 </button>
               )}
               <button
+                onClick={() => setRecibo({ venta: open, tipo: "garantia" })}
+                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+              >
+                <ShieldCheck className="h-4 w-4" /> Garantía
+              </button>
+              <button
                 onClick={() => setRecibo({ venta: open, tipo: "venta" })}
                 className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
               >
@@ -833,17 +887,29 @@ export function VentasClient({
       </ConfirmDialog>
 
       <ReciboDialog
-        key={recibo ? `${recibo.tipo}-${recibo.venta.id}` : "none"}
+        key={
+          recibo
+            ? `${recibo.tipo}-${recibo.venta.id}-${
+                recibo.tipo === "garantia" ? (recibo.item?.equipoId ?? "full") : ""
+              }`
+            : "none"
+        }
         open={!!recibo}
         onClose={() => setRecibo(null)}
         titulo={
-          recibo?.tipo === "canje" ? "Recibo de equipo en parte de pago" : "Recibo"
+          recibo?.tipo === "canje"
+            ? "Recibo de equipo en parte de pago"
+            : recibo?.tipo === "garantia"
+              ? "Garantía"
+              : "Recibo"
         }
         nro={recibo?.venta.id ?? ""}
         fecha={recibo ? fmtDateSlash(recibo.venta.fechaISO) : ""}
         cliente={recibo?.venta.cliente ?? ""}
+        clienteTelefono={recibo ? clientesPorId.get(recibo.venta.clienteId)?.telefono : undefined}
+        clienteEmail={recibo ? clientesPorId.get(recibo.venta.clienteId)?.email : undefined}
         negocio={negocio}
-        paginas={paginasVenta}
+        paginas={recibo?.tipo === "garantia" ? garantiaPagina : paginasVenta}
       >
         {recibo?.tipo === "canje" && (
           <>
@@ -897,12 +963,14 @@ function VentaCardMobile({
   dolarVenta,
   onOpen,
   onRecibo,
+  onGarantia,
   puedeVerCosto,
 }: {
   venta: Venta;
   dolarVenta: number;
   onOpen: () => void;
   onRecibo: () => void;
+  onGarantia: () => void;
   puedeVerCosto: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -924,6 +992,16 @@ function VentaCardMobile({
             className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
           >
             <FileText className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onGarantia();
+            }}
+            title="Ver garantía"
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -1013,13 +1091,6 @@ function VentaDetalle({
         venta.tipo === "venta" ? "Venta de equipos" : "Reparación / servicio",
     },
   ];
-  // Métodos de pago + Costo/Ganancia/Margen fijos, 4 por fila -- si el total
-  // no es múltiplo de 4, se reparte el resto entre las últimas 1-2 tarjetas
-  // (siempre "Ganancia bruta"/"Margen") para que no quede un hueco suelto.
-  // Vendedor no ve esas 3 tarjetas (revelan costo) -- el resto se reparte
-  // en las últimas tarjetas de método de pago en su lugar.
-  const resumenTotal = venta.pagos.length + (puedeVerCosto ? 3 : 0);
-  const resumenRem = resumenTotal % 4;
   return (
     <div className="space-y-4">
       <div>
@@ -1138,21 +1209,7 @@ function VentaDetalle({
         </p>
         <div className="grid grid-cols-4 gap-2">
           {venta.pagos.map((p, i) => (
-            <Card
-              key={i}
-              className={cn(
-                "flex flex-col p-2 text-center",
-                !puedeVerCosto &&
-                  i === venta.pagos.length - 1 &&
-                  resumenRem === 1 &&
-                  "col-span-4",
-                !puedeVerCosto &&
-                  i === venta.pagos.length - 1 &&
-                  resumenRem === 2 &&
-                  "col-span-2",
-              )}
-              title={`Caja ${p.caja.toUpperCase()}`}
-            >
+            <Card key={i} className="flex flex-col p-2 text-center" title={`Caja ${p.caja.toUpperCase()}`}>
               <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 Método {i + 1}
               </p>
@@ -1185,12 +1242,7 @@ function VentaDetalle({
             </Card>
           )}
           {puedeVerCosto && (
-            <Card
-              className={cn(
-                "flex flex-col p-2 text-center",
-                resumenRem === 2 && "col-span-2",
-              )}
-            >
+            <Card className="flex flex-col p-2 text-center">
               <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 Ganancia bruta
               </p>
@@ -1202,22 +1254,16 @@ function VentaDetalle({
             </Card>
           )}
           {puedeVerCosto && (
-          <Card
-            className={cn(
-              "flex flex-col p-2 text-center",
-              resumenRem === 1 && "col-span-4",
-              resumenRem === 2 && "col-span-2",
-            )}
-          >
-            <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-              Margen
-            </p>
-            <div className="flex flex-1 items-center justify-center pt-1.5">
-              <p className="truncate text-xs font-normal text-neutral-600">
-                {venta.margenPct.toFixed(1)}%
+            <Card className="flex flex-col p-2 text-center">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                Margen
               </p>
-            </div>
-          </Card>
+              <div className="flex flex-1 items-center justify-center pt-1.5">
+                <p className="truncate text-xs font-normal text-neutral-600">
+                  {venta.margenPct.toFixed(1)}%
+                </p>
+              </div>
+            </Card>
           )}
         </div>
       </div>

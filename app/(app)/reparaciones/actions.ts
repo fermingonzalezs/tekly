@@ -4,27 +4,75 @@ import { revalidatePath } from "next/cache";
 import { requireUser, requireRole } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import {
+  addTicketItem,
   createTicket,
+  removeTicketItem,
   saveServicio,
+  setChecklistEgreso,
   setTicketEstado,
+  updateTicketItemPrecio,
   deleteTicket,
 } from "@/lib/db/reparaciones";
-import type { ClienteSeleccion, Servicio, TicketStatus } from "@/lib/types";
+import type { Checklist, ClienteSeleccion, Servicio, TicketServicio, TicketStatus } from "@/lib/types";
 
 export async function createTicketAction(data: {
   cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
+  marca?: string;
   equipo: string;
+  imei?: string;
   falla: string;
+  reparacionSolicitada?: string;
+  claveCodigo?: string;
+  descripcionEquipo?: string;
+  checklistIngreso?: Checklist;
   tecnicoId: string | null;
 }) {
   await requireUser();
   const cliente = await resolveCliente(data.cliente);
   const ticket = await createTicket({
     clienteId: cliente.id,
+    marca: data.marca,
     equipo: data.equipo,
+    imei: data.imei,
     falla: data.falla,
+    reparacionSolicitada: data.reparacionSolicitada,
+    claveCodigo: data.claveCodigo,
+    descripcionEquipo: data.descripcionEquipo,
+    checklistIngreso: data.checklistIngreso,
     tecnicoId: data.tecnicoId,
   });
+  revalidatePath("/reparaciones");
+  return ticket;
+}
+
+export async function setChecklistEgresoAction(id: number, checklist: Checklist) {
+  await requireUser();
+  const ticket = await setChecklistEgreso(id, checklist);
+  revalidatePath("/reparaciones");
+  return ticket;
+}
+
+export async function addTicketItemAction(ticketId: number, item: TicketServicio) {
+  await requireUser();
+  const ticket = await addTicketItem(ticketId, item);
+  revalidatePath("/reparaciones");
+  return ticket;
+}
+
+export async function removeTicketItemAction(ticketId: number, index: number) {
+  await requireUser();
+  const ticket = await removeTicketItem(ticketId, index);
+  revalidatePath("/reparaciones");
+  return ticket;
+}
+
+export async function updateTicketItemPrecioAction(
+  ticketId: number,
+  index: number,
+  precioUsd: number,
+) {
+  await requireUser();
+  const ticket = await updateTicketItemPrecio(ticketId, index, precioUsd);
   revalidatePath("/reparaciones");
   return ticket;
 }

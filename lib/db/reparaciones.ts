@@ -1,7 +1,8 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
+import { addMovimiento } from "@/lib/db/inventario";
 import { fmtDayMonth, fmtTime } from "@/lib/format";
-import type { Servicio, Ticket, TicketServicio, TicketStatus } from "@/lib/types";
+import type { Checklist, Servicio, Ticket, TicketServicio, TicketStatus } from "@/lib/types";
 
 // ─────────────────────────── Tickets ───────────────────────────
 
@@ -9,9 +10,15 @@ type TicketRow = {
   id: number;
   cliente_id: string | null;
   clientes: { nombre: string } | null;
+  marca: string | null;
   equipo: string;
   imei: string | null;
   falla: string | null;
+  reparacion_solicitada: string | null;
+  clave_codigo: string | null;
+  descripcion_equipo: string | null;
+  checklist_ingreso: Checklist | null;
+  checklist_egreso: Checklist | null;
   tecnico_id: string | null;
   profiles: { nombre: string } | null;
   estado: TicketStatus;
@@ -22,7 +29,7 @@ type TicketRow = {
 };
 
 const TICKET_COLS =
-  "id, cliente_id, clientes(nombre), equipo, imei, falla, tecnico_id, profiles(nombre), estado, ingreso, presupuesto_usd, servicios, nota";
+  "id, cliente_id, clientes(nombre), marca, equipo, imei, falla, reparacion_solicitada, clave_codigo, descripcion_equipo, checklist_ingreso, checklist_egreso, tecnico_id, profiles(nombre), estado, ingreso, presupuesto_usd, servicios, nota";
 
 function toTicket(row: TicketRow): Ticket {
   const ingreso = new Date(row.ingreso);
@@ -30,9 +37,15 @@ function toTicket(row: TicketRow): Ticket {
     id: row.id,
     clienteId: row.cliente_id ?? "",
     cliente: row.clientes?.nombre ?? "—",
+    marca: row.marca ?? undefined,
     equipo: row.equipo,
     imei: row.imei ?? "—",
     falla: row.falla ?? "",
+    reparacionSolicitada: row.reparacion_solicitada ?? undefined,
+    claveCodigo: row.clave_codigo ?? undefined,
+    descripcionEquipo: row.descripcion_equipo ?? undefined,
+    checklistIngreso: row.checklist_ingreso ?? undefined,
+    checklistEgreso: row.checklist_egreso ?? undefined,
     tecnicoId: row.tecnico_id,
     tecnico: row.profiles?.nombre ?? null,
     estado: row.estado,
@@ -56,8 +69,14 @@ export async function listTickets(): Promise<Ticket[]> {
 
 export async function createTicket(data: {
   clienteId: string;
+  marca?: string;
   equipo: string;
+  imei?: string;
   falla: string;
+  reparacionSolicitada?: string;
+  claveCodigo?: string;
+  descripcionEquipo?: string;
+  checklistIngreso?: Checklist;
   tecnicoId: string | null;
 }): Promise<Ticket> {
   const supabase = createServerClient();
@@ -65,12 +84,158 @@ export async function createTicket(data: {
     .from("tickets")
     .insert({
       cliente_id: data.clienteId,
+      marca: data.marca || null,
       equipo: data.equipo,
+      imei: data.imei || null,
       falla: data.falla,
+      reparacion_solicitada: data.reparacionSolicitada || null,
+      clave_codigo: data.claveCodigo || null,
+      descripcion_equipo: data.descripcionEquipo || null,
+      checklist_ingreso: data.checklistIngreso ?? null,
       tecnico_id: data.tecnicoId,
       estado: "recibido" satisfies TicketStatus,
       servicios: [],
     })
+    .select(TICKET_COLS)
+    .single();
+  if (error) throw error;
+  return toTicket(row as unknown as TicketRow);
+}
+
+/** Checklist de egreso -- se completa aparte (botón propio en el detalle
+ * del ticket), nunca junto con el alta. */
+export async function setChecklistEgreso(id: number, checklist: Checklist): Promise<Ticket> {
+  const supabase = createServerClient();
+  const { data: row, error } = await supabase
+    .from("tickets")
+    .update({ checklist_egreso: checklist })
+    .eq("id", id)
+    .select(TICKET_COLS)
+    .single();
+  if (error) throw error;
+  return toTicket(row as unknown as TicketRow);
+}
+
+/** Suma un ítem a "Servicios asociados" (catálogo, repuesto o libre) y
+ * recalcula `presupuesto_usd` como la suma de todos. Un `repuesto` además
+ * descuenta stock -- mismo patrón leer-y-escribir que `lib/db/ventas.ts`
+ * para `VentaItem.repuestos`, salvo que acá el repuesto es un ítem
+ * facturable propio (con su precio a mano), no un insumo de otro ítem. */
+export async function addTicketItem(ticketId: number, item: TicketServicio): Promise<Ticket> {
+  const supabase = createServerClient();
+  const { data: current, error: readError } = await supabase
+    .from("tickets")
+    .select("servicios")
+    .eq("id", ticketId)
+    .single();
+  if (readError) throw readError;
+
+  const servicios: TicketServicio[] = [...((current.servicios as TicketServicio[]) ?? []), item];
+  const presupuesto = servicios.reduce((a, s) => a + s.precioUsd * (s.cantidad ?? 1), 0);
+
+  if (item.origen === "repuesto" && item.repuestoId) {
+    const cantidad = item.cantidad ?? 1;
+    const { data: rep, error: repError } = await supabase
+      .from("repuestos")
+      .select("stock")
+      .eq("id", item.repuestoId)
+      .single();
+    if (repError) throw repError;
+    const { error: stockError } = await supabase
+      .from("repuestos")
+      .update({ stock: rep.stock - cantidad })
+      .eq("id", item.repuestoId);
+    if (stockError) throw stockError;
+    await addMovimiento(
+      "repuesto",
+      item.repuestoId,
+      `Usado en ticket #${ticketId}: -${cantidad} unidades`,
+      "egreso",
+    );
+  }
+
+  const { data: row, error } = await supabase
+    .from("tickets")
+    .update({ servicios, presupuesto_usd: presupuesto })
+    .eq("id", ticketId)
+    .select(TICKET_COLS)
+    .single();
+  if (error) throw error;
+  return toTicket(row as unknown as TicketRow);
+}
+
+/** Saca un ítem de "Servicios asociados" por índice -- si era un
+ * `repuesto`, repone el stock consumido. */
+export async function removeTicketItem(ticketId: number, index: number): Promise<Ticket> {
+  const supabase = createServerClient();
+  const { data: current, error: readError } = await supabase
+    .from("tickets")
+    .select("servicios")
+    .eq("id", ticketId)
+    .single();
+  if (readError) throw readError;
+
+  const servicios: TicketServicio[] = (current.servicios as TicketServicio[]) ?? [];
+  const item = servicios[index];
+  if (!item) throw new Error("Ítem no encontrado");
+  const nuevos = servicios.filter((_, i) => i !== index);
+  const presupuesto = nuevos.reduce((a, s) => a + s.precioUsd * (s.cantidad ?? 1), 0);
+
+  if (item.origen === "repuesto" && item.repuestoId) {
+    const cantidad = item.cantidad ?? 1;
+    const { data: rep, error: repError } = await supabase
+      .from("repuestos")
+      .select("stock")
+      .eq("id", item.repuestoId)
+      .single();
+    if (repError) throw repError;
+    const { error: stockError } = await supabase
+      .from("repuestos")
+      .update({ stock: rep.stock + cantidad })
+      .eq("id", item.repuestoId);
+    if (stockError) throw stockError;
+    await addMovimiento(
+      "repuesto",
+      item.repuestoId,
+      `Devuelto de ticket #${ticketId}: +${cantidad} unidades`,
+      "ingreso",
+    );
+  }
+
+  const { data: row, error } = await supabase
+    .from("tickets")
+    .update({ servicios: nuevos, presupuesto_usd: presupuesto })
+    .eq("id", ticketId)
+    .select(TICKET_COLS)
+    .single();
+  if (error) throw error;
+  return toTicket(row as unknown as TicketRow);
+}
+
+/** Edita el precio de un ítem ya cargado (por índice) -- no toca stock, solo
+ * `precioUsd` y el `presupuesto_usd` recalculado. */
+export async function updateTicketItemPrecio(
+  ticketId: number,
+  index: number,
+  precioUsd: number,
+): Promise<Ticket> {
+  const supabase = createServerClient();
+  const { data: current, error: readError } = await supabase
+    .from("tickets")
+    .select("servicios")
+    .eq("id", ticketId)
+    .single();
+  if (readError) throw readError;
+
+  const servicios: TicketServicio[] = (current.servicios as TicketServicio[]) ?? [];
+  if (!servicios[index]) throw new Error("Ítem no encontrado");
+  const nuevos = servicios.map((s, i) => (i === index ? { ...s, precioUsd } : s));
+  const presupuesto = nuevos.reduce((a, s) => a + s.precioUsd * (s.cantidad ?? 1), 0);
+
+  const { data: row, error } = await supabase
+    .from("tickets")
+    .update({ servicios: nuevos, presupuesto_usd: presupuesto })
+    .eq("id", ticketId)
     .select(TICKET_COLS)
     .single();
   if (error) throw error;

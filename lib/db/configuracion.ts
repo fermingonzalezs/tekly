@@ -45,6 +45,12 @@ export type Negocio = {
   garantiaImportante: string;
   /** Una causal de anulación por línea -- se renderiza como lista. */
   garantiaCausales: string;
+  /** Términos y condiciones de los tickets de reparación -- un texto propio
+   * por documento (no uno compartido), distintos de los `garantia*` de
+   * arriba (esos son para Ventas). */
+  reparacionTerminosIngreso: string;
+  reparacionTerminosPresupuesto: string;
+  reparacionTerminosEgreso: string;
   /** % de recargo por medio de pago (ej. `{ tarjeta: 10 }`) -- aumenta lo
    * que cobra el cliente al elegir ese medio en "Nueva venta", ver
    * `montoConRecargo` en `lib/ventas.ts`. Medios sin entrada = sin recargo. */
@@ -61,7 +67,7 @@ export async function getNegocio(): Promise<Negocio> {
   const { data, error } = await supabase
     .from("organizations")
     .select(
-      "nombre, direccion, telefono, cuit, horario, objetivo_mes_usd, garantia_texto, garantia_condiciones, garantia_importante, garantia_causales, recargos_medios_pago, onboarding_pasos",
+      "nombre, direccion, telefono, cuit, horario, objetivo_mes_usd, garantia_texto, garantia_condiciones, garantia_importante, garantia_causales, reparacion_terminos_ingreso, reparacion_terminos_presupuesto, reparacion_terminos_egreso, recargos_medios_pago, onboarding_pasos",
     )
     .single();
   if (error) throw error;
@@ -76,6 +82,9 @@ export async function getNegocio(): Promise<Negocio> {
     garantiaCondiciones: data.garantia_condiciones ?? "",
     garantiaImportante: data.garantia_importante ?? "",
     garantiaCausales: data.garantia_causales ?? "",
+    reparacionTerminosIngreso: data.reparacion_terminos_ingreso ?? "",
+    reparacionTerminosPresupuesto: data.reparacion_terminos_presupuesto ?? "",
+    reparacionTerminosEgreso: data.reparacion_terminos_egreso ?? "",
     recargosMediosPago: data.recargos_medios_pago ?? {},
     onboardingPasos: data.onboarding_pasos ?? {},
   };
@@ -101,6 +110,9 @@ export async function updateNegocio(data: Negocio): Promise<void> {
       garantia_condiciones: data.garantiaCondiciones || null,
       garantia_importante: data.garantiaImportante || null,
       garantia_causales: data.garantiaCausales || null,
+      reparacion_terminos_ingreso: data.reparacionTerminosIngreso || null,
+      reparacion_terminos_presupuesto: data.reparacionTerminosPresupuesto || null,
+      reparacion_terminos_egreso: data.reparacionTerminosEgreso || null,
       recargos_medios_pago: data.recargosMediosPago,
     })
     .eq("id", caller.organizationId);

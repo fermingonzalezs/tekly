@@ -66,17 +66,23 @@ export async function listClientes(): Promise<Cliente[]> {
 }
 
 /** Lista liviana para selectores (Nuevo ticket, Nueva venta, …) -- sin las
- * queries de stats que hace `listClientes`. `telefono` es opcional para
- * quien no lo necesite (ej. el buscador de "Nueva venta" lo muestra). */
+ * queries de stats que hace `listClientes`. `telefono`/`email` son para
+ * quien los necesite (ej. el buscador de "Nueva venta", o los recibos de
+ * Ventas para completar los datos de contacto del cliente). */
 export async function listClientesOpciones(): Promise<ClienteOpcion[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("clientes")
-    .select("id, nombre, telefono")
+    .select("id, nombre, telefono, email")
     .eq("activo", true)
     .order("nombre");
   if (error) throw error;
-  return data.map((c) => ({ id: c.id, nombre: c.nombre, telefono: c.telefono ?? "—" }));
+  return data.map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    telefono: c.telefono ?? "—",
+    email: c.email ?? "—",
+  }));
 }
 
 export async function createCliente(data: {

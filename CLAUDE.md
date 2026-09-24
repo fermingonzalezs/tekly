@@ -725,18 +725,73 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   (historial por ítem, antes hardcodeado en el mock).
 - **Reparaciones** (`app/(app)/reparaciones/`, migrado): 2 tabs — **Tickets**
   (pipeline + tabla) y **Servicios** (`components/servicios-catalogo.tsx`,
-  catálogo editable). **No hay sección `/servicios`**, vive acá. El detalle
-  de ticket tiene botón **«Recibo de mercadería»** (ver Recibos). No hay
+  catálogo editable). **No hay sección `/servicios`**, vive acá. No hay
   tabla de "técnicos": son `profiles` con `rol = 'tecnico'`
-  (`lib/db/reparaciones.ts` → `listTecnicos`).
+  (`lib/db/reparaciones.ts` → `listTecnicos`). El detalle de ticket tiene 3
+  documentos, los 3 con `compacto` (ver "Recibos / PDFs" — negocio arriba a
+  la derecha en vez del logo, "Información cliente" en vez de "Datos de
+  facturación") y "Información del equipo" a dos columnas con línea
+  separadora por fila (`ReciboCampos` con `variant="inline"` +
+  `separadores`): **«Ticket de ingreso»** (ex "Recibo de mercadería"),
+  **«Ticket de egreso»** (ex "Recibo de entrega", visible con `estado` en
+  `listo`/`entregado`) y **«Presupuesto»** (si hay `servicios` cargados —
+  pensado para mandarle al cliente, ver más abajo). Cada uno tiene su propio
+  texto de "Términos y condiciones" (`Negocio.reparacionTerminosIngreso`/
+  `reparacionTerminosPresupuesto`/`reparacionTerminosEgreso`, editables por
+  separado en Configuración → Recibos, análogos a los `garantia*` de Ventas
+  pero uno por documento en vez de compartido). "Nuevo ticket" además de
+  Cliente/Falla/Técnico pide: `marca` (nuevo campo, casi siempre "Apple" --
+  el negocio solo repara iPhones), `equipo` (el campo de siempre, se
+  muestra como "Modelo"), `imei` (existía en la base pero nunca se cargaba
+  desde la UI, ahora sí), `reparacionSolicitada`/`claveCodigo`/
+  `descripcionEquipo` (todos opcionales) y el **checklist de ingreso**
+  (`Ticket.checklistIngreso`, jsonb): 22 ítems fijos
+  (`CHECKLIST_ITEMS`/`checklistItemLabel` en `lib/status.ts`, tipo
+  `ChecklistItemId` en `lib/types.ts`) con estado `bien`/`mal`/`na` por ítem
+  (`ChecklistEditor` en `reparaciones-client.tsx`, grilla de a 3) + `color`
+  suelto (texto libre, es un dato de identificación, no un chequeo -- se
+  carga junto con "Datos del equipo" en el form, aunque persiste dentro del
+  mismo jsonb `checklistIngreso`). El **checklist de egreso**
+  (`Ticket.checklistEgreso`) es aparte a propósito: se completa con el
+  botón «Checklist» en el detalle del ticket, en cualquier momento antes de
+  entregar — no depende de avanzar el `estado`. `ReciboChecklist`
+  (`components/recibos/recibo.tsx`) imprime un checklist solo (Ticket de
+  ingreso/egreso); `ReciboChecklistComparado` imprime los dos juntos,
+  ítem por ítem, columnas Ingreso/Egreso una al lado de la otra -- solo en
+  Presupuesto, que es el que se manda al cliente y quiere mostrar el
+  "antes y después" en una sola tabla. "Servicios asociados" tiene botón
+  «Agregar» (`AgregarItemDialog`) con 3 orígenes: **catálogo** de servicios
+  (precio/`garantiaDias` fijos del catálogo), **repuesto** de inventario
+  (descuenta stock al agregarlo, lo repone si se quita —
+  `addTicketItem`/`removeTicketItem` en `lib/db/reparaciones.ts`, mismo
+  patrón leer-y-escribir que `venta_item_repuestos`; sin precio de venta
+  propio en `Repuesto`, se carga a mano) o **libre** (nombre + precio a
+  mano). `TicketServicio.origen`/`repuestoId`/`cantidad`/`garantiaDias` son
+  todos opcionales -- un ticket de antes de esta feature no los tiene, se
+  trata como `origen: "servicio"`. El precio de un ítem ya cargado se puede
+  editar en la fila (ícono de lápiz, `updateTicketItemPrecio` en
+  `lib/db/reparaciones.ts` -- solo toca `precioUsd`, no descuenta/repone
+  stock). `presupuesto_usd` se recalcula solo, suma de `precioUsd *
+  cantidad` de todos los ítems. Ticket de ingreso/egreso muestran una sola
+  tabla de servicios (`ReciboLineas`, columna Garantía si algún ítem la
+  trae). **Presupuesto** en cambio separa los ítems en hasta 3 tablas por
+  `origen` (Servicios/Repuestos/Ítems extra, cada una oculta si no tiene
+  ítems) con un total general aparte -- Garantía solo en la tabla de
+  Servicios (`lineaDeItem`), Repuestos/Ítems extra no la traen
+  (`lineaSinGarantia`) porque no tienen garantía de catálogo.
 - **Ventas** (`app/(app)/ventas/`, migrado): click en una fila → detalle
-  (`VentaDetalle`) con botones **«Comprobante de venta»**, si hay un pago
-  `canje` **«Recibo de equipo en parte de pago»**, y si algún ítem tiene
-  `equipoId` **«Garantía»** (ver "Recibos / PDFs"). Selector **Ventas /
-  Ítems vendidos** (`Tabs`) sobre la tabla: la segunda vista aplana
-  `Venta.items` (1 fila por ítem, con el IMEI vía `equiposPorId`), respeta
-  los mismos filtros/búsqueda que la tabla de ventas pero a nivel ítem, y
-  click en una fila abre el mismo `VentaDetalle`. `VentaItem.costoUsd?` y
+  (`VentaDetalle`) con botones **«Comprobante de venta»**, **«Garantía»**
+  (siempre visible, no depende de que algún ítem tenga `equipoId`) y, si hay
+  un pago `canje`, **«Recibo de equipo en parte de pago»** (ver
+  "Recibos / PDFs"). También hay ícono de Garantía en la columna Acciones de
+  la tabla de Ventas (venta completa) y de "Ítems vendidos" (un solo ítem) —
+  mismo documento, mismo `garantiaContenido(items)` en `ventas-client.tsx`.
+  Selector **Ventas / Ítems vendidos** (`Tabs`) sobre la tabla: la segunda
+  vista aplana `Venta.items` (1 fila por ítem, con el IMEI vía
+  `equiposPorId`; sin columnas de Categoría/Cantidad, solo Ítem/Serie/
+  Precio), respeta los mismos filtros/búsqueda que la tabla de ventas pero a
+  nivel ítem, y click en una fila abre el mismo `VentaDetalle`.
+  `VentaItem.costoUsd?` y
   `Venta.procedencia?` existen; el costo NO se muestra ni edita en el modal de
   alta. Vender un ítem con `equipoId` marca ese equipo `vendido`. "Cliente
   nuevo" en el modal ahora persiste de verdad (`createCliente`) antes de
@@ -896,40 +951,86 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
 ### Recibos / PDFs
 
 `components/recibos/recibo.tsx`: `ReciboDialog` (Dialog + botón «Imprimir /
-Guardar PDF» → `window.print()`) que envuelve `ReciboShell` (hoja: banda
-superior en `accent` con la identidad del negocio, bloque «A nombre de»
-+ título/N°/fecha, cuerpo, firmas). Helpers para el cuerpo: `ReciboCampos`
-(pares clave/valor), `ReciboLineas` (tabla con total — si alguna línea trae
-`serial` pasa sola a columnas explícitas Ítem/Serial/Cant./Total con header;
-si ninguna lo trae queda el formato compacto "2× Detalle", así no rompe los
-usos sin serial), `ReciboGarantiaItems` (tabla Ítem/Serial/Garantía/Precio,
-sin fila de total) y `ReciboNota`/`ReciboNotaLista` (bloque con header
-`accent` + cuerpo gris, para texto libre/lista — `null` si el texto está
-vacío). Los headers de tabla salen con la banda índigo oscuro global
+Guardar PDF» → `window.print()`) envuelve `ReciboShell`, que arma una o
+varias `ReciboHoja` (una por `ReciboPagina` en `paginas`, cada una con
+`break-after: page` propio — ver "una o varias hojas" abajo; sin `paginas`
+cae al uso de siempre, una sola hoja con `titulo`+`children`). Cada hoja:
+banda superior `accent` (título/N°/fecha en blanco; a la derecha el logo
+placeholder, o los datos del negocio si `garantia`, ver abajo) → bloque de
+identificación del cliente → `children` → firmas (siempre al final, msvia
+`mt-auto`) → footer `accent` de una línea ("Documento no válido como
+factura…"), con clase `recibo-print-footer` para repetirse en **cada
+página física** vía `position: fixed` en `@media print` (`app/globals.css`)
+— si una sección no entra en una hoja, el footer no queda pegado solo al
+final de todo, sale en cada una. Todo bloque de cuerpo
+(`ReciboCampos`/`ReciboLineas`/`ReciboGarantiaItems`/`ReciboChecklist`/
+`ReciboNota`/`ReciboNotaLista`) lleva `print:break-inside-avoid-page`: si no
+entra completo en lo que queda de una hoja, pasa entero a la siguiente en
+vez de cortarse a la mitad.
+
+Bloque de identificación del cliente, dos variantes (prop `compacto` de
+`ReciboPagina`, o top-level en `ReciboDialog`/`ReciboShell` para el uso de
+una sola hoja sin `paginas`): **normal** — "Datos de facturación" con dos
+tarjetas "Facturado por" (negocio real, `nombre`/`direccion`/`cuit`/
+`telefono`) / "Facturado a" (`cliente` + `ReciboClienteContacto`: teléfono/
+email del cliente si `ReciboDialog` los recibe, `null` si no hay dato).
+**`compacto`** (Ventas → Garantía, Reparaciones → Ticket de ingreso) — el
+negocio pasa a la banda superior (reemplaza el logo placeholder) y el
+cliente queda en una sola tarjeta "Información cliente"; `sello` (prop
+aparte, solo Ventas → Garantía) agrega `ReciboSello` (insignia rotada,
+`position: absolute` sobre la tarjeta, no ocupa fila propia) superpuesto
+arriba a la derecha.
+
+Helpers para el cuerpo: `ReciboCampos` (pares clave/valor -- `variant="inline"`
+para "Label: valor" compacto en vez de la grilla de dos columnas cuando el
+valor es corto y deja mucho hueco, ver "Información del equipo" de
+Reparaciones; `separadores` agrega línea fina entre filas), `ReciboLineas`
+(tabla con total en un bloque aparte, no una fila más — columnas dinámicas
+según lo que traiga cada línea: `serial` agrega Serial, `garantia` agrega
+Garantía -- Producto y Precio siempre, Cantidad en cuanto hay alguna columna
+extra; si ninguna línea trae nada y no se fuerza con `forzarTabla`, queda el
+formato compacto "2× Detalle"), `ReciboGarantiaItems`
+(tabla Ítem/Serial/Garantía, sin Precio — no es relevante en un documento de
+garantía — y sin fila de total), `ReciboChecklist` (grilla ítem+estado de
+un checklist de Reparaciones, ver esa sección, + color al pie) y su
+variante `ReciboChecklistComparado` (tabla ítem/Ingreso/Egreso, los dos
+checklists de un ticket lado a lado -- solo en Presupuesto), y
+`ReciboNota`/`ReciboNotaLista` (título centrado violeta + línea, sin
+caja — mismo patrón que el resto de títulos de sección; `tono="warning"`
+rompe el patrón a propósito con un recuadro rojo claro para que resalte,
+pensado para ir al final del documento, ver "Importante" de Garantía).
+Todos devuelven `null` si el texto está vacío, en vez de un bloque vacío.
+Los headers de tabla salen con la banda índigo oscuro global
 (`app/globals.css`, `th`) sin pedirlo aparte. La impresión se aísla con
-`@media print`: se oculta todo salvo `.recibo-print`. 4 usos: recibo de
-mercadería/presupuesto/entrega (Reparaciones), comprobante de venta, recibo
-de canje y **Garantía** (Ventas — botón en el detalle de la venta, solo si
-algún ítem tiene `equipoId`; tabla de ítems con IMEI vía `equiposPorId`,
-texto de garantía y las 3 notas legales vienen de `negocio.garantia*`).
-El membrete (nombre/dirección/CUIT/teléfono) toma `negocio` real
+`@media print`: se oculta todo salvo `.recibo-print`.
+
+Usos: Reparaciones → **Ticket de ingreso**/**Ticket de egreso**/
+**Presupuesto** (ver esa sección), Ventas → comprobante de venta, recibo de
+canje y **Garantía** (venta completa o un solo ítem, botón propio en
+Ventas y en cada fila de "Ítems vendidos" — ya no depende de que el ítem
+tenga `equipoId`; el ítem sin `equipoId` sale con "—" en la columna
+Garantía). El membrete (nombre/dirección/CUIT/teléfono) toma `negocio` real
 (`lib/db/configuracion.ts` → `getNegocio()`) pasado como prop desde cada
 `page.tsx` hasta `ReciboDialog` — el import de `lib/mock-data.ts` que queda
 en el archivo es solo el valor por default del prop, nunca se usa (todas las
-páginas siempre lo pasan).
+páginas siempre lo pasan). El teléfono/email del cliente (`clienteTelefono`/
+`clienteEmail` en `ReciboDialog`) se resuelve en cada client component
+contra `ClienteOpcion` (por `clienteId`), no viaja en `Venta`/`Ticket`.
 
 Textos editables de garantía (`Negocio.garantiaTexto/garantiaCondiciones/
 garantiaImportante/garantiaCausales`, columnas nuevas en `organizations`,
 sin policy de `update` para `authenticated` -- mismo criterio que el resto
 de "Datos del negocio", se guarda por `service role` + `requireRole("admin")`
-en `updateNegocio`): se editan en Configuración → **Recibos**
-(`RecibosForm` en `configuracion-client.tsx`), con preview en vivo — el
-mismo `ReciboShell`/`ReciboGarantiaItems`/`ReciboNota` renderizado al lado
-del form, atado al `form` state (no al `negocio` guardado) para que el
-cambio se vea antes de guardar. Las notas legales de los otros 4 tipos de
-recibo (venta/canje/mercadería/presupuesto/entrega) siguen hardcodeadas en
-cada client component — no forman parte de esta configuración, son pocas y
-ya están afinadas por tipo.
+en `updateNegocio`) y `Negocio.reparacionTerminosIngreso/
+reparacionTerminosPresupuesto/reparacionTerminosEgreso` (mismo criterio, un
+texto por documento de Reparaciones, no uno compartido): se editan en
+Configuración → **Recibos** (`RecibosForm` en `configuracion-client.tsx`),
+con preview en vivo del lado de Garantía — el mismo `ReciboShell`/
+`ReciboGarantiaItems`/`ReciboNota` renderizado al lado del form, atado al
+`form` state (no al `negocio` guardado) para que el cambio se vea antes de
+guardar (los 3 campos de Reparaciones no tienen preview propio, solo el
+campo de texto). Las notas legales del recibo de canje siguen hardcodeadas
+en el client component — no forma parte de esta configuración.
 
 ## Notificaciones en tiempo real
 

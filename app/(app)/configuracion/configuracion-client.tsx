@@ -26,7 +26,6 @@ import {
   ReciboGarantiaItems,
   ReciboNota,
   ReciboNotaLista,
-  ReciboSello,
 } from "@/components/recibos/recibo";
 import type { SessionUser, Rol } from "@/lib/auth/types";
 import type { Miembro, Negocio } from "@/lib/db/configuracion";
@@ -589,6 +588,36 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
               placeholder="Una causal por línea."
             />
           </Field>
+          <Field label="Términos y condiciones — Ticket de ingreso">
+            <Textarea
+              rows={3}
+              value={form.reparacionTerminosIngreso}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, reparacionTerminosIngreso: e.target.value }))
+              }
+              placeholder="Párrafos separados por una línea en blanco."
+            />
+          </Field>
+          <Field label="Términos y condiciones — Presupuesto">
+            <Textarea
+              rows={3}
+              value={form.reparacionTerminosPresupuesto}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, reparacionTerminosPresupuesto: e.target.value }))
+              }
+              placeholder="Párrafos separados por una línea en blanco."
+            />
+          </Field>
+          <Field label="Términos y condiciones — Ticket de egreso">
+            <Textarea
+              rows={3}
+              value={form.reparacionTerminosEgreso}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, reparacionTerminosEgreso: e.target.value }))
+              }
+              placeholder="Párrafos separados por una línea en blanco."
+            />
+          </Field>
           {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
           <button
             onClick={guardar}
@@ -605,30 +634,37 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
           Preview
         </p>
         <ReciboShell
-          titulo="Garantía"
           nro="V-123"
           fecha="15/09/2026"
           cliente="Cliente de ejemplo"
           negocio={negocio}
-        >
-          <ReciboGarantiaItems
-            items={[
-              {
-                detalle: "iPhone 13 128GB Azul",
-                serial: "358240051111110",
-                garantia: form.garantiaTexto || "—",
-                precioUsd: 450,
-              },
-            ]}
-          />
-          <ReciboSello />
-          <ReciboNota titulo="Condiciones de garantía" texto={form.garantiaCondiciones} />
-          <ReciboNota titulo="Importante" texto={form.garantiaImportante} tono="warning" />
-          <ReciboNotaLista
-            titulo="Causales de anulación de la garantía"
-            texto={form.garantiaCausales}
-          />
-        </ReciboShell>
+          paginas={[
+            {
+              titulo: "Garantía",
+              compacto: true,
+              sello: true,
+              children: (
+                <>
+                  <ReciboGarantiaItems
+                    items={[
+                      {
+                        detalle: "iPhone 13 128GB Azul",
+                        serial: "358240051111110",
+                        garantia: form.garantiaTexto || "—",
+                      },
+                    ]}
+                  />
+                  <ReciboNota titulo="Condiciones de garantía" texto={form.garantiaCondiciones} />
+                  <ReciboNotaLista
+                    titulo="Causales de anulación de la garantía"
+                    texto={form.garantiaCausales}
+                  />
+                  <ReciboNota titulo="Importante" texto={form.garantiaImportante} tono="warning" />
+                </>
+              ),
+            },
+          ]}
+        />
       </div>
     </div>
   );
