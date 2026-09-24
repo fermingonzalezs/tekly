@@ -391,6 +391,10 @@ export type CanjeEquipo = {
   aclaraciones?: string;
 };
 
+/** Mayorista/minorista -- clasificación de la venta, no del cliente (el
+ * mismo cliente puede comprar de una forma u otra según la ocasión). */
+export type ModalidadVenta = "mayorista" | "minorista";
+
 export type Venta = {
   id: string;
   fecha: string;
@@ -401,6 +405,7 @@ export type Venta = {
   vendedor: string;
   /** Canal / origen de la venta (Local, WhatsApp, Instagram, …). */
   procedencia?: string;
+  modalidad: ModalidadVenta;
   items: VentaItem[];
   totalUsd: number;
   /** 1+ medios con monto; la suma cubre el total. */

@@ -5,7 +5,7 @@ import { addMovimiento } from "@/lib/db/inventario";
 import { createMovimientoCC } from "@/lib/db/cuentas-corrientes";
 import { createCompra } from "@/lib/db/compras";
 import { montoConRecargo } from "@/lib/ventas";
-import type { CanjeEquipo, Pago, Venta, VentaItem } from "@/lib/types";
+import type { CanjeEquipo, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
 
 /** Cantidad de ventas por procedencia (canal) -- usado por
  * `FuenteClientes` en Clientes. */
@@ -52,6 +52,7 @@ type VentaRow = {
   vendedor_id: string | null;
   profiles: { nombre: string } | null;
   procedencia: string | null;
+  modalidad: ModalidadVenta;
   venta_items: VentaItemRow[];
   total_usd: number;
   pagos: Pago[];
@@ -60,7 +61,7 @@ type VentaRow = {
 };
 
 const VENTA_COLS =
-  "id, numero, fecha, cliente_id, cliente, vendedor_id, profiles(nombre), procedencia, venta_items(detalle, cantidad, precio_usd, costo_usd, equipo_id, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, pagos, margen_pct, tipo";
+  "id, numero, fecha, cliente_id, cliente, vendedor_id, profiles(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, costo_usd, equipo_id, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, pagos, margen_pct, tipo";
 
 function toVentaItem(row: VentaItemRow): VentaItem {
   return {
@@ -92,6 +93,7 @@ function toVenta(
     vendedorId: row.vendedor_id ?? "",
     vendedor: row.profiles?.nombre ?? "—",
     procedencia: row.procedencia ?? undefined,
+    modalidad: row.modalidad,
     items: (row.venta_items ?? []).map(toVentaItem),
     totalUsd: row.total_usd,
     pagos: row.pagos ?? [],
@@ -125,6 +127,7 @@ export type CreateVentaInput = {
   vendedorId: string;
   vendedorNombre: string;
   procedencia?: string;
+  modalidad: ModalidadVenta;
   items: VentaItem[];
   totalUsd: number;
   /** `canje` (solo en pagos con `medio === "canje"`) viaja acá para crear
@@ -166,6 +169,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       cliente: data.cliente,
       vendedor_id: data.vendedorId || null,
       procedencia: data.procedencia ?? null,
+      modalidad: data.modalidad,
       total_usd: data.totalUsd,
       pagos: pagosSinCanje,
       margen_pct: data.margenPct,

@@ -53,6 +53,7 @@ import type {
   Equipo,
   MedioPago,
   MedioPagoVenta,
+  ModalidadVenta,
   OtroItem,
   Pago,
   Repuesto,
@@ -74,6 +75,11 @@ const PROCEDENCIAS = [
   "Referido",
   "Otro",
 ];
+
+const MODALIDAD_LABEL: Record<ModalidadVenta, string> = {
+  minorista: "Minorista",
+  mayorista: "Mayorista",
+};
 
 function ventaCosto(v: Venta) {
   return v.items.reduce((a, i) => a + i.cantidad * (i.costoUsd ?? 0), 0);
@@ -1060,6 +1066,7 @@ function VentaDetalle({
     ...(venta.procedencia
       ? [{ label: "Procedencia", value: venta.procedencia }]
       : []),
+    { label: "Modalidad", value: MODALIDAD_LABEL[venta.modalidad] },
     {
       label: "Tipo",
       value:
@@ -1443,6 +1450,7 @@ function NuevaVentaDialog({
 
   const [vendedorId, setVendedorId] = useState(vendedores[0]?.id ?? "");
   const [procedencia, setProcedencia] = useState(PROCEDENCIAS[0]);
+  const [modalidad, setModalidad] = useState<ModalidadVenta>("minorista");
 
   const cajasActivas = cajas.filter((c) => c.activa);
   const destinoPago = (destino: string): Partial<DraftPago> => {
@@ -1624,6 +1632,7 @@ function NuevaVentaDialog({
         vendedorId,
         vendedorNombre,
         procedencia,
+        modalidad,
         items: items.map(({ _k, origen, ...i }) => ({ ...i, categoria: origen })),
         totalUsd: totalPrecio,
         pagos: pagos.map(({ _k, ...p }) => p),
@@ -1676,10 +1685,10 @@ function NuevaVentaDialog({
           <ClientePicker clientes={clientesOpciones} value={cliente} onChange={setCliente} />
         </Card>
 
-        {/* Vendedor + Procedencia */}
+        {/* Vendedor + Procedencia + Modalidad */}
         <Card className="p-4">
           <Eyebrow>Datos de la venta</Eyebrow>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Vendedor">
               <Select
                 value={vendedorId}
@@ -1699,6 +1708,18 @@ function NuevaVentaDialog({
               >
                 {PROCEDENCIAS.map((p) => (
                   <option key={p}>{p}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Modalidad">
+              <Select
+                value={modalidad}
+                onChange={(e) => setModalidad(e.target.value as ModalidadVenta)}
+              >
+                {(Object.keys(MODALIDAD_LABEL) as ModalidadVenta[]).map((m) => (
+                  <option key={m} value={m}>
+                    {MODALIDAD_LABEL[m]}
+                  </option>
                 ))}
               </Select>
             </Field>

@@ -22,6 +22,7 @@ function venta(fechaISO: string, totalUsd: number, margenPct = 20, extra?: Parti
     pagos: [],
     margenPct,
     tipo: "venta",
+    modalidad: "minorista",
     ...extra,
   };
 }

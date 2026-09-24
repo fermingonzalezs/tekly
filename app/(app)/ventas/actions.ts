@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { requireUser, requireRole } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import { createVenta, deleteVenta, type DeleteVentaOpts } from "@/lib/db/ventas";
-import type { CanjeEquipo, ClienteSeleccion, Pago, VentaItem } from "@/lib/types";
+import type { CanjeEquipo, ClienteSeleccion, ModalidadVenta, Pago, VentaItem } from "@/lib/types";
 
 export async function createVentaAction(input: {
   cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
   vendedorId: string;
   vendedorNombre: string;
   procedencia?: string;
+  modalidad: ModalidadVenta;
   items: VentaItem[];
   totalUsd: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
@@ -28,6 +29,7 @@ export async function createVentaAction(input: {
     vendedorId: input.vendedorId,
     vendedorNombre: input.vendedorNombre,
     procedencia: input.procedencia,
+    modalidad: input.modalidad,
     items: input.items,
     totalUsd: input.totalUsd,
     pagos: input.pagos,

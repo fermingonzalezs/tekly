@@ -22,6 +22,7 @@ function venta(fechaISO: string, totalUsd: number, items: VentaItem[] = []): Ven
     pagos: [],
     margenPct: 0,
     tipo: "venta",
+    modalidad: "minorista",
   };
 }
 
