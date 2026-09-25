@@ -16,8 +16,8 @@ type Listener = (e: AppEvent) => void;
 
 type RealtimeCtx = {
   /** `self: true` entrega el evento además a los listeners locales (la
-   * propia pestaña), no solo al canal -- lo usa el SimPanel para testear
-   * sin depender del transporte ni de una segunda pestaña. */
+   * propia pestaña), no solo al canal -- para testear un evento sin
+   * depender del transporte ni de una segunda pestaña. */
   publish: (e: AppEvent, opts?: { self?: boolean }) => void;
   subscribe: (fn: Listener) => () => void;
   transport: "supabase" | "broadcastchannel";

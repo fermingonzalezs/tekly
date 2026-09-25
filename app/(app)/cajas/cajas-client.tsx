@@ -18,7 +18,13 @@ import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { medioPago as medioPagoCfg, MEDIOS_CAJA, dotClass } from "@/lib/status";
+import {
+  medioPago as medioPagoCfg,
+  MEDIOS_CAJA,
+  categoriaGasto as categoriaGastoCfg,
+  CATEGORIAS_GASTO,
+  dotClass,
+} from "@/lib/status";
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
 import { enArs, netoMovimientos } from "@/lib/cajas";
@@ -27,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type {
   Caja,
+  CategoriaGasto,
   Conciliacion,
   ConciliacionLinea,
   MedioPago,
@@ -275,6 +282,7 @@ export function CajasClient({
                     <p className="mt-0.5 truncate text-xs text-neutral-500">
                       {vista === "historial" ? `${m.fecha} · ` : ""}
                       {m.hora} · {cajaDe(m).nombre} · {medioPagoCfg[m.medioPago].label}
+                      {m.categoria && ` · ${categoriaGastoCfg[m.categoria].label}`}
                     </p>
                   </div>
                   <div className="shrink-0 text-end">
@@ -332,15 +340,26 @@ export function CajasClient({
                       <td className="px-5 py-2 text-center text-neutral-400">{m.fecha}</td>
                     )}
                     <td className="px-5 py-2 text-center text-neutral-400">{m.hora}</td>
-                    <td className="max-w-[220px] truncate px-5 py-2 text-start">
-                      <span className="inline-flex items-center gap-2">
+                    <td className="max-w-[220px] px-5 py-2 text-start">
+                      <span className="flex items-center gap-2">
                         {m.tipo === "ingreso" ? (
                           <ArrowDownLeft className="h-4 w-4 shrink-0 text-emerald-500" />
                         ) : (
                           <ArrowUpRight className="h-4 w-4 shrink-0 text-red-400" />
                         )}
-                        {m.concepto}
+                        <span className="truncate">{m.concepto}</span>
                       </span>
+                      {m.categoria && (
+                        <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-500">
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              dotClass[categoriaGastoCfg[m.categoria].tone],
+                            )}
+                          />
+                          {categoriaGastoCfg[m.categoria].label}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-2 text-center text-neutral-500">{cajaDe(m).nombre}</td>
                     <td className="px-5 py-2 text-center">
@@ -659,6 +678,16 @@ export function CajasClient({
                   {medioPagoCfg[openMov.medioPago].label}
                 </p>
               </Card>
+              {openMov.categoria && (
+                <Card className="p-2 text-center">
+                  <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                    Categoría
+                  </p>
+                  <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
+                    {categoriaGastoCfg[openMov.categoria].label}
+                  </p>
+                </Card>
+              )}
               <Card className="p-2 text-center">
                 <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                   Monto
@@ -744,6 +773,7 @@ function NuevoMovimientoDialog({
   const [tipo, setTipo] = useState<"ingreso" | "egreso">("ingreso");
   const [cajaId, setCajaId] = useState(cajas[0]?.id ?? "");
   const [concepto, setConcepto] = useState("");
+  const [categoria, setCategoria] = useState<CategoriaGasto>(CATEGORIAS_GASTO[0]);
   const [monto, setMonto] = useState(0);
   const [pending, startTransition] = useTransition();
 
@@ -758,6 +788,7 @@ function NuevoMovimientoDialog({
         cajaId,
         concepto: concepto.trim(),
         medioPago: caja.medioPago,
+        categoria: tipo === "egreso" ? categoria : null,
         monto,
       });
       onCreate(mov);
@@ -803,6 +834,20 @@ function NuevoMovimientoDialog({
             placeholder="Ej. Compra repuestos — PartsAR"
           />
         </Field>
+        {tipo === "egreso" && (
+          <Field label="Categoría">
+            <Select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value as CategoriaGasto)}
+            >
+              {CATEGORIAS_GASTO.map((c) => (
+                <option key={c} value={c}>
+                  {categoriaGastoCfg[c].label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label="Caja">
           <Select
             value={cajaId}

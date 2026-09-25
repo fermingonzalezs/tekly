@@ -21,7 +21,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ChecklistEditor, CHECKLIST_VACIO } from "@/components/ui/checklist-editor";
 import {
-  ReciboDialog,
+  ReciboImprimir,
   ReciboLineas,
   ReciboGarantiaItems,
   ReciboNota,
@@ -471,7 +471,7 @@ export function VentasClient({
                       e.stopPropagation();
                       setRecibo({ venta: v, tipo: "garantia", item: i });
                     }}
-                    title="Ver garantía"
+                    title="Imprimir garantía"
                     className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-accent-soft hover:text-accent"
                   >
                     <ShieldCheck className="h-3.5 w-3.5" />
@@ -587,7 +587,7 @@ export function VentasClient({
                           e.stopPropagation();
                           setRecibo({ venta: v, tipo: "garantia", item: i });
                         }}
-                        title="Ver garantía"
+                        title="Imprimir garantía"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-accent-soft hover:text-accent"
                       >
                         <ShieldCheck className="h-4 w-4" />
@@ -712,7 +712,7 @@ export function VentasClient({
                           e.stopPropagation();
                           setRecibo({ venta: v, tipo: "venta" });
                         }}
-                        title="Ver recibo"
+                        title="Imprimir recibo"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-accent-soft hover:text-accent"
                       >
                         <FileText className="h-4 w-4" />
@@ -722,7 +722,7 @@ export function VentasClient({
                           e.stopPropagation();
                           setRecibo({ venta: v, tipo: "garantia" });
                         }}
-                        title="Ver garantía"
+                        title="Imprimir garantía"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-accent-soft hover:text-accent"
                       >
                         <ShieldCheck className="h-4 w-4" />
@@ -910,7 +910,7 @@ export function VentasClient({
         )}
       </ConfirmDialog>
 
-      <ReciboDialog
+      <ReciboImprimir
         key={
           recibo
             ? `${recibo.tipo}-${recibo.venta.id}-${
@@ -960,7 +960,7 @@ function VentaCardMobile({
 
   return (
     <Card onClick={onOpen} className="cursor-pointer overflow-hidden p-0">
-      <div className="flex items-center justify-between gap-2 bg-[#352f86] px-4 py-2 text-white">
+      <div className="flex items-center justify-between gap-2 bg-table-header px-4 py-2 text-white">
         <span className="text-sm font-semibold">{v.id}</span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-white/70">{v.fecha}</span>
@@ -969,7 +969,7 @@ function VentaCardMobile({
               e.stopPropagation();
               onRecibo();
             }}
-            title="Ver recibo"
+            title="Imprimir recibo"
             className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
           >
             <FileText className="h-3.5 w-3.5" />
@@ -979,7 +979,7 @@ function VentaCardMobile({
               e.stopPropagation();
               onGarantia();
             }}
-            title="Ver garantía"
+            title="Imprimir garantía"
             className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
           >
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -1124,7 +1124,7 @@ function VentaDetalle({
           ))}
           <div
             className="flex items-center justify-between gap-2 px-3 py-2"
-            style={{ backgroundColor: "#edecf8" }}
+            style={{ backgroundColor: "var(--accent-soft)" }}
           >
             <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
               Total
@@ -1168,7 +1168,7 @@ function VentaDetalle({
               ))}
               <tr
                 className="border-t border-neutral-100 font-semibold text-neutral-900"
-                style={{ backgroundColor: "#edecf8", backgroundImage: "none" }}
+                style={{ backgroundColor: "var(--accent-soft)", backgroundImage: "none" }}
               >
                 <td
                   className="px-4 py-2.5 !text-start uppercase tracking-wide"
@@ -1852,7 +1852,7 @@ function NuevaVentaDialog({
               ))}
               <div
                 className="flex items-center justify-between gap-2 rounded-lg px-5 py-2"
-                style={{ backgroundColor: "#edecf8" }}
+                style={{ backgroundColor: "var(--accent-soft)" }}
               >
                 <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
                   Total

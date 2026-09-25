@@ -31,7 +31,7 @@ export function InventarioValor({
   const total = rows.reduce((a, r) => a + r.value, 0) || 1;
 
   return (
-    <Card className={cn("flex h-auto flex-col overflow-hidden p-4 lg:h-72", className)}>
+    <Card className={cn("flex h-full flex-col overflow-hidden p-4", className)}>
       <ChartTitle align="left" divider>
         Valor de inventario
       </ChartTitle>

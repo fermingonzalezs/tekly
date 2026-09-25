@@ -41,6 +41,7 @@ export function RecuentosClient({
 
   const [recuentos, setRecuentos] = useState<Recuento[]>(initialRecuentos);
   const [revisandoRecuentoId, setRevisandoRecuentoId] = useState<string | null>(null);
+  const [viendoRecuentoId, setViendoRecuentoId] = useState<string | null>(null);
   const pendientes = recuentos.filter((r) => r.estado === "pendiente").length;
 
   const [movimientos] = useState<MovimientoItem[]>(initialMovimientos);
@@ -92,6 +93,7 @@ export function RecuentosClient({
                 recuento={r}
                 esAdmin={esAdmin}
                 onRevisar={() => setRevisandoRecuentoId(r.id)}
+                onVer={() => setViendoRecuentoId(r.id)}
               />
             ))}
             {recuentos.length === 0 && (
@@ -120,6 +122,7 @@ export function RecuentosClient({
                     recuento={r}
                     esAdmin={esAdmin}
                     onRevisar={() => setRevisandoRecuentoId(r.id)}
+                    onVer={() => setViendoRecuentoId(r.id)}
                   />
                 ))}
                 {recuentos.length === 0 && (
@@ -142,6 +145,13 @@ export function RecuentosClient({
               setRecuentos((prev) => prev.map((r) => (r.id === resuelto.id ? resuelto : r)));
               setRevisandoRecuentoId(null);
             }}
+          />
+
+          <RevisarRecuentoDialog
+            key={viendoRecuentoId ? `ver-${viendoRecuentoId}` : "ver-none"}
+            recuento={recuentos.find((r) => r.id === viendoRecuentoId) ?? null}
+            onClose={() => setViendoRecuentoId(null)}
+            readOnly
           />
         </>
       ) : (
@@ -284,10 +294,12 @@ function RecuentoCard({
   recuento: r,
   esAdmin,
   onRevisar,
+  onVer,
 }: {
   recuento: Recuento;
   esAdmin: boolean;
   onRevisar: () => void;
+  onVer: () => void;
 }) {
   const info = recuentoEstadoInfo(r);
   const puedeRevisar = esAdmin && r.estado === "pendiente";
@@ -307,13 +319,22 @@ function RecuentoCard({
           {info.label}
         </span>
       </div>
-      {puedeRevisar && (
+      {puedeRevisar ? (
         <button
           onClick={onRevisar}
           className="mt-2.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-accent/40 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
         >
           Revisar
         </button>
+      ) : (
+        r.estado === "revisado" && (
+          <button
+            onClick={onVer}
+            className="mt-2.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-neutral-200 text-xs font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
+            Ver detalle
+          </button>
+        )
       )}
     </Card>
   );
@@ -323,10 +344,12 @@ function RecuentoRow({
   recuento: r,
   esAdmin,
   onRevisar,
+  onVer,
 }: {
   recuento: Recuento;
   esAdmin: boolean;
   onRevisar: () => void;
+  onVer: () => void;
 }) {
   const info = recuentoEstadoInfo(r);
   const puedeRevisar = esAdmin && r.estado === "pendiente";
@@ -352,6 +375,13 @@ function RecuentoRow({
             className="mx-auto flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
           >
             Revisar
+          </button>
+        ) : r.estado === "revisado" ? (
+          <button
+            onClick={onVer}
+            className="mx-auto flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
+            Ver detalle
           </button>
         ) : (
           <span className="text-xs text-neutral-300">—</span>
@@ -388,14 +418,32 @@ function opcionesResolucion(
   ];
 }
 
+/** Label de la resolución ya tomada, para el modo de solo lectura -- misma
+ * dupla de `opcionesResolucion`, pero mostrando cuál quedó fija en vez de
+ * ofrecerlas para elegir. */
+function resolucionLabel(
+  recuento: Recuento,
+  linea: RecuentoLineaEquipo | RecuentoLineaCantidad,
+): string {
+  return (
+    opcionesResolucion(recuento, linea).find((o) => o.value === linea.resolucion)?.label ??
+    linea.resolucion
+  );
+}
+
 function RevisarRecuentoDialog({
   recuento,
   onClose,
   onResuelto,
+  readOnly = false,
 }: {
   recuento: Recuento | null;
   onClose: () => void;
-  onResuelto: (r: Recuento) => void;
+  onResuelto?: (r: Recuento) => void;
+  /** Modo "Ver detalle" para un recuento ya revisado: muestra la resolución
+   * que quedó fija en cada línea en vez de los botones para elegirla, y el
+   * footer solo tiene "Cerrar" -- no llama a `resolverRecuentoAction`. */
+  readOnly?: boolean;
 }) {
   const [resoluciones, setResoluciones] = useState<Record<string, RecuentoResolucion>>(() =>
     Object.fromEntries((recuento?.lineas ?? []).map((l) => [l.itemId, "pendiente" as const])),
@@ -407,7 +455,7 @@ function RevisarRecuentoDialog({
     !!recuento && recuento.lineas.every((l) => resoluciones[l.itemId] !== "pendiente");
 
   function guardar() {
-    if (!recuento) return;
+    if (!recuento || !onResuelto) return;
     setError(null);
     startTransition(async () => {
       try {
@@ -425,30 +473,57 @@ function RevisarRecuentoDialog({
       onClose={onClose}
       accent
       size="lg"
-      title={recuento ? `Revisar recuento · ${RECUENTO_TIPO_LABEL[recuento.tipo]}` : ""}
+      title={
+        recuento
+          ? `${readOnly ? "Recuento" : "Revisar recuento"} · ${RECUENTO_TIPO_LABEL[recuento.tipo]}`
+          : ""
+      }
       description={
-        recuento ? `${recuento.responsable} · ${recuento.fecha} ${recuento.hora}` : ""
+        recuento
+          ? readOnly && recuento.revisadoPor
+            ? `Revisado por ${recuento.revisadoPor} · ${recuento.revisadoEn}`
+            : `${recuento.responsable} · ${recuento.fecha} ${recuento.hora}`
+          : ""
       }
       footer={
-        <>
+        readOnly ? (
           <button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:ml-auto sm:w-auto"
           >
-            Cancelar
+            Cerrar
           </button>
-          <button
-            onClick={guardar}
-            disabled={!todasResueltas || pending}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
-          >
-            {pending ? "Guardando…" : "Guardar revisión"}
-          </button>
-        </>
+        ) : (
+          <>
+            <button
+              onClick={onClose}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={guardar}
+              disabled={!todasResueltas || pending}
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            >
+              {pending ? "Guardando…" : "Guardar revisión"}
+            </button>
+          </>
+        )
       }
     >
       {recuento && (
         <div className="space-y-2">
+          {recuento.comentarioGeneral && (
+            <p className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+              "{recuento.comentarioGeneral}"
+            </p>
+          )}
+          {recuento.lineas.length === 0 && (
+            <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+              Sin diferencias -- lo contado coincidió con el sistema en todo.
+            </p>
+          )}
           {recuento.lineas.map((linea) => {
             const opciones = opcionesResolucion(recuento, linea);
             const esEquipo = recuento.tipo === "equipos";
@@ -469,25 +544,36 @@ function RevisarRecuentoDialog({
                     "{equipoLinea.comentario}"
                   </p>
                 )}
-                <div className="mt-2 flex rounded-lg border border-neutral-200 p-0.5">
-                  {opciones.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() =>
-                        setResoluciones((p) => ({ ...p, [linea.itemId]: opt.value }))
-                      }
-                      className={cn(
-                        "flex-1 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors",
-                        resoluciones[linea.itemId] === opt.value
-                          ? "bg-accent-soft text-accent"
-                          : "text-neutral-500 hover:bg-neutral-50",
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+                {!esEquipo && cantidadLinea.comentario && (
+                  <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+                    "{cantidadLinea.comentario}"
+                  </p>
+                )}
+                {readOnly ? (
+                  <p className="mt-2 text-xs font-medium text-accent">
+                    {resolucionLabel(recuento, linea)}
+                  </p>
+                ) : (
+                  <div className="mt-2 flex rounded-lg border border-neutral-200 p-0.5">
+                    {opciones.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() =>
+                          setResoluciones((p) => ({ ...p, [linea.itemId]: opt.value }))
+                        }
+                        className={cn(
+                          "flex-1 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors",
+                          resoluciones[linea.itemId] === opt.value
+                            ? "bg-accent-soft text-accent"
+                            : "text-neutral-500 hover:bg-neutral-50",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </Card>
             );
           })}

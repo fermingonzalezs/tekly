@@ -29,6 +29,8 @@ import type {
   Pago,
 } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
+import type { Negocio } from "@/lib/db/configuracion";
+import { montoConRecargo } from "@/lib/ventas";
 import { createTurnoAction, setTurnoEstadoAction, deleteTurnoAction } from "./actions";
 
 const MEDIOS = MEDIOS_CAJA;
@@ -60,11 +62,13 @@ export function TurnosClient({
   initialEquipos,
   clientesOpciones,
   user,
+  negocio,
 }: {
   initialTurnos: Turno[];
   initialEquipos: Equipo[];
   clientesOpciones: ClienteOpcion[];
   user: SessionUser;
+  negocio: Negocio;
 }) {
   const { publish } = useRealtime();
   const actor = user.nombre;
@@ -301,7 +305,7 @@ export function TurnosClient({
         <div className="min-w-[760px]">
           {/* Encabezado de días */}
           <div
-            className="grid bg-[#352f86]"
+            className="grid bg-table-header"
             style={{ gridTemplateColumns: "3.25rem repeat(7, 1fr)" }}
           >
             <div className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-white/50">
@@ -621,6 +625,7 @@ export function TurnosClient({
         dayLabel={slot ? `${dayLabel(slot.dayOffset)} · ${slot.hora}` : ""}
         equipos={equipos}
         clientesOpciones={clientesOpciones}
+        negocio={negocio}
         onClose={() => setSlot(null)}
         onSubmit={agendar}
       />
@@ -639,6 +644,7 @@ function AgendarDialog({
   dayLabel,
   equipos,
   clientesOpciones,
+  negocio,
   onClose,
   onSubmit,
 }: {
@@ -646,6 +652,7 @@ function AgendarDialog({
   dayLabel: string;
   equipos: Equipo[];
   clientesOpciones: ClienteOpcion[];
+  negocio: Negocio;
   onClose: () => void;
   onSubmit: (d: {
     cliente: ClienteSeleccion;
@@ -792,42 +799,53 @@ function AgendarDialog({
                 </span>
               </div>
               <div className="space-y-2">
-                {pagos.map((p) => (
-                  <div key={p._k} className="flex items-center gap-2">
-                    <Select
-                      value={p.medio}
-                      onChange={(e) => {
-                        const medio = e.target.value as MedioPago;
-                        updPago(p._k, { medio, caja: defaultCaja(medio) });
-                      }}
-                      className="w-40"
-                    >
-                      {MEDIOS.map((m) => (
-                        <option key={m} value={m}>
-                          {medioPago[m].label}
-                        </option>
-                      ))}
-                    </Select>
-                    <Input
-                      className="flex-1"
-                      type="number"
-                      min={0}
-                      placeholder="U$"
-                      value={p.montoUsd || ""}
-                      onChange={(e) =>
-                        updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => rmPago(p._k)}
-                      disabled={pagos.length === 1}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                {pagos.map((p) => {
+                  const recargoPct = negocio.recargosMediosPago[p.medio] ?? 0;
+                  return (
+                    <div key={p._k} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={p.medio}
+                          onChange={(e) => {
+                            const medio = e.target.value as MedioPago;
+                            updPago(p._k, { medio, caja: defaultCaja(medio) });
+                          }}
+                          className="w-40"
+                        >
+                          {MEDIOS.map((m) => (
+                            <option key={m} value={m}>
+                              {medioPago[m].label}
+                            </option>
+                          ))}
+                        </Select>
+                        <Input
+                          className="flex-1"
+                          type="number"
+                          min={0}
+                          placeholder="U$"
+                          value={p.montoUsd || ""}
+                          onChange={(e) =>
+                            updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => rmPago(p._k)}
+                          disabled={pagos.length === 1}
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {recargoPct > 0 && p.montoUsd > 0 && (
+                        <p className="pl-1 text-[11px] text-amber-600">
+                          + {recargoPct}% recargo → cobra{" "}
+                          {fmtUsd(montoConRecargo(p.montoUsd, recargoPct))}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <button

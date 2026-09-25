@@ -159,7 +159,7 @@ export function CuentasCorrientesClient({
             onClick={() => setOpenClienteId(r.cliente.id)}
             className="cursor-pointer overflow-hidden p-0"
           >
-            <div className="bg-[#352f86] px-4 py-2 text-white">
+            <div className="bg-table-header px-4 py-2 text-white">
               <p className="truncate text-sm font-semibold">{r.cliente.nombre}</p>
             </div>
             <div className="flex items-stretch gap-3 p-3">

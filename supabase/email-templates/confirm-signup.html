@@ -1,0 +1,188 @@
+<!--
+  Template de Supabase Auth → "Confirm signup". Para usarlo: Authentication
+  → Email Templates → Confirm signup, pegar este HTML tal cual (las
+  variables {{ .SiteURL }} / {{ .TokenHash }} las completa Supabase al
+  enviar). Requiere SMTP propio configurado -- con el email service default
+  el editor de templates no está disponible (ver "Qué falta antes de
+  producción" en CLAUDE.md).
+
+  Estilo: mismo lenguaje visual que los recibos/PDF de la app
+  (components/recibos/recibo.tsx) -- banda superior en el índigo de marca
+  (#4f49bd, paleta "indigo" default de lib/theme-presets.ts: los mails de
+  Auth son a nivel de proyecto, no por organización, así que van siempre con
+  la paleta default, nunca con el tema de una org) con wordmark + línea fina
+  (mismo divisor que el header de `AuthModal`) + título, cuerpo claro con la
+  info en una tarjeta accent-soft (#edecf8), botón pill sólido, y footer en
+  la misma banda con la leyenda de la marca. Sin logo/ícono todavía -- se
+  agrega cuando haya uno real. Header y footer van a sangre (sin borde ni
+  radio en el contenedor, mismo criterio que `ReciboHoja` impresa en
+  app/globals.css: `border:0; border-radius:0` -- ahí es `@media print`
+  porque el recibo tiene una versión "de pantalla" con card; acá no hay esa
+  dualidad, el mail se ve una sola vez, así que va directo sin card). El
+  título usa Space Grotesk (mismo `font-grotesk` que los recibos) vía Google
+  Fonts, aplicada por clase (`.tk-grotesk`) y nunca inline -- así, en un
+  cliente que ignora el `<style>` del `<head>` (Outlook de escritorio, o el
+  propio Gmail, que no carga fuentes web en casi ningún caso), el elemento
+  se queda con la fuente segura del `style` inline en vez de con nada.
+
+  **Texto blanco: nunca `#ffffff` puro, siempre `rgba(255,255,255,0.99)`.**
+  Confirmado inspeccionando el HTML crudo que realmente llega (Gmail →
+  mensaje → "Mostrar original"): el `style` inline llega intacto, con todos
+  los colores tal cual los escribimos -- el problema es 100% de renderizado
+  de Gmail, no algo que se rompa al guardar el template. Gmail oscurece a
+  propósito cualquier texto en blanco 100% opaco (asumiendo que si el fondo
+  no llega a pintarse por lo que sea, ese texto quedaría invisible), pero no
+  toca un blanco con alfa aunque sea casi 1 -- el footer ya usaba
+  `rgba(255,255,255,0.7)` y por eso era el único que se salvaba antes de
+  este cambio.
+
+  Saludo personalizado con `{{ .Data.nombre }}` -- Supabase completa `.Data`
+  con el `data` que se le pasa a `auth.signUp()` (ver `signUp` en
+  lib/auth/index.ts, mismo mecanismo que ya usa `inviteMember` para
+  `{{ .Data.nombre }}`/`{{ .Data.organizacion }}` en el mail de invitación).
+  Ese `data` queda en el `user_metadata` del usuario, así que después
+  también está disponible en el mail de "Reset Password" de esa misma
+  persona. El `{{ if .Data.nombre }}...{{ end }}` es el fallback para un
+  usuario sin ese dato (no debería pasar hoy, pero un mail no puede quedar
+  "Hola !" si algún día falta).
+
+  HTML de tablas + estilos inline a propósito (no <link>/<style> externo
+  para el resto): es lo único que un cliente de mail como Outlook/Gmail
+  renderiza sin romper. Una sola columna fluida (max-width 600px) para que
+  se vea bien tanto en desktop como en el mail de un celular sin depender
+  de que el cliente soporte @media -- el `@media` de acá adentro es una
+  mejora para los que sí lo soportan (ajusta paddings), no la base del
+  layout.
+-->
+<!doctype html>
+<html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="color-scheme" content="light" />
+<title>Confirmá tu cuenta · Tekly</title>
+<!--[if mso]>
+<style>* { font-family: Arial, sans-serif !important; }</style>
+<![endif]-->
+<!-- Space Grotesk para el título -- clientes que no cargan fuentes web
+     (Outlook de escritorio) caen solos al fallback del stack de abajo. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+  body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; display: block; }
+  body { margin: 0; padding: 0; width: 100% !important; background: #fafafa; }
+  a { text-decoration: none; }
+  /* El nombre de la fuente va acá, nunca inline en el título -- así un
+     cliente que ignora este bloque (Outlook de escritorio) simplemente no
+     aplica la regla y el título se queda con la fuente segura que ya lleva
+     inline, en vez de sin ninguna. */
+  .tk-grotesk { font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+  @media screen and (max-width: 600px) {
+    .tk-container { width: 100% !important; }
+    .tk-px { padding-left: 24px !important; padding-right: 24px !important; }
+    .tk-band { padding: 28px 24px !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background:#fafafa;">
+  <!-- Preheader: se ve en la lista de la bandeja de entrada, invisible en el cuerpo -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+    Confirmá tu cuenta para empezar a usar Tekly.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;">
+    <tr>
+      <!-- Sin padding, ni horizontal ni vertical: cualquier aire acá
+           dejaba un margen gris antes de que arranque la banda -- mismo
+           criterio que `@page { margin: 0 }` en el recibo impreso, la
+           banda tiene que tocar el borde real (arriba, costados y abajo). -->
+      <td align="center" style="padding:0;">
+        <table role="presentation" class="tk-container" width="600" cellpadding="0" cellspacing="0" style="width:600px; max-width:600px; background:#ffffff;">
+
+          <!-- Banda superior, mismo criterio que ReciboHoja -->
+          <tr>
+            <td class="tk-band" align="center" style="background:#4f49bd; padding:36px 40px; text-align:center;">
+              <p style="margin:0 0 14px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,0.99);">
+                Tekly
+              </p>
+              <!-- Línea fina, mismo divisor que el header de AuthModal
+                   (components/auth/auth-modal.tsx: h-px w-full bg-white/20) --
+                   tabla en vez de <hr> para que Outlook la respete. -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;">
+                <tr>
+                  <td style="border-top:1px solid rgba(255,255,255,0.25); font-size:1px; line-height:1px;">&nbsp;</td>
+                </tr>
+              </table>
+              <!-- <p>, no <h1>: Gmail le mete su propio estilo default
+                   (negro, sin mayúscula) a cualquier h1-h6, sin importar
+                   el style inline -- se ve clarísimo comparado con el <p>
+                   de "¿El botón no funciona?" de más abajo, que sí respeta
+                   el suyo. `color:rgba(255,255,255,0.99)`, no `#ffffff`
+                   puro: ver nota grande arriba del archivo. -->
+              <p class="tk-grotesk" style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:24px; line-height:1.3; font-weight:700; text-transform:uppercase; letter-spacing:.01em; color:rgba(255,255,255,0.99);">
+                Confirmá tu cuenta
+              </p>
+            </td>
+          </tr>
+
+          <!-- Cuerpo -->
+          <tr>
+            <td class="tk-px" style="padding:36px 40px 8px 40px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+              <p style="margin:0 0 20px; font-size:15px; line-height:1.6; color:#404040;">
+                Hola{{ if .Data.nombre }} {{ .Data.nombre }}{{ end }}!
+              </p>
+              <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#404040;">
+                Creaste una cuenta en Tekly con este email. Confirmala para poder
+                entrar y empezar a gestionar tu organización.
+              </p>
+
+              <!-- Botón (pill, mismo gradiente/color que el Button primario de la app) -->
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 28px;">
+                <tr>
+                  <td align="center" style="border-radius:999px; background:#4f49bd;">
+                    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup"
+                       style="display:inline-block; padding:14px 34px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:13px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:rgba(255,255,255,0.99); border-radius:999px;">
+                      Confirmar cuenta
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Tarjeta accent-soft con el link de respaldo, mismo tono que
+                   las tarjetas "Facturado por/a" del recibo -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#edecf8; border-radius:12px; margin:0 0 28px;">
+                <tr>
+                  <td style="padding:16px 20px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                    <p style="margin:0 0 6px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#4f49bd;">
+                      ¿El botón no funciona?
+                    </p>
+                    <p style="margin:0; font-size:12px; line-height:1.6; color:#525252; word-break:break-all;">
+                      Copiá y pegá este link en tu navegador:<br />
+                      <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup" style="color:#4f49bd;">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 32px; font-size:12px; line-height:1.6; color:#a3a3a3; text-align:center;">
+                Si no creaste esta cuenta, podés ignorar este mail — no se va a activar nada.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer, misma banda que el pie del recibo -->
+          <tr>
+            <td align="center" style="background:#4f49bd; padding:16px 24px;">
+              <p style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:10px; color:rgba(255,255,255,0.7);">
+                © 2026 Tekly.tech
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

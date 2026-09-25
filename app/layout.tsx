@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk } from "next/font/google";
+import { getActiveTema } from "@/lib/theme";
 import "./globals.css";
 
 // Fuente de los números grandes (KPIs del dashboard). Se expone como CSS var
@@ -16,13 +17,18 @@ export const metadata: Metadata = {
   description: "CRM de gestión para venta y reparación de iPhones",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const tema = await getActiveTema();
   return (
-    <html lang="es" className={spaceGrotesk.variable}>
+    // data-tema en <html> (no en un div de (app)/layout.tsx): ReciboImprimir
+    // porta el recibo a document.body vía createPortal, FUERA del árbol de
+    // (app) -- en un div más adentro el recibo impreso no heredaría las
+    // CSS vars y saldría siempre en índigo.
+    <html lang="es" className={spaceGrotesk.variable} data-tema={tema}>
       <body>{children}</body>
     </html>
   );

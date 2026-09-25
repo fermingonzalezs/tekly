@@ -67,7 +67,7 @@ middleware.ts             protege rutas (sin sesión -> /login)
 components/ui/            primitivos reutilizables (ver abajo)
 components/auth/          AuthModal, AppPreviewBackdrop, UserMenu
 components/dashboard/     widgets del Dashboard
-components/notifications/ Toaster + SimPanel (en layout) + NotificationsBell (en Topbar)
+components/notifications/ Toaster (en layout) + NotificationsBell (en Topbar)
 lib/auth/                 sesión + login/signup -- única puerta a @supabase/* para auth
 lib/db/<dominio>.ts       una por dominio migrado -- única puerta a @supabase/* para datos
 lib/mock-data.ts          datos de ejemplo de las secciones TODAVÍA no migradas
@@ -842,7 +842,10 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   cuenta corriente generado (ver "Medios de pago" arriba), borrar la
   `Compra` de canje generada — `deleteVenta` (`lib/db/ventas.ts`) recibe
   los 5 como un objeto de opciones.
-- **Clientes** (`app/(app)/clientes/`, migrado): tabla (no cards). Fila →
+- **Clientes** (`app/(app)/clientes/`, migrado): tabla (no cards). Soporta
+  deep link `/clientes?open=<id>` (`useSearchParams`, mismo patrón que
+  Compras) — es a donde linkean el mapa de valor, las cohortes y las listas
+  de atención del tab Clientes de Analíticas. Fila →
   ficha con historial cruzado real (ventas/tickets/turnos vía
   `lib/db/clientes.ts`); toolbar «Nuevo cliente». `compras`/`reparaciones`/
   `gastadoUsd` son calculados, no columnas — ver "Backend y multi-tenancy".
@@ -896,7 +899,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `Ticket.checklistIngreso` de Reparaciones. El detalle de una compra
   `canje` muestra ese bloque ("Información del equipo" + checklist +
   aclaraciones) y un botón **«Imprimir recibo de canje»**
-  (`ReciboDialog`/`ReciboChecklist` reusados de `components/recibos/recibo`,
+  (`ReciboImprimir`/`ReciboChecklist` reusados de `components/recibos/recibo`,
   con la firma del cliente y de la empresa que ya trae todo recibo de la
   app) — es el único lugar donde se ve/imprime ese PDF, por eso Ventas solo
   linkea acá (`/compras?open=<id>`, leído con `useSearchParams` igual que el
@@ -927,10 +930,28 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `ventasPorMes`/`facturacionDiaria` reales a partir de `ventas` —
   `lib/analiticas.ts`, con test (cuidado ahí con el bug de huso horario:
   `fechaISO` se lee con `.slice()`, nunca con `new Date(iso).getMonth()`,
-  que corre un día en husos negativos). `FuenteClientes` es un server
-  component (async) desde que se migró Clientes — no se puede importar
-  directo en el client component de Analíticas, así que `page.tsx` lo
-  renderiza y lo pasa como children. Facturación por vendedor, ingresos por
+  que corre un día en husos negativos). Tab **Clientes** = Customer
+  Intelligence: la lógica vive en `lib/clientes-inteligencia.ts` (puro, con
+  test — fuente de verdad de las definiciones: operación = venta o ticket,
+  los turnos NO cuentan; gasto = `ventas.totalUsd`; procedencia del cliente
+  = la de su primera venta con `procedencia`, columna de `ventas` no de
+  `clientes`; activo = ≥1 op en 90 días; en riesgo = historial y nada en
+  180; tasa de recurrencia = ≥2 ops sobre ≥1; recurrente del lifecycle =
+  ≥3). Foto del estado actual: el filtro de fecha NO aplica al tab, y
+  `hoy: Date` se pasa del server al client para que SSR e hidratación
+  computen lo mismo (husos horarios distintos romperían la hidratación).
+  Contenido: 4 KPIs (nunca filtrados) + mapa de valor (X operaciones, Y
+  gasto, tamaño antigüedad, color canal de adquisición — top 220 por gasto,
+  mismo recorte que `StockBubble`) + compras vs reparaciones (zonas por
+  mediana del set graficado, guías no clasificación) + lifecycle Sankey
+  (1ª op → 2ª → recurrentes por mix, con caídas a una barra de inactivos;
+  ribbons en SVG estirado + labels en overlay HTML, patrón
+  `TendenciaRubros`) + cohortes M0-M6 con drill-down por celda + ingresos
+  nuevos vs existentes (línea SVG) + ranking de canales con toggle
+  Clientes/Ingresos (click filtra los scatters por procedencia — "Sin dato"
+  gris, nunca un tono de la paleta) + listas de atención. Componentes en
+  `components/analiticas/clientes/`; todos los linkeos a clientes van a
+  `/clientes?open=<id>`. Facturación por vendedor, ingresos por
   medio de pago, ventas por canal (`procedencia`), equipos por estado y
   facturación acumulada (SVG) ya eran cálculos genéricos sobre esos arrays,
   no cambiaron. `margenPorTipo` (`lib/analiticas.ts`, con test) es real
@@ -996,8 +1017,8 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
 
 ### Recibos / PDFs
 
-`components/recibos/recibo.tsx`: `ReciboDialog` (Dialog + botón «Imprimir /
-Guardar PDF» → `window.print()`) envuelve `ReciboShell`, que arma una o
+`components/recibos/recibo.tsx`: `ReciboImprimir` (sin preview -- ver "Sin
+modal de preview" abajo) envuelve `ReciboShell`, que arma una o
 varias `ReciboHoja` (una por `ReciboPagina` en `paginas`, cada una con
 `break-after: page` propio — ver "una o varias hojas" abajo; sin `paginas`
 cae al uso de siempre, una sola hoja con `titulo`+`children`). Cada hoja:
@@ -1015,11 +1036,11 @@ entra completo en lo que queda de una hoja, pasa entero a la siguiente en
 vez de cortarse a la mitad.
 
 Bloque de identificación del cliente, dos variantes (prop `compacto` de
-`ReciboPagina`, o top-level en `ReciboDialog`/`ReciboShell` para el uso de
+`ReciboPagina`, o top-level en `ReciboImprimir`/`ReciboShell` para el uso de
 una sola hoja sin `paginas`): **normal** — "Datos de facturación" con dos
 tarjetas "Facturado por" (negocio real, `nombre`/`direccion`/`cuit`/
 `telefono`) / "Facturado a" (`cliente` + `ReciboClienteContacto`: teléfono/
-email del cliente si `ReciboDialog` los recibe, `null` si no hay dato).
+email del cliente si `ReciboImprimir` los recibe, `null` si no hay dato).
 **`compacto`** (Ventas → Garantía, Reparaciones → Ticket de ingreso) — el
 negocio pasa a la banda superior (reemplaza el logo placeholder) y el
 cliente queda en una sola tarjeta "Información cliente"; `sello` (prop
@@ -1058,11 +1079,27 @@ Ventas y en cada fila de "Ítems vendidos" — ya no depende de que el ítem
 tenga `equipoId`; el ítem sin `equipoId` sale con "—" en la columna
 Garantía). El membrete (nombre/dirección/CUIT/teléfono) toma `negocio` real
 (`lib/db/configuracion.ts` → `getNegocio()`) pasado como prop desde cada
-`page.tsx` hasta `ReciboDialog` — el import de `lib/mock-data.ts` que queda
+`page.tsx` hasta `ReciboImprimir` — el import de `lib/mock-data.ts` que queda
 en el archivo es solo el valor por default del prop, nunca se usa (todas las
 páginas siempre lo pasan). El teléfono/email del cliente (`clienteTelefono`/
-`clienteEmail` en `ReciboDialog`) se resuelve en cada client component
+`clienteEmail` en `ReciboImprimir`) se resuelve en cada client component
 contra `ClienteOpcion` (por `clienteId`), no viaja en `Venta`/`Ticket`.
+
+**Sin modal de preview**: el ícono/botón de cada documento (Ticket de
+ingreso, Garantía, Recibo de canje, etc.) manda directo al diálogo nativo
+de imprimir/guardar PDF del navegador — no hay paso intermedio de preview
+en un `Dialog`. El estado que dispara cada documento (`recibo`/`open` en
+cada `*-client.tsx`) sigue siendo un simple booleano/objeto-o-null, sin
+cambios ahí: lo que cambió es que `ReciboImprimir` ya no envuelve un
+`Dialog` — arma el recibo directo en `#recibo-print-root` (portal a
+`document.body`, mismo mecanismo de aislamiento de impresión de
+`app/globals.css` que ya existía) y, en un `useEffect` sobre `open`, espera
+a que las imágenes del recibo (el logo del negocio) terminen de cargar —
+con un timeout de seguridad (`ESPERA_MAXIMA_IMAGENES_MS`, 2s) por si alguna
+nunca resuelve — antes de llamar a `window.print()`. Al cerrarse ese
+diálogo nativo (evento `afterprint`, se dispare imprimiendo o cancelando)
+llama a `onClose()` para volver el estado a `null`/`false`, listo para el
+próximo click.
 
 Textos editables de garantía (`Negocio.garantiaTexto/garantiaCondiciones/
 garantiaImportante/garantiaCausales`, columnas nuevas en `organizations`,
@@ -1116,11 +1153,6 @@ nombre de actor** -- eso fue un bug real que quedó de la época mock.
   timestamp y las muestra en un dropdown al tocar la campanita, con contador
   de no leídas. Es en memoria del navegador -- se pierde al recargar, no hay
   tabla de notificaciones persistida.
-- `components/notifications/sim-panel.tsx` es el botón flotante "Simular"
-  para disparar eventos fake (con actores de mock, a propósito -- es un
-  simulador). Publica con `publish(e, { self: true })`: el evento se entrega
-  además a los listeners locales (misma pestaña), independiente del
-  transporte -- así se puede testear aunque Realtime no esté conectado.
 - De los 6 tipos de `AppEvent`, `low_stock` está definido pero **nada lo
   dispara todavía** -- ninguna sección chequea stock contra el mínimo y
   publica el evento. Pendiente si se decide conectarlo.

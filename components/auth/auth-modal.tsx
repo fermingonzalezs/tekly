@@ -14,7 +14,7 @@ export function AuthModal({
 }) {
   return (
     <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-accent bg-white shadow-2xl">
-      <div className="border-b border-[#352f86] bg-[#352f86] px-5 py-4 text-white">
+      <div className="border-b border-table-header bg-table-header px-5 py-4 text-white">
         <div className="flex items-center gap-2.5">
           <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/15">
             <Smartphone className="h-4 w-4" />

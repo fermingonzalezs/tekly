@@ -9,7 +9,7 @@ import {
   deleteMovimiento,
   crearConciliacion,
 } from "@/lib/db/cajas";
-import type { ConciliacionLinea, MedioPago } from "@/lib/types";
+import type { CategoriaGasto, ConciliacionLinea, MedioPago } from "@/lib/types";
 
 export async function saveCajaAction(id: string | null, data: CajaInput) {
   await requireUser();
@@ -23,6 +23,7 @@ export async function createMovimientoAction(data: {
   cajaId: string;
   concepto: string;
   medioPago: MedioPago;
+  categoria?: CategoriaGasto | null;
   monto: number;
 }) {
   await requireUser();

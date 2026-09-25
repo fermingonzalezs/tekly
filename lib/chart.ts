@@ -1,19 +1,23 @@
 // Paleta única de todos los gráficos de la app (dashboard, analíticas, …).
-// Monocromática índigo: mayor valor = tono más oscuro. Mismo índice ⇒ mismo
-// color en cualquier card.
+// Monocromática: mayor valor = tono más oscuro. Mismo índice ⇒ mismo color
+// en cualquier card. Los valores son CSS vars (--chart-*, --accent-soft) que
+// define el tema activo (app/globals.css) -- los charts siguen la paleta de
+// la organización sin tocar acá. Como strings se usan igual en style={{...}}
+// y en atributos SVG.
 export const CHART_COLORS = [
-  "#2e2a5f",
-  "#352f86",
-  "#4f49bd",
-  "#7269d4",
-  "#948dde",
+  "var(--chart-0)",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
 ] as const;
 
 export const chartColor = (i: number) =>
   CHART_COLORS[i % CHART_COLORS.length];
 
-// Índigo fuerte para líneas y rellenos con presencia (tendencia, objetivo).
-export const CHART_ACCENT = "#4f49bd";
+// Tono fuerte de la paleta para líneas y rellenos con presencia (tendencia,
+// objetivo).
+export const CHART_ACCENT = "var(--chart-2)";
 
 // Gráficos con categorías fijas: siempre el mismo tono por clave.
 export const TURNO_TIPO_COLOR = {
@@ -24,20 +28,21 @@ export const TURNO_TIPO_COLOR = {
 } as const;
 
 // Pista / fondo neutro de arcos y barras "fantasma".
-export const CHART_TRACK = "#e9e8f9"; // = accent-soft (índigo claro)
+export const CHART_TRACK = "var(--accent-soft)";
 
 // Relleno rayado diagonal: barra en reposo / tramo no cumplido de un objetivo.
+// Gris fijo a propósito: es "tramo no cumplido", no color de marca.
 export const GHOST_STRIPES =
   "repeating-linear-gradient(45deg, #d4d4d8 0 4px, #ededf0 4px 8px)";
 
-// Rampa secuencial para heatmaps: claro → oscuro (mismo hue índigo).
+// Rampa secuencial para heatmaps: claro → oscuro (mismo hue de la paleta).
 export const HEAT_SCALE = [
-  "#e9e8f9",
-  "#948dde",
-  "#7269d4",
-  "#4f49bd",
-  "#352f86",
-  "#2e2a5f",
+  "var(--accent-soft)",
+  "var(--chart-4)",
+  "var(--chart-3)",
+  "var(--chart-2)",
+  "var(--chart-1)",
+  "var(--chart-0)",
 ] as const;
 
 // Aliases: el dashboard estrenó estos nombres; ahora son la paleta de toda

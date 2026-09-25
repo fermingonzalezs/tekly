@@ -1,30 +1,48 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { Input, Select } from "@/components/ui/field";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
 import { filterPill } from "@/lib/ui-styles";
-// Estos 2 datasets no son derivables de las tablas reales todavía: no hay
-// timestamp de "listo/entregado" en tickets (tiempoPorFalla), ni campo de
-// reingreso/calificación en ningún lado (rendimientoTecnicos). Agregar esas
-// columnas es una decisión de producto, no de esta migración.
-import { tiempoPorFalla, rendimientoTecnicos } from "@/lib/mock-data";
 import {
   margenPorTipo as calcularMargenPorTipo,
   ventasPorDiaSemana,
-  type MargenPorTipo,
+  ventasBrutasPorFalla,
+  funnelTickets,
+  tasaAceptacion,
+  rentabilidadPorMes,
+  stockItems,
+  agingBuckets,
+  diasInventarioEquipos,
+  unidadesDeMovimiento,
+  AGING_RANGOS,
+  STOCK_CATS,
+  CAT_STOCK_LABEL,
   type RubroMes,
+  type AntiguedadTickets,
+  type StockCategoria,
 } from "@/lib/analiticas";
 import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe } from "@/lib/ventas";
 import {
-  equipoStatus,
+  DIAS_ACTIVO,
+  DIAS_RIESGO,
+  SIN_PROCEDENCIA,
+  clientesIntel,
+  kpisClientes,
+  cohortesClientes,
+  flujoClientes,
+  procedenciaRanking,
+  ingresosPorMesClientes,
+} from "@/lib/clientes-inteligencia";
+import {
   medioPago as medioPagoCfg,
+  categoriaGasto as categoriaGastoCfg,
   turnoTipo,
   turnoStatus,
 } from "@/lib/status";
@@ -33,11 +51,40 @@ import { useDolar } from "@/lib/dolar";
 import { CHART_ACCENT, chartColor } from "@/lib/chart";
 import { cn } from "@/lib/utils";
 import { TendenciaRubros } from "@/components/analiticas/tendencia-rubros";
+import { Treemap } from "@/components/analiticas/treemap";
+import { FunnelReparaciones } from "@/components/analiticas/funnel-reparaciones";
+import { GaugeAceptacion } from "@/components/analiticas/gauge-aceptacion";
+import { HeatmapActividad } from "@/components/analiticas/heatmap-actividad";
+import { RentabilidadEvolucion } from "@/components/analiticas/rentabilidad-linea";
+import { WaterfallResultado } from "@/components/analiticas/waterfall-resultado";
+import { ScatterMargen } from "@/components/analiticas/scatter-margen";
+import { FlujoCaja } from "@/components/analiticas/flujo-caja";
+import { AgingRing } from "@/components/analiticas/aging-ring";
+import { StockQuadrant } from "@/components/analiticas/stock-quadrant";
+import { StockHeatmap } from "@/components/analiticas/stock-heatmap";
+import { InventarioFlow } from "@/components/analiticas/inventario-flow";
 import { DonutChart } from "@/components/dashboard/donut-chart";
-import { DemografiaClientes } from "@/components/clientes/demografia";
 import { InventarioValor } from "@/components/inventario-valor";
-import type { Caja, Cliente, Equipo, MovimientoCaja, OtroItem, Repuesto, Turno, Venta } from "@/lib/types";
-import type { Periodo, RangoEdad } from "@/lib/clientes";
+import { ValueMap } from "@/components/analiticas/clientes/value-map";
+import { ComprasReparacionesMap } from "@/components/analiticas/clientes/compras-reparaciones-map";
+import { LifecycleSankey } from "@/components/analiticas/clientes/lifecycle-sankey";
+import { CohortHeatmap } from "@/components/analiticas/clientes/cohort-heatmap";
+import { RevenueTimeline } from "@/components/analiticas/clientes/revenue-timeline";
+import { ProcedenciaRanking } from "@/components/analiticas/clientes/procedencia-ranking";
+import { AtencionClientes } from "@/components/analiticas/clientes/atencion-clientes";
+import type {
+  Caja,
+  Cliente,
+  Compra,
+  Equipo,
+  MovimientoCaja,
+  OtroItem,
+  Repuesto,
+  Ticket,
+  Turno,
+  Venta,
+} from "@/lib/types";
+import type { MovimientoStockBulk } from "@/lib/db/inventario";
 
 type Row = { label: string; value: number };
 
@@ -81,6 +128,13 @@ const CATEGORIAS = [
 ] as const;
 type Categoria = (typeof CATEGORIAS)[number]["value"];
 
+/** "2026-09" -> "sep 26" — etiqueta de los gráficos por mes. */
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const mesCorto = (key: string) => {
+  const [y, m] = key.split("-");
+  return `${MESES_CORTOS[Number(m) - 1]} ${y.slice(2)}`;
+};
+
 export function AnaliticasClient({
   ventas,
   equipos,
@@ -90,12 +144,13 @@ export function AnaliticasClient({
   turnos,
   cajas,
   movimientosTodos,
-  ventasPorMes,
+  movimientosStock,
+  compras,
+  tickets,
   salesTrend,
-  margenPorTipo,
   rubroMesData,
-  demografia,
-  fuenteClientes,
+  antiguedadTickets,
+  hoy,
 }: {
   ventas: Venta[];
   equipos: Equipo[];
@@ -105,12 +160,16 @@ export function AnaliticasClient({
   turnos: Turno[];
   cajas: Caja[];
   movimientosTodos: MovimientoCaja[];
-  ventasPorMes: { mes: string; usd: number }[];
+  movimientosStock: MovimientoStockBulk[];
+  compras: Compra[];
+  tickets: Ticket[];
   salesTrend: number[];
-  margenPorTipo: MargenPorTipo[];
   rubroMesData: RubroMes[];
-  demografia: Record<Periodo, RangoEdad[]>;
-  fuenteClientes: React.ReactNode;
+  antiguedadTickets: AntiguedadTickets[];
+  /** Fecha del server: las ventanas de días del tab Clientes se computan
+   *  contra `hoy` para que SSR e hidratación coincidan (husos horarios
+   *  distintos romperían la hidratación si cada lado usara su `Date`). */
+  hoy: Date;
 }) {
   const [tab, setTab] = useState<Categoria>("ventas");
   const dolarVenta = useDolar().venta;
@@ -118,6 +177,16 @@ export function AnaliticasClient({
   const [datePreset, setDatePreset] = useState<DatePreset>("todos");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
+
+  // celda del heatmap de Inventario que afina la lista de "Stock que pide
+  // atención" (click en una celda de "Capital por antigüedad")
+  const [celdaStock, setCeldaStock] = useState<{
+    rango: string;
+    categoria: StockCategoria;
+  } | null>(null);
+  // Filtro de canal del tab Clientes (desde el ranking de procedencia):
+  // atenúa los scatters y marca la fila activa. Los KPIs nunca se filtran.
+  const [procedenciaFiltro, setProcedenciaFiltro] = useState<string | null>(null);
   const range =
     datePreset === "personalizado"
       ? { desde, hasta }
@@ -126,17 +195,43 @@ export function AnaliticasClient({
     (!range.desde || iso >= range.desde) && (!range.hasta || iso <= range.hasta);
 
   // Solo se filtran por fecha los gráficos que salen de registros con fecha
-  // propia (ventas, movimientos de caja). Los demás son fotos del estado
-  // actual (stock, valor de inventario) o series ya fijas por período
-  // (tendencias mensuales, demografía, turnos de los próximos 7 días) — no
-  // hay una fecha real detrás para filtrarlos.
+  // propia (ventas, compras, movimientos de caja, tickets). Los demás son
+  // fotos del estado actual (stock, valor de inventario, métricas de
+  // clientes del tab Clientes) o series ya fijas por período (tendencias
+  // mensuales, turnos de los próximos 7 días) — no hay una fecha real
+  // detrás para filtrarlos.
   const ventasFiltradas = ventas.filter((v) => inRange(v.fechaISO));
-  const movimientosFiltrados = movimientosTodos.filter((m) =>
-    inRange(new Date(m.fecha).toISOString().slice(0, 10)),
-  );
+  const comprasFiltradas = compras.filter((c) => inRange(c.fechaISO));
+  const movimientosFiltrados = movimientosTodos.filter((m) => inRange(m.fechaISO));
+  const ticketsFiltrados = tickets.filter((t) => inRange(t.fechaISO));
 
-  const maxMes = Math.max(1, ...ventasPorMes.map((m) => m.usd));
-  const maxHoras = Math.max(1, ...tiempoPorFalla.map((f) => f.horas));
+  // ── Reparaciones: distribuciones por período filtrado. La antigüedad de
+  // tickets abiertos, en cambio, es una foto del estado actual -- llega ya
+  // calculada desde page.tsx (antiguedadTickets), sin filtro de fecha. ──
+  const porFalla = ventasBrutasPorFalla(ticketsFiltrados).slice(0, 8);
+  const maxPorFalla = Math.max(1, ...porFalla.map((f) => f.totalUsd));
+  const maxCantidadPorFalla = Math.max(1, ...porFalla.map((f) => f.tickets));
+  const funnel = funnelTickets(ticketsFiltrados);
+  const aceptacion = tasaAceptacion(ticketsFiltrados);
+  const maxAntiguedad = Math.max(1, ...antiguedadTickets.map((r) => r.tickets));
+
+  // ── Reparaciones: KPIs del período filtrado. `gastoRepuestos` es una
+  // aproximación con el costo ACTUAL de cada repuesto -- a diferencia de
+  // `VentaItem.costoUsd`, `TicketServicio` no guarda un snapshot del costo
+  // al momento de usarlo; un repuesto ya borrado del catálogo no suma nada. ──
+  const repuestosPorId = new Map(repuestos.map((r) => [r.id, r]));
+  const ingresosReparaciones = ticketsFiltrados.reduce((a, t) => a + t.presupuestoUsd, 0);
+  const gastoRepuestosReparaciones = ticketsFiltrados.reduce((a, t) => {
+    const usados = t.servicios.filter((s) => s.origen === "repuesto");
+    return (
+      a +
+      usados.reduce((acc, s) => {
+        const repuesto = s.repuestoId ? repuestosPorId.get(s.repuestoId) : undefined;
+        return acc + (repuesto ? repuesto.costoUsd * (s.cantidad ?? 1) : 0);
+      }, 0)
+    );
+  }, 0);
+  const gananciaFinalReparaciones = ingresosReparaciones - gastoRepuestosReparaciones;
 
   const porMedio = agrupar(
     Object.entries(
@@ -171,19 +266,8 @@ export function AnaliticasClient({
       ? ventasFiltradas.reduce((a, v) => a + v.margenPct * v.totalUsd, 0) / facturacionPeriodo
       : 0;
 
-  // ── Ventas: ítems más vendidos del período (por ingreso) ──
-  const itemsVendidos: Row[] = (() => {
-    const acc = new Map<string, number>();
-    for (const v of ventasFiltradas) {
-      for (const item of v.items) {
-        acc.set(item.detalle, (acc.get(item.detalle) ?? 0) + item.precioUsd * item.cantidad);
-      }
-    }
-    return agrupar([...acc.entries()]).slice(0, 6);
-  })();
-
-  // ── Ventas: mix de rubros del período (dona) ──
-  const rubroSlices = (() => {
+  // ── Ventas: mix de rubros del período (treemap) ──
+  const rubroTreemap = (() => {
     const totales = new Map<string, number>();
     for (const v of ventasFiltradas) {
       for (const item of v.items) {
@@ -191,21 +275,33 @@ export function AnaliticasClient({
         totales.set(cat, (totales.get(cat) ?? 0) + item.precioUsd * item.cantidad);
       }
     }
-    const datos = RUBRO_ORDEN.map((cat) => ({ label: RUBRO_LABEL[cat], value: totales.get(cat) ?? 0 }));
-    const total = datos.reduce((a, d) => a + d.value, 0) || 1;
-    return datos.map((d, i) => ({
-      label: d.label,
-      pct: Math.round((d.value / total) * 100),
+    // Mismo mapping de colores que TendenciaRubros: chartColor sobre
+    // RUBRO_ORDEN, un tono fijo por rubro en toda la sección.
+    return RUBRO_ORDEN.map((cat, i) => ({
+      label: RUBRO_LABEL[cat],
+      value: totales.get(cat) ?? 0,
       color: chartColor(i),
-      valueLabel: fmtUsd(d.value),
     }));
   })();
 
-  // ── Ventas: ganancia por categoría del período (mismo cálculo que la
-  // tabla de Finanzas, `margenPorTipo`, pero sobre `ventasFiltradas`) ──
-  const gananciaPeriodo: Row[] = calcularMargenPorTipo(ventasFiltradas)
+  // ── Margen real por rubro del período filtrado: alimenta el gráfico de
+  // ganancia de Ventas y la tabla de Finanzas (mismo cálculo que
+  // `margenPorTipo`, pero respetando el filtro de fecha) ──
+  const margenPeriodo = calcularMargenPorTipo(ventasFiltradas);
+  const gananciaPeriodo: Row[] = margenPeriodo
     .map((r) => ({ label: r.tipo, value: r.gananciaUsd }))
     .sort((a, b) => b.value - a.value);
+  const maxGanancia = Math.max(1, ...gananciaPeriodo.map((r) => r.value));
+
+  // ── Ventas / Finanzas: ingresos por medio de pago (dona -- misma data
+  // en los dos tabs) ──
+  const totalMedio = porMedio.reduce((a, r) => a + r.value, 0) || 1;
+  const medioSlices = porMedio.map((r, i) => ({
+    label: r.label,
+    pct: Math.round((r.value / totalMedio) * 100),
+    color: chartColor(i),
+    valueLabel: fmtUsd(r.value),
+  }));
 
   // ── Ventas: facturación por vendedor (dona con % y monto) ──
   const porVendedor = agrupar(
@@ -228,12 +324,83 @@ export function AnaliticasClient({
   const porDiaSemana = ventasPorDiaSemana(ventasFiltradas);
   const maxDiaSemana = Math.max(1, ...porDiaSemana.map((d) => d.usd));
 
-  const equiposPorEstado = (
-    Object.keys(equipoStatus) as (keyof typeof equipoStatus)[]
-  ).map((s) => ({
-    label: equipoStatus[s].label,
-    value: equipos.filter((e) => e.estado === s).length,
+  // ── Inventario: foto del stock + antigüedad reconstruida de los
+  // movimientos. KPIs y anillo no filtran por fecha (el stock no tiene
+  // fecha propia); el flujo sí -- entradas y salidas tienen fecha de
+  // movimiento. Deltas "vs período anterior" no computables: no hay
+  // snapshots históricos de stock contra los que comparar. ──
+  const stockTodos = stockItems(equipos, repuestos, otros, movimientosStock);
+  const agingStock = agingBuckets(stockTodos);
+  const valorInventario = stockTodos.reduce((a, i) => a + i.valorUsd, 0);
+  const unidadesStock = stockTodos.reduce((a, i) => a + i.unidades, 0);
+  const diasInv = diasInventarioEquipos(movimientosStock, ventas);
+  const inmovilizado = stockTodos
+    .filter((i) => i.dias != null && i.dias > 90)
+    .reduce((a, i) => a + i.valorUsd, 0);
+  const pctInmovilizado =
+    valorInventario > 0 ? (inmovilizado / valorInventario) * 100 : 0;
+
+  // flujo del período filtrado: entradas desde movimientos (equipos son
+  // unidades únicas; repuestos/otros traen "+N unidades" en el detalle),
+  // salidas desde ventas y reparaciones (los movimientos "egreso" solo
+  // cubren repuestos usados en ventas -- la venta de un equipo no genera
+  // egreso, cambia su estado)
+  const movsStockEnRango = movimientosStock.filter((m) => inRange(m.fechaISO));
+  const entradasStock: Record<StockCategoria, number> = { equipo: 0, repuesto: 0, otro: 0 };
+  for (const m of movsStockEnRango) {
+    if (m.tipo !== "ingreso") continue;
+    if (m.itemTipo === "equipo") entradasStock.equipo += 1;
+    else entradasStock[m.itemTipo] += unidadesDeMovimiento(m.detalle) ?? 0;
+  }
+  const salidasStock: Record<StockCategoria, number> = { equipo: 0, repuesto: 0, otro: 0 };
+  for (const v of ventasFiltradas) {
+    for (const i of v.items) {
+      if (i.categoria === "equipo") salidasStock.equipo += i.cantidad;
+      if (i.categoria === "otro") salidasStock.otro += i.cantidad;
+      for (const r of i.repuestos ?? []) salidasStock.repuesto += r.cantidad;
+    }
+  }
+  for (const t of ticketsFiltrados) {
+    for (const s of t.servicios) {
+      if (s.origen === "repuesto" && s.repuestoId) salidasStock.repuesto += s.cantidad ?? 1;
+    }
+  }
+  const stockPorCat = Object.fromEntries(
+    STOCK_CATS.map((c) => [
+      c,
+      {
+        unidades: stockTodos
+          .filter((i) => i.categoria === c)
+          .reduce((a, i) => a + i.unidades, 0),
+        valor: stockTodos
+          .filter((i) => i.categoria === c)
+          .reduce((a, i) => a + i.valorUsd, 0),
+      },
+    ]),
+  ) as Record<StockCategoria, { unidades: number; valor: number }>;
+  const totalUnidadesStock = STOCK_CATS.reduce((a, c) => a + stockPorCat[c].unidades, 0) || 1;
+  const stockUnidadesSlices = STOCK_CATS.map((c, i) => ({
+    label: CAT_STOCK_LABEL[c],
+    pct: Math.round((stockPorCat[c].unidades / totalUnidadesStock) * 100),
+    color: chartColor(i),
+    valueLabel: `${stockPorCat[c].unidades} u`,
   }));
+  const bajasStock = movsStockEnRango.filter((m) => m.tipo === "baja").length;
+
+  // "pide atención": stock con más de 90 días, ordenado por el valor
+  // atado a costo (lo que duele). La celda del heatmap afina rango/categoría.
+  const rangoDeStock = (dias: number) => AGING_RANGOS.findIndex((r) => dias <= r.max);
+  const atencion = stockTodos
+    .filter((i) => i.dias != null && i.dias > 90)
+    .filter(
+      (i) =>
+        !celdaStock ||
+        (i.categoria === celdaStock.categoria &&
+          rangoDeStock(i.dias as number) ===
+            AGING_RANGOS.findIndex((r) => r.rango === celdaStock.rango)),
+    )
+    .sort((a, b) => b.valorUsd - a.valorUsd)
+    .slice(0, 8);
 
   // facturación acumulada (14 días)
   const W = 640;
@@ -264,21 +431,112 @@ export function AnaliticasClient({
     .reduce((a, m) => a + enUsd(m), 0);
   const netoUsd = ingresosUsd - egresosUsd;
 
-  // ── Clientes ──
-  const topClientes: Row[] = [...clientes]
-    .sort((a, b) => b.gastadoUsd - a.gastadoUsd)
-    .slice(0, 6)
-    .map((c) => ({ label: c.nombre, value: c.gastadoUsd }));
+  // ── Finanzas: ganancia real del período (ventas: precio − costo) ──
+  const gananciaPeriodoUsd = margenPeriodo.reduce((a, r) => a + r.gananciaUsd, 0);
 
-  const clientesPorAnio = agrupar(
-    Object.entries(
-      clientes.reduce<Record<string, number>>((a, c) => {
-        const anio = c.desde.split(" ")[1];
-        a[anio] = (a[anio] ?? 0) + 1;
-        return a;
-      }, {}),
-    ),
-  ).sort((a, b) => a.label.localeCompare(b.label));
+  // ── Finanzas: evolución mensual de facturación vs ganancia (margen) ──
+  const rentabilidadMes = rentabilidadPorMes(ventasFiltradas);
+
+  // ── Finanzas: flujo de caja por mes (movimientos de cajas, en USD),
+  //    con caja acumulada al cierre de cada mes ──
+  const flujoMes = (() => {
+    const meses = new Map<string, { ingresos: number; egresos: number }>();
+    for (const m of movimientosFiltrados) {
+      const key = m.fechaISO.slice(0, 7);
+      const fila = meses.get(key) ?? { ingresos: 0, egresos: 0 };
+      if (m.tipo === "ingreso") fila.ingresos += enUsd(m);
+      else fila.egresos += enUsd(m);
+      meses.set(key, fila);
+    }
+    let acumulado = 0;
+    return [...meses.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, v]) => {
+        const neto = v.ingresos - v.egresos;
+        acumulado += neto;
+        return { key, label: mesCorto(key), ...v, neto, acumulado };
+      });
+  })();
+
+  // ── Finanzas: gastos de cajas agrupados por categoría estructurada
+  //    (`MovimientoCaja.categoria`). Egresos de antes de este campo (o
+  //    cargados sin categoría) caen en "Sin categoría" -- no se inventa. ──
+  const gastosPorCategoria = (() => {
+    const totales = new Map<string, number>();
+    for (const m of movimientosFiltrados) {
+      if (m.tipo !== "egreso") continue;
+      const categoria = m.categoria ? categoriaGastoCfg[m.categoria].label : "Sin categoría";
+      totales.set(categoria, (totales.get(categoria) ?? 0) + enUsd(m));
+    }
+    const total = [...totales.values()].reduce((a, b) => a + b, 0);
+    const filas = [...totales.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([categoria, monto]) => ({
+        categoria,
+        monto,
+        pct: total > 0 ? (monto / total) * 100 : 0,
+      }));
+    return { total, filas };
+  })();
+  const maxGasto = Math.max(1, ...gastosPorCategoria.filas.map((g) => g.monto));
+
+  // ── Finanzas: compras (inversión en stock) vs facturación por mes ──
+  const comprasVentasMes = (() => {
+    const meses = new Map<string, { ventas: number; compras: number }>();
+    const acum = (iso: string, campo: "ventas" | "compras", monto: number) => {
+      const key = iso.slice(0, 7);
+      const fila = meses.get(key) ?? { ventas: 0, compras: 0 };
+      fila[campo] += monto;
+      meses.set(key, fila);
+    };
+    for (const v of ventasFiltradas) acum(v.fechaISO, "ventas", v.totalUsd);
+    for (const c of comprasFiltradas) acum(c.fechaISO, "compras", c.totalUsd);
+    return [...meses.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, v]) => ({ key, label: mesCorto(key), ...v }));
+  })();
+  const maxComprasVentas = Math.max(
+    1,
+    ...comprasVentasMes.flatMap((m) => [m.ventas, m.compras]),
+  );
+  // Cobertura del período: USD facturados por cada USD comprado. No es
+  // una "rotación de stock": eso necesitaría inventario promedio histórico,
+  // que el modelo no guarda -- ratio simple, datos reales, nombre honesto.
+  const totalVentasMes = comprasVentasMes.reduce((a, m) => a + m.ventas, 0);
+  const totalComprasMes = comprasVentasMes.reduce((a, m) => a + m.compras, 0);
+  const cobertura =
+    totalComprasMes > 0 ? totalVentasMes / totalComprasMes : null;
+
+  // ── Clientes: Customer Intelligence (lib/clientes-inteligencia.ts es la
+  // fuente de verdad de las definiciones). Foto del estado actual, sin
+  // filtro de fecha: son métricas de estado/ventana, no de flujo del
+  // período -- el recorrido completo entra crudo y cada métrica corta su
+  // propia ventana. Se memoiza pesado (cruza clientes×ventas×tickets). ──
+  const intel = useMemo(
+    () => clientesIntel(clientes, ventas, tickets, hoy),
+    [clientes, ventas, tickets, hoy],
+  );
+  const kpis = useMemo(() => kpisClientes(intel, hoy), [intel, hoy]);
+  const cohortes = useMemo(() => cohortesClientes(intel, hoy), [intel, hoy]);
+  const flujo = useMemo(() => flujoClientes(intel), [intel]);
+  const ranking = useMemo(() => procedenciaRanking(intel), [intel]);
+  const ingresosClientes = useMemo(
+    () => ingresosPorMesClientes(ventas, tickets, intel, hoy),
+    [ventas, tickets, intel, hoy],
+  );
+  // Color por canal: el orden del ranking (clientes desc) fija el tono de
+  // cada canal en TODOS los gráficos del tab. "Sin dato" no entra a la
+  // paleta: gris neutro, no un tono de la serie (no es un canal real).
+  const colorDe = useMemo(() => {
+    const mapa = new Map<string, string>();
+    let i = 0;
+    for (const fila of ranking) {
+      if (fila.label === SIN_PROCEDENCIA) continue;
+      mapa.set(fila.label, chartColor(i++));
+    }
+    return (procedencia: string | null) =>
+      procedencia == null ? "#d4d4d8" : (mapa.get(procedencia) ?? "#d4d4d8");
+  }, [ranking]);
 
   // ── Turnos ──
   const turnosPorTipo: Row[] = (
@@ -300,6 +558,12 @@ export function AnaliticasClient({
     return { label: h, value: turnos.filter((t) => t.hora === h).length };
   });
   const maxPorHora = Math.max(1, ...turnosPorHora.map((x) => x.value));
+
+  // ── Turnos: KPIs -- sobre los turnos de los próximos 7 días (mismo
+  // alcance que el resto de la pestaña, ver "Turnos" en CLAUDE.md). ──
+  const turnosConfirmados = turnos.filter((t) => t.estado === "confirmado").length;
+  const turnosCancelados = turnos.filter((t) => t.estado === "cancelado").length;
+  const tasaConfirmacionTurnos = turnos.length > 0 ? (turnosConfirmados / turnos.length) * 100 : 0;
 
   return (
     <Section title="Analíticas">
@@ -365,55 +629,31 @@ export function AnaliticasClient({
               <StatCard label="Margen promedio" value={`${margenPromedio.toFixed(1)}%`} />
             </div>
 
-            <TendenciaRubros data={rubroMesData} className="min-h-[340px]" />
-
+            {/* Lo que sirve desde el primer día de uso, arriba. */}
             <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-              <Card className="p-5">
-                <ChartTitle align="left" divider>Ventas por mes (U$)</ChartTitle>
-                <div className="mt-5 flex items-end gap-3">
-                  {ventasPorMes.map((m) => (
-                    <div key={m.mes} className="flex flex-1 flex-col items-center gap-2">
-                      <span className="text-[11px] font-medium text-neutral-400">
-                        {(m.usd / 1000).toFixed(0)}k
-                      </span>
-                      <div
-                        className="w-full rounded-t-xl bg-accent"
-                        style={{ height: `${(m.usd / maxMes) * 140}px` }}
-                      />
-                      <span className="text-xs text-neutral-500">{m.mes}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
               <Card className="p-5">
                 <ChartTitle align="left" divider>Facturación por vendedor</ChartTitle>
                 <div className="mt-3 border-t border-neutral-100 pt-3">
                   <DonutChart slices={vendedorSlices} />
                 </div>
               </Card>
-            </div>
-
-            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ventas por canal</ChartTitle>
                 <BarRows rows={porCanal} fmt={fmtUsd} />
               </Card>
-              <Card className="p-5">
-                <ChartTitle align="left" divider>Ingresos por medio de pago</ChartTitle>
-                <BarRows rows={porMedio} fmt={fmtUsd} />
-              </Card>
             </div>
 
             <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
-                <ChartTitle align="left" divider>Ítems más vendidos</ChartTitle>
-                <BarRows rows={itemsVendidos} fmt={fmtUsd} />
+                <ChartTitle align="left" divider>Ingresos por medio de pago</ChartTitle>
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <DonutChart slices={medioSlices} />
+                </div>
               </Card>
               <Card className="p-5">
                 <ChartTitle align="left" divider sub="del período filtrado">Mix de rubros</ChartTitle>
                 <div className="mt-3 border-t border-neutral-100 pt-3">
-                  <DonutChart slices={rubroSlices} />
+                  <Treemap data={rubroTreemap} fmt={fmtUsd} />
                 </div>
               </Card>
             </div>
@@ -421,7 +661,22 @@ export function AnaliticasClient({
             <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ganancia por categoría</ChartTitle>
-                <BarRows rows={gananciaPeriodo} fmt={fmtUsd} />
+                <div className="mt-5 flex items-end gap-3">
+                  {gananciaPeriodo.map((r) => (
+                    <div key={r.label} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                      <span className="text-[11px] font-medium text-neutral-400">
+                        {r.value > 0 ? fmtUsd(r.value) : ""}
+                      </span>
+                      <div
+                        className="w-full rounded-t-xl bg-accent"
+                        style={{ height: `${Math.max(4, (r.value / maxGanancia) * 140)}px` }}
+                      />
+                      <span className="w-full truncate text-center text-xs text-neutral-500">
+                        {r.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </Card>
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ventas por día de la semana</ChartTitle>
@@ -466,176 +721,514 @@ export function AnaliticasClient({
                 />
               </svg>
             </Card>
+
+            {/* El único gráfico por mes que queda: la "Tendencia por rubro"
+                ya muestra el total de cada mes (columna + monto abajo +
+                variación MoM), así que un "Ventas por mes" aparte sería el
+                mismo dato sin el desglose. Va al final porque con menos de
+                3-6 meses de historial se ve vacío (una o dos columnas). */}
+            <TendenciaRubros data={rubroMesData} className="min-h-[340px]" />
           </div>
         )}
 
         {tab === "reparaciones" && (
-          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-            <Card className="p-5">
-              <ChartTitle align="left" divider>Tiempo promedio por tipo de falla</ChartTitle>
-              <ul className="mt-4 space-y-3">
-                {tiempoPorFalla.map((f) => (
-                  <li key={f.falla}>
-                    <div className="flex items-center justify-between text-[13px]">
-                      <span className="text-neutral-600">{f.falla}</span>
-                      <span className="font-semibold">
-                        {f.horas} h
-                        <span className="ml-1 text-xs font-normal text-neutral-400">
-                          · {f.tickets} tickets
-                        </span>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatCard label="Reparaciones" value={ticketsFiltrados.length} />
+              <StatCard label="Ingresos" value={fmtUsd(ingresosReparaciones)} />
+              <StatCard label="Gasto en repuestos" value={fmtUsd(gastoRepuestosReparaciones)} />
+              <StatCard label="Ganancia final" value={fmtUsd(gananciaFinalReparaciones)} />
+            </div>
+
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <Card className="p-5">
+                <ChartTitle align="left" divider sub="tickets sin entregar, ahora mismo">
+                  Antigüedad de tickets abiertos
+                </ChartTitle>
+                <ul className="mt-4 space-y-3">
+                  {antiguedadTickets.map((r) => (
+                    <li key={r.rango}>
+                      <div className="flex items-center justify-between text-[13px]">
+                        <span className="text-neutral-600">{r.rango}</span>
+                        <span className="font-semibold tabular-nums">{r.tickets} tickets</span>
+                      </div>
+                      <div className="mt-1 h-2 rounded-full bg-neutral-100">
+                        <div
+                          className="h-2 rounded-full bg-accent"
+                          style={{ width: `${(r.tickets / maxAntiguedad) * 100}%` }}
+                        />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+
+              <GaugeAceptacion
+                presupuestadas={aceptacion.presupuestadas}
+                aceptadas={aceptacion.aceptadas}
+                pct={aceptacion.pct}
+              />
+            </div>
+
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <Card className="p-5">
+                <ChartTitle align="left" divider sub="período filtrado">
+                  Reparaciones por tipo de falla
+                </ChartTitle>
+                {porFalla.length === 0 ? (
+                  <p className="mt-4 text-center text-[13px] text-neutral-400">
+                    Sin tickets en el período.
+                  </p>
+                ) : (
+                  <>
+                    <div className="mt-3 flex items-center gap-4 text-[11px] text-neutral-500">
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-accent" /> Facturado
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-neutral-400" /> Reparaciones
                       </span>
                     </div>
-                    <div className="mt-1 h-2 rounded-full bg-neutral-100">
-                      <div
-                        className="h-2 rounded-full bg-accent"
-                        style={{ width: `${(f.horas / maxHoras) * 100}%` }}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+                    {/* Compacto a propósito: comparte fila con Antigüedad, así
+                     * que la cantidad va inline en el label y las dos barras
+                     * quedan pegadas -- una fila por métrica estiraba la card
+                     * y descuadraba la de al lado. */}
+                    <ul className="mt-3 space-y-2.5">
+                      {porFalla.map((f) => (
+                        <li key={f.falla}>
+                          <div className="flex items-center justify-between gap-3 text-[13px]">
+                            <span className="truncate text-neutral-600">
+                              {f.falla}
+                              <span className="ml-1.5 text-[11px] text-neutral-400">
+                                {f.tickets} rep
+                              </span>
+                            </span>
+                            <span className="font-semibold tabular-nums">{fmtUsd(f.totalUsd)}</span>
+                          </div>
+                          <div className="mt-1 h-2 rounded-full bg-neutral-100">
+                            <div
+                              className="h-2 rounded-full bg-accent"
+                              style={{ width: `${(f.totalUsd / maxPorFalla) * 100}%` }}
+                            />
+                          </div>
+                          <div className="mt-0.5 h-1.5 rounded-full bg-neutral-100">
+                            <div
+                              className="h-1.5 rounded-full bg-neutral-400"
+                              style={{ width: `${(f.tickets / maxCantidadPorFalla) * 100}%` }}
+                            />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </Card>
+              <HeatmapActividad tickets={ticketsFiltrados} />
+            </div>
 
-            <Card className="p-5">
-              <ChartTitle align="left" divider>Rendimiento por técnico</ChartTitle>
-              <div className="overflow-x-auto">
-                <table className="mt-3 w-full text-sm">
-                  <thead>
-                    <tr className="text-xs text-neutral-400">
-                      <th className="py-2 font-medium">Técnico</th>
-                      <th className="py-2 font-medium">Cerrados</th>
-                      <th className="py-2 font-medium">Reingresos</th>
-                      <th className="py-2 font-medium">Prom.</th>
-                      <th className="py-2 font-medium">Calif.</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rendimientoTecnicos.map((t) => (
-                      <tr key={t.tecnico} className="border-t border-neutral-100">
-                        <td className="py-2.5 font-medium">{t.tecnico}</td>
-                        <td className="py-2.5">{t.cerrados}</td>
-                        <td className="py-2.5 text-neutral-500">{t.reingresos}</td>
-                        <td className="py-2.5 text-neutral-500">{t.ticketPromHoras} h</td>
-                        <td className="py-2.5 font-semibold">{t.calif} ★</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+            {/* Sin "tiempo promedio de reparación" a propósito: `tickets`
+                no guarda timestamp de cierre (ver `antiguedadTicketsAbiertos`
+                en lib/analiticas.ts) -- sin esa fecha la métrica no es
+                calculable y no se inventa. */}
+            <FunnelReparaciones etapas={funnel} />
           </div>
         )}
 
         {tab === "finanzas" && (
           <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatCard label="Ingresos (cajas)" value={fmtUsd(ingresosUsd)} />
+              <StatCard label="Egresos (cajas)" value={fmtUsd(egresosUsd)} />
+              <StatCard label="Neto (cajas)" value={fmtUsd(netoUsd)} />
+              <StatCard label="Ganancia (ventas)" value={fmtUsd(gananciaPeriodoUsd)} />
+            </div>
+
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <RentabilidadEvolucion data={rentabilidadMes} />
+              <WaterfallResultado rows={margenPeriodo} />
+            </div>
+
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <ScatterMargen rows={margenPeriodo} />
+              <Card className="p-5">
+                <ChartTitle align="left" divider sub="facturación del período, por tipo de operación">
+                  Origen de ingresos
+                </ChartTitle>
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <Treemap data={rubroTreemap} fmt={fmtUsd} />
+                </div>
+              </Card>
+            </div>
+
+            {/* Por mes, mismo criterio que Ventas: al final, porque con
+                menos de 3-6 meses de historial se ven vacíos. */}
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <FlujoCaja meses={flujoMes} />
+
+              <Card className="flex h-full flex-col p-5">
+                <ChartTitle
+                  align="left"
+                  divider
+                  sub={
+                    cobertura != null
+                      ? `cobertura del período: ${cobertura.toFixed(1)}× de venta por USD comprado`
+                      : "inversión en stock vs facturación"
+                  }
+                >
+                  Compras vs ventas por mes
+                </ChartTitle>
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-accent" />
+                    Ventas
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-red-400" />
+                    Compras
+                  </span>
+                </div>
+                {comprasVentasMes.length === 0 ? (
+                  <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+                    Sin ventas ni compras en el período filtrado.
+                  </p>
+                ) : (
+                  // `mt-auto` -- mismo criterio que `HeatmapActividad`: esta
+                  // card no tiene el bloque de "caja acumulada" que sí tiene
+                  // `FlujoCaja` (al lado, mismo grid row), así que sin esto
+                  // las barras arrancaban más arriba que las de esa card y
+                  // los dos gráficos no se leían en la misma línea de base.
+                  <div className="mt-auto flex items-end gap-3 pt-5 sm:gap-4">
+                    {comprasVentasMes.map((m) => {
+                      // Ratio del mes: ventas por cada USD comprado. Sin
+                      // compras no hay ratio (evita Infinity) -- el "—" lo
+                      // dice con el tooltip.
+                      const ratio = m.compras > 0 ? m.ventas / m.compras : null;
+                      return (
+                        <div key={m.key} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                          <div
+                            className="flex w-full items-end justify-center gap-1.5"
+                            title={`${m.label}: ventas ${fmtUsd(m.ventas)} · compras ${fmtUsd(m.compras)}${ratio != null ? ` · cobertura ${(ratio).toFixed(1)}×` : " · sin compras este mes"}`}
+                          >
+                            <div
+                              className="w-[38%] rounded-t-md bg-accent"
+                              style={{ height: `${Math.max(4, (m.ventas / maxComprasVentas) * 140)}px` }}
+                            />
+                            <div
+                              className="w-[38%] rounded-t-md bg-red-400"
+                              style={{ height: `${Math.max(4, (m.compras / maxComprasVentas) * 140)}px` }}
+                            />
+                          </div>
+                          <span className="text-xs text-neutral-500">{m.label}</span>
+                          <span
+                            className={cn(
+                              "text-[10px] font-medium tabular-nums",
+                              ratio == null
+                                ? "text-neutral-300"
+                                : ratio >= 1
+                                  ? "text-emerald-600"
+                                  : "text-red-500",
+                            )}
+                          >
+                            {ratio != null ? `${ratio.toFixed(1)}×` : "—"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Gastos + medios de pago: secundarios, cierran el tab. */}
             <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
-                <ChartTitle align="left" divider>Margen por tipo de operación</ChartTitle>
-                <div className="overflow-x-auto">
-                  <table className="mt-3 w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-neutral-400">
-                        <th className="py-2 font-medium">Tipo</th>
-                        <th className="py-2 font-medium">Ops.</th>
-                        <th className="py-2 font-medium">Margen</th>
-                        <th className="py-2 font-medium">Ganancia</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {margenPorTipo.map((r) => (
-                        <tr key={r.tipo} className="border-t border-neutral-100">
-                          <td className="py-2.5">{r.tipo}</td>
-                          <td className="py-2.5 text-neutral-500">{r.operaciones}</td>
-                          <td className="py-2.5">
-                            <Badge tone={r.margenPct > 35 ? "green" : "blue"}>
-                              {r.margenPct.toFixed(1)}%
-                            </Badge>
-                          </td>
-                          <td className="py-2.5 font-semibold">{fmtUsd(r.gananciaUsd)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ChartTitle
+                  align="left"
+                  divider
+                  sub="egresos de cajas, en USD — agrupados por categoría"
+                >
+                  Gastos por categoría
+                </ChartTitle>
+                {gastosPorCategoria.filas.length === 0 ? (
+                  <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+                    Sin egresos en el período filtrado.
+                  </p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {gastosPorCategoria.filas.slice(0, 6).map((g) => (
+                      <li
+                        key={g.categoria}
+                        title={`${g.categoria}: ${fmtUsd(g.monto)} (${g.pct.toFixed(1)}% del gasto total)`}
+                      >
+                        <div className="flex items-center gap-3 text-[13px]">
+                          <span className="w-28 shrink-0 truncate text-neutral-600 sm:w-36">
+                            {g.categoria}
+                          </span>
+                          <div className="h-2 min-w-0 flex-1 rounded-full bg-neutral-100">
+                            <div
+                              className="h-2 rounded-full bg-red-400"
+                              style={{ width: `${(g.monto / maxGasto) * 100}%` }}
+                            />
+                          </div>
+                          <span className="w-16 shrink-0 text-right font-semibold tabular-nums">
+                            {fmtUsd(g.monto)}
+                          </span>
+                          <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-neutral-400">
+                            {Math.round(g.pct)}%
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                    {gastosPorCategoria.filas.length > 6 && (
+                      <li
+                        title={`Resto de categorías: ${fmtUsd(
+                          gastosPorCategoria.filas.slice(6).reduce((a, g) => a + g.monto, 0),
+                        )}`}
+                      >
+                        <div className="flex items-center gap-3 text-[13px]">
+                          <span className="w-28 shrink-0 truncate text-neutral-500 sm:w-36">
+                            Otros ({gastosPorCategoria.filas.length - 6})
+                          </span>
+                          <div className="h-2 min-w-0 flex-1 rounded-full bg-neutral-100">
+                            <div
+                              className="h-2 rounded-full bg-red-400/60"
+                              style={{
+                                width: `${(gastosPorCategoria.filas.slice(6).reduce((a, g) => a + g.monto, 0) / maxGasto) * 100}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="w-16 shrink-0 text-right font-medium tabular-nums text-neutral-500">
+                            {fmtUsd(gastosPorCategoria.filas.slice(6).reduce((a, g) => a + g.monto, 0))}
+                          </span>
+                          <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-neutral-400">
+                            {Math.round(
+                              gastosPorCategoria.filas.slice(6).reduce((a, g) => a + g.pct, 0),
+                            )}%
+                          </span>
+                        </div>
+                      </li>
+                    )}
+                  </ul>
+                )}
               </Card>
 
               <Card className="p-5">
                 <ChartTitle align="left" divider>Ingresos por medio de pago</ChartTitle>
-                <BarRows rows={porMedio} fmt={fmtUsd} />
+                <div className="mt-3 border-t border-neutral-100 pt-3">
+                  <DonutChart slices={medioSlices} />
+                </div>
               </Card>
             </div>
-
-            <Card className="p-5">
-              <ChartTitle align="left" divider sub="todo el historial de movimientos, convertido a USD">
-                Ingresos vs egresos (Cajas)
-              </ChartTitle>
-              <div className="mt-4 space-y-3">
-                {[
-                  { label: "Ingresos", value: ingresosUsd, color: "bg-emerald-500" },
-                  { label: "Egresos", value: egresosUsd, color: "bg-red-400" },
-                ].map((r) => (
-                  <div key={r.label}>
-                    <div className="flex items-center justify-between text-[13px]">
-                      <span className="text-neutral-600">{r.label}</span>
-                      <span className="font-semibold tabular-nums">{fmtUsd(r.value)}</span>
-                    </div>
-                    <div className="mt-1 h-2 rounded-full bg-neutral-100">
-                      <div
-                        className={cn("h-2 rounded-full", r.color)}
-                        style={{
-                          width: `${(r.value / Math.max(ingresosUsd, egresosUsd, 1)) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-[13px] text-neutral-500">
-                Neto:{" "}
-                <span
-                  className={cn(
-                    "font-semibold tabular-nums",
-                    netoUsd >= 0 ? "text-emerald-600" : "text-red-500",
-                  )}
-                >
-                  {fmtUsd(netoUsd)}
-                </span>
-              </p>
-            </Card>
           </div>
         )}
 
         {tab === "inventario" && (
-          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatCard
+                label="Valor a costo"
+                value={fmtUsd(valorInventario)}
+                hint="foto del stock actual"
+              />
+              <StatCard
+                label="Unidades"
+                value={unidadesStock}
+                hint="equipos + repuestos + accesorios"
+              />
+              <StatCard
+                label="Días de inventario"
+                value={diasInv ?? "—"}
+                hint="promedio ingreso → venta, equipos"
+              />
+              <StatCard
+                label="Capital inmovilizado"
+                value={fmtUsd(inmovilizado)}
+                hint={`${pctInmovilizado.toFixed(0)}% del valor · más de 90 días`}
+                valueClassName={inmovilizado > 0 ? "text-amber-600" : undefined}
+              />
+            </div>
+
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <AgingRing buckets={agingStock} />
+              <InventarioValor equipos={equipos} repuestos={repuestos} otros={otros} />
+            </div>
+
             <Card className="p-5">
-              <ChartTitle align="left" divider>Inventario · equipos por estado</ChartTitle>
-              <BarRows rows={equiposPorEstado} />
+              <ChartTitle align="left" divider sub="foto del stock actual">
+                Unidades por categoría
+              </ChartTitle>
+              <div className="mt-3 border-t border-neutral-100 pt-3">
+                <DonutChart slices={stockUnidadesSlices} legend="row" />
+              </div>
             </Card>
-            <InventarioValor equipos={equipos} repuestos={repuestos} otros={otros} />
+
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <StockQuadrant
+                itemsTodos={stockTodos}
+                items={stockTodos}
+                salidas={salidasStock}
+              />
+              <StockHeatmap
+                buckets={agingStock}
+                seleccion={celdaStock}
+                onSeleccion={setCeldaStock}
+              />
+            </div>
+
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <InventarioFlow
+                entradas={entradasStock}
+                salidas={salidasStock}
+                stock={stockPorCat}
+                bajas={bajasStock}
+              />
+
+              <Card className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <ChartTitle
+                    align="left"
+                    divider
+                    sub="más de 90 días en stock, por valor atado a costo"
+                  >
+                    Stock que pide atención
+                  </ChartTitle>
+                  <Link
+                    href="/inventario"
+                    className="shrink-0 rounded-full border border-accent/40 px-4 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-accent/70"
+                  >
+                    Ver inventario
+                  </Link>
+                </div>
+                {celdaStock && (
+                  <p className="mt-2 text-[11px] text-neutral-400">
+                    Filtrado: {celdaStock.rango} días · {CAT_STOCK_LABEL[celdaStock.categoria]}{" "}
+                    <button
+                      onClick={() => setCeldaStock(null)}
+                      className="font-medium text-accent underline underline-offset-2"
+                    >
+                      quitar
+                    </button>
+                  </p>
+                )}
+                {atencion.length === 0 ? (
+                  <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-8 text-center text-sm text-neutral-400">
+                    Nada trabado más de 90 días -- el stock rota.
+                  </p>
+                ) : (
+                  <ul className="mt-3 divide-y divide-neutral-100 border-t border-neutral-100">
+                    {atencion.map((i) => (
+                      <li
+                        key={`${i.categoria}:${i.id}`}
+                        className="flex items-center justify-between gap-3 py-2 text-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-neutral-800">{i.nombre}</p>
+                          <p className="text-[11px] text-neutral-400">
+                            {CAT_STOCK_LABEL[i.categoria]} · {i.unidades} u
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-4 text-right">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                              Días
+                            </p>
+                            <p className="tabular-nums font-medium text-red-500">{i.dias}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                              Valor
+                            </p>
+                            <p className="tabular-nums font-medium text-neutral-800">
+                              {fmtUsd(i.valorUsd)}
+                            </p>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            </div>
           </div>
         )}
 
         {tab === "clientes" && (
           <div className="space-y-6">
-            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-              <DemografiaClientes data={demografia} />
-              {fuenteClientes}
+            {/* KPIs: foto del estado actual -- nunca se filtran por canal.
+                Las definiciones exactas (ventanas, denominadores) viven en
+                lib/clientes-inteligencia.ts. */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatCard
+                label="Clientes activos"
+                value={kpis.activos}
+                delta={kpis.deltaActivos ?? undefined}
+                deltaHint={`vs ventana previa (${DIAS_ACTIVO} días)`}
+                hint={`con operaciones en los últimos ${DIAS_ACTIVO} días`}
+              />
+              <StatCard
+                label="Valor por cliente activo"
+                value={fmtUsd(Math.round(kpis.valorPromedio))}
+                delta={kpis.deltaValorPromedio ?? undefined}
+                deltaHint={`vs ventana previa (${DIAS_ACTIVO} días)`}
+                hint={`gasto en los últimos ${DIAS_ACTIVO} días ÷ activos`}
+              />
+              <StatCard
+                label="Tasa de recurrencia"
+                value={`${kpis.tasaRecurrencia.toFixed(0)}%`}
+                hint="con 2+ operaciones sobre los que tienen alguna"
+              />
+              <StatCard
+                label="En riesgo"
+                value={kpis.enRiesgo}
+                valueClassName={kpis.enRiesgo > 0 ? "text-red-500" : undefined}
+                hint={
+                  kpis.enRiesgo > 0
+                    ? `sin actividad hace ${DIAS_RIESGO}+ días · valen ${fmtUsd(kpis.riesgoValorUsd)}`
+                    : "nadie superó la ventana de riesgo"
+                }
+              />
             </div>
+
+            <ValueMap intel={intel} filtro={procedenciaFiltro} colorDe={colorDe} />
+
             <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-              <Card className="p-5">
-                <ChartTitle align="left" divider>Top clientes por gasto</ChartTitle>
-                <BarRows rows={topClientes} fmt={fmtUsd} />
-              </Card>
-              <Card className="p-5">
-                <ChartTitle align="left" divider>Clientes nuevos por año</ChartTitle>
-                <BarRows rows={clientesPorAnio} />
-              </Card>
+              <ComprasReparacionesMap
+                intel={intel}
+                filtro={procedenciaFiltro}
+                colorDe={colorDe}
+              />
+              <LifecycleSankey flujo={flujo} />
+            </div>
+
+            <CohortHeatmap cohortes={cohortes} intel={intel} />
+
+            <RevenueTimeline ingresos={ingresosClientes} />
+
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+              <ProcedenciaRanking
+                ranking={ranking}
+                filtro={procedenciaFiltro}
+                onFiltro={setProcedenciaFiltro}
+                colorDe={colorDe}
+              />
+              <AtencionClientes intel={intel} />
             </div>
           </div>
         )}
 
         {tab === "turnos" && (
           <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <StatCard label="Turnos (7 días)" value={turnos.length} />
+              <StatCard label="Confirmados" value={turnosConfirmados} />
+              <StatCard
+                label="Cancelados"
+                value={turnosCancelados}
+                valueClassName={turnosCancelados > 0 ? "text-red-500" : undefined}
+              />
+              <StatCard label="Tasa de confirmación" value={`${tasaConfirmacionTurnos.toFixed(0)}%`} />
+            </div>
+
             <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <Card className="p-5">
                 <ChartTitle align="left" divider>Turnos por tipo</ChartTitle>

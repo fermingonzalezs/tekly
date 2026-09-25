@@ -9,7 +9,7 @@ import {
   setMemberEmail,
 } from "@/lib/auth";
 import type { AuthResult, Rol } from "@/lib/auth/types";
-import { updateNegocio, type Negocio } from "@/lib/db/configuracion";
+import { updateNegocio, uploadLogo, removeLogo, type Negocio } from "@/lib/db/configuracion";
 import { createEquiposBulk, listImeisExistentes, type EquipoInput } from "@/lib/db/inventario";
 import { createClientesBulk, listClientesContacto } from "@/lib/db/clientes";
 import {
@@ -56,6 +56,24 @@ export async function deactivateMemberAction(targetProfileId: string): Promise<A
 
 export async function updateNegocioAction(data: Negocio): Promise<void> {
   await updateNegocio(data);
+  revalidatePath("/configuracion");
+}
+
+/** Upload del logo (FormData con `file`) -- flujo propio, no va con el
+ * form de `updateNegocioAction`. */
+export async function uploadLogoAction(formData: FormData): Promise<void> {
+  const caller = await requireRole("admin");
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("Elegí un archivo de imagen para el logo.");
+  }
+  await uploadLogo(caller.organizationId, file);
+  revalidatePath("/configuracion");
+}
+
+export async function removeLogoAction(): Promise<void> {
+  const caller = await requireRole("admin");
+  await removeLogo(caller.organizationId);
   revalidatePath("/configuracion");
 }
 

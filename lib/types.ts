@@ -70,6 +70,17 @@ export type MedioPago =
  * `Compra` nunca, por eso esas tres siguen tipadas con `MedioPago`). */
 export type MedioPagoVenta = MedioPago | "cuenta_corriente";
 
+/** Categoría de un `MovimientoCaja` de tipo "egreso" -- los ingresos no la
+ * usan. `null` para movimientos de antes de este campo. */
+export type CategoriaGasto =
+  | "alquiler"
+  | "sueldos"
+  | "servicios"
+  | "insumos_repuestos"
+  | "impuestos"
+  | "mantenimiento"
+  | "otros";
+
 export type TurnoEstado = "pendiente" | "confirmado" | "cancelado";
 
 /** Qué viene a hacer el cliente — define el color en el calendario. */
@@ -229,7 +240,7 @@ export type Equipo = {
 
 /** Historial de stock de un ítem de inventario (equipo, repuesto u otro) —
  * ingreso, cambios de estado, ajustes, etc. */
-export type MovimientoTipo = "ingreso" | "egreso" | "edicion" | "baja" | "recuento";
+export type MovimientoTipo = "ingreso" | "egreso" | "edicion" | "baja" | "recuento" | "ajuste";
 
 export type Movimiento = {
   fecha: string;
@@ -312,6 +323,9 @@ export type RecuentoLineaCantidad = {
   cantidadSistema: number;
   cantidadContada: number;
   resolucion: RecuentoResolucion;
+  /** Nota libre cargada junto a la cantidad real, en la fila de ese ítem del
+   * modal de recuento (ej. "faltan 2, se ve que se rompieron al probarlos"). */
+  comentario?: string;
 };
 
 /** Una "sesión" de recuento de inventario: alguien cuenta (encontrado/no
@@ -332,6 +346,12 @@ export type Recuento = {
   revisadoPor?: string;
   revisadoEn?: string;
   lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[];
+  /** Nota libre para todo el recuento, cargada una sola vez al guardarlo
+   * (ej. "conteo hecho después de cerrar, con poca luz en el depósito") --
+   * separada de `comentario`/`RecuentoLineaEquipo.comentario`, que son por
+   * ítem. Hoy solo la cargan Repuestos/Otros (ver `RecuentoModalDialog` en
+   * inventario-client.tsx); Equipos sigue con su checklist inline. */
+  comentarioGeneral?: string;
 };
 
 export type Proveedor = {
@@ -443,10 +463,17 @@ export type Caja = {
 export type MovimientoCaja = {
   id: string;
   fecha: string; // "07 sep"
+  /** "2026-09-07" — para filtrar/agrupar por fecha: la `fecha` display no
+   * trae año (`new Date("07 sep")` parsea a 2001, no al año actual).
+   * Mismo patrón que `Venta.fechaISO`/`Compra.fechaISO`. */
+  fechaISO: string;
   hora: string;
   concepto: string;
   medioPago: MedioPago;
   tipo: "ingreso" | "egreso";
+  /** Solo tiene sentido en egresos -- `null` en ingresos y en egresos de
+   * antes de este campo. */
+  categoria: CategoriaGasto | null;
   /** Caja específica a la que pertenece; `monto` está en la moneda de esa caja. */
   cajaId: string;
   monto: number;

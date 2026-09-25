@@ -2,7 +2,14 @@ import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { requireUser } from "@/lib/auth";
 import { fmtDayMonth, fmtMonthYear, fmtTime } from "@/lib/format";
-import type { Caja, Conciliacion, ConciliacionLinea, MedioPago, MovimientoCaja } from "@/lib/types";
+import type {
+  Caja,
+  CategoriaGasto,
+  Conciliacion,
+  ConciliacionLinea,
+  MedioPago,
+  MovimientoCaja,
+} from "@/lib/types";
 
 // ─────────────────────────── Cajas ───────────────────────────
 
@@ -71,6 +78,7 @@ type MovimientoRow = {
   concepto: string;
   medio_pago: MedioPago;
   tipo: "ingreso" | "egreso";
+  categoria: CategoriaGasto | null;
   caja_id: string;
   monto: number;
   usuario_nombre: string;
@@ -78,16 +86,18 @@ type MovimientoRow = {
 };
 
 const MOV_COLS =
-  "id, fecha, concepto, medio_pago, tipo, caja_id, monto, usuario_nombre, conciliacion_id";
+  "id, fecha, concepto, medio_pago, tipo, categoria, caja_id, monto, usuario_nombre, conciliacion_id";
 
 function toMovimiento(row: MovimientoRow): MovimientoCaja {
   return {
     id: row.id,
     fecha: fmtDayMonth(row.fecha),
+    fechaISO: row.fecha.slice(0, 10),
     hora: fmtTime(row.fecha),
     concepto: row.concepto,
     medioPago: row.medio_pago,
     tipo: row.tipo,
+    categoria: row.categoria ?? null,
     cajaId: row.caja_id,
     monto: row.monto,
     usuario: row.usuario_nombre,
@@ -114,6 +124,7 @@ export async function createMovimiento(data: {
   cajaId: string;
   concepto: string;
   medioPago: MedioPago;
+  categoria?: CategoriaGasto | null;
   monto: number;
 }): Promise<MovimientoCaja> {
   const user = await requireUser();
@@ -125,6 +136,7 @@ export async function createMovimiento(data: {
       concepto: data.concepto,
       medio_pago: data.medioPago,
       tipo: data.tipo,
+      categoria: data.tipo === "egreso" ? (data.categoria ?? null) : null,
       monto: data.monto,
       usuario_id: user.id,
       usuario_nombre: user.nombre,

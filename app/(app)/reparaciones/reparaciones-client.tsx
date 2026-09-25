@@ -31,7 +31,7 @@ import { ServiciosCatalogo } from "@/components/servicios-catalogo";
 import { RepairsChart } from "@/components/dashboard/repairs-chart";
 import { ReparacionesSplit } from "@/components/dashboard/reparaciones-split";
 import {
-  ReciboDialog,
+  ReciboImprimir,
   ReciboCampos,
   ReciboLineas,
   ReciboChecklist,
@@ -98,7 +98,7 @@ function lineaSinGarantia(s: TicketServicio) {
 
 /** Ticket de egreso, hoja 1: equipo + servicios + forma de pago + firmas --
  * la firma queda arriba, en la primera hoja impresa. La hoja 2 (checklist)
- * la pasa el `ReciboDialog` vía `paginas` -- por eso lleva `sinFirmas`. */
+ * la pasa el `ReciboImprimir` vía `paginas` -- por eso lleva `sinFirmas`. */
 function egresoHoja1(ticket: Ticket, negocio: Negocio, dolarVenta: number) {
   return (
     <>
@@ -544,7 +544,7 @@ export function ReparacionesClient({
               onClick={() => setOpenId(t.id)}
               className="cursor-pointer overflow-hidden p-0"
             >
-              <div className="flex items-center justify-between gap-2 bg-[#352f86] px-4 py-2 text-white">
+              <div className="flex items-center justify-between gap-2 bg-table-header px-4 py-2 text-white">
                 <span className="text-sm font-semibold">#{t.id}</span>
                 <span className="text-xs text-white/70">{t.ingreso}</span>
               </div>
@@ -861,7 +861,7 @@ export function ReparacionesClient({
                     ))}
                     <div
                       className="flex items-center justify-between gap-2 px-3 py-2"
-                      style={{ backgroundColor: "#edecf8" }}
+                      style={{ backgroundColor: "var(--accent-soft)" }}
                     >
                       <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
                         Presupuesto total
@@ -967,7 +967,7 @@ export function ReparacionesClient({
                         <tr
                           className="font-semibold text-neutral-900"
                           style={{
-                            backgroundColor: "#edecf8",
+                            backgroundColor: "var(--accent-soft)",
                             backgroundImage: "none",
                           }}
                         >
@@ -1051,7 +1051,7 @@ export function ReparacionesClient({
         }}
       />
 
-      <ReciboDialog
+      <ReciboImprimir
         key={recibo ? `${recibo.tipo}-${recibo.ticket.id}` : "none"}
         open={!!recibo}
         onClose={() => setRecibo(null)}
@@ -1232,7 +1232,7 @@ export function ReparacionesClient({
             )}
           </>
         )}
-      </ReciboDialog>
+      </ReciboImprimir>
 
       <Dialog
         open={!!checklistEgresoTicket}

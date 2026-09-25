@@ -157,7 +157,14 @@ export async function signUp(params: {
   const { data, error } = await supabase.auth.signUp({
     email: params.email,
     password: params.password,
-    options: { emailRedirectTo: authCallbackUrl("/dashboard") },
+    options: {
+      emailRedirectTo: authCallbackUrl("/dashboard"),
+      // Queda en el user_metadata -- disponible como `{{ .Data.nombre }}`
+      // en el mail de "Confirm signup" (y, después, en el de "Reset
+      // Password" de este mismo usuario), mismo mecanismo que ya usa
+      // `inviteMember` más abajo.
+      data: { nombre: params.nombre },
+    },
   });
   if (error) return { error: error.message };
   if (!data.user) return { error: "No se pudo crear el usuario." };

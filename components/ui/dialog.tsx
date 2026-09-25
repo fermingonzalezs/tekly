@@ -77,7 +77,7 @@ export function Dialog({
             className={cn(
               "flex items-start justify-between gap-4 border-b px-4 py-4 sm:px-5",
               accent
-                ? "border-[#352f86] bg-[#352f86] text-white"
+                ? "border-table-header bg-table-header text-white"
                 : "border-neutral-100",
             )}
           >

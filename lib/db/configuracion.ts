@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import type { Rol } from "@/lib/auth/types";
 import type { MedioPagoVenta } from "@/lib/types";
 import type { OnboardingPasoId } from "@/lib/onboarding";
+import type { PaletaId } from "@/lib/theme-presets";
 
 // ─────────────────────────── Usuarios y roles ───────────────────────────
 
@@ -64,6 +65,12 @@ export type Negocio = {
   /** Checklist de onboarding (Dashboard → Bienvenida, ver
    * lib/onboarding.ts) -- qué pasos del setup inicial tildó el admin. */
   onboardingPasos: Partial<Record<OnboardingPasoId, boolean>>;
+  /** Paleta de color de la app (Configuración → Datos del negocio) -- uno
+   * de los 6 presets de lib/theme-presets.ts; la ve toda la organización. */
+  colorTema: PaletaId;
+  /** Logo de la organización -- URL pública del bucket `logos` de Storage.
+   * Se ve en el TopNav y en el membrete de los recibos. null = placeholder. */
+  logoUrl: string | null;
 };
 
 /** `organizations` sí tiene policy de select para `authenticated` -- lectura
@@ -73,7 +80,7 @@ export async function getNegocio(): Promise<Negocio> {
   const { data, error } = await supabase
     .from("organizations")
     .select(
-      "nombre, direccion, telefono, cuit, horario, objetivo_mes_usd, garantia_texto, garantia_condiciones, garantia_importante, garantia_causales, reparacion_terminos_ingreso, reparacion_terminos_presupuesto, reparacion_terminos_egreso, reparacion_aclaraciones_ingreso, reparacion_aclaraciones_egreso, recargos_medios_pago, onboarding_pasos",
+      "nombre, direccion, telefono, cuit, horario, objetivo_mes_usd, garantia_texto, garantia_condiciones, garantia_importante, garantia_causales, reparacion_terminos_ingreso, reparacion_terminos_presupuesto, reparacion_terminos_egreso, reparacion_aclaraciones_ingreso, reparacion_aclaraciones_egreso, recargos_medios_pago, onboarding_pasos, color_tema, logo_url",
     )
     .single();
   if (error) throw error;
@@ -95,6 +102,8 @@ export async function getNegocio(): Promise<Negocio> {
     reparacionAclaracionesEgreso: data.reparacion_aclaraciones_egreso ?? "",
     recargosMediosPago: data.recargos_medios_pago ?? {},
     onboardingPasos: data.onboarding_pasos ?? {},
+    colorTema: data.color_tema,
+    logoUrl: data.logo_url ?? null,
   };
 }
 
@@ -124,6 +133,7 @@ export async function updateNegocio(data: Negocio): Promise<void> {
       reparacion_aclaraciones_ingreso: data.reparacionAclaracionesIngreso || null,
       reparacion_aclaraciones_egreso: data.reparacionAclaracionesEgreso || null,
       recargos_medios_pago: data.recargosMediosPago,
+      color_tema: data.colorTema,
     })
     .eq("id", caller.organizationId);
   if (error) throw error;
@@ -142,5 +152,47 @@ export async function setOnboardingPasos(
     .from("organizations")
     .update({ onboarding_pasos: pasos })
     .eq("id", caller.organizationId);
+  if (error) throw error;
+}
+
+// ─────────────────────────── Logo ───────────────────────────
+
+/** Sube (o pisa -- `upsert: true`, siempre el mismo path) el logo de la
+ * organización al bucket público `logos` y guarda la URL pública en
+ * `organizations.logo_url`. Admin-only vía service role: no hay policies
+ * de storage, las escrituras pasan por acá y las lecturas son públicas
+ * (bucket público, sirve por CDN sin chequear policy). El logo NO va por
+ * `updateNegocio`: es un upload, no un campo de texto. */
+export async function uploadLogo(
+  organizationId: string,
+  file: File,
+): Promise<string> {
+  await requireRole("admin");
+  const service = createServiceRoleClient();
+  const ext = file.name.split(".").pop() || "png";
+  const path = `${organizationId}/logo.${ext}`;
+  const { error } = await service.storage
+    .from("logos")
+    .upload(path, file, { upsert: true });
+  if (error) throw error;
+  const { data } = service.storage.from("logos").getPublicUrl(path);
+  const { error: updateError } = await service
+    .from("organizations")
+    .update({ logo_url: data.publicUrl })
+    .eq("id", organizationId);
+  if (updateError) throw updateError;
+  return data.publicUrl;
+}
+
+/** Saca el logo de la organización (vuelve al placeholder). No hace falta
+ * borrar el archivo del bucket: el próximo upload pisa el mismo path, y un
+ * archivo huérfano sin referencia no genera ningún problema. */
+export async function removeLogo(organizationId: string): Promise<void> {
+  await requireRole("admin");
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("organizations")
+    .update({ logo_url: null })
+    .eq("id", organizationId);
   if (error) throw error;
 }

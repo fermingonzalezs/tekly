@@ -17,7 +17,7 @@ import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  ReciboDialog,
+  ReciboImprimir,
   ReciboCampos,
   ReciboChecklist,
   ReciboNota,
@@ -178,7 +178,7 @@ export function ComprasClient({
             onClick={() => setOpenId(c.id)}
             className="cursor-pointer overflow-hidden p-0"
           >
-            <div className="flex items-center justify-between gap-2 bg-[#352f86] px-4 py-2 text-white">
+            <div className="flex items-center justify-between gap-2 bg-table-header px-4 py-2 text-white">
               <span className="text-sm font-semibold">{c.id}</span>
               <span className="text-xs text-white/70">{c.fecha}</span>
             </div>
@@ -349,7 +349,7 @@ export function ComprasClient({
       </ConfirmDialog>
 
       {open && open.origen === "canje" && (
-        <ReciboDialog
+        <ReciboImprimir
           open={recibo}
           onClose={() => setRecibo(false)}
           titulo="Recibo de canje"
@@ -378,7 +378,7 @@ export function ComprasClient({
             ]}
           />
           <ReciboNota titulo="Aclaraciones" texto={open.aclaraciones ?? ""} />
-        </ReciboDialog>
+        </ReciboImprimir>
       )}
 
       <NuevaCompraDialog
@@ -446,7 +446,7 @@ function CompraDetalle({ compra }: { compra: Compra }) {
           ))}
           <div
             className="flex items-center justify-between gap-2 px-3 py-2"
-            style={{ backgroundColor: "#edecf8" }}
+            style={{ backgroundColor: "var(--accent-soft)" }}
           >
             <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
               Total
@@ -477,7 +477,7 @@ function CompraDetalle({ compra }: { compra: Compra }) {
               ))}
               <tr
                 className="border-t border-neutral-100 font-semibold text-neutral-900"
-                style={{ backgroundColor: "#edecf8", backgroundImage: "none" }}
+                style={{ backgroundColor: "var(--accent-soft)", backgroundImage: "none" }}
               >
                 <td className="px-4 py-2.5 !text-start uppercase tracking-wide" colSpan={3}>
                   Total

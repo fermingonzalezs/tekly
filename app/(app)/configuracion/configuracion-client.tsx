@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Store, Trash2 } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
@@ -19,12 +19,15 @@ import {
   setMemberEmailAction,
   deactivateMemberAction,
   updateNegocioAction,
+  uploadLogoAction,
+  removeLogoAction,
 } from "./actions";
 import { ImportarDatos } from "./importar-datos";
+import { PALETAS } from "@/lib/theme-presets";
 import type { SessionUser, Rol } from "@/lib/auth/types";
 import type { Miembro, Negocio } from "@/lib/db/configuracion";
 
-type Tab = "usuarios" | "negocio" | "recibos" | "importar" | "cuenta";
+type Tab = "usuarios" | "negocio" | "preferencias" | "recibos" | "importar" | "cuenta";
 
 const ROLES: Rol[] = ["admin", "vendedor", "tecnico"];
 
@@ -64,6 +67,7 @@ export function ConfiguracionClient({
           options={[
             { value: "usuarios", label: "Usuarios y roles" },
             { value: "negocio", label: "Datos del negocio" },
+            { value: "preferencias", label: "Preferencias" },
             { value: "recibos", label: "Recibos" },
             { value: "importar", label: "Importar datos" },
             { value: "cuenta", label: "Mi cuenta" },
@@ -174,6 +178,7 @@ export function ConfiguracionClient({
         )}
 
         {tab === "negocio" && negocio && <NegocioForm negocio={negocio} />}
+        {tab === "preferencias" && negocio && <PreferenciasForm negocio={negocio} />}
 
         {tab === "recibos" && negocio && <RecibosForm negocio={negocio} />}
 
@@ -427,81 +432,238 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
   }
 
   return (
+    <div className="max-w-lg space-y-5">
+      <Card className="p-5">
+        <div className="space-y-3">
+          <Field label="Nombre">
+            <Input
+              value={form.nombre}
+              onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+            />
+          </Field>
+          <Field label="Dirección">
+            <Input
+              value={form.direccion}
+              onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
+            />
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Teléfono">
+              <Input
+                value={form.telefono}
+                onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+              />
+            </Field>
+            <Field label="CUIT">
+              <Input
+                value={form.cuit}
+                onChange={(e) => setForm((f) => ({ ...f, cuit: e.target.value }))}
+              />
+            </Field>
+          </div>
+          <Field label="Horario de atención">
+            <Input
+              value={form.horario}
+              onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))}
+            />
+          </Field>
+        </div>
+      </Card>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={guardar}
+          disabled={pending}
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+        >
+          {pending ? "Guardando…" : "Guardar cambios"}
+        </button>
+        {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Apariencia (color + logo) y comercial (objetivo del mes + recargos por
+ * medio de pago) -- separado de "Datos del negocio" a pedido, no es
+ * información de facturación/contacto. Mismo `updateNegocioAction` de
+ * siempre: el form arranca del `negocio` completo y solo expone estos
+ * campos, así que guardar no pisa nombre/dirección/etc. */
+function PreferenciasForm({ negocio }: { negocio: Negocio }) {
+  const router = useRouter();
+  const [form, setForm] = useState(negocio);
+  const [saved, setSaved] = useState(false);
+  const [pending, startTransition] = useTransition();
+  // Logo: flujo propio (upload/remove), no se guarda con el form -- sube
+  // apenas se elige el archivo (no hay botón "Subir" aparte: con dos
+  // acciones de guardado en la misma pestaña, era fácil elegir el archivo y
+  // tocar el "Guardar cambios" general, que no toca el logo). El preview
+  // sale del prop `negocio.logoUrl` -- el useState de arriba no se
+  // re-sincroniza con props nuevas tras el refresh.
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [logoPending, startLogoTransition] = useTransition();
+  const [logoError, setLogoError] = useState<string | null>(null);
+
+  function guardar() {
+    setSaved(false);
+    startTransition(async () => {
+      await updateNegocioAction(form);
+      setSaved(true);
+      router.refresh();
+    });
+  }
+
+  function subirLogo(file: File) {
+    setLogoError(null);
+    startLogoTransition(async () => {
+      try {
+        const fd = new FormData();
+        fd.set("file", file);
+        await uploadLogoAction(fd);
+        if (fileRef.current) fileRef.current.value = "";
+        router.refresh();
+      } catch {
+        setLogoError("No se pudo subir el logo. Probá de nuevo en un rato.");
+      }
+    });
+  }
+
+  function quitarLogo() {
+    setLogoError(null);
+    startLogoTransition(async () => {
+      try {
+        await removeLogoAction();
+        router.refresh();
+      } catch {
+        setLogoError("No se pudo quitar el logo.");
+      }
+    });
+  }
+
+  return (
     <div className="max-w-3xl space-y-5">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5">
+          <p className="mb-3 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            Apariencia
+          </p>
           <div className="space-y-3">
-            <Field label="Nombre">
-              <Input
-                value={form.nombre}
-                onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-              />
+            <Field label="Color del tema">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {PALETAS.map((p) => {
+                  const elegida = form.colorTema === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, colorTema: p.id }))}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 rounded-lg border p-2 transition-colors",
+                        elegida
+                          ? "border-accent bg-accent-soft"
+                          : "border-neutral-200 hover:border-neutral-300",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "h-6 w-6 rounded-full",
+                          elegida && "ring-2 ring-accent ring-offset-2",
+                        )}
+                        style={{ backgroundColor: p.chart[2] }}
+                      />
+                      <span className="text-[11px] font-medium text-neutral-600">
+                        {p.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </Field>
-            <Field label="Dirección">
-              <Input
-                value={form.direccion}
-                onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
-              />
-            </Field>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Teléfono">
-                <Input
-                  value={form.telefono}
-                  onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
+            <Field label="Logo">
+              <div className="flex flex-wrap items-center gap-3">
+                {negocio.logoUrl ? (
+                  <img
+                    src={negocio.logoUrl}
+                    alt="Logo actual"
+                    className="h-12 w-12 rounded-xl border border-neutral-200 bg-white object-contain p-1"
+                  />
+                ) : (
+                  <div className="grid h-12 w-12 place-items-center rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-400">
+                    <Store className="h-5 w-5" />
+                  </div>
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  disabled={logoPending}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) subirLogo(file);
+                  }}
+                  className="block w-full max-w-xs text-sm text-neutral-500 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-neutral-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-neutral-600 hover:file:bg-neutral-200 disabled:opacity-50"
                 />
-              </Field>
-              <Field label="CUIT">
-                <Input
-                  value={form.cuit}
-                  onChange={(e) => setForm((f) => ({ ...f, cuit: e.target.value }))}
-                />
-              </Field>
-            </div>
-            <Field label="Horario de atención">
-              <Input
-                value={form.horario}
-                onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))}
-              />
-            </Field>
-            <Field label="Objetivo del mes (USD)">
-              <Input
-                type="number"
-                min={0}
-                value={form.objetivoMesUsd}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, objetivoMesUsd: Number(e.target.value) }))
-                }
-              />
+                {logoPending && (
+                  <span className="text-xs text-neutral-400">Subiendo…</span>
+                )}
+                {negocio.logoUrl && !logoPending && (
+                  <button
+                    onClick={quitarLogo}
+                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                  >
+                    Quitar logo
+                  </button>
+                )}
+              </div>
+              {logoError && <p className="mt-2 text-xs text-red-600">{logoError}</p>}
             </Field>
           </div>
         </Card>
         <Card className="p-5">
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-            Recargo por medio de pago
-          </p>
-          <div className="space-y-2">
-            {MEDIOS_VENTA.map((m) => (
-              <div key={m} className="flex items-center gap-2">
-                <span className="flex-1 text-sm text-neutral-600">
-                  {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
-                </span>
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                Objetivo del mes
+              </p>
+              <Field label="Objetivo del mes (USD)">
                 <Input
-                  className="w-24 text-center"
                   type="number"
                   min={0}
-                  placeholder="0"
-                  value={form.recargosMediosPago[m] ?? ""}
-                  onChange={(e) => {
-                    const v = Number(e.target.value) || 0;
-                    setForm((f) => ({
-                      ...f,
-                      recargosMediosPago: { ...f.recargosMediosPago, [m]: v || undefined },
-                    }));
-                  }}
+                  value={form.objetivoMesUsd}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, objetivoMesUsd: Number(e.target.value) }))
+                  }
                 />
-                <span className="text-sm text-neutral-400">%</span>
+              </Field>
+            </div>
+            <div>
+              <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                Recargo por medio de pago
+              </p>
+              <div className="space-y-2">
+                {MEDIOS_VENTA.map((m) => (
+                  <div key={m} className="flex items-center gap-2">
+                    <span className="flex-1 text-sm text-neutral-600">
+                      {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
+                    </span>
+                    <Input
+                      className="w-24 text-center"
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={form.recargosMediosPago[m] ?? ""}
+                      onChange={(e) => {
+                        const v = Number(e.target.value) || 0;
+                        setForm((f) => ({
+                          ...f,
+                          recargosMediosPago: { ...f.recargosMediosPago, [m]: v || undefined },
+                        }));
+                      }}
+                    />
+                    <span className="text-sm text-neutral-400">%</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </Card>
       </div>

@@ -17,10 +17,17 @@ const config: Config = {
         ],
       },
       colors: {
+        // accent/table-header siguen las CSS vars del tema activo
+        // ([data-tema] en <html>, valores en app/globals.css). El formato
+        // "rgb(var(...) / <alpha-value>)" es necesario para que sigan
+        // funcionando los usos con opacidad (bg-accent/90,
+        // border-accent/40, ...) -- un hex o var() plano los rompe en
+        // silencio.
         accent: {
-          DEFAULT: "#4f49bd", // índigo — marca + interacción (toda la app)
-          soft: "#edecf8",
+          DEFAULT: "rgb(var(--accent-rgb) / <alpha-value>)",
+          soft: "rgb(var(--accent-soft-rgb) / <alpha-value>)",
         },
+        "table-header": "var(--chart-1)",
       },
       keyframes: {
         "toast-in": {
