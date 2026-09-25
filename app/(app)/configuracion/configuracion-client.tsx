@@ -21,19 +21,8 @@ import {
   updateNegocioAction,
 } from "./actions";
 import { ImportarDatos } from "./importar-datos";
-import {
-  ReciboShell,
-  ReciboGarantiaItems,
-  ReciboCampos,
-  ReciboLineas,
-  ReciboChecklist,
-  ReciboNota,
-  ReciboNotaLista,
-} from "@/components/recibos/recibo";
-import { CHECKLIST_ITEMS } from "@/lib/status";
 import type { SessionUser, Rol } from "@/lib/auth/types";
 import type { Miembro, Negocio } from "@/lib/db/configuracion";
-import type { Checklist } from "@/lib/types";
 
 type Tab = "usuarios" | "negocio" | "recibos" | "importar" | "cuenta";
 
@@ -539,62 +528,9 @@ const DOC_TABS: { value: DocTab; label: string }[] = [
   { value: "egreso", label: "Ticket de egreso" },
 ];
 
-/** Checklist de ejemplo para el preview de Reparaciones -- todo "bien",
- * mismo criterio que el botón «Marcar todo bien» del checklist real. */
-const CHECKLIST_PREVIEW: Checklist = {
-  items: Object.fromEntries(CHECKLIST_ITEMS.map((id) => [id, "bien"])) as Checklist["items"],
-  color: "Negro",
-};
-
-/** "Información del equipo" de ejemplo -- misma estructura de dos columnas
- * + Observaciones que arman los 3 documentos de Reparaciones (ver
- * `reparaciones-client.tsx`). */
-function InfoEquipoPreview() {
-  return (
-    <div className="mt-10 print:break-inside-avoid-page">
-      <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
-        Información del equipo
-      </p>
-      <div className="grid grid-cols-2 gap-x-8">
-        <ReciboCampos
-          variant="inline"
-          separadores
-          filas={[
-            ["Marca", "Apple"],
-            ["Modelo", "iPhone 13 Pro 128GB"],
-            ["Serial / IMEI", "358240051111110"],
-            ["Color", "Negro"],
-          ]}
-        />
-        <ReciboCampos
-          variant="inline"
-          separadores
-          filas={[
-            ["Reparación solicitada", "Cambio de pantalla"],
-            ["Falla declarada", "Pantalla rota, no responde el táctil"],
-            ["Clave / código", "1234"],
-          ]}
-        />
-      </div>
-      <ReciboCampos
-        className="mt-3"
-        variant="inline"
-        filas={[["Observaciones", "Golpe leve en el marco, sin funda."]]}
-      />
-    </div>
-  );
-}
-
-const SERVICIOS_PREVIEW = [
-  { detalle: "Cambio de módulo", cantidad: 1, montoUsd: 120, garantia: "90 días" },
-];
-
-const REPUESTOS_PREVIEW = [{ detalle: "Módulo iPhone 13", cantidad: 1, montoUsd: 80 }];
-
 /** Textos editables de los 4 documentos con recibo (Garantía de Ventas +
  * los 3 de Reparaciones) -- separados por tab (`DOC_TABS`) para que cada
- * uno edite y previsualice solo el suyo, en vez de un formulario largo con
- * un único preview de Garantía. */
+ * uno edite solo el suyo, en vez de un formulario largo único. */
 function RecibosForm({ negocio }: { negocio: Negocio }) {
   const router = useRouter();
   const [form, setForm] = useState(negocio);
@@ -611,223 +547,120 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
     });
   }
 
-  const pagina =
-    docTab === "garantia"
-      ? {
-          titulo: "Garantía",
-          compacto: true,
-          sello: true,
-          children: (
-            <>
-              <ReciboGarantiaItems
-                items={[
-                  {
-                    detalle: "iPhone 13 128GB Azul",
-                    serial: "358240051111110",
-                    garantia: form.garantiaTexto || "—",
-                  },
-                ]}
-              />
-              <ReciboNota titulo="Condiciones de garantía" texto={form.garantiaCondiciones} />
-              <ReciboNotaLista
-                titulo="Causales de anulación de la garantía"
-                texto={form.garantiaCausales}
-              />
-              <ReciboNota titulo="Importante" texto={form.garantiaImportante} tono="warning" />
-            </>
-          ),
-        }
-      : docTab === "ingreso"
-        ? {
-            titulo: "Ticket de ingreso",
-            compacto: true,
-            children: (
-              <>
-                <InfoEquipoPreview />
-                <ReciboChecklist
-                  titulo="Checklist de ingreso"
-                  checklist={CHECKLIST_PREVIEW}
-                  ocultarColor
-                />
-                <ReciboNota
-                  titulo="Términos y condiciones"
-                  texto={form.reparacionTerminosIngreso}
-                />
-                <ReciboLineas
-                  titulo="Servicios presupuestados"
-                  lineas={SERVICIOS_PREVIEW}
-                  total={120}
-                />
-                <ReciboNota titulo="Aclaraciones" texto={form.reparacionAclaracionesIngreso} />
-              </>
-            ),
-          }
-        : docTab === "presupuesto"
-          ? {
-              titulo: "Presupuesto",
-              compacto: true,
-              children: (
-                <>
-                  <InfoEquipoPreview />
-                  <ReciboLineas titulo="Servicios" lineas={SERVICIOS_PREVIEW} />
-                  <ReciboLineas titulo="Repuestos" lineas={REPUESTOS_PREVIEW} total={200} />
-                  <ReciboNota
-                    titulo="Términos y condiciones"
-                    texto={form.reparacionTerminosPresupuesto}
-                  />
-                </>
-              ),
-            }
-          : {
-              titulo: "Ticket de egreso",
-              compacto: true,
-              children: (
-                <>
-                  <InfoEquipoPreview />
-                  <ReciboChecklist titulo="Checklist de egreso" checklist={CHECKLIST_PREVIEW} />
-                  <ReciboNota
-                    titulo="Términos y condiciones"
-                    texto={form.reparacionTerminosEgreso}
-                  />
-                  <ReciboLineas
-                    titulo="Servicios realizados"
-                    lineas={SERVICIOS_PREVIEW}
-                    total={120}
-                  />
-                  <ReciboNota titulo="Aclaraciones" texto={form.reparacionAclaracionesEgreso} />
-                </>
-              ),
-            };
-
   return (
     <div className="space-y-4">
       <Tabs value={docTab} onChange={setDocTab} options={DOC_TABS} />
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,22rem)_1fr]">
-        <Card className="h-fit p-5">
-          <div className="space-y-3">
-            {docTab === "garantia" && (
-              <>
-                <Field label="Texto de garantía por ítem">
-                  <Input
-                    value={form.garantiaTexto}
-                    onChange={(e) => setForm((f) => ({ ...f, garantiaTexto: e.target.value }))}
-                    placeholder="Ej: Garantía oficial Apple (12 meses)"
-                  />
-                </Field>
-                <Field label="Condiciones de garantía">
-                  <Textarea
-                    rows={5}
-                    value={form.garantiaCondiciones}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, garantiaCondiciones: e.target.value }))
-                    }
-                    placeholder="Párrafos separados por una línea en blanco."
-                  />
-                </Field>
-                <Field label="Importante">
-                  <Textarea
-                    rows={4}
-                    value={form.garantiaImportante}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, garantiaImportante: e.target.value }))
-                    }
-                    placeholder="Párrafos separados por una línea en blanco."
-                  />
-                </Field>
-                <Field label="Causales de anulación">
-                  <Textarea
-                    rows={4}
-                    value={form.garantiaCausales}
-                    onChange={(e) => setForm((f) => ({ ...f, garantiaCausales: e.target.value }))}
-                    placeholder="Una causal por línea."
-                  />
-                </Field>
-              </>
-            )}
-            {docTab === "ingreso" && (
-              <>
-                <Field label="Términos y condiciones">
-                  <Textarea
-                    rows={4}
-                    value={form.reparacionTerminosIngreso}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, reparacionTerminosIngreso: e.target.value }))
-                    }
-                    placeholder="Párrafos separados por una línea en blanco."
-                  />
-                </Field>
-                <Field label="Aclaraciones">
-                  <Textarea
-                    rows={4}
-                    value={form.reparacionAclaracionesIngreso}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, reparacionAclaracionesIngreso: e.target.value }))
-                    }
-                    placeholder="Párrafos separados por una línea en blanco."
-                  />
-                </Field>
-              </>
-            )}
-            {docTab === "presupuesto" && (
-              <Field label="Términos y condiciones">
+      <Card className="h-fit max-w-2xl p-5">
+        <div className="space-y-3">
+          {docTab === "garantia" && (
+            <>
+              <Field label="Texto de garantía por ítem">
+                <Input
+                  value={form.garantiaTexto}
+                  onChange={(e) => setForm((f) => ({ ...f, garantiaTexto: e.target.value }))}
+                  placeholder="Ej: Garantía oficial Apple (12 meses)"
+                />
+              </Field>
+              <Field label="Condiciones de garantía">
                 <Textarea
-                  rows={4}
-                  value={form.reparacionTerminosPresupuesto}
+                  rows={5}
+                  value={form.garantiaCondiciones}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, reparacionTerminosPresupuesto: e.target.value }))
+                    setForm((f) => ({ ...f, garantiaCondiciones: e.target.value }))
                   }
                   placeholder="Párrafos separados por una línea en blanco."
                 />
               </Field>
-            )}
-            {docTab === "egreso" && (
-              <>
-                <Field label="Términos y condiciones">
-                  <Textarea
-                    rows={4}
-                    value={form.reparacionTerminosEgreso}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, reparacionTerminosEgreso: e.target.value }))
-                    }
-                    placeholder="Párrafos separados por una línea en blanco."
-                  />
-                </Field>
-                <Field label="Aclaraciones">
-                  <Textarea
-                    rows={4}
-                    value={form.reparacionAclaracionesEgreso}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, reparacionAclaracionesEgreso: e.target.value }))
-                    }
-                    placeholder="Párrafos separados por una línea en blanco."
-                  />
-                </Field>
-              </>
-            )}
-            {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
-            <button
-              onClick={guardar}
-              disabled={pending}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
-            >
-              {pending ? "Guardando…" : "Guardar cambios"}
-            </button>
-          </div>
-        </Card>
-
-        <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-            Preview
-          </p>
-          <ReciboShell
-            nro="V-123"
-            fecha="15/09/2026"
-            cliente="Cliente de ejemplo"
-            negocio={negocio}
-            paginas={[pagina]}
-          />
+              <Field label="Importante">
+                <Textarea
+                  rows={4}
+                  value={form.garantiaImportante}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, garantiaImportante: e.target.value }))
+                  }
+                  placeholder="Párrafos separados por una línea en blanco."
+                />
+              </Field>
+              <Field label="Causales de anulación">
+                <Textarea
+                  rows={4}
+                  value={form.garantiaCausales}
+                  onChange={(e) => setForm((f) => ({ ...f, garantiaCausales: e.target.value }))}
+                  placeholder="Una causal por línea."
+                />
+              </Field>
+            </>
+          )}
+          {docTab === "ingreso" && (
+            <>
+              <Field label="Términos y condiciones">
+                <Textarea
+                  rows={4}
+                  value={form.reparacionTerminosIngreso}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, reparacionTerminosIngreso: e.target.value }))
+                  }
+                  placeholder="Párrafos separados por una línea en blanco."
+                />
+              </Field>
+              <Field label="Aclaraciones">
+                <Textarea
+                  rows={4}
+                  value={form.reparacionAclaracionesIngreso}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, reparacionAclaracionesIngreso: e.target.value }))
+                  }
+                  placeholder="Párrafos separados por una línea en blanco."
+                />
+              </Field>
+            </>
+          )}
+          {docTab === "presupuesto" && (
+            <Field label="Términos y condiciones">
+              <Textarea
+                rows={4}
+                value={form.reparacionTerminosPresupuesto}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, reparacionTerminosPresupuesto: e.target.value }))
+                }
+                placeholder="Párrafos separados por una línea en blanco."
+              />
+            </Field>
+          )}
+          {docTab === "egreso" && (
+            <>
+              <Field label="Términos y condiciones">
+                <Textarea
+                  rows={4}
+                  value={form.reparacionTerminosEgreso}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, reparacionTerminosEgreso: e.target.value }))
+                  }
+                  placeholder="Párrafos separados por una línea en blanco."
+                />
+              </Field>
+              <Field label="Aclaraciones">
+                <Textarea
+                  rows={4}
+                  value={form.reparacionAclaracionesEgreso}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, reparacionAclaracionesEgreso: e.target.value }))
+                  }
+                  placeholder="Párrafos separados por una línea en blanco."
+                />
+              </Field>
+            </>
+          )}
+          {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
+          <button
+            onClick={guardar}
+            disabled={pending}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          >
+            {pending ? "Guardando…" : "Guardar cambios"}
+          </button>
         </div>
-      </div>
+        </Card>
     </div>
   );
 }

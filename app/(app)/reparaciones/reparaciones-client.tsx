@@ -96,6 +96,82 @@ function lineaSinGarantia(s: TicketServicio) {
   };
 }
 
+/** Ticket de egreso, hoja 1: equipo + servicios + forma de pago + firmas --
+ * la firma queda arriba, en la primera hoja impresa. La hoja 2 (checklist)
+ * la pasa el `ReciboDialog` vía `paginas` -- por eso lleva `sinFirmas`. */
+function egresoHoja1(ticket: Ticket, negocio: Negocio, dolarVenta: number) {
+  return (
+    <>
+      <div className="mt-10 print:break-inside-avoid-page">
+        <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
+          Información del equipo
+        </p>
+        <div className="grid grid-cols-2 gap-x-8">
+          <ReciboCampos
+            className=""
+            variant="inline"
+            separadores
+            filas={[
+              ["Marca", ticket.marca || "—"],
+              ["Modelo", ticket.equipo],
+              ["Serial / IMEI", ticket.imei],
+            ]}
+          />
+          <ReciboCampos
+            className=""
+            variant="inline"
+            separadores
+            filas={[
+              ["Reparación solicitada", ticket.reparacionSolicitada || "—"],
+              ["Falla declarada", ticket.falla],
+              ["Clave / código", ticket.claveCodigo || "—"],
+            ]}
+          />
+        </div>
+        <ReciboCampos
+          className="mt-3"
+          variant="inline"
+          filas={[["Observaciones", ticket.descripcionEquipo || "—"]]}
+        />
+      </div>
+      {ticket.servicios.length > 0 && (
+        <ReciboLineas
+          titulo="Servicios realizados"
+          lineas={ticket.servicios.map(lineaDeItem)}
+          total={ticket.presupuestoUsd}
+        />
+      )}
+      {ticket.pagos && ticket.pagos.length > 0 && (
+        <ReciboLineas
+          titulo="Forma de pago"
+          lineas={ticket.pagos.map((p) => ({
+            detalle: medioPagoCfg[p.medio].label,
+            montoUsd: p.montoUsd,
+            montoLabel: p.caja === "ars" ? fmtArs(p.montoUsd * dolarVenta) : fmtUsd(p.montoUsd),
+          }))}
+          total={ticket.pagos.reduce((a, p) => a + p.montoUsd, 0)}
+        />
+      )}
+      <div className="mt-10 print:break-inside-avoid-page">
+        <ReciboFirmas negocio={negocio} />
+      </div>
+    </>
+  );
+}
+
+/** Ticket de egreso, hoja 2: checklist + letra chica. */
+function egresoHoja2(ticket: Ticket, negocio: Negocio) {
+  return (
+    <>
+      {ticket.checklistEgreso && (
+        <ReciboChecklist titulo="Checklist de egreso" checklist={ticket.checklistEgreso} />
+      )}
+      <ReciboNota titulo="Términos y condiciones" texto={negocio.reparacionTerminosEgreso} />
+      <ReciboNota titulo="Aclaraciones" texto={negocio.reparacionAclaracionesEgreso} />
+    </>
+  );
+}
+
 function matchesQuery(t: Ticket, q: string) {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
@@ -996,6 +1072,22 @@ export function ReparacionesClient({
         negocio={negocio}
         compacto
         sinFirmas={recibo?.tipo === "egreso"}
+        paginas={
+          recibo?.tipo === "egreso" && recibo.ticket.checklistEgreso
+            ? [
+                {
+                  titulo: "Ticket de egreso",
+                  compacto: true,
+                  children: egresoHoja1(recibo.ticket, negocio, dolarVenta),
+                },
+                {
+                  titulo: "Checklist de egreso",
+                  continuacion: true,
+                  children: egresoHoja2(recibo.ticket, negocio),
+                },
+              ]
+            : undefined
+        }
       >
         {recibo?.tipo === "ingreso" && (
           <>
@@ -1125,77 +1217,19 @@ export function ReparacionesClient({
           </>
         )}
         {recibo?.tipo === "egreso" && (
+          /* Sin checklist de egreso: una sola hoja con todo. Con checklist,
+           * `paginas` arriba se queda con todo y estos children se ignoran. */
           <>
-            <div className="mt-10 print:break-inside-avoid-page">
-              <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
-                Información del equipo
-              </p>
-              <div className="grid grid-cols-2 gap-x-8">
-                <ReciboCampos
-                  className=""
-                  variant="inline"
-                  separadores
-                  filas={[
-                    ["Marca", recibo.ticket.marca || "—"],
-                    ["Modelo", recibo.ticket.equipo],
-                    ["Serial / IMEI", recibo.ticket.imei],
-                  ]}
+            {egresoHoja1(recibo.ticket, negocio, dolarVenta)}
+            {!recibo.ticket.checklistEgreso && (
+              <>
+                <ReciboNota
+                  titulo="Términos y condiciones"
+                  texto={negocio.reparacionTerminosEgreso}
                 />
-                <ReciboCampos
-                  className=""
-                  variant="inline"
-                  separadores
-                  filas={[
-                    ["Reparación solicitada", recibo.ticket.reparacionSolicitada || "—"],
-                    ["Falla declarada", recibo.ticket.falla],
-                    ["Clave / código", recibo.ticket.claveCodigo || "—"],
-                  ]}
-                />
-              </div>
-              <ReciboCampos
-                className="mt-3"
-                variant="inline"
-                filas={[["Observaciones", recibo.ticket.descripcionEquipo || "—"]]}
-              />
-            </div>
-            {/* Firmas arriba, en la primera hoja -- el detalle va después
-                (por eso el ReciboDialog lleva `sinFirmas`). */}
-            <div className="mt-10 print:break-inside-avoid-page">
-              <ReciboFirmas negocio={negocio} />
-            </div>
-            {recibo.ticket.servicios.length > 0 && (
-              <ReciboLineas
-                titulo="Servicios realizados"
-                lineas={recibo.ticket.servicios.map(lineaDeItem)}
-                total={recibo.ticket.presupuestoUsd}
-              />
+                <ReciboNota titulo="Aclaraciones" texto={negocio.reparacionAclaracionesEgreso} />
+              </>
             )}
-            {recibo.ticket.checklistEgreso && (
-              <ReciboChecklist
-                titulo="Checklist de egreso"
-                checklist={recibo.ticket.checklistEgreso}
-              />
-            )}
-            <ReciboNota
-              titulo="Términos y condiciones"
-              texto={negocio.reparacionTerminosEgreso}
-            />
-            {recibo.ticket.pagos && recibo.ticket.pagos.length > 0 && (
-              <ReciboLineas
-                titulo="Forma de pago"
-                lineas={recibo.ticket.pagos.map((p) => ({
-                  detalle: medioPagoCfg[p.medio].label,
-                  montoUsd: p.montoUsd,
-                  montoLabel:
-                    p.caja === "ars" ? fmtArs(p.montoUsd * dolarVenta) : fmtUsd(p.montoUsd),
-                }))}
-                total={recibo.ticket.pagos.reduce((a, p) => a + p.montoUsd, 0)}
-              />
-            )}
-            <ReciboNota
-              titulo="Aclaraciones"
-              texto={negocio.reparacionAclaracionesEgreso}
-            />
           </>
         )}
       </ReciboDialog>

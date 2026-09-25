@@ -24,6 +24,10 @@ export type ReciboPagina = {
    * tiene sentido con `compacto`, y solo lo usa el documento de Garantía
    * de Ventas (no los tickets de Reparaciones). */
   sello?: boolean;
+  /** Hoja de continuación: sin banda de título ni datos de cliente, solo
+   * el contenido (que trae su propio título de sección) -- ej. la hoja 2
+   * del ticket de egreso de Reparaciones (checklist). */
+  continuacion?: boolean;
 };
 
 /** Teléfono/email del cliente debajo de su nombre, en "Facturado a" /
@@ -65,7 +69,9 @@ export function ReciboFirmas({ negocio }: { negocio: Negocio }) {
  * cliente), o una única "Información cliente" (+ `sello` opcional) si
  * `compacto` -- las tablas de `ReciboLineas`/`ReciboGarantiaItems` ya salen
  * con el header índigo oscuro de las tablas globales (`app/globals.css`),
- * sin pedirlo a mano. */
+ * sin pedirlo a mano. `continuacion` salta banda y datos de cliente: hoja
+ * que sigue a otra del mismo documento (ej. el checklist del ticket de
+ * egreso) y no necesita repetir el encabezado. */
 function ReciboHoja({
   titulo,
   nro,
@@ -77,6 +83,7 @@ function ReciboHoja({
   compacto = false,
   sello = false,
   sinFirmas = false,
+  continuacion = false,
   children,
 }: {
   titulo: string;
@@ -92,10 +99,14 @@ function ReciboHoja({
    * cuerpo" (ej. el ticket de egreso de Reparaciones pone las firmas
    * arriba, en la primera hoja, y el detalle después). */
   sinFirmas?: boolean;
+  /** Hoja de continuación: sin banda de título ni datos de cliente, solo
+   * el contenido (que trae su propio título de sección). */
+  continuacion?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="recibo-print flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white text-neutral-900 print:min-h-screen">
+      {!continuacion && (
       <div className="flex items-center justify-between gap-6 bg-accent px-8 py-6 text-white print:px-[14mm] print:py-8">
         <div>
           <p className="font-grotesk text-3xl font-semibold uppercase tracking-tight">{titulo}</p>
@@ -117,9 +128,11 @@ function ReciboHoja({
           </div>
         )}
       </div>
+      )}
 
       <div className="flex flex-1 flex-col px-6 py-5 print:px-[14mm] print:py-8 print:pb-16">
-        {compacto ? (
+        {!continuacion &&
+        (compacto ? (
           <div className="relative">
             <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
               Información cliente
@@ -163,7 +176,7 @@ function ReciboHoja({
               </div>
             </div>
           </div>
-        )}
+        ))}
 
         <div className="text-sm">{children}</div>
 
@@ -239,6 +252,7 @@ export function ReciboShell({
             compacto={h.compacto}
             sello={h.sello}
             sinFirmas={sinFirmas}
+            continuacion={h.continuacion}
           >
             {h.children}
           </ReciboHoja>
