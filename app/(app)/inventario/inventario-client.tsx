@@ -288,13 +288,25 @@ export function InventarioClient({
       setDraftEncontrados(d);
       setDraftComentarios({});
     } else {
-      const d: Record<string, number> = {};
-      if (tab === "repuestos") repuestos.forEach((r) => (d[r.id] = r.stock));
-      else otros.forEach((o) => !o.serializado && (d[o.id] = o.cantidad));
-      setDraft(d);
+      // Arranca vacío a propósito: el campo de "Contado" no se pre-carga
+      // con el stock del sistema (eso se lee al lado, de referencia) --
+      // así no se siente como "corregir" el stock sino como anotar lo que
+      // se ve. Un ítem que se deja en blanco no entra en el recuento.
+      setDraft({});
     }
     setRecuento(true);
   }
+
+  function setContado(id: string, raw: string) {
+    setDraft((d) => {
+      if (raw.trim() === "") {
+        const { [id]: _omit, ...rest } = d;
+        return rest;
+      }
+      return { ...d, [id]: Number(raw) || 0 };
+    });
+  }
+
   // El recuento no ajusta equipos/repuestos/otros al guardar -- solo
   // registra las diferencias y queda pendiente hasta que un admin lo
   // revise en la sección «Recuentos» (`resolverRecuento` en
@@ -911,9 +923,11 @@ export function InventarioClient({
 
                 {recuento && (
                   <p className="text-sm text-neutral-500">
-                    Contá el stock real de cada repuesto y guardá el recuento
-                    — las diferencias quedan pendientes de revisión en
-                    «Recuentos», el stock no se ajusta solo.
+                    Al lado de cada repuesto figura cuánto debería haber —
+                    anotá en «Contado» lo que ves de verdad. Los que dejes en
+                    blanco no entran en el recuento; las diferencias quedan
+                    pendientes de revisión en «Recuentos», el stock no se
+                    ajusta solo.
                   </p>
                 )}
 
@@ -968,17 +982,18 @@ export function InventarioClient({
                           <div className="mt-2.5 flex items-center gap-2 border-t border-neutral-100 pt-2.5">
                             {recuento ? (
                               <>
-                                <span className="text-xs text-neutral-500">Stock real</span>
+                                <span className="text-xs text-neutral-500">
+                                  Debería haber{" "}
+                                  <span className="font-semibold text-neutral-700">
+                                    {r.stock}
+                                  </span>
+                                </span>
                                 <Input
                                   type="number"
                                   min={0}
-                                  value={draft[r.id] ?? r.stock}
-                                  onChange={(e) =>
-                                    setDraft((d) => ({
-                                      ...d,
-                                      [r.id]: Number(e.target.value) || 0,
-                                    }))
-                                  }
+                                  placeholder="Contado"
+                                  value={draft[r.id] ?? ""}
+                                  onChange={(e) => setContado(r.id, e.target.value)}
                                   className="ml-auto h-8 w-20 text-center"
                                 />
                               </>
@@ -1097,18 +1112,22 @@ export function InventarioClient({
                               </td>
                               <td className="px-5 py-2 text-center">
                                 {recuento ? (
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={draft[r.id] ?? r.stock}
-                                    onChange={(e) =>
-                                      setDraft((d) => ({
-                                        ...d,
-                                        [r.id]: Number(e.target.value) || 0,
-                                      }))
-                                    }
-                                    className="mx-auto h-8 w-20 text-center"
-                                  />
+                                  <div className="mx-auto flex w-28 flex-col items-center gap-1">
+                                    <span className="text-xs text-neutral-500">
+                                      Debería haber{" "}
+                                      <span className="font-semibold text-neutral-700">
+                                        {r.stock}
+                                      </span>
+                                    </span>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      placeholder="Contado"
+                                      value={draft[r.id] ?? ""}
+                                      onChange={(e) => setContado(r.id, e.target.value)}
+                                      className="h-8 w-20 text-center"
+                                    />
+                                  </div>
                                 ) : (
                                   <div className="mx-auto w-24">
                                     <p className="tabular-nums">
@@ -1313,9 +1332,11 @@ export function InventarioClient({
 
                 {recuento && (
                   <p className="text-sm text-neutral-500">
-                    Contá la cantidad real de cada producto y guardá el
-                    recuento — las diferencias quedan pendientes de revisión
-                    en «Recuentos», la cantidad no se ajusta sola.
+                    Al lado de cada producto figura cuánto debería haber —
+                    anotá en «Contado» lo que ves de verdad. Los que dejes en
+                    blanco no entran en el recuento; las diferencias quedan
+                    pendientes de revisión en «Recuentos», la cantidad no se
+                    ajusta sola.
                   </p>
                 )}
 
@@ -1389,19 +1410,25 @@ export function InventarioClient({
                               <Tag className="h-3 w-3 text-neutral-400" />
                             </span>
                           ) : recuento ? (
-                            <Input
-                              type="number"
-                              min={0}
-                              value={draft[o.id] ?? o.cantidad}
-                              onChange={(e) =>
-                                setDraft((d) => ({
-                                  ...d,
-                                  [o.id]: Number(e.target.value) || 0,
-                                }))
-                              }
+                            <div
+                              className="flex items-center gap-1.5"
                               onClick={(e) => e.stopPropagation()}
-                              className="h-8 w-16 text-center"
-                            />
+                            >
+                              <span className="text-[11px] text-neutral-500">
+                                Debería haber{" "}
+                                <span className="font-semibold text-neutral-700">
+                                  {o.cantidad}
+                                </span>
+                              </span>
+                              <Input
+                                type="number"
+                                min={0}
+                                placeholder="Contado"
+                                value={draft[o.id] ?? ""}
+                                onChange={(e) => setContado(o.id, e.target.value)}
+                                className="h-8 w-16 text-center"
+                              />
+                            </div>
                           ) : (
                             <span className="font-semibold text-neutral-900">
                               {cantidad}
@@ -1549,18 +1576,22 @@ export function InventarioClient({
                                     <Tag className="h-3 w-3 text-neutral-400" />
                                   </span>
                                 ) : recuento ? (
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={draft[o.id] ?? o.cantidad}
-                                    onChange={(e) =>
-                                      setDraft((d) => ({
-                                        ...d,
-                                        [o.id]: Number(e.target.value) || 0,
-                                      }))
-                                    }
-                                    className="mx-auto h-8 w-20 text-center"
-                                  />
+                                  <div className="mx-auto flex w-28 flex-col items-center gap-1">
+                                    <span className="text-xs text-neutral-500">
+                                      Debería haber{" "}
+                                      <span className="font-semibold text-neutral-700">
+                                        {o.cantidad}
+                                      </span>
+                                    </span>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      placeholder="Contado"
+                                      value={draft[o.id] ?? ""}
+                                      onChange={(e) => setContado(o.id, e.target.value)}
+                                      className="h-8 w-20 text-center"
+                                    />
+                                  </div>
                                 ) : (
                                   cantidad
                                 )}

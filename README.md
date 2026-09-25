@@ -19,7 +19,9 @@ npm run dev        # http://localhost:3100
   Realtime **Broadcast** (canal `crm-events`, evento `app`, `self: false`).
   Cross-device. No crea tablas.
 
-El emisor nunca ve su propio toast (son "acciones de otros usuarios").
+El emisor nunca ve su propio toast (son "acciones de otros usuarios") —
+salvo los del botón **Simular**, que se entregan también en la propia
+pestaña para poder testearlos sin abrir una segunda.
 
 Botón flotante **Simular** (abajo a la izquierda): dispara eventos fake
 (venta confirmada, ticket listo, presupuesto aprobado, cliente llegó, stock

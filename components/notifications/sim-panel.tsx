@@ -80,13 +80,13 @@ export function SimPanel() {
   const [sent, setSent] = useState<string | null>(null);
 
   function fire(label: string, build: () => AppEvent) {
-    publish(build());
+    publish(build(), { self: true });
     setSent(label);
     setTimeout(() => setSent(null), 1500);
   }
 
   return (
-    <div className="fixed bottom-6 left-6 z-50">
+    <div className="fixed bottom-20 left-6 z-50">
       {open && (
         <div className="animate-toast-in mb-3 w-72 rounded-xl border border-neutral-200 bg-white p-4 shadow-xl">
           <div className="flex items-center justify-between">
@@ -99,7 +99,7 @@ export function SimPanel() {
             </button>
           </div>
           <p className="mt-1 text-xs text-neutral-400">
-            Abrí otra pestaña para ver el toast entrar en tiempo real.
+            El toast entra en esta pestaña y en las demás de la organización.
           </p>
           <div className="mt-3 space-y-1.5">
             {PRESETS.map((p) => (

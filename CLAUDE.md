@@ -1118,7 +1118,9 @@ nombre de actor** -- eso fue un bug real que quedó de la época mock.
   tabla de notificaciones persistida.
 - `components/notifications/sim-panel.tsx` es el botón flotante "Simular"
   para disparar eventos fake (con actores de mock, a propósito -- es un
-  simulador) y probar los toasts en otra pestaña.
+  simulador). Publica con `publish(e, { self: true })`: el evento se entrega
+  además a los listeners locales (misma pestaña), independiente del
+  transporte -- así se puede testear aunque Realtime no esté conectado.
 - De los 6 tipos de `AppEvent`, `low_stock` está definido pero **nada lo
   dispara todavía** -- ninguna sección chequea stock contra el mínimo y
   publica el evento. Pendiente si se decide conectarlo.

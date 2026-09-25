@@ -3,6 +3,7 @@ import { TopNav } from "@/components/topnav";
 import { Toaster } from "@/components/notifications/toaster";
 import { SimPanel } from "@/components/notifications/sim-panel";
 import { RealtimeProvider } from "@/components/notifications/realtime-provider";
+import { ReportarBugFab } from "@/components/reportar-bug-fab";
 
 export default async function AppLayout({
   children,
@@ -17,6 +18,7 @@ export default async function AppLayout({
       {children}
       <Toaster esAdmin={user.rol === "admin"} />
       <SimPanel />
+      <ReportarBugFab />
     </RealtimeProvider>
   );
 }

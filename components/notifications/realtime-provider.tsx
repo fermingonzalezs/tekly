@@ -15,7 +15,10 @@ import type { AppEvent } from "@/lib/realtime";
 type Listener = (e: AppEvent) => void;
 
 type RealtimeCtx = {
-  publish: (e: AppEvent) => void;
+  /** `self: true` entrega el evento además a los listeners locales (la
+   * propia pestaña), no solo al canal -- lo usa el SimPanel para testear
+   * sin depender del transporte ni de una segunda pestaña. */
+  publish: (e: AppEvent, opts?: { self?: boolean }) => void;
   subscribe: (fn: Listener) => () => void;
   transport: "supabase" | "broadcastchannel";
 };
@@ -64,7 +67,10 @@ export function RealtimeProvider({
 
   const value = useMemo<RealtimeCtx>(
     () => ({
-      publish: (e) => publishImplRef.current(e),
+      publish: (e, opts) => {
+        if (opts?.self) listenersRef.current.forEach((fn) => fn(e));
+        publishImplRef.current(e);
+      },
       subscribe: (fn) => {
         listenersRef.current.add(fn);
         return () => listenersRef.current.delete(fn);

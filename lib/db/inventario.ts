@@ -391,7 +391,10 @@ export async function ingresoRepuesto(
 }
 
 /** Igual criterio que `crearRecuentoEquipos`: no ajusta `stock` todavía,
- * queda pendiente de revisión. */
+ * queda pendiente de revisión. `draft` solo trae los ítems que el usuario
+ * efectivamente contó (el campo "Contado" arranca vacío en el cliente, no
+ * pre-cargado con el stock del sistema) -- lo que no se cuenta no entra acá,
+ * ni como movimiento ni como diferencia. */
 export async function crearRecuentoRepuestos(draft: Record<string, number>): Promise<Recuento> {
   const ids = Object.keys(draft);
   const user = await requireUser();
@@ -566,10 +569,9 @@ export async function crearOtro(data: {
   return toOtro(row as unknown as OtroRow);
 }
 
-/** Igual criterio que `crearRecuentoEquipos`: no ajusta `cantidad`
- * todavía, queda pendiente de revisión. Solo cubre los no serializados
- * (mismo alcance que tenía el recuento inmediato -- el cliente ya arma el
- * `draft` así). */
+/** Igual criterio que `crearRecuentoRepuestos`: `draft` solo trae los ítems
+ * contados (no serializados -- mismo alcance que tenía el recuento inmediato,
+ * el cliente ya arma el `draft` así). */
 export async function crearRecuentoOtros(draft: Record<string, number>): Promise<Recuento> {
   const ids = Object.keys(draft);
   const user = await requireUser();

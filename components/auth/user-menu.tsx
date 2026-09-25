@@ -1,14 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useTransition } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Settings, UserPen, LogOut, Bug } from "lucide-react";
+import { Settings, UserPen, LogOut } from "lucide-react";
 import { dotClass, rolLabel, rolTone } from "@/lib/status";
 import { cn } from "@/lib/utils";
-import { Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/field";
-import { signOutAction, reportarBugAction } from "@/app/(app)/actions";
+import { signOutAction } from "@/app/(app)/actions";
 import type { SessionUser } from "@/lib/auth/types";
 
 function iniciales(nombre: string) {
@@ -19,7 +16,6 @@ function iniciales(nombre: string) {
 
 export function UserMenu({ user }: { user: SessionUser }) {
   const [open, setOpen] = useState(false);
-  const [reportando, setReportando] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,16 +87,6 @@ export function UserMenu({ user }: { user: SessionUser }) {
               <UserPen className="h-4 w-4" />
               Cambiar datos
             </Link>
-            <button
-              onClick={() => {
-                setOpen(false);
-                setReportando(true);
-              }}
-              className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
-            >
-              <Bug className="h-4 w-4" />
-              Reportar un problema
-            </button>
           </div>
 
           <div className="border-t border-neutral-100 py-1">
@@ -116,64 +102,6 @@ export function UserMenu({ user }: { user: SessionUser }) {
           </div>
         </div>
       )}
-
-      <ReportarBugDialog
-        key={reportando ? "a" : "b"}
-        open={reportando}
-        onClose={() => setReportando(false)}
-      />
     </div>
-  );
-}
-
-function ReportarBugDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [descripcion, setDescripcion] = useState("");
-  const [enviado, setEnviado] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  function enviar() {
-    startTransition(async () => {
-      await reportarBugAction(descripcion);
-      setEnviado(true);
-    });
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Reportar un problema"
-      description="Contanos qué pasó -- lo revisamos apenas nos llega."
-      footer={
-        enviado ? (
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Cerrar
-          </Button>
-        ) : (
-          <>
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button size="sm" disabled={!descripcion.trim() || pending} onClick={enviar}>
-              {pending ? "Enviando…" : "Enviar reporte"}
-            </Button>
-          </>
-        )
-      }
-    >
-      {enviado ? (
-        <p className="py-4 text-center text-sm text-neutral-600">
-          Gracias, ya lo tenemos anotado.
-        </p>
-      ) : (
-        <Textarea
-          rows={5}
-          autoFocus
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
-          placeholder="¿Qué esperabas que pasara y qué pasó en cambio?"
-        />
-      )}
-    </Dialog>
   );
 }
