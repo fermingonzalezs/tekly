@@ -1,6 +1,14 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
-import type { Pago, Turno, TurnoEstado, TurnoTipo } from "@/lib/types";
+import type {
+  EquipoStatus,
+  OtroUnidad,
+  Pago,
+  Turno,
+  TurnoEstado,
+  TurnoOtroItem,
+  TurnoTipo,
+} from "@/lib/types";
 
 /** El mock usaba `dayOffset` (0 = hoy) calculado en el cliente con
  * `new Date()`. La tabla real guarda `fecha` (date real) -- acá se
@@ -36,12 +44,13 @@ type TurnoRow = {
   estado: TurnoEstado;
   ticket_id: number | null;
   equipo_ids: string[] | null;
+  items_otros: TurnoOtroItem[] | null;
   pagos: Pago[] | null;
   nota: string | null;
 };
 
 const TURNO_COLS =
-  "id, fecha, hora, cliente, cliente_id, tipo, estado, ticket_id, equipo_ids, pagos, nota";
+  "id, fecha, hora, cliente, cliente_id, tipo, estado, ticket_id, equipo_ids, items_otros, pagos, nota";
 
 function toTurno(row: TurnoRow): Turno {
   return {
@@ -54,6 +63,7 @@ function toTurno(row: TurnoRow): Turno {
     estado: row.estado,
     ticketId: row.ticket_id,
     equipoIds: row.equipo_ids ?? undefined,
+    itemsOtros: row.items_otros ?? undefined,
     pagos: row.pagos ?? undefined,
     nota: row.nota ?? undefined,
   };
@@ -80,8 +90,17 @@ export async function createTurno(data: {
   cliente: string;
   clienteId: string | null;
   tipo: TurnoTipo;
+  /** Solo "retira": el ticket listo que se viene a retirar (ver
+   * `Turno.ticketId`) -- el turno ya no marca equipos como vendidos. */
+  ticketId: number | null;
+  /** Solo "compra". */
   equipoIds: string[];
+  /** Solo "compra" -- ítems de "Otros" del carrito. */
+  itemsOtros: TurnoOtroItem[];
   pagos: Pago[];
+  /** Solo relevante si hay `equipoIds`/`itemsOtros`: reservarlos en el stock
+   * al agendar (antes era obligatorio, ahora es opcional). */
+  reservarStock: boolean;
   nota: string;
 }): Promise<Turno> {
   const supabase = createServerClient();
@@ -94,7 +113,9 @@ export async function createTurno(data: {
       cliente_id: data.clienteId,
       tipo: data.tipo,
       estado: "confirmado" satisfies TurnoEstado,
+      ticket_id: data.ticketId,
       equipo_ids: data.equipoIds.length ? data.equipoIds : null,
+      items_otros: data.itemsOtros.length ? data.itemsOtros : null,
       pagos: data.pagos.length ? data.pagos : null,
       nota: data.nota.trim() || null,
     })
@@ -102,17 +123,52 @@ export async function createTurno(data: {
     .single();
   if (error) throw error;
 
-  // Mismo criterio que Ventas: "retira" entrega el equipo (vendido), el
-  // resto de los turnos con equipo son una reserva. No es una transacción
-  // real (supabase-js no las soporta desde el cliente) -- aceptable a esta
-  // escala, ver la nota equivalente en lib/db/ventas.ts.
-  if (data.equipoIds.length) {
-    const nuevoEstado = data.tipo === "retira" ? "vendido" : "reservado";
+  // "retira" ya no toca equipos -- se vincula a un ticket (`Turno.ticketId`)
+  // en vez de marcar un equipo "vendido" sin una Venta real detrás (bug que
+  // tenía este flujo). Reservar solo aplica a "compra", y es opcional.
+  // Igual que el resto de estos flujos multi-paso (ver nota equivalente en
+  // `lib/db/ventas.ts`), no es una transacción real -- aceptable a esta
+  // escala. Tampoco hay reversión automática al cancelar/eliminar un turno
+  // (gap preexistente: los ítems reservados se quedan reservados).
+  if (data.reservarStock && data.equipoIds.length) {
     const { error: updError } = await supabase
       .from("equipos")
-      .update({ estado: nuevoEstado })
+      .update({ estado: "reservado" satisfies EquipoStatus })
       .in("id", data.equipoIds);
     if (updError) throw updError;
+  }
+
+  if (data.reservarStock && data.itemsOtros.length) {
+    for (const item of data.itemsOtros) {
+      const { data: otroRow, error: readError } = await supabase
+        .from("otros_items")
+        .select("serializado, cantidad, unidades")
+        .eq("id", item.otroId)
+        .single();
+      if (readError) throw readError;
+
+      if (item.serial) {
+        // Unidad puntual de un "Otro" serializado: se marca `estado` dentro
+        // del jsonb `unidades` (no hay tabla de unidades sueltas).
+        const unidades = (otroRow.unidades ?? []) as OtroUnidad[];
+        const patched = unidades.map((u) =>
+          u.serial === item.serial ? { ...u, estado: "reservado" as const } : u,
+        );
+        const { error: updError } = await supabase
+          .from("otros_items")
+          .update({ unidades: patched })
+          .eq("id", item.otroId);
+        if (updError) throw updError;
+      } else if (item.cantidad) {
+        // "Otro" no serializado: se descuenta de la cantidad total.
+        const nuevaCantidad = Math.max(0, (otroRow.cantidad ?? 0) - item.cantidad);
+        const { error: updError } = await supabase
+          .from("otros_items")
+          .update({ cantidad: nuevaCantidad })
+          .eq("id", item.otroId);
+        if (updError) throw updError;
+      }
+    }
   }
 
   return toTurno(row as unknown as TurnoRow);

@@ -13,6 +13,7 @@ import {
   type SessionUser,
   type SignUpResult,
 } from "@/lib/auth/types";
+import { authErrorMessage } from "@/lib/auth/error-messages";
 
 export type { Rol, SessionUser, AuthResult, SignUpResult } from "@/lib/auth/types";
 
@@ -131,7 +132,7 @@ export async function signIn(
     email,
     password,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: authErrorMessage(error.message) };
 
   setRememberCookie(rememberMe);
   return { error: null };
@@ -159,7 +160,7 @@ export async function signUp(params: {
     password: params.password,
     options: { emailRedirectTo: authCallbackUrl("/dashboard") },
   });
-  if (error) return { error: error.message };
+  if (error) return { error: authErrorMessage(error.message) };
   if (!data.user) return { error: "No se pudo crear el usuario." };
 
   // De acá para abajo, cualquier falla hace rollback del usuario de auth
@@ -186,7 +187,7 @@ export async function signUp(params: {
     .single();
   if (orgError) {
     await service.auth.admin.deleteUser(data.user.id);
-    return { error: orgError.message };
+    return { error: authErrorMessage(orgError.message) };
   }
 
   const { error: profileError } = await service.from("profiles").insert({
@@ -199,7 +200,7 @@ export async function signUp(params: {
   if (profileError) {
     await service.from("organizations").delete().eq("id", org.id);
     await service.auth.admin.deleteUser(data.user.id);
-    return { error: profileError.message };
+    return { error: authErrorMessage(profileError.message) };
   }
 
   // Con "Confirm email" prendido en Supabase, `signUp` no devuelve sesión
@@ -259,7 +260,7 @@ export async function requestPasswordReset(email: string): Promise<AuthResult> {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: authCallbackUrl("/reset-password"),
   });
-  return { error: error?.message ?? null };
+  return { error: error ? authErrorMessage(error.message) : null };
 }
 
 /** Verifica el link de un mail de Supabase (confirmar cuenta, aceptar
@@ -276,7 +277,7 @@ export async function verifyEmailLink(
     type,
     token_hash: tokenHash,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: authErrorMessage(error.message) };
 
   setRememberCookie(true);
   return { error: null };
@@ -293,7 +294,7 @@ export async function verifyEmailLink(
 export async function exchangeEmailCode(code: string): Promise<AuthResult> {
   const supabase = createServerClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) return { error: error.message };
+  if (error) return { error: authErrorMessage(error.message) };
 
   setRememberCookie(true);
   return { error: null };
@@ -312,7 +313,7 @@ export async function setSessionFromTokens(
     access_token: accessToken,
     refresh_token: refreshToken,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: authErrorMessage(error.message) };
 
   setRememberCookie(true);
   return { error: null };
@@ -324,7 +325,7 @@ export async function setSessionFromTokens(
 export async function updatePassword(password: string): Promise<AuthResult> {
   const supabase = createServerClient();
   const { error } = await supabase.auth.updateUser({ password });
-  return { error: error?.message ?? null };
+  return { error: error ? authErrorMessage(error.message) : null };
 }
 
 /** Actualiza el propio nombre/alias -- vía RPC porque `profiles` no tiene

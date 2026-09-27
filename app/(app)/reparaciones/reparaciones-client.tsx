@@ -451,6 +451,7 @@ export function ReparacionesClient({
                   value={tecFilter}
                   onChange={(e) => setTecFilter(e.target.value)}
                   className={cn("w-full md:w-52", filterPill)}
+                  aria-label="Filtrar por técnico"
                 >
                   <option value="todos">Todos los técnicos</option>
                   <option value="sin">Sin asignar</option>
@@ -469,6 +470,7 @@ export function ReparacionesClient({
                     setEstFilter(e.target.value as "todos" | TicketStatus)
                   }
                   className={cn("hidden sm:block sm:w-52", filterPill)}
+                  aria-label="Filtrar por estado"
                 >
                   <option value="todos">Todos los estados</option>
                   {TICKET_FLOW.map((s) => (
@@ -481,6 +483,7 @@ export function ReparacionesClient({
                   value={datePreset}
                   onChange={(e) => setDatePreset(e.target.value as DatePreset)}
                   className={cn("w-full md:w-44", filterPill)}
+                  aria-label="Filtrar por fecha"
                 >
                   {DATE_PRESETS.map((p) => (
                     <option key={p.value} value={p.value}>
@@ -723,12 +726,12 @@ export function ReparacionesClient({
         {open && (
           <div className="space-y-4">
             <div>
-              <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                 Información general
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <Card className="p-2 text-center">
-                  <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                  <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                     IMEI
                   </p>
                   <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
@@ -736,7 +739,7 @@ export function ReparacionesClient({
                   </p>
                 </Card>
                 <Card className="p-2 text-center">
-                  <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                  <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                     Estado
                   </p>
                   <div className="mt-1.5 flex justify-center">
@@ -753,7 +756,7 @@ export function ReparacionesClient({
                 </Card>
                 {open.claveCodigo && (
                   <Card className="p-2 text-center">
-                    <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                    <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                       Clave / código
                     </p>
                     <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
@@ -765,14 +768,14 @@ export function ReparacionesClient({
 
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <Card className="p-3">
-                  <p className="font-grotesk border-b border-neutral-300 pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                  <p className="font-grotesk border-b border-neutral-300 pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                     Falla reportada
                   </p>
                   <p className="mt-1.5 text-start text-sm text-neutral-700">{open.falla}</p>
                 </Card>
                 {open.reparacionSolicitada && (
                   <Card className="p-3">
-                    <p className="font-grotesk border-b border-neutral-300 pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                    <p className="font-grotesk border-b border-neutral-300 pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                       Reparación solicitada
                     </p>
                     <p className="mt-1.5 text-start text-sm text-neutral-700">
@@ -782,7 +785,7 @@ export function ReparacionesClient({
                 )}
                 {open.descripcionEquipo && (
                   <Card className="col-span-2 p-3">
-                    <p className="font-grotesk border-b border-neutral-300 pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                    <p className="font-grotesk border-b border-neutral-300 pb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                       Observaciones
                     </p>
                     <p className="mt-1.5 text-start text-sm text-neutral-700">
@@ -795,7 +798,7 @@ export function ReparacionesClient({
 
             {/* stepper */}
             <div>
-              <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                 Progreso
               </p>
               <ol className="flex flex-wrap justify-center gap-1.5">
@@ -822,7 +825,7 @@ export function ReparacionesClient({
             {/* servicios */}
             <div>
               <div className="mb-1.5 flex items-center justify-between border-b border-neutral-200 pb-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                   Servicios asociados
                 </p>
                 <button
@@ -1052,7 +1055,7 @@ export function ReparacionesClient({
       />
 
       <ReciboDialog
-        key={recibo ? `${recibo.tipo}-${recibo.ticket.id}` : "none"}
+        key={recibo ? `${recibo.tipo}-${recibo.ticket.id}` : "recibo-none"}
         open={!!recibo}
         onClose={() => setRecibo(null)}
         titulo={
@@ -1285,7 +1288,7 @@ export function ReparacionesClient({
       />
 
       <EntregarEquipoDialog
-        key={entregando ? String(entregando.id) : "none"}
+        key={entregando ? String(entregando.id) : "entregar-none"}
         ticket={entregando}
         cajas={cajas}
         negocio={negocio}
@@ -1561,7 +1564,7 @@ function NuevoTicketDialog({
           <Field label="Cliente">
             <ClientePicker clientes={clientesOpciones} value={cliente} onChange={setCliente} />
           </Field>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Datos del equipo
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -1627,7 +1630,7 @@ function NuevoTicketDialog({
         </div>
 
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Checklist de ingreso
           </p>
           <ChecklistEditor value={checklist} onChange={setChecklist} />
@@ -1647,7 +1650,7 @@ type DraftPago = Pago & { _k: string };
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-2 border-b border-neutral-200 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+    <p className="mb-2 border-b border-neutral-200 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
       {children}
     </p>
   );

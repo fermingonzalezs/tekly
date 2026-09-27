@@ -13,7 +13,7 @@ export function Label({
   return (
     <label
       className={cn(
-        "mb-1 block text-[11px] font-semibold uppercase tracking-wider text-neutral-400",
+        "mb-1 block text-[11px] font-semibold uppercase tracking-wider text-neutral-500",
         className,
       )}
     >

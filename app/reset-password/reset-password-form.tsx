@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { AuthError } from "@/components/auth/auth-error";
 import { resetPasswordAction, type ResetPasswordState } from "./actions";
 
 const initialState: ResetPasswordState = { error: null };
@@ -58,7 +59,7 @@ export function ResetPasswordForm() {
           autoComplete="new-password"
         />
       </Field>
-      {state.error && <p className="text-sm text-red-500">{state.error}</p>}
+      <AuthError message={state.error} />
       <SubmitButton />
     </form>
   );

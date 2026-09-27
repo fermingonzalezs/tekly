@@ -62,7 +62,13 @@ export function Dialog({
         <div
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "animate-toast-in relative my-8 w-full overflow-hidden rounded-2xl border bg-white shadow-2xl",
+            // Sin `overflow-hidden`: los dropdowns propios (`ClientePicker`,
+            // buscadores de ítems) son `position: absolute` y no contribuyen a
+            // la altura de la tarjeta -- con `overflow-hidden` la lista que
+            // sobresale se recorta en vez de flotar sobre el modal. El redondeo
+            // lo lleva cada borde por su cuenta (header arriba, footer/body
+            // abajo).
+            "animate-toast-in relative my-8 w-full rounded-2xl border bg-white shadow-2xl",
             accent ? "border-accent" : "border-neutral-200",
             size === "2xl"
               ? "max-w-4xl"
@@ -75,7 +81,7 @@ export function Dialog({
         >
           <div
             className={cn(
-              "flex items-start justify-between gap-4 border-b px-4 py-4 sm:px-5",
+              "flex items-start justify-between gap-4 rounded-t-2xl border-b px-4 py-4 sm:px-5",
               accent
                 ? "border-[#352f86] bg-[#352f86] text-white"
                 : "border-neutral-100",
@@ -116,9 +122,11 @@ export function Dialog({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="px-4 py-4 sm:px-5">{children}</div>
+          <div className={cn("px-4 py-4 sm:px-5", !footer && "rounded-b-2xl")}>
+            {children}
+          </div>
           {footer && (
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-100 px-4 py-3.5 sm:px-5">
+            <div className="flex flex-wrap items-center justify-end gap-2 rounded-b-2xl border-t border-neutral-100 px-4 py-3.5 sm:px-5">
               {footer}
             </div>
           )}

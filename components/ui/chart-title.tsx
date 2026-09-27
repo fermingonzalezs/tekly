@@ -22,10 +22,10 @@ export function ChartTitle({
         divider && "mb-3 border-b border-neutral-100 pb-3",
       )}
     >
-      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
         {children}
       </p>
-      {sub && <p className="mt-0.5 text-xs text-neutral-400">{sub}</p>}
+      {sub && <p className="mt-0.5 text-xs text-neutral-500">{sub}</p>}
     </div>
   );
 }

@@ -37,7 +37,7 @@ export function InventarioValor({
       </ChartTitle>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-400">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">
           Valor total
         </p>
         <p className="text-2xl font-semibold tabular-nums">{fmtUsd(total)}</p>

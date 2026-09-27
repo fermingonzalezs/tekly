@@ -476,7 +476,7 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
           </div>
         </Card>
         <Card className="p-5">
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Recargo por medio de pago
           </p>
           <div className="space-y-2">

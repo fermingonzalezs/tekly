@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
-import { CHART_ACCENT, GHOST_STRIPES } from "@/lib/chart";
+import { CHART_ACCENT } from "@/lib/chart";
 import { cn } from "@/lib/utils";
 import type { Periodo, RangoEdad } from "@/lib/clientes";
 
@@ -50,10 +50,7 @@ export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]
           {rows.map((r) => (
             <div key={r.rango} className="flex items-center gap-3 text-sm">
               <span className="w-14 shrink-0 text-neutral-500">{r.rango}</span>
-              <div
-                className="h-6 min-w-0 flex-1 overflow-hidden rounded-full"
-                style={{ background: GHOST_STRIPES }}
-              >
+              <div className="h-6 min-w-0 flex-1 overflow-hidden rounded-full bg-neutral-100">
                 <div
                   className="h-full rounded-full"
                   style={{

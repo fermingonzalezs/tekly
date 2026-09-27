@@ -287,6 +287,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
         imei: pago.canje.imei,
         checklist: pago.canje.checklist,
         aclaraciones: pago.canje.aclaraciones,
+        usuarioNombre: data.vendedorNombre,
       });
       compraIdPorIndice.set(i, compra.id);
     }

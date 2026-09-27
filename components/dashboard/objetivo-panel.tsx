@@ -139,7 +139,7 @@ function Stat({
       >
         {value}
       </p>
-      <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+      <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
         {label}
       </p>
       <p className="text-[11px] tabular-nums text-neutral-400">{hint}</p>

@@ -385,6 +385,7 @@ export function VentasClient({
               value={vendFilter}
               onChange={(e) => setVendFilter(e.target.value)}
               className={cn("w-full md:w-44", filterPill)}
+              aria-label="Filtrar por vendedor"
             >
               <option value="todos">Todos los vendedores</option>
               {vendedores.map((v) => (
@@ -397,6 +398,7 @@ export function VentasClient({
               value={tipoFilter}
               onChange={(e) => setTipoFilter(e.target.value as typeof tipoFilter)}
               className={cn("w-full md:w-40", filterPill)}
+              aria-label="Filtrar por tipo"
             >
               <option value="todos">Todo</option>
               <option value="venta">Equipos</option>
@@ -406,6 +408,7 @@ export function VentasClient({
               value={datePreset}
               onChange={(e) => setDatePreset(e.target.value as DatePreset)}
               className={cn("w-full md:w-44", filterPill)}
+              aria-label="Filtrar por fecha"
             >
               {DATE_PRESETS.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -492,23 +495,23 @@ export function VentasClient({
                 )}
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <div>
-                    <p className="text-[11px] uppercase text-neutral-400">Cant.</p>
+                    <p className="text-[11px] uppercase text-neutral-500">Cant.</p>
                     <p className="text-sm tabular-nums">{i.cantidad}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase text-neutral-400">Precio</p>
+                    <p className="text-[11px] uppercase text-neutral-500">Precio</p>
                     <p className="text-sm tabular-nums">{fmtUsd(i.precioUsd)}</p>
                   </div>
                   {puedeVerCosto && (
                     <>
                       <div>
-                        <p className="text-[11px] uppercase text-neutral-400">Costo</p>
+                        <p className="text-[11px] uppercase text-neutral-500">Costo</p>
                         <p className="text-sm tabular-nums text-neutral-500">
                           {i.costoUsd !== undefined ? fmtUsd(i.costoUsd) : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] uppercase text-neutral-400">Margen</p>
+                        <p className="text-[11px] uppercase text-neutral-500">Margen</p>
                         <p className="text-sm font-semibold tabular-nums">
                           {i.costoUsd !== undefined
                             ? `${calcularMargenPct(i.precioUsd, i.costoUsd).toFixed(1)}%`
@@ -916,7 +919,7 @@ export function VentasClient({
             ? `${recibo.tipo}-${recibo.venta.id}-${
                 recibo.tipo === "garantia" ? (recibo.item?.equipoId ?? "full") : ""
               }`
-            : "none"
+            : "recibo-none"
         }
         open={!!recibo}
         onClose={() => setRecibo(null)}
@@ -1076,7 +1079,7 @@ function VentaDetalle({
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
           Información general
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -1093,7 +1096,7 @@ function VentaDetalle({
                   "col-span-2 sm:col-span-1",
               )}
             >
-              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 {f.label}
               </p>
               <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
@@ -1105,7 +1108,7 @@ function VentaDetalle({
       </div>
 
       <div>
-        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
           Ítems
         </p>
         <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
@@ -1186,13 +1189,13 @@ function VentaDetalle({
       </div>
 
       <div>
-        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
           Resumen financiero
         </p>
         <div className="grid grid-cols-4 gap-2">
           {venta.pagos.map((p, i) => (
             <Card key={i} className="flex flex-col p-2 text-center" title={`Caja ${p.caja.toUpperCase()}`}>
-              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 Método {i + 1}
               </p>
               <div className="flex flex-1 flex-col items-center justify-center gap-1 pt-1.5">
@@ -1213,7 +1216,7 @@ function VentaDetalle({
           ))}
           {puedeVerCosto && (
             <Card className="flex flex-col p-2 text-center">
-              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 Costo total
               </p>
               <div className="flex flex-1 items-center justify-center pt-1.5">
@@ -1225,7 +1228,7 @@ function VentaDetalle({
           )}
           {puedeVerCosto && (
             <Card className="flex flex-col p-2 text-center">
-              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 Ganancia bruta
               </p>
               <div className="flex flex-1 items-center justify-center pt-1.5">
@@ -1237,7 +1240,7 @@ function VentaDetalle({
           )}
           {puedeVerCosto && (
             <Card className="flex flex-col p-2 text-center">
-              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 Margen
               </p>
               <div className="flex flex-1 items-center justify-center pt-1.5">
@@ -1287,7 +1290,7 @@ const origenLabel: Record<Origen, string> = {
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-2 border-b border-neutral-200 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+    <p className="mb-2 border-b border-neutral-200 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
       {children}
     </p>
   );
@@ -1750,7 +1753,7 @@ function NuevaVentaDialog({
             </p>
           ) : (
             <div className="mt-3 space-y-2">
-              <div className="hidden items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 sm:flex">
+              <div className="hidden items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500 sm:flex">
                 <span className="flex-1 text-start">Ítem</span>
                 <span className="w-12 text-center">Cant</span>
                 <span className="w-24 text-center">Precio</span>
@@ -2021,7 +2024,7 @@ function NuevaVentaDialog({
       </div>
 
       <CanjeModal
-        key={canjeModalKey ?? "none"}
+        key={canjeModalKey ?? "canje-none"}
         open={!!canjeModalKey}
         onClose={() => setCanjeModalKey(null)}
         initial={pagos.find((p) => p._k === canjeModalKey)?.canje}
@@ -2118,7 +2121,7 @@ function CanjeModal({
     >
       <div className="space-y-5">
         <div>
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Datos del equipo
           </p>
           <div className="space-y-3">
@@ -2154,14 +2157,14 @@ function CanjeModal({
         </div>
 
         <div>
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Checklist de ingreso
           </p>
           <ChecklistEditor value={checklist} onChange={setChecklist} />
         </div>
 
         <div>
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Aclaraciones
           </p>
           <Textarea

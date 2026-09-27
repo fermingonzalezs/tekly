@@ -459,7 +459,7 @@ function ListaEditorDialog({
         </div>
 
         <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Secciones
           </p>
           <div className="space-y-3">
@@ -488,7 +488,7 @@ function ListaEditorDialog({
         </div>
 
         <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Vista previa
           </p>
           <pre className="max-h-52 overflow-y-auto whitespace-pre-wrap rounded-lg bg-neutral-50 p-3 text-[13px] leading-relaxed text-neutral-700">

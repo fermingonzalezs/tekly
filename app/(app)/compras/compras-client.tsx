@@ -28,7 +28,7 @@ import { useDolar } from "@/lib/dolar";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
-import type { Compra, CompraEstado, CompraItem, MedioPago } from "@/lib/types";
+import type { Caja, Compra, CompraEstado, CompraItem, MedioPago } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
 import type { SessionUser } from "@/lib/auth/types";
 import { createCompraAction, marcarRecibidaAction, deleteCompraAction } from "./actions";
@@ -53,10 +53,12 @@ export function ComprasClient({
   initialCompras,
   user,
   negocio,
+  cajas,
 }: {
   initialCompras: Compra[];
   user: SessionUser;
   negocio: Negocio;
+  cajas: Caja[];
 }) {
   const { publish } = useRealtime();
   const esAdmin = user.rol === "admin";
@@ -67,6 +69,7 @@ export function ComprasClient({
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(openParam);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [eliminarMovimientoCaja, setEliminarMovimientoCaja] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [recibo, setRecibo] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -95,8 +98,9 @@ export function ComprasClient({
     setList((prev) => prev.filter((c) => c.id !== id));
     setOpenId(null);
     setConfirmDelete(false);
+    const borrarMovimiento = !!c?.cajaId && eliminarMovimientoCaja;
     startTransition(async () => {
-      await deleteCompraAction(id);
+      await deleteCompraAction(id, borrarMovimiento);
     });
     if (c) {
       publish({
@@ -208,7 +212,7 @@ export function ComprasClient({
 
               <div className="flex shrink-0 flex-col items-center justify-center border-l border-neutral-100 pl-3 text-center">
                 <p className="text-base font-semibold tabular-nums">{fmtUsd(c.totalUsd)}</p>
-                {c.medioPago === "pesos" && c.montoArs != null && (
+                {c.montoArs != null && (
                   <p className="text-[11px] tabular-nums text-neutral-400">{fmtArs(c.montoArs)}</p>
                 )}
               </div>
@@ -267,7 +271,7 @@ export function ComprasClient({
                 </td>
                 <td className="px-5 py-2 text-center font-semibold tabular-nums">
                   {fmtUsd(c.totalUsd)}
-                  {c.medioPago === "pesos" && c.montoArs != null && (
+                  {c.montoArs != null && (
                     <span className="block text-[11px] font-normal text-neutral-400">
                       {fmtArs(c.montoArs)}
                     </span>
@@ -298,7 +302,10 @@ export function ComprasClient({
             <>
               {esAdmin && (
                 <button
-                  onClick={() => setConfirmDelete(true)}
+                  onClick={() => {
+                    setEliminarMovimientoCaja(true);
+                    setConfirmDelete(true);
+                  }}
                   className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
                 >
                   <Trash2 className="h-4 w-4" /> Eliminar compra
@@ -344,8 +351,24 @@ export function ComprasClient({
         title="¿Eliminar compra?"
         confirmLabel="Eliminar compra"
       >
-        {open &&
-          `Se eliminará «${open.id}» de ${contraparteDe(open)}. Esta acción no se puede deshacer.`}
+        {open && (
+          <>
+            <p>
+              Se eliminará «{open.id}» de {contraparteDe(open)}. Esta acción no se puede deshacer.
+            </p>
+            {open.origen === "proveedor" && open.cajaId && (
+              <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={eliminarMovimientoCaja}
+                  onChange={(e) => setEliminarMovimientoCaja(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+                />
+                Eliminar también el movimiento de caja generado por esta compra
+              </label>
+            )}
+          </>
+        )}
       </ConfirmDialog>
 
       {open && open.origen === "canje" && (
@@ -389,6 +412,7 @@ export function ComprasClient({
           setList((prev) => [c, ...prev]);
           setCreating(false);
         }}
+        cajas={cajas}
       />
     </div>
   );
@@ -403,7 +427,7 @@ function CompraDetalle({ compra }: { compra: Compra }) {
     { label: "Fecha", value: compra.fecha },
     { label: "Medio de pago", value: medioPagoCfg[compra.medioPago].label },
     { label: "Estado", value: compraEstado[compra.estado].label },
-    ...(compra.medioPago === "pesos" && compra.montoArs != null
+    ...(compra.montoArs != null
       ? [
           { label: "Monto pagado", value: fmtArs(compra.montoArs) },
           { label: "Cotización", value: fmtArs(compra.cotizacion ?? 0) },
@@ -413,13 +437,13 @@ function CompraDetalle({ compra }: { compra: Compra }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
           Información general
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {metaFields.map((f) => (
             <Card key={f.label} className="p-2 text-center">
-              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 {f.label}
               </p>
               <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{f.value}</p>
@@ -429,7 +453,7 @@ function CompraDetalle({ compra }: { compra: Compra }) {
       </div>
 
       <div>
-        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
           Ítems
         </p>
         <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
@@ -491,7 +515,7 @@ function CompraDetalle({ compra }: { compra: Compra }) {
 
       {compra.origen === "canje" && (
         <div>
-          <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Información del equipo
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -502,7 +526,7 @@ function CompraDetalle({ compra }: { compra: Compra }) {
               { label: "Venta", value: compra.ventaId ?? "—" },
             ].map((f) => (
               <Card key={f.label} className="p-2 text-center">
-                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   {f.label}
                 </p>
                 <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{f.value}</p>
@@ -534,13 +558,22 @@ function NuevaCompraDialog({
   open,
   onClose,
   onCreate,
+  cajas,
 }: {
   open: boolean;
   onClose: () => void;
   onCreate: (c: Compra) => void;
+  cajas: Caja[];
 }) {
   const [proveedor, setProveedor] = useState("");
   const [medioPago, setMedioPago] = useState<MedioPago>("transferencia");
+  // Cajas activas del medio elegido -- mismo criterio que el pago de Ventas:
+  // un medio puede tener más de una caja, hay que saber cuál. Si no hay
+  // ninguna, la compra se registra igual (sin movimiento de caja).
+  const cajasDelMedio = cajas.filter((c) => c.activa && c.medioPago === medioPago);
+  const [cajaId, setCajaId] = useState<string | null>(cajasDelMedio[0]?.id ?? null);
+  const cajaElegida = cajasDelMedio.find((c) => c.id === cajaId) ?? null;
+  const pagaEnArs = cajaElegida?.moneda === "ars";
   const [items, setItems] = useState<CompraItem[]>([{ detalle: "", cantidad: 1, costoUsd: 0 }]);
   const [pending, startTransition] = useTransition();
   const dolarVenta = useDolar().venta;
@@ -564,7 +597,8 @@ function NuevaCompraDialog({
         items: itemsValidos,
         totalUsd,
         medioPago,
-        ...(medioPago === "pesos"
+        ...(cajaId ? { cajaId } : {}),
+        ...(medioPago === "pesos" || pagaEnArs
           ? { montoArs: Math.round(totalUsd * dolarVenta), cotizacion: dolarVenta }
           : {}),
       });
@@ -599,7 +633,12 @@ function NuevaCompraDialog({
       }
     >
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+        <div
+          className={cn(
+            "grid gap-3",
+            cajasDelMedio.length > 0 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2",
+          )}
+        >
           <Field label="Proveedor">
             <Input
               value={proveedor}
@@ -608,7 +647,14 @@ function NuevaCompraDialog({
             />
           </Field>
           <Field label="Medio de pago">
-            <Select value={medioPago} onChange={(e) => setMedioPago(e.target.value as MedioPago)}>
+            <Select
+              value={medioPago}
+              onChange={(e) => {
+                const medio = e.target.value as MedioPago;
+                setMedioPago(medio);
+                setCajaId(cajas.find((c) => c.activa && c.medioPago === medio)?.id ?? null);
+              }}
+            >
               {MEDIOS.map((m) => (
                 <option key={m} value={m}>
                   {medioPagoCfg[m].label}
@@ -616,10 +662,21 @@ function NuevaCompraDialog({
               ))}
             </Select>
           </Field>
+          {cajasDelMedio.length > 0 && (
+            <Field label="Caja">
+              <Select value={cajaId ?? ""} onChange={(e) => setCajaId(e.target.value)}>
+                {cajasDelMedio.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
         </div>
 
         <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Ítems
           </p>
           <div className="space-y-2">
@@ -671,7 +728,7 @@ function NuevaCompraDialog({
           <span className="font-medium text-neutral-500">Total</span>
           <span className="text-end">
             <span className="block font-semibold tabular-nums">{fmtUsd(total)}</span>
-            {medioPago === "pesos" && (
+            {(medioPago === "pesos" || pagaEnArs) && (
               <span className="block text-[11px] font-normal text-neutral-400">
                 {fmtArs(Math.round(total * dolarVenta))} · cotización {fmtArs(dolarVenta)}
               </span>

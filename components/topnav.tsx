@@ -73,6 +73,8 @@ export function TopNav({ user }: { user: SessionUser }) {
               <div key={key} className="relative shrink-0">
                 <button
                   onClick={() => setOpenCategory(open ? null : key)}
+                  aria-label={label}
+                  aria-expanded={open}
                   className={cn(
                     "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
                     active || open

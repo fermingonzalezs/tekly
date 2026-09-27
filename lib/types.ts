@@ -207,11 +207,27 @@ export type Turno = {
   tipo: TurnoTipo;
   estado: TurnoEstado;
   ticketId: number | null;
-  /** Equipos de inventario vinculados (turnos de compra/retira). */
+  /** Equipos de inventario vinculados (turnos de compra). */
   equipoIds?: string[];
+  /** Ítems de "Otros" del carrito de un turno de compra -- snapshot
+   * embebido, no una relación viva (mismo criterio que `CompraItem`). */
+  itemsOtros?: TurnoOtroItem[];
   /** Seña o pago tomado al agendar (turnos de compra/retira). */
   pagos?: Pago[];
   nota?: string;
+};
+
+/** Ítem de "Otros" agregado al carrito de un turno de compra -- snapshot
+ * embebido, no una relación viva (mismo criterio que `CompraItem`/
+ * `VentaItem`). `serial` identifica la unidad puntual reservada si el
+ * `OtroItem` de origen es serializado; `cantidad` es cuántas unidades se
+ * descuentan si no lo es -- nunca los dos juntos. */
+export type TurnoOtroItem = {
+  otroId: string;
+  nombre: string;
+  precioUsd: number;
+  serial?: string;
+  cantidad?: number;
 };
 
 export type Equipo = {
@@ -248,12 +264,18 @@ export type MovimientoItem = Movimiento & {
   itemNombre: string;
 };
 
+/** Estado de una unidad puntual de un "Otro" serializado -- misma semántica
+ * que `EquipoStatus` para equipos: una unidad reservada/vendida no vuelve a
+ * ofrecerse. `undefined` = "disponible" (unidades de antes de este campo). */
+export type OtroUnidadEstado = "disponible" | "reservado" | "vendido";
+
 /** Unidad individual de un producto serializado de "Otros" — cada una con
  * su propio serial, color y costo (pueden entrar en distintas tandas). */
 export type OtroUnidad = {
   serial: string;
   color?: string;
   costoUsd: number;
+  estado?: OtroUnidadEstado;
 };
 
 /** Productos que no son iPhones ni repuestos: iPad, AirPods, tablets, etc. */
@@ -521,11 +543,17 @@ export type Compra = {
   items: CompraItem[];
   totalUsd: number;
   medioPago: MedioPago;
+  /** Solo `origen === "proveedor"`: caja de la que salió el pago -- ver
+   * `Pago.cajaId` en Venta para el mismo patrón (un medio puede tener más
+   * de una caja activa, hace falta saber cuál). `undefined` en compras
+   * viejas (creadas antes de este campo) y siempre en compras `canje`. */
+  cajaId?: string;
   estado: CompraEstado;
-  /** Cuando `medioPago` es "pesos": el monto realmente pagado en ARS y la
-   * cotización del dólar blue usada para convertirlo a `totalUsd` — se
-   * guarda el tipo de cambio del momento en vez de recalcularlo con el
-   * valor actual, para que el registro histórico no cambie con el tiempo. */
+  /** Cuando el pago salió en pesos (medio `pesos` o una caja en ARS): el
+   * monto realmente pagado en ARS y la cotización del dólar blue usada para
+   * la conversión -- se guarda el tipo de cambio del momento en vez de
+   * recalcularlo con el valor actual, para que el registro histórico no
+   * cambie con el tiempo. */
   montoArs?: number;
   cotizacion?: number;
   /** Solo `origen === "canje"`: datos del equipo recibido para el PDF

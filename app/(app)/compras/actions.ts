@@ -10,12 +10,14 @@ export async function createCompraAction(data: {
   items: CompraItem[];
   totalUsd: number;
   medioPago: MedioPago;
+  cajaId?: string;
   montoArs?: number;
   cotizacion?: number;
 }) {
-  await requireUser();
-  const compra = await createCompra(data);
+  const user = await requireUser();
+  const compra = await createCompra({ ...data, usuarioNombre: user.nombre });
   revalidatePath("/compras");
+  revalidatePath("/cajas");
   return compra;
 }
 
@@ -26,8 +28,9 @@ export async function marcarRecibidaAction(id: string) {
   return compra;
 }
 
-export async function deleteCompraAction(id: string) {
+export async function deleteCompraAction(id: string, eliminarMovimientoCaja: boolean) {
   await requireRole("admin");
-  await deleteCompra(id);
+  await deleteCompra(id, eliminarMovimientoCaja);
   revalidatePath("/compras");
+  revalidatePath("/cajas");
 }

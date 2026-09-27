@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { AuthError } from "@/components/auth/auth-error";
 import { forgotPasswordAction, type ForgotPasswordState } from "./actions";
 
 const initialState: ForgotPasswordState = { error: null };
@@ -47,7 +48,7 @@ export function ForgotPasswordForm() {
       <Field label="Email">
         <Input name="email" type="email" required autoComplete="email" autoFocus />
       </Field>
-      {state.error && <p className="text-sm text-red-500">{state.error}</p>}
+      <AuthError message={state.error} />
       <SubmitButton />
       <p className="text-center text-sm text-neutral-500">
         <Link href="/login" className="font-medium text-accent">

@@ -96,7 +96,7 @@ function StatsToggle({
 function MovimientosLog({ movimientos }: { movimientos: Movimiento[] | null }) {
   return (
     <div>
-      <p className="mb-2 border-b border-neutral-200 pb-2 text-start text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+      <p className="mb-2 border-b border-neutral-200 pb-2 text-start text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
         Movimientos
       </p>
 
@@ -123,7 +123,7 @@ function MovimientosLog({ movimientos }: { movimientos: Movimiento[] | null }) {
       </div>
 
       <div className="hidden overflow-hidden rounded-xl border border-neutral-200 font-mono md:block">
-        <div className="grid grid-cols-[1fr_120px_84px] gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+        <div className="grid grid-cols-[1fr_120px_84px] gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
           <span>Movimiento</span>
           <span>Fecha y hora</span>
           <span>Usuario</span>
@@ -1200,7 +1200,7 @@ export function InventarioClient({
 
                   <Card className="p-5">
                     <div className="flex items-baseline justify-between border-b border-neutral-100 pb-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                         Reponer pronto
                       </p>
                       <span className="text-xs text-neutral-400">
@@ -1443,7 +1443,7 @@ export function InventarioClient({
                           >
                             <div
                               className={cn(
-                                "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-400",
+                                "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-500",
                                 puedeVerCosto ? "grid-cols-[1fr_1fr_84px]" : "grid-cols-[1fr_1fr]",
                               )}
                             >
@@ -1603,7 +1603,7 @@ export function InventarioClient({
                                   <div className="overflow-hidden rounded-lg border border-neutral-200 font-mono">
                                     <div
                                       className={cn(
-                                        "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-400",
+                                        "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-500",
                                         puedeVerCosto
                                           ? "grid-cols-[1fr_1fr_84px]"
                                           : "grid-cols-[1fr_1fr]",
@@ -1677,7 +1677,7 @@ export function InventarioClient({
 
       {/* Ver / editar equipo */}
       <EquipoFormDialog
-        key={openEquipoId ?? "none"}
+        key={openEquipoId ?? "equipo-none"}
         equipo={openEquipo}
         open={!!openEquipo}
         onClose={() => setOpenEquipoId(null)}
@@ -1762,7 +1762,7 @@ export function InventarioClient({
 
       {/* Ver / editar repuesto */}
       <RepuestoFormDialog
-        key={openRepuestoId ?? "none"}
+        key={openRepuestoId ?? "repuesto-none"}
         repuesto={openRepuesto}
         open={!!openRepuesto}
         puedeVerCosto={puedeVerCosto}
@@ -1795,7 +1795,7 @@ export function InventarioClient({
 
       {/* Ver / editar producto de "Otros" */}
       <OtroFormDialog
-        key={openOtroId ?? "none"}
+        key={openOtroId ?? "otro-none"}
         item={openOtro}
         open={!!openOtro}
         onClose={() => setOpenOtroId(null)}
@@ -1938,7 +1938,7 @@ function EquipoFormDialog({
       >
         <div className="space-y-5">
           <div>
-            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -2135,7 +2135,7 @@ function RepuestoFormDialog({
       >
         <div className="space-y-5">
           <div>
-            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -2368,7 +2368,7 @@ function OtroFormDialog({
       >
         <div className="space-y-5">
           <div>
-            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -2454,7 +2454,7 @@ function OtroFormDialog({
               {serializado && (
                 <Field label="Unidades" className="col-span-1 sm:col-span-2 lg:col-span-3">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                    <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                       <span className="flex-1">Serial</span>
                       <span className="w-28 text-center">Color</span>
                       {puedeVerCosto && <span className="w-24 text-center">Costo</span>}
@@ -2849,7 +2849,7 @@ function IngresoDialog({
             {modoCarga === "manual" ? (
               <Field label="Unidades">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                  <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                     <span className="flex-1">Serial</span>
                     <span className="w-28 text-center">Color</span>
                     <span className="w-24 text-center">Costo</span>

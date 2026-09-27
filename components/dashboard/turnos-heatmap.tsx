@@ -73,7 +73,7 @@ export function TurnosHeatmap({
       <div className="mt-3 flex flex-col gap-5 border-t border-neutral-100 pt-3 sm:flex-row">
         {/* IZQUIERDA: próximos turnos */}
         <div className="flex w-full flex-col justify-center gap-2 sm:w-48 sm:shrink-0">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Próximos
           </p>
           <ul className="divide-y divide-neutral-200 text-[13px]">
@@ -104,7 +104,7 @@ export function TurnosHeatmap({
             {days.map((d, i) => (
               <span
                 key={i}
-                className="text-center text-[10px] font-medium uppercase tracking-wide text-neutral-400"
+                className="text-center text-[10px] font-medium uppercase tracking-wide text-neutral-500"
               >
                 {DOW[d.getDay()]}
               </span>

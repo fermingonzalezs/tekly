@@ -82,7 +82,7 @@ export function TrendChart({
             <p className="text-sm font-semibold tabular-nums">
               {fmtUsd(Math.round(avgVenta))}
             </p>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
               Venta prom.
             </p>
           </div>
@@ -90,7 +90,7 @@ export function TrendChart({
             <p className="text-sm font-semibold tabular-nums">
               {fmtUsd(Math.round(avg))}
             </p>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
               Ganancia prom.
             </p>
           </div>

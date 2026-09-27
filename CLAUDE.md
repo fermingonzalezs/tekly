@@ -437,11 +437,112 @@ modal de Nueva venta). Va en línea con `ChartTitle` y los headers de tabla.
 
 - Card: `p-4` (stats / compacto) · `p-5` (gráficos y paneles).
 - Grillas: `gap-4` para filas de stats · `gap-6` para bloques de sección.
-- Contenedor de sección: `space-y-5` o `space-y-6`. `<main>` tiene `p-8`.
-- Sidebar fijo `w-60`; el contenido va en `<div className="pl-60">`.
+- Contenedor de sección: `space-y-5` o `space-y-6`. `<main>` (`Section`,
+  `components/section.tsx`) usa `p-4 md:p-8` por defecto — compacto en mobile,
+  el `p-8` fijo dejaba mucho aire a los costados en pantallas chicas; una
+  página puede pasar su propio `mainClassName` (el Dashboard fija alto de
+  ventana + padding propio).
+- Navegación: **no hay sidebar fijo** (`components/sidebar.tsx` existe pero
+  no se usa en ningún layout — no reintroducirlo sin borrar antes el que ya
+  no anda). La nav real es `TopNav` (`components/topnav.tsx`): header
+  `sticky top-0 h-16`, categorías como pills redondeadas con dropdown para
+  las que agrupan varias secciones; debajo de `md` colapsa a
+  `MobileNavDrawer` (drawer lateral animado, `components/mobile-nav-drawer.tsx`)
+  detrás de un botón hamburguesa. El contenido de página nunca necesita
+  padding-left para una sidebar — ya no existe.
 - Radios: card `rounded-2xl` · inputs/botones/tabs `rounded-lg` ·
   chips/barras `rounded-md` · badges/avatares `rounded-full` ·
   icon tiles `rounded-xl`.
+
+### Breakpoints (uso real, no aspiracional)
+
+Sin diseño mobile-first: la app está pensada para desktop, pero las
+secciones más densas (Ventas, Inventario, Reparaciones, Cajas, Compras) sí
+adaptan grillas/columnas con `sm:`/`lg:`. Dos quiebres hacen el trabajo
+pesado y son los únicos con significado fijo en toda la app — reusarlos así,
+no inventar otros para el mismo propósito:
+
+- **`md` (768px)** — quiebre de navegación: por debajo, `TopNav` colapsa a
+  `MobileNavDrawer`; por encima, aparece la barra de categorías. También el
+  quiebre genérico de "una columna en mobile, grilla en desktop" para
+  formularios/paneles densos.
+- **`xl` (1280px)** — solo texto: entre `md` y `xl` la nav muestra únicamente
+  íconos (ahorra espacio horizontal); a partir de `xl` aparece el label de
+  cada categoría al lado.
+
+### Motion
+
+Las únicas animaciones con nombre de la app viven en `tailwind.config.ts`
+(`keyframes`/`animation`) — reusar estas, no declarar un `@keyframes` nuevo
+para el mismo tipo de transición:
+
+| Animación | Duración / easing | Uso |
+|---|---|---|
+| `animate-fade-in` | 180ms `ease-out` | aparición genérica (dropdowns, overlays, contenido que entra) |
+| `animate-toast-in` / `animate-toast-out` | 220ms / 180ms, `cubic-bezier(0.21,1.02,0.73,1)` / `ease-in` | entrada/salida de un toast (`Toaster`) |
+| `animate-drawer-in` | 220ms, mismo cubic-bezier que el toast | `MobileNavDrawer` deslizando desde la izquierda |
+| `animate-celebrate-in` / `animate-celebrate-check` | 250ms `ease-out` / 500ms `cubic-bezier(0.34,1.56,0.64,1)` | confirmaciones con overshoot (ej. check animado) |
+
+Fuera de esas, las transiciones son utilidades de Tailwind sueltas
+(`transition-colors`, `transition-all duration-150` en `Button`) — 150ms es
+el estándar para hover/active de botones y links; no bajar de 120ms ni subir
+de ~300ms para nada que responda a una interacción directa del usuario. No
+hay manejo de `prefers-reduced-motion` todavía en ningún componente — pendiente,
+no asumir que ya se respeta.
+
+### Forbidden defaults (específico de esta app)
+
+Además de lo genérico (`lorem ipsum`, hero centrado con blob de gradiente,
+glassmorphism): **sin dark mode** (`color-scheme: light` fijo en
+`globals.css` — no agregar `dark:` sueltos sin decidir soportarlo de
+verdad), **un solo hue en gráficos** (paleta monocromática índigo de
+`lib/chart.ts` — nunca colores arbitrarios por serie, ver "Paleta de
+gráficos"), **el único gradiente permitido** es el del `Button`
+`variant="primary"` (`linear-gradient` índigo, ver `components/ui/button.tsx`)
+y el header violeta de `AuthModal`/recibos — no crear un segundo gradiente
+para otro botón o card, **`Badge` es siempre `rounded-md`** (nunca pill —
+`shape` no existe como prop suya, a diferencia de `Button`), y **nunca**
+`toLocaleString("en-US")`/`"USD "` a mano para moneda (ver "Moneda").
+
+### Errores de UI/accesibilidad que ya nos mordieron — no repetirlos
+
+Un audit (`/ux-ui-audit`, ver `AUDIT.md`) encontró estos cuatro patrones
+repetidos en varias secciones. Ya se corrigieron las instancias existentes;
+la regla es para no reintroducirlos en código nuevo:
+
+- **`text-neutral-400` no es apto para texto de UI sobre blanco/`neutral-50`**
+  — mide ~2.5:1, WCAG AA pide 4.5:1 para texto normal. Es el error más común
+  porque *parece* el tono correcto para un label secundario. Labels,
+  eyebrows (`ChartTitle`, `Field`/`Label`) y captions van en
+  **`text-neutral-500`** (4.74:1, pasa AA) como mínimo — `neutral-400` queda
+  reservado para bordes, íconos decorativos o placeholders de input (que
+  WCAG no exige a 4.5:1). Antes de usar `neutral-400` en un texto nuevo,
+  preguntarse si es realmente decorativo/no-informativo.
+- **Todo control solo-ícono (botón o `<select>` de toolbar sin `<label>`
+  visible) necesita `aria-label`.** El botón de categoría de `TopNav`
+  (ícono sin texto entre `md` y `xl`), la campana de notificaciones y los
+  `<Select>` sueltos de filtro (vendedor/tipo/fecha/técnico/estado en
+  Ventas/Reparaciones/Dashboard) se enviaron así por meses sin que nadie lo
+  notara visualmente — un lector de pantalla no tiene forma de saber qué
+  hace el control. Regla simple: si el control no tiene texto visible propio
+  (solo ícono, o un `<select>` sin `Field`/`Label` al lado), lleva
+  `aria-label` describiendo la acción/filtro.
+- **El patrón de `key={condición ? id : "fallback"}` para resetear un
+  `Dialog` al reabrir (ver "`Dialog`: todos los de una sección…") necesita un
+  `fallback` distinto por cada dialog del componente**, nunca el mismo
+  literal (`"none"`) compartido — cuando dos o más dialogs hermanos están
+  cerrados a la vez (el estado inicial más común), React tira `Encountered
+  two children with the same key` si comparten el fallback. Prefijar con el
+  nombre del dialog (`"recibo-none"`, `"entregar-none"`, `"equipo-none"`).
+- **Un valor que depende de un fetch client-only (ej. la cotización en vivo
+  de `useDolar()`) no puede usarse para recalcular un dato ya persistido en
+  el primer render** — el server no tiene esa cotización en vivo, el cliente
+  sí, y el mismatch entre ambos passes tira `Text content did not match`
+  (hydration error) apenas carga la página, con el monto en pesos de un pago
+  ya guardado cambiando solo frente al usuario. Un monto que ya se guardó
+  (ej. el ARS de un pago viejo) se muestra con el dato guardado, no
+  recalculado contra la cotización de hoy — recalcular con la cotización
+  vigente es correcto solo para operaciones nuevas, todavía no persistidas.
 
 ### Moneda
 
@@ -469,6 +570,16 @@ Aplica a **toda tabla, presente y futura** (menos los recibos/PDF):
 - Números en columnas → `tabular-nums`. Texto de las celdas: peso normal (dejar
   `font-semibold` solo para el dato que tiene que destacar, ej. Total).
 - Fuera de tablas, alinear a la izquierda con `text-start`.
+- **Pendiente de resolver**: el `/ux-ui-audit` (`AUDIT.md`) encontró que 10 de
+  13 secciones (Cajas, Inventario, Recuentos, Ventas, Compras, Reparaciones,
+  Clientes, Configuración, Cuentas corrientes, Difusión) centran *todas* las
+  columnas de sus tablas (`text-center` en cada `th`/`td`, incluidas
+  columnas de texto — nombre, email, IMEI), no solo la excepción de celda
+  vacía que dice esta regla. Es una decisión de producto tomarla en una
+  sola dirección — sacar el `text-center` de columnas de texto en esas 10
+  secciones, o asumir que centrado es el estándar real y actualizar esta
+  regla — no asumir que el código de una sección nueva debería copiar el
+  patrón centrado solo porque es mayoritario hoy.
 
 ## Componentes reutilizables — usar SIEMPRE estos
 
@@ -579,6 +690,23 @@ color.
 | `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }], accent? }` — `accent` (hex) para teñir el estado activo con otro color; por defecto usa `accent` |
 | `Field` / `Input` / `Select` / `Textarea` / `Label` | `components/ui/field.tsx` | inputs con estilo consistente; `Field` = `Label` + control |
 | `ClientePicker` | `components/ui/cliente-picker.tsx` | `{ clientes: ClienteOpcion[], value: ClienteSeleccion \| null, onChange, allowLibre?, placeholder?, className? }` — desplegable con buscador para elegir cliente. **Usar SIEMPRE este en vez de un `<Select>`/`Input` a mano** en cualquier form que necesite un cliente (Ventas, Reparaciones, Cuentas corrientes, Turnos son los 4 casos hoy). `ClienteSeleccion` (`lib/types.ts`) = `{tipo:"existente",id,nombre} \| {tipo:"nuevo",nombre,telefono?} \| {tipo:"libre",nombre}`. La creación queda **diferida**: elegir "Crear cliente nuevo" solo arma el borrador, recién se persiste (`resolveCliente` en `lib/db/clientes.ts`) cuando la action del formulario confirma — cancelar el diálogo no deja un cliente fantasma. `allowLibre` agrega "usar sin registrar" (`tipo:"libre"`, sin fila en `clientes`) — solo Turnos lo usa (`Turno.clienteId` es nullable a propósito, para turnos de gente que aún no es cliente registrado); las acciones que sí requieren un cliente real (`createVentaAction`/`createTicketAction`/`createMovimientoCCAction`) tipan su input como `Exclude<ClienteSeleccion, {tipo:"libre"}>` y llaman `resolveCliente`. Comparte `useOutsideClick` (`components/ui/use-outside-click.ts`) con el buscador de ítems de Nueva venta (`ItemBuscador`, en `ventas-client.tsx`, que no se tocó — sigue siendo su propio combobox porque busca sobre equipos/repuestos/otros/servicios, no clientes). |
+
+### Estados de elementos interactivos
+
+`Button` es el único primitivo con los 4 estados completos: `hover`/`active`
+por variante, `focus-visible:ring-2 ring-accent/40` (global, no lo pisa un
+`className` custom sin querer) y `disabled:opacity-50 pointer-events-none`.
+`Input`/`Select`/`Textarea` (`lib/field.tsx`) tienen `focus:border-accent` y
+`disabled:bg-neutral-50 disabled:text-neutral-400`, pero **sin** estado de
+error propio (ningún borde/texto rojo de validación) — replicar ese mismo
+patrón (`border-accent` en foco) si se agrega uno, no inventar un tercer
+estilo de borde. **Loading** hoy es a nivel de ruta (`app/(app)/loading.tsx`,
+`Loader2` girando) vía la convención de Next, no por-botón — no hay un
+`<Button loading>` con spinner interno; si una acción puntual lo necesita,
+seguir ese mismo ícono (`Loader2` de `lucide-react` + `animate-spin`) en vez
+de uno nuevo. **Empty states** son ad hoc por tabla (fila con celda
+`text-center`, texto tipo "Sin resultados") — no hay componente
+`EmptyState` compartido todavía.
 
 ### `Dialog`: todos los de una sección son una sola familia visual
 
@@ -1149,8 +1277,11 @@ nombre de actor** -- eso fue un bug real que quedó de la época mock.
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
+When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
+
 Rules:
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

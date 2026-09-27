@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { AuthError } from "@/components/auth/auth-error";
 import { signupAction, type SignupState } from "./actions";
 
 const initialState: SignupState = { error: null };
@@ -67,7 +68,7 @@ export function SignupForm() {
           autoComplete="new-password"
         />
       </Field>
-      {state.error && <p className="text-sm text-red-500">{state.error}</p>}
+      <AuthError message={state.error} />
       <SubmitButton />
       <p className="text-center text-sm text-neutral-500">
         ¿Ya tenés cuenta?{" "}

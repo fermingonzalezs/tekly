@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { AuthError } from "@/components/auth/auth-error";
 import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = { error: null };
@@ -42,7 +43,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
         </span>
         Recordarme
       </label>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      <AuthError message={error} />
       <SubmitButton />
       <p className="text-center text-sm">
         <Link href="/forgot-password" className="font-medium text-accent">

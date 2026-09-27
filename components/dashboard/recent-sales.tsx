@@ -45,21 +45,22 @@ export function RecentSales({
             </ChartTitle>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="relative">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <div className="relative min-w-0">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
               <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Buscar…"
-                className="h-8 w-36 pl-8 text-[13px]"
+                className="h-8 w-24 min-w-0 pl-8 text-[13px] sm:w-36"
               />
             </div>
 
             <Select
               value={cat}
               onChange={(e) => setCat(e.target.value)}
-              className="h-8 w-44 text-[13px]"
+              className="h-8 w-28 min-w-0 text-[13px] sm:w-44"
+              aria-label="Filtrar por categoría"
             >
               {CATEGORIAS.map((c) => (
                 <option key={c} value={c}>

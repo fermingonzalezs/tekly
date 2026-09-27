@@ -71,7 +71,7 @@ export function StatCard({
         className,
       )}
     >
-      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-400 sm:text-[11px]">
+      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-500 sm:text-[11px]">
         {label}
       </p>
       <p

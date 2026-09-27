@@ -237,7 +237,7 @@ export function ReciboShell({
       {hojas.map((h, i) => (
         <div key={i} className={i > 0 ? "mt-4 print:mt-0" : undefined}>
           {multi && (
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400 print:hidden">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 print:hidden">
               Página {i + 1} de {hojas.length} · {h.titulo}
             </p>
           )}

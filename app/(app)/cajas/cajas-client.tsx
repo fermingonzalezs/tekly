@@ -50,7 +50,7 @@ const STAT_MEDIOS: MedioPago[] = MEDIOS.filter((m) => m !== "canje");
 type Tab = "movimientos" | "conciliaciones" | "cajas";
 const TABS: Tab[] = ["movimientos", "conciliaciones", "cajas"];
 
-const HEAD = "text-[11px] font-semibold uppercase tracking-wider text-neutral-400";
+const HEAD = "text-[11px] font-semibold uppercase tracking-wider text-neutral-500";
 
 const money = (moneda: "usd" | "ars", n: number) =>
   moneda === "usd" ? fmtUsd(n) : fmtArs(n);
@@ -625,18 +625,18 @@ export function CajasClient({
       >
         {openMov && (
           <div>
-            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Card className="p-2 text-center">
-                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   Caja
                 </p>
                 <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{cajaDe(openMov).nombre}</p>
               </Card>
               <Card className="p-2 text-center">
-                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   Moneda
                 </p>
                 <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
@@ -644,7 +644,7 @@ export function CajasClient({
                 </p>
               </Card>
               <Card className="p-2 text-center">
-                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   Tipo
                 </p>
                 <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
@@ -652,7 +652,7 @@ export function CajasClient({
                 </p>
               </Card>
               <Card className="p-2 text-center">
-                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   Medio de pago
                 </p>
                 <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">
@@ -660,7 +660,7 @@ export function CajasClient({
                 </p>
               </Card>
               <Card className="p-2 text-center">
-                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   Monto
                 </p>
                 <p
@@ -677,7 +677,7 @@ export function CajasClient({
                 )}
               </Card>
               <Card className="p-2 text-center">
-                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+                <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   Usuario
                 </p>
                 <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{openMov.usuario}</p>

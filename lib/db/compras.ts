@@ -15,6 +15,7 @@ type CompraRow = {
   items: CompraItem[];
   total_usd: number;
   medio_pago: MedioPago;
+  caja_id: string | null;
   estado: CompraEstado;
   monto_ars: number | null;
   cotizacion: number | null;
@@ -25,7 +26,7 @@ type CompraRow = {
 };
 
 const COMPRA_COLS =
-  "id, numero, fecha, origen, proveedor_nombre, cliente_id, cliente_nombre, venta:ventas(numero), items, total_usd, medio_pago, estado, monto_ars, cotizacion, marca, imei, checklist, aclaraciones";
+  "id, numero, fecha, origen, proveedor_nombre, cliente_id, cliente_nombre, venta:ventas(numero), items, total_usd, medio_pago, caja_id, estado, monto_ars, cotizacion, marca, imei, checklist, aclaraciones";
 
 function toCompra(row: CompraRow): Compra {
   const venta = Array.isArray(row.venta) ? row.venta[0] : row.venta;
@@ -41,6 +42,7 @@ function toCompra(row: CompraRow): Compra {
     items: row.items ?? [],
     totalUsd: row.total_usd,
     medioPago: row.medio_pago,
+    cajaId: row.caja_id ?? undefined,
     estado: row.estado,
     montoArs: row.monto_ars ?? undefined,
     cotizacion: row.cotizacion ?? undefined,
@@ -75,6 +77,10 @@ export async function createCompra(data: {
   items: CompraItem[];
   totalUsd: number;
   medioPago: MedioPago;
+  /** Solo `origen === "proveedor"`: caja de la que salió el pago -- al
+   * confirmar genera el egreso correspondiente en `movimientos_caja`
+   * (mismo criterio que `createVenta` con los pagos). */
+  cajaId?: string;
   estado?: CompraEstado;
   montoArs?: number;
   cotizacion?: number;
@@ -82,6 +88,9 @@ export async function createCompra(data: {
   imei?: string;
   checklist?: Checklist;
   aclaraciones?: string;
+  /** Nombre del usuario logueado -- lo resuelve `createCompraAction` con
+   * `requireUser()`; la puerta de auth vive en `actions.ts`, no acá. */
+  usuarioNombre: string;
 }): Promise<Compra> {
   const origen = data.origen ?? "proveedor";
   const proveedorId =
@@ -99,6 +108,7 @@ export async function createCompra(data: {
       items: data.items,
       total_usd: data.totalUsd,
       medio_pago: data.medioPago,
+      caja_id: origen === "proveedor" ? data.cajaId ?? null : null,
       estado: data.estado ?? ("pendiente" satisfies CompraEstado),
       monto_ars: data.montoArs ?? null,
       cotizacion: data.cotizacion ?? null,
@@ -110,13 +120,73 @@ export async function createCompra(data: {
     .select(COMPRA_COLS)
     .single();
   if (error) throw error;
+
+  // Egreso en la caja elegida, después de la fila de `compras` para poder
+  // armar el concepto con su número (mismo criterio que `createVenta` con
+  // los pagos): el movimiento va en la moneda de la caja -- una caja ARS
+  // pide el monto en pesos (`montoArs`, ya calculado con la cotización del
+  // momento), una caja USD el total en dólares.
+  if (origen === "proveedor" && data.cajaId) {
+    const { data: caja, error: cajaError } = await supabase
+      .from("cajas")
+      .select("moneda")
+      .eq("id", data.cajaId)
+      .single();
+    if (cajaError) throw cajaError;
+
+    let monto: number;
+    if (caja.moneda !== "ars") {
+      monto = data.totalUsd;
+    } else if (data.montoArs != null) {
+      monto = data.montoArs;
+    } else if (data.cotizacion != null) {
+      monto = Math.round(data.totalUsd * data.cotizacion);
+    } else {
+      throw new Error(
+        "Falta la cotización del dólar para registrar el egreso en una caja en pesos.",
+      );
+    }
+
+    const { error: movError } = await supabase.from("movimientos_caja").insert({
+      caja_id: data.cajaId,
+      concepto: `Compra C-${row.numero} · ${data.proveedor}`,
+      medio_pago: data.medioPago,
+      tipo: "egreso",
+      monto,
+      usuario_nombre: data.usuarioNombre,
+      compra_id: row.id,
+    });
+    if (movError) throw movError;
+  }
+
   return toCompra(row as unknown as CompraRow);
 }
 
-export async function deleteCompra(id: string): Promise<void> {
+/** `eliminarMovimientoCaja`: borra también el egreso que generó la compra en
+ * `movimientos_caja` -- si se deja en `false`, el movimiento sobrevive
+ * huérfano (`compra_id` vuelve a `null` solo por el `on delete set null` de
+ * la FK), como si fuera manual (mismo criterio que `deleteVenta` documenta
+ * para `venta_id`). */
+export async function deleteCompra(id: string, eliminarMovimientoCaja = false): Promise<void> {
   const supabase = createServerClient();
   const numero = Number(id.replace(/^C-/, ""));
-  const { error } = await supabase.from("compras").delete().eq("numero", numero);
+
+  const { data: compraRow, error: compraError } = await supabase
+    .from("compras")
+    .select("id")
+    .eq("numero", numero)
+    .single();
+  if (compraError) throw compraError;
+
+  if (eliminarMovimientoCaja) {
+    const { error: movError } = await supabase
+      .from("movimientos_caja")
+      .delete()
+      .eq("compra_id", compraRow.id);
+    if (movError) throw movError;
+  }
+
+  const { error } = await supabase.from("compras").delete().eq("id", compraRow.id);
   if (error) throw error;
 }
 

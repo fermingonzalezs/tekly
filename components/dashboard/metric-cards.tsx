@@ -18,7 +18,7 @@ function MetricCard({
 }) {
   return (
     <Card className={cn("p-3", className)}>
-      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-400 sm:text-[11px]">
+      <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-500 sm:text-[11px]">
         {label}
       </p>
       <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">

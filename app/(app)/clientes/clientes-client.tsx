@@ -336,13 +336,13 @@ function Ficha({ cliente }: { cliente: Cliente }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
           Información general
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {infoFields.map((f) => (
             <Card key={f.label} className="p-2 text-center">
-              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                 {f.label}
               </p>
               <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{f.value}</p>
@@ -352,7 +352,7 @@ function Ficha({ cliente }: { cliente: Cliente }) {
       </div>
 
       <div>
-        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
           Historial
         </p>
 
@@ -393,7 +393,7 @@ function Ficha({ cliente }: { cliente: Cliente }) {
         </Card>
 
         <div className="hidden overflow-hidden rounded-xl border border-neutral-200 font-mono md:block">
-          <div className="grid grid-cols-[100px_110px_1fr_130px_84px] gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+          <div className="grid grid-cols-[100px_110px_1fr_130px_84px] gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2 text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
             <span>Fecha</span>
             <span>Tipo</span>
             <span>Detalle</span>

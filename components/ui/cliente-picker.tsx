@@ -112,7 +112,7 @@ export function ClientePicker({
         <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
           {creando ? (
             <div className="space-y-2 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                 Cliente nuevo
               </p>
               <Input

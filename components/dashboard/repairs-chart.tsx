@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
-import { GHOST_STRIPES, chartColor } from "@/lib/chart";
+import { chartColor } from "@/lib/chart";
 import { TICKET_FLOW, ticketStatus } from "@/lib/status";
 import type { Ticket } from "@/lib/types";
 
@@ -25,10 +25,7 @@ export function RepairsChart({ tickets }: { tickets: Ticket[] }) {
             <span className="w-24 shrink-0 truncate text-start text-[12px] text-neutral-600 sm:w-40">
               {s.label}
             </span>
-            <div
-              className="h-4 flex-1 overflow-hidden rounded-full"
-              style={{ background: GHOST_STRIPES }}
-            >
+            <div className="h-4 flex-1 overflow-hidden rounded-full bg-neutral-100">
               <div
                 className="h-full rounded-full"
                 style={{
