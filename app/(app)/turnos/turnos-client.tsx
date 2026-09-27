@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Link2, X, Smartphone, Plus, Minus, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -34,6 +35,9 @@ import type {
   Pago,
 } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
+import type { Negocio } from "@/lib/db/configuracion";
+import { montoConRecargo } from "@/lib/ventas";
+import { defaultTurnoSlot } from "@/lib/command-palette";
 import { createTurnoAction, setTurnoEstadoAction, deleteTurnoAction } from "./actions";
 
 const MEDIOS = MEDIOS_CAJA;
@@ -67,6 +71,7 @@ export function TurnosClient({
   ticketsListos,
   clientesOpciones,
   user,
+  negocio,
 }: {
   initialTurnos: Turno[];
   initialEquipos: Equipo[];
@@ -77,6 +82,7 @@ export function TurnosClient({
   ticketsListos: Ticket[];
   clientesOpciones: ClienteOpcion[];
   user: SessionUser;
+  negocio: Negocio;
 }) {
   const { publish } = useRealtime();
   const actor = user.nombre;
@@ -98,6 +104,17 @@ export function TurnosClient({
       >,
   );
   const [, startTransition] = useTransition();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // ?accion=agendar-turno: el buscador global (CommandPalette) navega acá con
+  // ese param. Efecto (no useState inicial) para que también funcione estando
+  // ya parado en /turnos -- el componente no se remonta en la misma ruta.
+  useEffect(() => {
+    if (searchParams.get("accion") !== "agendar-turno") return;
+    setSlot(defaultTurnoSlot());
+    router.replace("/turnos"); // limpia el param -- evita reabrir con back/refresh
+  }, [searchParams, router]);
 
   function cycleTipo(tp: TurnoTipo) {
     setTipoState((prev) => {
@@ -339,7 +356,7 @@ export function TurnosClient({
         <div className="min-w-[760px]">
           {/* Encabezado de días */}
           <div
-            className="grid bg-[#352f86]"
+            className="grid bg-table-header"
             style={{ gridTemplateColumns: "3.25rem repeat(7, 1fr)" }}
           >
             <div className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-white/50">
@@ -723,6 +740,7 @@ export function TurnosClient({
         otros={otros}
         ticketsListos={ticketsListos}
         clientesOpciones={clientesOpciones}
+        negocio={negocio}
         onClose={() => setSlot(null)}
         onSubmit={agendar}
       />
@@ -739,6 +757,7 @@ function AgendarDialog({
   otros,
   ticketsListos,
   clientesOpciones,
+  negocio,
   onClose,
   onSubmit,
 }: {
@@ -748,6 +767,7 @@ function AgendarDialog({
   otros: OtroItem[];
   ticketsListos: Ticket[];
   clientesOpciones: ClienteOpcion[];
+  negocio: Negocio;
   onClose: () => void;
   onSubmit: (d: {
     cliente: ClienteSeleccion;
@@ -1036,42 +1056,53 @@ function AgendarDialog({
                 </span>
               </div>
               <div className="space-y-2">
-                {pagos.map((p) => (
-                  <div key={p._k} className="flex items-center gap-2">
-                    <Select
-                      value={p.medio}
-                      onChange={(e) => {
-                        const medio = e.target.value as MedioPago;
-                        updPago(p._k, { medio, caja: defaultCaja(medio) });
-                      }}
-                      className="w-40"
-                    >
-                      {MEDIOS.map((m) => (
-                        <option key={m} value={m}>
-                          {medioPago[m].label}
-                        </option>
-                      ))}
-                    </Select>
-                    <Input
-                      className="flex-1"
-                      type="number"
-                      min={0}
-                      placeholder="U$"
-                      value={p.montoUsd || ""}
-                      onChange={(e) =>
-                        updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => rmPago(p._k)}
-                      disabled={pagos.length === 1}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                {pagos.map((p) => {
+                  const recargoPct = negocio.recargosMediosPago[p.medio] ?? 0;
+                  return (
+                    <div key={p._k} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={p.medio}
+                          onChange={(e) => {
+                            const medio = e.target.value as MedioPago;
+                            updPago(p._k, { medio, caja: defaultCaja(medio) });
+                          }}
+                          className="w-40"
+                        >
+                          {MEDIOS.map((m) => (
+                            <option key={m} value={m}>
+                              {medioPago[m].label}
+                            </option>
+                          ))}
+                        </Select>
+                        <Input
+                          className="flex-1"
+                          type="number"
+                          min={0}
+                          placeholder="U$"
+                          value={p.montoUsd || ""}
+                          onChange={(e) =>
+                            updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => rmPago(p._k)}
+                          disabled={pagos.length === 1}
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {recargoPct > 0 && p.montoUsd > 0 && (
+                        <p className="pl-1 text-[11px] text-amber-600">
+                          + {recargoPct}% recargo → cobra{" "}
+                          {fmtUsd(montoConRecargo(p.montoUsd, recargoPct))}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <div className="mt-2 flex items-center justify-between">
                 <button

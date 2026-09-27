@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -34,17 +35,33 @@ export function ClientesClient({
   const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Cliente[]>(initialClientes);
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState<Cliente | null>(null);
+  // ?open=<id>: deep links desde Analíticas (mapa de valor, cohortes, listas
+  // de atención) abren la ficha directo -- mismo patrón que compras.
+  const openParam = useSearchParams().get("open");
+  const [openId, setOpenId] = useState<string | null>(openParam);
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [chartsOpen, setChartsOpen] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [, startDeleteTransition] = useTransition();
 
+  const open = list.find((c) => c.id === openId) ?? null;
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // ?accion=nuevo-cliente: el buscador global (CommandPalette) navega acá con
+  // ese param. Efecto (no useState inicial) para que también funcione estando
+  // ya parado en /clientes -- el componente no se remonta en la misma ruta.
+  useEffect(() => {
+    if (searchParams.get("accion") !== "nuevo-cliente") return;
+    setCreating(true);
+    router.replace("/clientes"); // limpia el param -- evita reabrir con back/refresh
+  }, [searchParams, router]);
+
   function eliminarCliente(id: string) {
     const c = list.find((x) => x.id === id);
     setList((p) => p.filter((c) => c.id !== id));
-    setOpen(null);
+    setOpenId(null);
     setConfirmDelete(false);
     startDeleteTransition(async () => {
       await deleteClienteAction(id);
@@ -106,10 +123,10 @@ export function ClientesClient({
         {filtered.map((c) => (
           <Card
             key={c.id}
-            onClick={() => setOpen(c)}
+            onClick={() => setOpenId(c.id)}
             className="cursor-pointer overflow-hidden p-0"
           >
-            <div className="bg-[#352f86] px-4 py-2 text-white">
+            <div className="bg-table-header px-4 py-2 text-white">
               <p className="truncate text-sm font-semibold">{c.nombre}</p>
             </div>
             <div className="flex items-stretch gap-3 p-3">
@@ -155,7 +172,7 @@ export function ClientesClient({
             {filtered.map((c) => (
               <tr
                 key={c.id}
-                onClick={() => setOpen(c)}
+                onClick={() => setOpenId(c.id)}
                 className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
               >
                 <td className="max-w-[160px] truncate px-5 py-2 text-center font-medium">
@@ -186,7 +203,7 @@ export function ClientesClient({
 
       <Dialog
         open={!!open && !editing}
-        onClose={() => setOpen(null)}
+        onClose={() => setOpenId(null)}
         size="lg"
         accent
         title={open?.nombre ?? ""}
@@ -203,7 +220,7 @@ export function ClientesClient({
                 </button>
               )}
               <button
-                onClick={() => setOpen(null)}
+                onClick={() => setOpenId(null)}
                 className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
               >
                 Cerrar
@@ -238,7 +255,7 @@ export function ClientesClient({
         onClose={() => setEditing(false)}
         onSaved={(c) => {
           setList((p) => p.map((x) => (x.id === c.id ? c : x)));
-          setOpen(c);
+          setOpenId(c.id);
           setEditing(false);
         }}
       />

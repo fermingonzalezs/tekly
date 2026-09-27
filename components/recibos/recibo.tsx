@@ -1,15 +1,24 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Printer, ShieldCheck, Store } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
+import { ShieldCheck, Store } from "lucide-react";
 import { negocio as negocioSeed } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { CHECKLIST_ITEMS, checklistItemLabel, estadoChecklistItem, dotClass } from "@/lib/status";
 import type { Checklist, EstadoChecklistItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Negocio = { nombre: string; direccion: string; telefono: string; cuit: string };
+type Negocio = {
+  nombre: string;
+  direccion: string;
+  telefono: string;
+  cuit: string;
+  /** Logo de la organización (Configuración → Datos del negocio) -- se
+   * imprime en la banda superior. Opcional: el seed de mock-data y los
+   * negocios sin logo no lo traen. */
+  logoUrl?: string | null;
+};
 
 export type ReciboPagina = {
   titulo: string;
@@ -63,11 +72,10 @@ export function ReciboFirmas({ negocio }: { negocio: Negocio }) {
 
 /** Una hoja individual -- lo que imprime `page-break-after` como una página
  * propia. Banda superior en `accent` con el título/número/fecha del
- * documento en blanco + un ícono placeholder de logo a la derecha (todavía
- * no hay campo de logo real en Configuración), o los datos del negocio si
- * `compacto` + dos tarjetas "Facturado por"/"Facturado a" (negocio /
- * cliente), o una única "Información cliente" (+ `sello` opcional) si
- * `compacto` -- las tablas de `ReciboLineas`/`ReciboGarantiaItems` ya salen
+ * documento en blanco + el logo de la organización a la derecha (si no
+ * hay, el ícono placeholder), o los datos del negocio si `compacto` + dos
+ * tarjetas "Facturado por"/"Facturado a" (negocio / cliente), o una única
+ * "Información cliente" (+ `sello` opcional) si `compacto` -- las tablas de `ReciboLineas`/`ReciboGarantiaItems` ya salen
  * con el header índigo oscuro de las tablas globales (`app/globals.css`),
  * sin pedirlo a mano. `continuacion` salta banda y datos de cliente: hoja
  * que sigue a otra del mismo documento (ej. el checklist del ticket de
@@ -115,16 +123,35 @@ function ReciboHoja({
           </p>
         </div>
         {compacto ? (
-          <div className="shrink-0 text-right">
-            <p className="font-grotesk text-sm font-semibold">{negocio.nombre}</p>
-            <p className="text-[11px] text-white/70">{negocio.direccion}</p>
-            <p className="text-[11px] text-white/70">
-              CUIT {negocio.cuit} · {negocio.telefono}
-            </p>
+          <div className="flex shrink-0 items-center gap-4">
+            <div className="text-right">
+              <p className="font-grotesk text-sm font-semibold">{negocio.nombre}</p>
+              <p className="text-[11px] text-white/70">{negocio.direccion}</p>
+              <p className="text-[11px] text-white/70">
+                CUIT {negocio.cuit} · {negocio.telefono}
+              </p>
+            </div>
+            {negocio.logoUrl && (
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15">
+                <img
+                  src={negocio.logoUrl}
+                  alt={negocio.nombre}
+                  className="h-9 w-9 rounded-lg object-contain"
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15">
-            <Store className="h-6 w-6" />
+            {negocio.logoUrl ? (
+              <img
+                src={negocio.logoUrl}
+                alt={negocio.nombre}
+                className="h-9 w-9 rounded-lg object-contain"
+              />
+            ) : (
+              <Store className="h-6 w-6" />
+            )}
           </div>
         )}
       </div>
@@ -262,7 +289,22 @@ export function ReciboShell({
   );
 }
 
-export function ReciboDialog({
+/** Cuánto esperar como máximo a que las imágenes del recibo (el logo del
+ * negocio) terminen de cargar antes de abrir el diálogo de impresión de
+ * todos modos -- sin esto, un logo que tarda en bajar (o que nunca
+ * responde) dejaría `ReciboImprimir` colgado sin imprimir nada. */
+const ESPERA_MAXIMA_IMAGENES_MS = 2000;
+
+/** Sin preview: al montar con `open`, arma el recibo fuera de pantalla
+ * (hijo directo de `body`, mismo `#recibo-print-root` que ya usa
+ * `app/globals.css` para aislar la impresión) y dispara `window.print()`
+ * apenas terminan de cargar sus imágenes (el logo del negocio) -- el ícono
+ * que dispara cada documento manda directo al diálogo de imprimir/guardar
+ * PDF del navegador, sin modal de preview de por medio. Al cerrarse ese
+ * diálogo (evento `afterprint`, se dispare haya impreso o cancelado) llama
+ * a `onClose` para que el estado del que lo usa vuelva a `null`/`false` y
+ * el próximo click arranque de cero. */
+export function ReciboImprimir({
   open,
   onClose,
   titulo,
@@ -293,74 +335,79 @@ export function ReciboDialog({
   paginas?: ReciboPagina[];
   children?: React.ReactNode;
 }) {
-  return (
-    <>
-      <Dialog
-        open={open}
-        onClose={onClose}
-        size="lg"
-        accent
-        title={titulo}
-        description={`${nro} · ${fecha}`}
-        footer={
-          <>
-            <button
-              onClick={onClose}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-            >
-              Cerrar
-            </button>
-            <button
-              onClick={() => window.print()}
-              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
-            >
-              <Printer className="h-4 w-4" /> Imprimir / Guardar PDF
-            </button>
-          </>
-        }
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  // Evita que un `onClose` recreado en cada render del que lo usa (closure
+  // inline, lo normal acá) retrigger este effect -- solo `open` debe
+  // disparar la impresión.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelado = false;
+    let impreso = false;
+
+    const dispararImpresion = () => {
+      if (impreso || cancelado) return;
+      impreso = true;
+      // Dos frames para asegurar que React ya pintó el contenido portado
+      // antes de abrir el diálogo nativo del navegador.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (!cancelado) window.print();
+        }),
+      );
+    };
+
+    const imagenes = rootRef.current
+      ? Array.from(rootRef.current.querySelectorAll("img")).filter((img) => !img.complete)
+      : [];
+    if (imagenes.length === 0) {
+      dispararImpresion();
+    } else {
+      let restantes = imagenes.length;
+      const alTerminarUna = () => {
+        restantes -= 1;
+        if (restantes === 0) dispararImpresion();
+      };
+      imagenes.forEach((img) => {
+        img.addEventListener("load", alTerminarUna, { once: true });
+        img.addEventListener("error", alTerminarUna, { once: true });
+      });
+    }
+    const seguridad = window.setTimeout(dispararImpresion, ESPERA_MAXIMA_IMAGENES_MS);
+
+    const alCerrarDialogoDeImpresion = () => onCloseRef.current();
+    window.addEventListener("afterprint", alCerrarDialogoDeImpresion);
+
+    return () => {
+      cancelado = true;
+      window.clearTimeout(seguridad);
+      window.removeEventListener("afterprint", alCerrarDialogoDeImpresion);
+    };
+  }, [open]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div id="recibo-print-root" ref={rootRef}>
+      <ReciboShell
+        titulo={titulo}
+        nro={nro}
+        fecha={fecha}
+        cliente={cliente}
+        clienteTelefono={clienteTelefono}
+        clienteEmail={clienteEmail}
+        negocio={negocio}
+        compacto={compacto}
+        sello={sello}
+        sinFirmas={sinFirmas}
+        paginas={paginas}
       >
-        <ReciboShell
-          titulo={titulo}
-          nro={nro}
-          fecha={fecha}
-          cliente={cliente}
-          clienteTelefono={clienteTelefono}
-          clienteEmail={clienteEmail}
-          negocio={negocio}
-          compacto={compacto}
-          sello={sello}
-          sinFirmas={sinFirmas}
-          paginas={paginas}
-        >
-          {children}
-        </ReciboShell>
-      </Dialog>
-      {/* Copia fuera del Dialog, hija directa de `body` -- así la impresión
-       * (`app/globals.css`, `#recibo-print-root`) queda en flujo normal y
-       * puede paginar varias hojas sin heredar el `fixed`/scroll del Dialog. */}
-      {open &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div id="recibo-print-root">
-            <ReciboShell
-              titulo={titulo}
-              nro={nro}
-              fecha={fecha}
-              cliente={cliente}
-              clienteTelefono={clienteTelefono}
-              clienteEmail={clienteEmail}
-              negocio={negocio}
-              compacto={compacto}
-              sello={sello}
-              sinFirmas={sinFirmas}
-              paginas={paginas}
-            >
-              {children}
-            </ReciboShell>
-          </div>,
-          document.body,
-        )}
-    </>
+        {children}
+      </ReciboShell>
+    </div>,
+    document.body,
   );
 }
 

@@ -46,9 +46,10 @@ export async function deleteEquipoAction(id: string) {
 export async function crearRecuentoEquiposAction(
   draft: Record<string, boolean>,
   comentarios: Record<string, string>,
+  comentarioGeneral?: string,
 ) {
   await requireUser();
-  const recuento = await crearRecuentoEquipos(draft, comentarios);
+  const recuento = await crearRecuentoEquipos(draft, comentarios, comentarioGeneral);
   revalidatePath("/recuentos");
   return recuento;
 }
@@ -82,9 +83,13 @@ export async function ingresoRepuestoAction(
   return repuesto;
 }
 
-export async function crearRecuentoRepuestosAction(draft: Record<string, number>) {
+export async function crearRecuentoRepuestosAction(
+  draft: Record<string, number>,
+  comentarios: Record<string, string>,
+  comentarioGeneral?: string,
+) {
   await requireUser();
-  const recuento = await crearRecuentoRepuestos(draft);
+  const recuento = await crearRecuentoRepuestos(draft, comentarios, comentarioGeneral);
   revalidatePath("/recuentos");
   return recuento;
 }
@@ -133,9 +138,13 @@ export async function ingresoOtroAction(
   return otro;
 }
 
-export async function crearRecuentoOtrosAction(draft: Record<string, number>) {
+export async function crearRecuentoOtrosAction(
+  draft: Record<string, number>,
+  comentarios: Record<string, string>,
+  comentarioGeneral?: string,
+) {
   await requireUser();
-  const recuento = await crearRecuentoOtros(draft);
+  const recuento = await crearRecuentoOtros(draft, comentarios, comentarioGeneral);
   revalidatePath("/recuentos");
   return recuento;
 }

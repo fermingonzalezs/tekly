@@ -13,7 +13,17 @@ import { UserMenu } from "@/components/auth/user-menu";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import type { SessionUser } from "@/lib/auth/types";
 
-export function TopNav({ user }: { user: SessionUser }) {
+export function TopNav({
+  user,
+  logoUrl,
+  nombre,
+}: {
+  user: SessionUser;
+  /** Logo de la organización (Configuración → Datos del negocio) -- null
+   * mientras no haya upload, se muestra el placeholder de siempre. */
+  logoUrl?: string | null;
+  nombre?: string;
+}) {
   const pathname = usePathname();
   const items = navForRole(user.rol).filter((n) => n.href !== "/configuracion");
   const categories = navCategoriesForRole(user.rol);
@@ -34,10 +44,23 @@ export function TopNav({ user }: { user: SessionUser }) {
         </button>
 
         <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-white">
-            <Smartphone className="h-5 w-5" />
-          </div>
-          <span className="hidden font-grotesk text-sm font-semibold tracking-wide md:block">TEKLY</span>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={nombre ?? "Logo"}
+              className="h-9 w-9 rounded-xl object-contain"
+            />
+          ) : (
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-white">
+              <Smartphone className="h-5 w-5" />
+            </div>
+          )}
+          <span className="hidden flex-col leading-tight md:flex">
+            <span className="font-grotesk text-sm font-semibold uppercase tracking-wide">
+              {nombre || "Tekly"}
+            </span>
+            <span className="text-[10px] font-medium text-neutral-400">by tekly</span>
+          </span>
         </Link>
 
         <nav

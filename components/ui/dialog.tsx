@@ -11,12 +11,12 @@ import { cn } from "@/lib/utils";
 // mientras el de arriba sigue abierto.
 let openDialogs = 0;
 
-function lockScroll() {
+export function lockScroll() {
   openDialogs += 1;
   if (openDialogs === 1) document.body.style.overflow = "hidden";
 }
 
-function unlockScroll() {
+export function unlockScroll() {
   openDialogs = Math.max(0, openDialogs - 1);
   if (openDialogs === 0) document.body.style.overflow = "";
 }
@@ -83,7 +83,7 @@ export function Dialog({
             className={cn(
               "flex items-start justify-between gap-4 rounded-t-2xl border-b px-4 py-4 sm:px-5",
               accent
-                ? "border-[#352f86] bg-[#352f86] text-white"
+                ? "border-table-header bg-table-header text-white"
                 : "border-neutral-100",
             )}
           >

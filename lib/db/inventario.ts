@@ -203,6 +203,7 @@ export async function createEquiposBulk(
 export async function crearRecuentoEquipos(
   draft: Record<string, boolean>,
   comentarios: Record<string, string>,
+  comentarioGeneral?: string,
 ): Promise<Recuento> {
   const ids = Object.keys(draft);
   const user = await requireUser();
@@ -247,7 +248,7 @@ export async function crearRecuentoEquipos(
     }
   }
 
-  return crearRecuento("equipos", user, lineas);
+  return crearRecuento("equipos", user, lineas, comentarioGeneral);
 }
 
 // ─────────────────────────── Repuestos ───────────────────────────
@@ -392,10 +393,16 @@ export async function ingresoRepuesto(
 
 /** Igual criterio que `crearRecuentoEquipos`: no ajusta `stock` todavía,
  * queda pendiente de revisión. `draft` solo trae los ítems que el usuario
- * efectivamente contó (el campo "Contado" arranca vacío en el cliente, no
- * pre-cargado con el stock del sistema) -- lo que no se cuenta no entra acá,
- * ni como movimiento ni como diferencia. */
-export async function crearRecuentoRepuestos(draft: Record<string, number>): Promise<Recuento> {
+ * efectivamente contó (el modal de recuento arranca "Cantidad real" vacío,
+ * no pre-cargado con el stock del sistema) -- lo que no se cuenta no entra
+ * acá, ni como movimiento ni como diferencia. `comentarios` es la nota por
+ * fila del modal (id de repuesto -> texto), `comentarioGeneral` la nota
+ * única de todo el recuento. */
+export async function crearRecuentoRepuestos(
+  draft: Record<string, number>,
+  comentarios: Record<string, string> = {},
+  comentarioGeneral?: string,
+): Promise<Recuento> {
   const ids = Object.keys(draft);
   const user = await requireUser();
   const lineas: RecuentoLineaCantidad[] = [];
@@ -410,10 +417,11 @@ export async function crearRecuentoRepuestos(draft: Record<string, number>): Pro
 
     for (const r of actuales) {
       const contado = draft[r.id];
+      const comentario = comentarios[r.id]?.trim() || undefined;
       await addMovimiento(
         "repuesto",
         r.id,
-        `Recuento: contado ${contado} (sistema ${r.stock})`,
+        `Recuento: contado ${contado} (sistema ${r.stock})${comentario ? ` -- ${comentario}` : ""}`,
         "recuento",
       );
       if (contado !== r.stock) {
@@ -423,12 +431,13 @@ export async function crearRecuentoRepuestos(draft: Record<string, number>): Pro
           cantidadSistema: r.stock,
           cantidadContada: contado,
           resolucion: "pendiente",
+          comentario,
         });
       }
     }
   }
 
-  return crearRecuento("repuestos", user, lineas);
+  return crearRecuento("repuestos", user, lineas, comentarioGeneral);
 }
 
 /** Baja lógica (nada referencia `repuestos.id` con FK, pero se usa el mismo
@@ -572,7 +581,11 @@ export async function crearOtro(data: {
 /** Igual criterio que `crearRecuentoRepuestos`: `draft` solo trae los ítems
  * contados (no serializados -- mismo alcance que tenía el recuento inmediato,
  * el cliente ya arma el `draft` así). */
-export async function crearRecuentoOtros(draft: Record<string, number>): Promise<Recuento> {
+export async function crearRecuentoOtros(
+  draft: Record<string, number>,
+  comentarios: Record<string, string> = {},
+  comentarioGeneral?: string,
+): Promise<Recuento> {
   const ids = Object.keys(draft);
   const user = await requireUser();
   const lineas: RecuentoLineaCantidad[] = [];
@@ -588,10 +601,11 @@ export async function crearRecuentoOtros(draft: Record<string, number>): Promise
     for (const o of actuales) {
       const contado = draft[o.id];
       const sistema = o.cantidad ?? 0;
+      const comentario = comentarios[o.id]?.trim() || undefined;
       await addMovimiento(
         "otro",
         o.id,
-        `Recuento: contado ${contado} (sistema ${sistema})`,
+        `Recuento: contado ${contado} (sistema ${sistema})${comentario ? ` -- ${comentario}` : ""}`,
         "recuento",
       );
       if (contado !== sistema) {
@@ -601,12 +615,13 @@ export async function crearRecuentoOtros(draft: Record<string, number>): Promise
           cantidadSistema: sistema,
           cantidadContada: contado,
           resolucion: "pendiente",
+          comentario,
         });
       }
     }
   }
 
-  return crearRecuento("otros", user, lineas);
+  return crearRecuento("otros", user, lineas, comentarioGeneral);
 }
 
 /** Baja lógica, mismo criterio que equipos/repuestos. */
@@ -658,6 +673,37 @@ export async function listMovimientos(itemType: ItemType, itemId: string): Promi
   }));
 }
 
+export type MovimientoStockBulk = {
+  itemTipo: ItemType;
+  itemId: string;
+  tipo: MovimientoTipo;
+  fechaISO: string;
+  detalle: string;
+};
+
+/** Todos los movimientos que mueven stock (ingreso/egreso/baja) de todos
+ * los ítems de una vez, para las métricas de Analíticas (antigüedad,
+ * rotación, flujo) sin caer en el N+1 de `listMovimientos` (una query por
+ * ítem). `edicion`/`recuento` no mueven stock, quedan afuera. Distinta de
+ * `listMovimientosStock` (más abajo): esa resuelve nombres para la pestaña
+ * "Movimientos" de /recuentos, esta trae los datos crudos sin resolver. */
+export async function listMovimientosStockBulk(): Promise<MovimientoStockBulk[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("movimientos_stock")
+    .select("item_type, item_id, tipo, fecha, detalle")
+    .in("tipo", ["ingreso", "egreso", "baja"])
+    .order("fecha", { ascending: true });
+  if (error) throw error;
+  return data.map((m) => ({
+    itemTipo: m.item_type as ItemType,
+    itemId: m.item_id,
+    tipo: m.tipo as MovimientoTipo,
+    fechaISO: m.fecha.slice(0, 10),
+    detalle: m.detalle,
+  }));
+}
+
 // ─────────────────────────── Recuentos ───────────────────────────
 //
 // Un recuento queda `pendiente` con sus diferencias (`lineas`) hasta que un
@@ -674,10 +720,11 @@ type RecuentoRow = {
   revisado_por_nombre: string | null;
   revisado_en: string | null;
   lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[];
+  comentario_general: string | null;
 };
 
 const RECUENTO_COLS =
-  "id, tipo, fecha, responsable_id, responsable_nombre, estado, revisado_por_id, revisado_por_nombre, revisado_en, lineas";
+  "id, tipo, fecha, responsable_id, responsable_nombre, estado, revisado_por_id, revisado_por_nombre, revisado_en, lineas, comentario_general";
 
 function toRecuento(row: RecuentoRow): Recuento {
   return {
@@ -692,6 +739,7 @@ function toRecuento(row: RecuentoRow): Recuento {
       ? `${fmtDayMonth(row.revisado_en)} ${fmtTime(row.revisado_en)}`
       : undefined,
     lineas: row.lineas,
+    comentarioGeneral: row.comentario_general ?? undefined,
   };
 }
 
@@ -699,6 +747,7 @@ async function crearRecuento(
   tipo: Recuento["tipo"],
   user: SessionUser,
   lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[],
+  comentarioGeneral?: string,
 ): Promise<Recuento> {
   const supabase = createServerClient();
   const { data: row, error } = await supabase
@@ -711,6 +760,7 @@ async function crearRecuento(
       // `revisado_por` (no fue un admin el que lo resolvió).
       estado: lineas.length === 0 ? "revisado" : "pendiente",
       lineas,
+      comentario_general: comentarioGeneral?.trim() || null,
     })
     .select(RECUENTO_COLS)
     .single();
@@ -807,11 +857,17 @@ export async function resolverRecuento(
           .update({ [campo]: l.cantidadContada })
           .eq("id", l.itemId);
         if (error) throw error;
+        // Tipo propio ("ajuste", no "recuento"): esto sí toca el stock real
+        // -- se distingue del resto de movimientos de recuento (que solo
+        // documentan qué se contó/decidió) tanto en tipo como en el detalle,
+        // que aclara de dónde salió el ajuste y cuánto se sumó/descontó.
+        const delta = l.cantidadContada - l.cantidadSistema;
+        const signo = delta > 0 ? "+" : "";
         await addMovimiento(
           itemType,
           l.itemId,
-          `Recuento revisado por ${admin.nombre}: ajustado a ${l.cantidadContada}`,
-          "recuento",
+          `Ajuste por recuento (revisado por ${admin.nombre}): ${l.cantidadSistema} → ${l.cantidadContada} (${signo}${delta})`,
+          "ajuste",
         );
       } else if (resolucion === "descartado") {
         await addMovimiento(

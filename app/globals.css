@@ -4,6 +4,85 @@
 
 :root {
   color-scheme: light;
+  /* Paleta default (índigo). Cada preset de lib/theme-presets.ts pisa estos
+     valores vía su bloque [data-tema] de abajo; el activo lo elige el layout
+     raíz (data-tema en <html>) según organizations.color_tema. Son la única
+     fuente de color de marca: componentes y charts referencian las vars, no
+     hex sueltos. */
+  --chart-0: #2e2a5f;
+  --chart-1: #352f86;
+  --chart-2: #4f49bd;
+  --chart-3: #7269d4;
+  --chart-4: #948dde;
+  --accent-soft: #edecf8;
+  --accent-rgb: 79 73 189;
+  --accent-soft-rgb: 237 236 248;
+}
+
+[data-tema="azul"] {
+  --chart-0: #1a4370;
+  --chart-1: #225993;
+  --chart-2: #357fd0;
+  --chart-3: #629cda;
+  --chart-4: #89b5e3;
+  --accent-soft: #edf2f8;
+  --accent-rgb: 53 127 208;
+  --accent-soft-rgb: 237 242 248;
+}
+
+[data-tema="verde"] {
+  --chart-0: #266447;
+  --chart-1: #32835d;
+  --chart-2: #4aba86;
+  --chart-3: #72caa1;
+  --chart-4: #96d7b9;
+  --accent-soft: #edf8f3;
+  --accent-rgb: 74 186 134;
+  --accent-soft-rgb: 237 248 243;
+}
+
+[data-tema="violeta"] {
+  --chart-0: #472267;
+  --chart-1: #5e2d88;
+  --chart-2: #8644c1;
+  --chart-3: #a16ecf;
+  --chart-4: #b992db;
+  --accent-soft: #f3edf8;
+  --accent-rgb: 134 68 193;
+  --accent-soft-rgb: 243 237 248;
+}
+
+[data-tema="rosa"] {
+  --chart-0: #6d1d41;
+  --chart-1: #8f2655;
+  --chart-2: #cb3a7b;
+  --chart-3: #d66698;
+  --chart-4: #e08cb2;
+  --accent-soft: #f8edf2;
+  --accent-rgb: 203 58 123;
+  --accent-soft-rgb: 248 237 242;
+}
+
+[data-tema="naranja"] {
+  --chart-0: #744216;
+  --chart-1: #98561d;
+  --chart-2: #d77c2d;
+  --chart-3: #e09a5c;
+  --chart-4: #e8b385;
+  --accent-soft: #f8f2ed;
+  --accent-rgb: 215 124 45;
+  --accent-soft-rgb: 248 242 237;
+}
+
+[data-tema="negro"] {
+  --chart-0: #09090b;
+  --chart-1: #18181b;
+  --chart-2: #3f3f46;
+  --chart-3: #71717a;
+  --chart-4: #a1a1aa;
+  --accent-soft: #f4f4f5;
+  --accent-rgb: 63 63 70;
+  --accent-soft-rgb: 244 244 245;
 }
 
 body {
@@ -19,7 +98,7 @@ body {
    izquierda salvo opt-out. */
 
 th {
-  background-color: #352f86; /* índigo oscuro (CHART_COLORS[1]) */
+  background-color: var(--chart-1); /* tono medio-oscuro de la paleta activa */
   color: #ffffff;
   font-weight: 700;
   text-transform: uppercase;
@@ -49,7 +128,7 @@ td {
      banda violeta del header/footer del recibo. */
   .recibo-print tbody tr:nth-child(even) {
     background-image: none;
-    background-color: #edecf8;
+    background-color: var(--accent-soft);
   }
   /* el peso 700 del `th` global se ve exagerado en el papel -- las tablas
      del recibo bajan a semibold, mismo peso que el resto de las etiquetas
@@ -102,13 +181,14 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
-/* Impresión: `ReciboDialog` porta el recibo a `#recibo-print-root` (hijo
-   directo de `body`, fuera del Dialog) mientras está abierto -- ver
-   `components/recibos/recibo.tsx`. Así el contenido a imprimir queda en
-   flujo normal, sin heredar el `position: fixed`/`overflow` del Dialog (que
-   recortaría cualquier hoja que no entre en un viewport). Puede haber varias
-   hojas `.recibo-print` (ej. comprobante + garantía), cada una en su propia
-   página vía `break-after: page`. */
+/* Impresión: `ReciboImprimir` porta el recibo a `#recibo-print-root` (hijo
+   directo de `body`, sin ningún modal de por medio) mientras dispara
+   `window.print()` -- ver `components/recibos/recibo.tsx`. Así el contenido
+   a imprimir queda en flujo normal, en vez de heredar el `position:
+   fixed`/`overflow` de un Dialog (que recortaría cualquier hoja que no
+   entre en un viewport). Puede haber varias hojas `.recibo-print` (ej.
+   comprobante + garantía), cada una en su propia página vía
+   `break-after: page`. */
 #recibo-print-root {
   display: none;
 }

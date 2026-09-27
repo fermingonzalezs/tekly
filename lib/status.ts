@@ -1,4 +1,5 @@
 import type {
+  CategoriaGasto,
   ChecklistItemId,
   CompraEstado,
   EquipoStatus,
@@ -178,6 +179,7 @@ export const movimientoTipo: Record<MovimientoTipo, { label: string; tone: Tone 
   edicion: { label: "Edición", tone: "blue" },
   baja: { label: "Baja", tone: "red" },
   recuento: { label: "Recuento", tone: "violet" },
+  ajuste: { label: "Ajuste", tone: "gray" },
 };
 
 // ── Inventario · Repuestos ─────────────────────────────────────
@@ -244,3 +246,26 @@ export const MEDIOS_CAJA: MedioPago[] = [
 /** `MEDIOS_CAJA` + "cuenta corriente" -- para los lugares que necesitan
  * los 7 medios (ej. el form de recargo por medio en Configuración). */
 export const MEDIOS_VENTA: MedioPagoVenta[] = [...MEDIOS_CAJA, "cuenta_corriente"];
+
+/** Categorías de gasto de un `MovimientoCaja` egreso -- selector de "Nuevo
+ * movimiento" en Cajas y agrupación de "Gastos por categoría" en
+ * Analíticas. */
+export const categoriaGasto: Record<CategoriaGasto, { label: string; tone: Tone }> = {
+  alquiler: { label: "Alquiler", tone: "blue" },
+  sueldos: { label: "Sueldos", tone: "violet" },
+  servicios: { label: "Servicios", tone: "amber" },
+  insumos_repuestos: { label: "Insumos y repuestos", tone: "green" },
+  impuestos: { label: "Impuestos", tone: "red" },
+  mantenimiento: { label: "Mantenimiento", tone: "gray" },
+  otros: { label: "Otros", tone: "gray" },
+};
+
+export const CATEGORIAS_GASTO: CategoriaGasto[] = [
+  "alquiler",
+  "sueldos",
+  "servicios",
+  "insumos_repuestos",
+  "impuestos",
+  "mantenimiento",
+  "otros",
+];

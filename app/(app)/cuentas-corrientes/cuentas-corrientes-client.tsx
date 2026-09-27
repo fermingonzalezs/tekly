@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -59,6 +60,19 @@ export function CuentasCorrientesClient({
   } | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const movAEliminar = movimientos.find((m) => m.id === confirmDeleteId) ?? null;
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // ?accion=registrar-pago: el buscador global (CommandPalette) navega acá con
+  // ese param. Efecto (no useState inicial) para que también funcione estando
+  // ya parado en /cuentas-corrientes -- el componente no se remonta en la
+  // misma ruta. Sin cliente preseleccionado: el picker arranca vacío.
+  useEffect(() => {
+    if (searchParams.get("accion") !== "registrar-pago") return;
+    setNuevoDefault({ tipo: "pago" });
+    setNuevoOpen(true);
+    router.replace("/cuentas-corrientes"); // limpia el param -- evita reabrir con back/refresh
+  }, [searchParams, router]);
 
   const addMovimiento = (mov: MovimientoCC) => {
     setMovimientos((prev) => [mov, ...prev]);
@@ -159,7 +173,7 @@ export function CuentasCorrientesClient({
             onClick={() => setOpenClienteId(r.cliente.id)}
             className="cursor-pointer overflow-hidden p-0"
           >
-            <div className="bg-[#352f86] px-4 py-2 text-white">
+            <div className="bg-table-header px-4 py-2 text-white">
               <p className="truncate text-sm font-semibold">{r.cliente.nombre}</p>
             </div>
             <div className="flex items-stretch gap-3 p-3">

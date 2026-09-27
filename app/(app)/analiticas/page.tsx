@@ -1,17 +1,18 @@
 import { requireRole } from "@/lib/auth";
 import { listVentas } from "@/lib/db/ventas";
-import { listEquipos, listRepuestos, listOtros } from "@/lib/db/inventario";
-import { listClientes, demografiaClientes } from "@/lib/db/clientes";
+import { listEquipos, listRepuestos, listOtros, listMovimientosStockBulk } from "@/lib/db/inventario";
+import { listClientes } from "@/lib/db/clientes";
 import { listTurnosSemana } from "@/lib/db/turnos";
 import { listCajas, listMovimientos } from "@/lib/db/cajas";
-import { ventasPorMes, facturacionDiaria, margenPorTipo, ventasPorRubroMes } from "@/lib/analiticas";
-import { FuenteClientes } from "@/components/clientes/fuente-clientes";
+import { listCompras } from "@/lib/db/compras";
+import { listTickets } from "@/lib/db/reparaciones";
+import { facturacionDiaria, ventasPorRubroMes, antiguedadTicketsAbiertos } from "@/lib/analiticas";
 import { AnaliticasClient } from "./analiticas-client";
 
 // Financiero -- no es una sección para vendedores.
 export default async function AnaliticasPage() {
   await requireRole("admin", "tecnico");
-  const [ventas, equipos, repuestos, otros, clientes, turnos, cajas, movimientosTodos, demografia] =
+  const [ventas, equipos, repuestos, otros, clientes, turnos, cajas, movimientosTodos, compras, tickets, movimientosStock] =
     await Promise.all([
       listVentas(),
       listEquipos(),
@@ -21,7 +22,9 @@ export default async function AnaliticasPage() {
       listTurnosSemana(),
       listCajas(),
       listMovimientos(),
-      demografiaClientes(),
+      listCompras(),
+      listTickets(),
+      listMovimientosStockBulk(),
     ]);
 
   return (
@@ -34,12 +37,13 @@ export default async function AnaliticasPage() {
       turnos={turnos}
       cajas={cajas}
       movimientosTodos={movimientosTodos}
-      ventasPorMes={ventasPorMes(ventas)}
+      movimientosStock={movimientosStock}
+      compras={compras}
+      tickets={tickets}
       salesTrend={facturacionDiaria(ventas)}
-      margenPorTipo={margenPorTipo(ventas)}
       rubroMesData={ventasPorRubroMes(ventas)}
-      demografia={demografia}
-      fuenteClientes={<FuenteClientes />}
+      antiguedadTickets={antiguedadTicketsAbiertos(tickets)}
+      hoy={new Date()}
     />
   );
 }

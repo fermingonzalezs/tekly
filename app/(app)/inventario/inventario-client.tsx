@@ -202,11 +202,13 @@ export function InventarioClient({
   const [repuestos, setRepuestos] = useState<Repuesto[]>(initialRepuestos);
   const [otros, setOtros] = useState<OtroItem[]>(initialOtros);
 
-  const [recuento, setRecuento] = useState(false);
-  const [draft, setDraft] = useState<Record<string, number>>({});
-  const [draftEncontrados, setDraftEncontrados] = useState<Record<string, boolean>>({});
-  const [draftComentarios, setDraftComentarios] = useState<Record<string, string>>({});
-  const [savingRecuento, startRecuentoSave] = useTransition();
+  // Recuento (Equipos/Repuestos/Otros) siempre en un modal aparte
+  // (`recuentoModalTipo` + `RecuentoEquiposModalDialog`/`RecuentoModalDialog`,
+  // al final del archivo) -- la tabla nunca cambia de forma al hacer un
+  // recuento, todo el conteo se anota en el modal.
+  const [recuentoModalTipo, setRecuentoModalTipo] = useState<
+    "equipos" | "repuestos" | "otros" | null
+  >(null);
   const [q, setQ] = useState("");
   const [statsOpen, setStatsOpen] = useState(true);
   const [chartsOpen, setChartsOpen] = useState(true);
@@ -246,7 +248,7 @@ export function InventarioClient({
   }
 
   function switchTab(t: Tab) {
-    setRecuento(false);
+    setRecuentoModalTipo(null);
     setQ("");
     setEquipoFiltro("todos");
     setRepuestoFiltro("todos");
@@ -280,45 +282,6 @@ export function InventarioClient({
       (otroFiltro === "todos" || o.serializado) &&
       (!needle || o.nombre.toLowerCase().includes(needle)),
   );
-
-  function startRecuento() {
-    if (tab === "equipos") {
-      const d: Record<string, boolean> = {};
-      equipos.forEach((e) => e.estado !== "vendido" && (d[e.id] = true));
-      setDraftEncontrados(d);
-      setDraftComentarios({});
-    } else {
-      // Arranca vacío a propósito: el campo de "Contado" no se pre-carga
-      // con el stock del sistema (eso se lee al lado, de referencia) --
-      // así no se siente como "corregir" el stock sino como anotar lo que
-      // se ve. Un ítem que se deja en blanco no entra en el recuento.
-      setDraft({});
-    }
-    setRecuento(true);
-  }
-
-  function setContado(id: string, raw: string) {
-    setDraft((d) => {
-      if (raw.trim() === "") {
-        const { [id]: _omit, ...rest } = d;
-        return rest;
-      }
-      return { ...d, [id]: Number(raw) || 0 };
-    });
-  }
-
-  // El recuento no ajusta equipos/repuestos/otros al guardar -- solo
-  // registra las diferencias y queda pendiente hasta que un admin lo
-  // revise en la sección «Recuentos» (`resolverRecuento` en
-  // lib/db/inventario.ts). El cambio real recién se aplica ahí.
-  function saveRecuento() {
-    startRecuentoSave(async () => {
-      if (tab === "equipos") await crearRecuentoEquiposAction(draftEncontrados, draftComentarios);
-      else if (tab === "repuestos") await crearRecuentoRepuestosAction(draft);
-      else await crearRecuentoOtrosAction(draft);
-      setRecuento(false);
-    });
-  }
 
   const tabOptions = [
     { value: "equipos" as Tab, label: "Equipos", count: equipos.length },
@@ -356,56 +319,31 @@ export function InventarioClient({
         />
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        {(tab === "equipos" || tab === "repuestos" || tab === "otros") &&
-          (recuento ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                onClick={() => setRecuento(false)}
-                disabled={savingRecuento}
-              >
-                Cancelar
-              </Button>
-              <Button
-                size="sm"
-                className="w-full sm:w-auto"
-                onClick={saveRecuento}
-                disabled={savingRecuento}
-              >
-                {savingRecuento ? "Guardando…" : "Guardar recuento"}
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto"
-              onClick={startRecuento}
-            >
-              <ClipboardCheck className="h-4 w-4" /> Recuento
-            </Button>
-          ))}
-        {!recuento && (
-          <button
-            onClick={() =>
-              tab === "equipos"
-                ? setAddEquipo(true)
-                : tab === "repuestos"
-                  ? setAddRepuesto(true)
-                  : setAddOtro(true)
-            }
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-          >
-            <Plus className="h-4 w-4" />
-            {tab === "equipos"
-              ? "Agregar equipo"
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={() => setRecuentoModalTipo(tab)}
+        >
+          <ClipboardCheck className="h-4 w-4" /> Recuento
+        </Button>
+        <button
+          onClick={() =>
+            tab === "equipos"
+              ? setAddEquipo(true)
               : tab === "repuestos"
-                ? "Agregar / ingresar repuesto"
-                : "Agregar / ingresar producto"}
-          </button>
-        )}
+                ? setAddRepuesto(true)
+                : setAddOtro(true)
+          }
+          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+        >
+          <Plus className="h-4 w-4" />
+          {tab === "equipos"
+            ? "Agregar equipo"
+            : tab === "repuestos"
+              ? "Agregar / ingresar repuesto"
+              : "Agregar / ingresar producto"}
+        </button>
       </div>
     </div>
   );
@@ -472,56 +410,31 @@ export function InventarioClient({
             options={tabOptions}
           />
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center md:ml-auto">
-            {(tab === "equipos" || tab === "repuestos" || tab === "otros") &&
-              (recuento ? (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={() => setRecuento(false)}
-                    disabled={savingRecuento}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="w-full sm:w-auto"
-                    onClick={saveRecuento}
-                    disabled={savingRecuento}
-                  >
-                    {savingRecuento ? "Guardando…" : "Guardar recuento"}
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  onClick={startRecuento}
-                >
-                  <ClipboardCheck className="h-4 w-4" /> Recuento
-                </Button>
-              ))}
-            {!recuento && (
-              <button
-                onClick={() =>
-                  tab === "equipos"
-                    ? setAddEquipo(true)
-                    : tab === "repuestos"
-                      ? setAddRepuesto(true)
-                      : setAddOtro(true)
-                }
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-              >
-                <Plus className="h-4 w-4" />
-                {tab === "equipos"
-                  ? "Agregar equipo"
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={() => setRecuentoModalTipo(tab)}
+            >
+              <ClipboardCheck className="h-4 w-4" /> Recuento
+            </Button>
+            <button
+              onClick={() =>
+                tab === "equipos"
+                  ? setAddEquipo(true)
                   : tab === "repuestos"
-                    ? "Agregar / ingresar repuesto"
-                    : "Agregar / ingresar producto"}
-              </button>
-            )}
+                    ? setAddRepuesto(true)
+                    : setAddOtro(true)
+              }
+              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+            >
+              <Plus className="h-4 w-4" />
+              {tab === "equipos"
+                ? "Agregar equipo"
+                : tab === "repuestos"
+                  ? "Agregar / ingresar repuesto"
+                  : "Agregar / ingresar producto"}
+            </button>
           </div>
         </div>
 
@@ -540,11 +453,6 @@ export function InventarioClient({
             const valorVenta = equipos
               .filter((e) => e.estado !== "vendido")
               .reduce((a, e) => a + e.precioUsd, 0);
-            // Durante el recuento no tiene sentido auditar equipos ya
-            // vendidos -- ya no están en el local.
-            const equiposParaMostrar = recuento
-              ? equiposFiltrados.filter((e) => e.estado !== "vendido")
-              : equiposFiltrados;
 
             return (
               <>
@@ -605,27 +513,18 @@ export function InventarioClient({
                   </div>
                 )}
 
-                {recuento && (
-                  <p className="text-sm text-neutral-500">
-                    Tildá los equipos que encontraste físicamente y guardá el
-                    recuento — las diferencias quedan pendientes de revisión
-                    en «Recuentos», no se marcan extraviados al toque. Los
-                    equipos vendidos no entran en el recuento.
-                  </p>
-                )}
-
                 {mobileFilters}
 
                 {mobileTabs}
 
                 <div className="space-y-2 md:hidden">
-                  {equiposParaMostrar.map((e) => (
+                  {equiposFiltrados.map((e) => (
                     <Card
                       key={e.id}
-                      onClick={() => !recuento && setOpenEquipoId(e.id)}
-                      className={cn("overflow-hidden p-0", !recuento && "cursor-pointer")}
+                      onClick={() => setOpenEquipoId(e.id)}
+                      className="cursor-pointer overflow-hidden p-0"
                     >
-                      <div className="bg-[#352f86] px-4 py-2 text-white">
+                      <div className="bg-table-header px-4 py-2 text-white">
                         <p className="truncate text-sm font-semibold">
                           {e.modelo} {e.almacenamiento}
                         </p>
@@ -638,67 +537,28 @@ export function InventarioClient({
                           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
                             <span>Batería {e.bateria}%</span>
                             {puedeVerCosto && <span>Costo {fmtUsd(e.costoUsd)}</span>}
-                            {!recuento && (
-                              <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                                <span
-                                  className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    dotClass[equipoStatus[e.estado].tone],
-                                  )}
-                                />
-                                {equipoStatus[e.estado].label}
-                              </span>
-                            )}
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 rounded-full",
+                                  dotClass[equipoStatus[e.estado].tone],
+                                )}
+                              />
+                              {equipoStatus[e.estado].label}
+                            </span>
                           </div>
                         </div>
-                        {recuento ? (
-                          <label
-                            onClick={(ev) => ev.stopPropagation()}
-                            className="flex shrink-0 flex-col items-center justify-center gap-1 border-l border-neutral-100 pl-3 text-[11px] font-medium text-neutral-500"
-                          >
-                            Encontrado
-                            <input
-                              type="checkbox"
-                              checked={draftEncontrados[e.id] ?? true}
-                              onChange={(ev) =>
-                                setDraftEncontrados((d) => ({
-                                  ...d,
-                                  [e.id]: ev.target.checked,
-                                }))
-                              }
-                              className="h-5 w-5 rounded border-neutral-300 text-accent focus:ring-accent"
-                            />
-                          </label>
-                        ) : (
-                          <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
-                            <p className="text-base font-semibold tabular-nums">
-                              {fmtUsd(e.precioUsd)}
-                            </p>
-                          </div>
-                        )}
+                        <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+                          <p className="text-base font-semibold tabular-nums">
+                            {fmtUsd(e.precioUsd)}
+                          </p>
+                        </div>
                       </div>
-                      {recuento && draftEncontrados[e.id] === false && (
-                        <div
-                          onClick={(ev) => ev.stopPropagation()}
-                          className="border-t border-neutral-100 bg-amber-50 p-3"
-                        >
-                          <Input
-                            value={draftComentarios[e.id] ?? ""}
-                            onChange={(ev) =>
-                              setDraftComentarios((c) => ({ ...c, [e.id]: ev.target.value }))
-                            }
-                            placeholder="¿Qué pasó con este equipo? (opcional)"
-                            className="text-sm"
-                          />
-                        </div>
-                      )}
                     </Card>
                   ))}
-                  {equiposParaMostrar.length === 0 && (
+                  {equiposFiltrados.length === 0 && (
                     <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
-                      {recuento
-                        ? "No hay equipos para auditar con esta búsqueda."
-                        : "Sin equipos para esta búsqueda."}
+                      Sin equipos para esta búsqueda.
                     </p>
                   )}
                 </div>
@@ -737,20 +597,15 @@ export function InventarioClient({
                             Margen
                           </th>
                         )}
-                        <th className="px-5 py-3 text-center">
-                          {recuento ? "Encontrado" : "Estado"}
-                        </th>
+                        <th className="px-5 py-3 text-center">Estado</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {equiposParaMostrar.map((e) => (
-                        <Fragment key={e.id}>
+                      {equiposFiltrados.map((e) => (
                         <tr
-                          onClick={() => !recuento && setOpenEquipoId(e.id)}
-                          className={cn(
-                            "border-t border-neutral-100 first:border-t-0",
-                            !recuento && "cursor-pointer hover:bg-neutral-50",
-                          )}
+                          key={e.id}
+                          onClick={() => setOpenEquipoId(e.id)}
+                          className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                         >
                           <td className="max-w-[160px] truncate px-5 py-2 text-center font-medium">
                             {e.modelo}
@@ -788,56 +643,25 @@ export function InventarioClient({
                             </td>
                           )}
                           <td className="px-5 py-2 text-center">
-                            {recuento ? (
-                              <input
-                                type="checkbox"
-                                checked={draftEncontrados[e.id] ?? true}
-                                onChange={(ev) =>
-                                  setDraftEncontrados((d) => ({
-                                    ...d,
-                                    [e.id]: ev.target.checked,
-                                  }))
-                                }
-                                className="h-5 w-5 rounded border-neutral-300 text-accent focus:ring-accent"
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 rounded-full",
+                                  dotClass[equipoStatus[e.estado].tone],
+                                )}
                               />
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                                <span
-                                  className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    dotClass[equipoStatus[e.estado].tone],
-                                  )}
-                                />
-                                {equipoStatus[e.estado].label}
-                              </span>
-                            )}
+                              {equipoStatus[e.estado].label}
+                            </span>
                           </td>
                         </tr>
-                        {recuento && draftEncontrados[e.id] === false && (
-                          <tr className="border-t border-neutral-100 bg-amber-50">
-                            <td colSpan={puedeVerCosto ? 10 : 8} className="px-5 py-2">
-                              <Input
-                                value={draftComentarios[e.id] ?? ""}
-                                onChange={(ev) =>
-                                  setDraftComentarios((c) => ({ ...c, [e.id]: ev.target.value }))
-                                }
-                                placeholder="¿Qué pasó con este equipo? (opcional)"
-                                className="text-sm"
-                              />
-                            </td>
-                          </tr>
-                        )}
-                        </Fragment>
                       ))}
-                      {equiposParaMostrar.length === 0 && (
+                      {equiposFiltrados.length === 0 && (
                         <tr>
                           <td
                             colSpan={puedeVerCosto ? 10 : 8}
                             className="px-5 py-10 text-center text-sm text-neutral-400"
                           >
-                            {recuento
-                              ? "No hay equipos para auditar con esta búsqueda."
-                              : "Sin equipos para esta búsqueda."}
+                            Sin equipos para esta búsqueda.
                           </td>
                         </tr>
                       )}
@@ -921,16 +745,6 @@ export function InventarioClient({
                   </div>
                 )}
 
-                {recuento && (
-                  <p className="text-sm text-neutral-500">
-                    Al lado de cada repuesto figura cuánto debería haber —
-                    anotá en «Contado» lo que ves de verdad. Los que dejes en
-                    blanco no entran en el recuento; las diferencias quedan
-                    pendientes de revisión en «Recuentos», el stock no se
-                    ajusta solo.
-                  </p>
-                )}
-
                 {mobileFilters}
 
                 {mobileTabs}
@@ -952,10 +766,10 @@ export function InventarioClient({
                       return (
                         <Card
                           key={r.id}
-                          onClick={() => !recuento && setOpenRepuestoId(r.id)}
-                          className={cn("overflow-hidden p-0", !recuento && "cursor-pointer")}
+                          onClick={() => setOpenRepuestoId(r.id)}
+                          className="cursor-pointer overflow-hidden p-0"
                         >
-                          <div className="bg-[#352f86] px-4 py-2 text-white">
+                          <div className="bg-table-header px-4 py-2 text-white">
                             <p className="truncate text-sm font-semibold">{r.nombre}</p>
                           </div>
                           <div
@@ -969,65 +783,42 @@ export function InventarioClient({
                             <p className="truncate text-xs text-neutral-400">
                               {r.sku} · {r.modelo}
                             </p>
-                            {!recuento && (
-                              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                                <span
-                                  className={cn("h-1.5 w-1.5 rounded-full", dotClass[est.tone])}
-                                />
-                                {est.label}
-                              </span>
-                            )}
+                            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                              <span
+                                className={cn("h-1.5 w-1.5 rounded-full", dotClass[est.tone])}
+                              />
+                              {est.label}
+                            </span>
                           </div>
 
                           <div className="mt-2.5 flex items-center gap-2 border-t border-neutral-100 pt-2.5">
-                            {recuento ? (
-                              <>
-                                <span className="text-xs text-neutral-500">
-                                  Debería haber{" "}
-                                  <span className="font-semibold text-neutral-700">
-                                    {r.stock}
-                                  </span>
-                                </span>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  placeholder="Contado"
-                                  value={draft[r.id] ?? ""}
-                                  onChange={(e) => setContado(r.id, e.target.value)}
-                                  className="ml-auto h-8 w-20 text-center"
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs tabular-nums text-neutral-500">
+                                <span className="font-semibold text-neutral-900">
+                                  {r.stock}
+                                </span>{" "}
+                                / mín {r.stockMin}
+                                {puedeVerCosto && ` · ${fmtUsd(r.costoUsd)}`}
+                              </p>
+                              <div
+                                className="mt-1 h-1.5 overflow-hidden rounded-full"
+                                style={{ background: GHOST_STRIPES }}
+                              >
+                                <div
+                                  className={cn("h-full rounded-full", barColor)}
+                                  style={{ width: `${frac * 100}%` }}
                                 />
-                              </>
-                            ) : (
-                              <>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs tabular-nums text-neutral-500">
-                                    <span className="font-semibold text-neutral-900">
-                                      {r.stock}
-                                    </span>{" "}
-                                    / mín {r.stockMin}
-                                    {puedeVerCosto && ` · ${fmtUsd(r.costoUsd)}`}
-                                  </p>
-                                  <div
-                                    className="mt-1 h-1.5 overflow-hidden rounded-full"
-                                    style={{ background: GHOST_STRIPES }}
-                                  >
-                                    <div
-                                      className={cn("h-full rounded-full", barColor)}
-                                      style={{ width: `${frac * 100}%` }}
-                                    />
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    reponer(r.id);
-                                  }}
-                                  className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
-                                >
-                                  Reponer
-                                </button>
-                              </>
-                            )}
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                reponer(r.id);
+                              }}
+                              className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                            >
+                              Reponer
+                            </button>
                           </div>
                           </div>
                         </Card>
@@ -1089,12 +880,9 @@ export function InventarioClient({
                           return (
                             <tr
                               key={r.id}
-                              onClick={() =>
-                                !recuento && setOpenRepuestoId(r.id)
-                              }
+                              onClick={() => setOpenRepuestoId(r.id)}
                               className={cn(
-                                "border-t border-neutral-100 first:border-t-0",
-                                !recuento && "cursor-pointer hover:bg-neutral-50",
+                                "cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50",
                                 r.stock <= 0 && "bg-red-50/50",
                                 r.stock > 0 &&
                                   r.stock <= r.stockMin &&
@@ -1111,48 +899,29 @@ export function InventarioClient({
                                 {r.modelo}
                               </td>
                               <td className="px-5 py-2 text-center">
-                                {recuento ? (
-                                  <div className="mx-auto flex w-28 flex-col items-center gap-1">
-                                    <span className="text-xs text-neutral-500">
-                                      Debería haber{" "}
-                                      <span className="font-semibold text-neutral-700">
-                                        {r.stock}
-                                      </span>
+                                <div className="mx-auto w-24">
+                                  <p className="tabular-nums">
+                                    <span className="font-semibold">
+                                      {r.stock}
                                     </span>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      placeholder="Contado"
-                                      value={draft[r.id] ?? ""}
-                                      onChange={(e) => setContado(r.id, e.target.value)}
-                                      className="h-8 w-20 text-center"
+                                    <span className="text-xs text-neutral-400">
+                                      {" "}
+                                      / mín {r.stockMin}
+                                    </span>
+                                  </p>
+                                  <div
+                                    className="mt-1 h-1.5 overflow-hidden rounded-full"
+                                    style={{ background: GHOST_STRIPES }}
+                                  >
+                                    <div
+                                      className={cn(
+                                        "h-full rounded-full",
+                                        barColor,
+                                      )}
+                                      style={{ width: `${frac * 100}%` }}
                                     />
                                   </div>
-                                ) : (
-                                  <div className="mx-auto w-24">
-                                    <p className="tabular-nums">
-                                      <span className="font-semibold">
-                                        {r.stock}
-                                      </span>
-                                      <span className="text-xs text-neutral-400">
-                                        {" "}
-                                        / mín {r.stockMin}
-                                      </span>
-                                    </p>
-                                    <div
-                                      className="mt-1 h-1.5 overflow-hidden rounded-full"
-                                      style={{ background: GHOST_STRIPES }}
-                                    >
-                                      <div
-                                        className={cn(
-                                          "h-full rounded-full",
-                                          barColor,
-                                        )}
-                                        style={{ width: `${frac * 100}%` }}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
+                                </div>
                               </td>
                               {puedeVerCosto && (
                                 <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
@@ -1330,16 +1099,6 @@ export function InventarioClient({
                   </div>
                 )}
 
-                {recuento && (
-                  <p className="text-sm text-neutral-500">
-                    Al lado de cada producto figura cuánto debería haber —
-                    anotá en «Contado» lo que ves de verdad. Los que dejes en
-                    blanco no entran en el recuento; las diferencias quedan
-                    pendientes de revisión en «Recuentos», la cantidad no se
-                    ajusta sola.
-                  </p>
-                )}
-
                 {mobileFilters}
 
                 {mobileTabs}
@@ -1351,10 +1110,10 @@ export function InventarioClient({
                     return (
                       <Card
                         key={o.id}
-                        onClick={() => !recuento && setOpenOtroId(o.id)}
-                        className={cn("overflow-hidden p-0", !recuento && "cursor-pointer")}
+                        onClick={() => setOpenOtroId(o.id)}
+                        className="cursor-pointer overflow-hidden p-0"
                       >
-                        <div className="flex items-center justify-between gap-2 bg-[#352f86] px-4 py-2 text-white">
+                        <div className="flex items-center justify-between gap-2 bg-table-header px-4 py-2 text-white">
                           <p className="min-w-0 flex-1 truncate text-sm font-semibold">
                             {o.nombre}
                           </p>
@@ -1409,26 +1168,6 @@ export function InventarioClient({
                               {cantidad}
                               <Tag className="h-3 w-3 text-neutral-400" />
                             </span>
-                          ) : recuento ? (
-                            <div
-                              className="flex items-center gap-1.5"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <span className="text-[11px] text-neutral-500">
-                                Debería haber{" "}
-                                <span className="font-semibold text-neutral-700">
-                                  {o.cantidad}
-                                </span>
-                              </span>
-                              <Input
-                                type="number"
-                                min={0}
-                                placeholder="Contado"
-                                value={draft[o.id] ?? ""}
-                                onChange={(e) => setContado(o.id, e.target.value)}
-                                className="h-8 w-16 text-center"
-                              />
-                            </div>
                           ) : (
                             <span className="font-semibold text-neutral-900">
                               {cantidad}
@@ -1513,11 +1252,8 @@ export function InventarioClient({
                         return (
                           <Fragment key={o.id}>
                             <tr
-                              onClick={() => !recuento && setOpenOtroId(o.id)}
-                              className={cn(
-                                "border-t border-neutral-100 first:border-t-0",
-                                !recuento && "cursor-pointer hover:bg-neutral-50",
-                              )}
+                              onClick={() => setOpenOtroId(o.id)}
+                              className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                             >
                               <td className="max-w-[180px] truncate px-5 py-2 text-start font-medium">
                                 <span className="inline-flex items-center gap-1">
@@ -1575,23 +1311,6 @@ export function InventarioClient({
                                     {cantidad}
                                     <Tag className="h-3 w-3 text-neutral-400" />
                                   </span>
-                                ) : recuento ? (
-                                  <div className="mx-auto flex w-28 flex-col items-center gap-1">
-                                    <span className="text-xs text-neutral-500">
-                                      Debería haber{" "}
-                                      <span className="font-semibold text-neutral-700">
-                                        {o.cantidad}
-                                      </span>
-                                    </span>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      placeholder="Contado"
-                                      value={draft[o.id] ?? ""}
-                                      onChange={(e) => setContado(o.id, e.target.value)}
-                                      className="h-8 w-20 text-center"
-                                    />
-                                  </div>
                                 ) : (
                                   cantidad
                                 )}
@@ -1825,11 +1544,345 @@ export function InventarioClient({
             : undefined
         }
       />
+
+      {/* Recuento -- siempre en un modal aparte, la tabla no cambia de forma */}
+      <RecuentoEquiposModalDialog
+        key={recuentoModalTipo === "equipos" ? "equipos" : "none"}
+        open={recuentoModalTipo === "equipos"}
+        items={equipos
+          .filter((e) => e.estado !== "vendido")
+          .map((e) => ({
+            id: e.id,
+            nombre: `${e.modelo} ${e.almacenamiento} · ${e.color} · ${e.imei}`,
+          }))}
+        onClose={() => setRecuentoModalTipo(null)}
+        onSubmit={async (draft, comentarios, comentarioGeneral) => {
+          await crearRecuentoEquiposAction(draft, comentarios, comentarioGeneral);
+          setRecuentoModalTipo(null);
+        }}
+      />
+      <RecuentoModalDialog
+        key={
+          recuentoModalTipo === "repuestos" || recuentoModalTipo === "otros"
+            ? recuentoModalTipo
+            : "none"
+        }
+        tipo={recuentoModalTipo === "otros" ? "otros" : "repuestos"}
+        open={recuentoModalTipo === "repuestos" || recuentoModalTipo === "otros"}
+        items={
+          recuentoModalTipo === "repuestos"
+            ? repuestos.map((r) => ({ id: r.id, nombre: r.nombre, sistema: r.stock }))
+            : otros.flatMap((o) =>
+                o.serializado ? [] : [{ id: o.id, nombre: o.nombre, sistema: o.cantidad }],
+              )
+        }
+        onClose={() => setRecuentoModalTipo(null)}
+        onSubmit={async (draft, comentarios, comentarioGeneral) => {
+          if (recuentoModalTipo === "repuestos") {
+            await crearRecuentoRepuestosAction(draft, comentarios, comentarioGeneral);
+          } else {
+            await crearRecuentoOtrosAction(draft, comentarios, comentarioGeneral);
+          }
+          setRecuentoModalTipo(null);
+        }}
+      />
     </>
   );
 }
 
 // ─────────────────────────── Dialogs ───────────────────────────
+
+type RecuentoModalItem = { id: string; nombre: string; sistema: number };
+
+const RECUENTO_MODAL_TITULO: Record<"repuestos" | "otros", string> = {
+  repuestos: "Recuento de repuestos",
+  otros: "Recuento de otros productos",
+};
+
+/** Modal de recuento para Repuestos/Otros (ver `RecuentoEquiposModalDialog`
+ * más abajo para Equipos, que es un checklist en vez de cantidades). Una
+ * fila por ítem: Sistema (de referencia, no editable) + Cantidad real +
+ * comentario opcional, más un comentario general de todo el recuento al
+ * pie. La tabla de Inventario no cambia de forma al abrir esto -- antes el
+ * modo inline mutaba las filas de la tabla en el lugar, que era justamente
+ * la parte confusa. Un ítem que se deja en blanco en "Cantidad real" no
+ * entra en el recuento, mismo criterio que tenía el modo inline viejo. */
+function RecuentoModalDialog({
+  tipo,
+  items,
+  open,
+  onClose,
+  onSubmit,
+}: {
+  tipo: "repuestos" | "otros";
+  items: RecuentoModalItem[];
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (
+    draft: Record<string, number>,
+    comentarios: Record<string, string>,
+    comentarioGeneral: string | undefined,
+  ) => Promise<void>;
+}) {
+  const [q, setQ] = useState("");
+  const [contados, setContados] = useState<Record<string, string>>({});
+  const [comentarios, setComentarios] = useState<Record<string, string>>({});
+  const [comentarioGeneral, setComentarioGeneral] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  const needle = q.trim().toLowerCase();
+  const filtrados = items.filter((i) => !needle || i.nombre.toLowerCase().includes(needle));
+  const contadosCount = Object.values(contados).filter((v) => v.trim() !== "").length;
+
+  function guardar() {
+    startTransition(async () => {
+      const draft: Record<string, number> = {};
+      const coms: Record<string, string> = {};
+      for (const [id, raw] of Object.entries(contados)) {
+        if (raw.trim() === "") continue;
+        draft[id] = Number(raw) || 0;
+        const c = comentarios[id]?.trim();
+        if (c) coms[id] = c;
+      }
+      await onSubmit(draft, coms, comentarioGeneral.trim() || undefined);
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="lg"
+      accent
+      title={RECUENTO_MODAL_TITULO[tipo]}
+      description={`Anotá la cantidad real al lado de cada producto — lo que dejes en blanco no entra en el recuento. El stock no se ajusta solo, queda pendiente de revisión en «Recuentos».`}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            disabled={pending}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            disabled={pending || contadosCount === 0}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+          >
+            {pending ? "Guardando…" : "Guardar recuento"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar producto…"
+            className={cn("w-full pl-9", filterPill)}
+          />
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-neutral-200">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="px-3 py-2">Producto</th>
+                <th className="px-3 py-2 text-center">Sistema</th>
+                <th className="px-3 py-2 text-center">Cantidad real</th>
+                <th className="px-3 py-2">Comentario</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((item) => (
+                <tr key={item.id}>
+                  <td className="px-3 py-1.5 font-medium">{item.nombre}</td>
+                  <td className="px-3 py-1.5 text-center tabular-nums text-neutral-500">
+                    {item.sistema}
+                  </td>
+                  <td className="px-3 py-1.5 text-center">
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="Contado"
+                      value={contados[item.id] ?? ""}
+                      onChange={(e) =>
+                        setContados((c) => ({ ...c, [item.id]: e.target.value }))
+                      }
+                      className="mx-auto h-8 w-20 text-center"
+                    />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <Input
+                      value={comentarios[item.id] ?? ""}
+                      onChange={(e) =>
+                        setComentarios((c) => ({ ...c, [item.id]: e.target.value }))
+                      }
+                      placeholder="Opcional"
+                      className="h-8 text-sm"
+                    />
+                  </td>
+                </tr>
+              ))}
+              {filtrados.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-3 py-6 text-center text-neutral-400">
+                    Sin productos para esta búsqueda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <Field label="Comentario general (opcional)">
+          <Textarea
+            value={comentarioGeneral}
+            onChange={(e) => setComentarioGeneral(e.target.value)}
+            placeholder="Notas generales de este recuento…"
+            rows={2}
+          />
+        </Field>
+      </div>
+    </Dialog>
+  );
+}
+
+type RecuentoEquipoItem = { id: string; nombre: string };
+
+/** Modal de recuento para Equipos -- un checklist "Encontrado" en vez de
+ * cantidades (ver `RecuentoModalDialog` arriba para Repuestos/Otros). Todos
+ * arrancan tildados como encontrados; destildar uno abre un comentario
+ * opcional para esa fila, igual criterio que tenía el modo inline viejo
+ * (comentario libre solo tiene sentido para lo que no se encontró). No
+ * ajusta `equipos.estado` al guardar -- queda pendiente hasta que un admin
+ * lo revise en «Recuentos» (`resolverRecuento`). */
+function RecuentoEquiposModalDialog({
+  items,
+  open,
+  onClose,
+  onSubmit,
+}: {
+  items: RecuentoEquipoItem[];
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (
+    draft: Record<string, boolean>,
+    comentarios: Record<string, string>,
+    comentarioGeneral: string | undefined,
+  ) => Promise<void>;
+}) {
+  const [q, setQ] = useState("");
+  const [encontrados, setEncontrados] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(items.map((i) => [i.id, true])),
+  );
+  const [comentarios, setComentarios] = useState<Record<string, string>>({});
+  const [comentarioGeneral, setComentarioGeneral] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  const needle = q.trim().toLowerCase();
+  const filtrados = items.filter((i) => !needle || i.nombre.toLowerCase().includes(needle));
+
+  function guardar() {
+    startTransition(async () => {
+      await onSubmit(encontrados, comentarios, comentarioGeneral.trim() || undefined);
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="lg"
+      accent
+      title="Recuento de equipos"
+      description="Tildá los equipos que encontraste físicamente -- las diferencias quedan pendientes de revisión en «Recuentos», no se marcan extraviados al toque. Los equipos vendidos no entran en el recuento."
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            disabled={pending}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={guardar}
+            disabled={pending}
+            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+          >
+            {pending ? "Guardando…" : "Guardar recuento"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar por modelo, color o IMEI…"
+            className={cn("w-full pl-9", filterPill)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          {filtrados.map((item) => {
+            const found = encontrados[item.id] ?? true;
+            return (
+              <Card key={item.id} className="p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900">
+                    {item.nombre}
+                  </p>
+                  <label className="flex shrink-0 items-center gap-2 text-[11px] font-medium text-neutral-500">
+                    Encontrado
+                    <input
+                      type="checkbox"
+                      checked={found}
+                      onChange={(e) =>
+                        setEncontrados((d) => ({ ...d, [item.id]: e.target.checked }))
+                      }
+                      className="h-5 w-5 rounded border-neutral-300 text-accent focus:ring-accent"
+                    />
+                  </label>
+                </div>
+                {!found && (
+                  <Input
+                    value={comentarios[item.id] ?? ""}
+                    onChange={(e) =>
+                      setComentarios((c) => ({ ...c, [item.id]: e.target.value }))
+                    }
+                    placeholder="¿Qué pasó con este equipo? (opcional)"
+                    className="mt-2 text-sm"
+                  />
+                )}
+              </Card>
+            );
+          })}
+          {filtrados.length === 0 && (
+            <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+              No hay equipos para auditar con esta búsqueda.
+            </p>
+          )}
+        </div>
+
+        <Field label="Comentario general (opcional)">
+          <Textarea
+            value={comentarioGeneral}
+            onChange={(e) => setComentarioGeneral(e.target.value)}
+            placeholder="Notas generales de este recuento…"
+            rows={2}
+          />
+        </Field>
+      </div>
+    </Dialog>
+  );
+}
 
 const ESTADOS: EquipoStatus[] = [
   "en_revision",

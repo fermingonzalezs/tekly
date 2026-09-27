@@ -30,11 +30,11 @@ export function ReportarBugFab() {
     <>
       {/* El Dialog va como hermano del wrapper fixed z-40: anidado adentro
           quedaría atrapado en su stacking context y pintaría debajo de
-          otros fixed z-50 (SimPanel, overlays de páginas). */}
+          otros fixed z-50 de la app (Dialogs, overlays de páginas). */}
       <div className="fixed bottom-6 left-6 z-40">
         <button
           onClick={abrir}
-          className="flex h-11 items-center gap-2 rounded-full bg-[linear-gradient(180deg,#6a63d4,#4f49bd)] px-4 text-sm font-medium text-white shadow-lg transition-colors hover:bg-[linear-gradient(180deg,#5f58cc,#453fb0)] active:bg-[linear-gradient(180deg,#544dbe,#3b3799)]"
+          className="flex h-11 items-center gap-2 rounded-full bg-[linear-gradient(180deg,var(--chart-3),var(--chart-2))] px-4 text-sm font-medium text-white shadow-lg transition-all hover:brightness-95 active:brightness-90"
         >
           <Bug className="h-4 w-4" />
           Reportar un problema

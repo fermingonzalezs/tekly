@@ -309,20 +309,6 @@ export const ventas: Venta[] = [
 
 // ───────────────────────── Analíticas ─────────────────────────
 
-export const tiempoPorFalla = [
-  { falla: "Cambio de pantalla", horas: 1.2, tickets: 24 },
-  { falla: "Cambio de batería", horas: 0.6, tickets: 31 },
-  { falla: "Pin de carga", horas: 0.9, tickets: 12 },
-  { falla: "Reparación de placa", horas: 5.4, tickets: 9 },
-  { falla: "Cámara", horas: 1.1, tickets: 7 },
-  { falla: "Daño por líquido", horas: 6.8, tickets: 5 },
-];
-
-export const rendimientoTecnicos = [
-  { tecnico: "Nico", cerrados: 48, reingresos: 2, ticketPromHoras: 2.1, calif: 4.8 },
-  { tecnico: "Dani", cerrados: 34, reingresos: 1, ticketPromHoras: 1.7, calif: 4.9 },
-];
-
 export const ventasPorMes = [
   { mes: "Abr", usd: 38200 },
   { mes: "May", usd: 41100 },
