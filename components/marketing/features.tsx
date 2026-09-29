@@ -61,7 +61,7 @@ export function MarketingFeatures() {
           <p className="text-xs font-semibold uppercase tracking-wider text-accent">
             Funciones
           </p>
-          <h2 className="mt-3 font-grotesk text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+          <h2 className="mt-3 font-grotesk text-4xl font-bold uppercase tracking-tight text-neutral-900 sm:text-5xl">
             Seis módulos, un solo sistema
           </h2>
           <p className="mt-4 text-base leading-relaxed text-neutral-600">
@@ -75,9 +75,9 @@ export function MarketingFeatures() {
           {FEATURES.map((feature) => (
             <RevealItem
               key={feature.title}
-              className="rounded-2xl border border-neutral-200 bg-white p-5 transition-colors duration-150 hover:border-accent/50"
+              className="group rounded-2xl border border-neutral-200 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:border-accent/50 hover:shadow-lg hover:shadow-accent/10"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent transition-transform duration-200 group-hover:scale-110">
                 <feature.icon className="h-5 w-5" strokeWidth={2} />
               </span>
               <h3 className="mt-4 font-grotesk text-base font-semibold text-neutral-900">

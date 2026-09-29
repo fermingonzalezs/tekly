@@ -42,7 +42,9 @@ export function MarketingShowcase() {
         <div className="absolute left-1/2 top-24 -translate-x-1/2">
           <motion.div
             style={reduced ? undefined : { y: yGlow }}
-            className="h-80 w-[36rem] max-w-none rounded-full bg-accent/10 blur-3xl"
+            className={`h-80 w-[36rem] max-w-none rounded-full bg-accent/10 blur-3xl ${
+              reduced ? "" : "animate-pulse [animation-duration:6s]"
+            }`}
           />
         </div>
       </div>
@@ -52,7 +54,7 @@ export function MarketingShowcase() {
           <p className="text-xs font-semibold uppercase tracking-wider text-accent">
             Producto
           </p>
-          <h2 className="mt-3 font-grotesk text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+          <h2 className="mt-3 font-grotesk text-4xl font-bold uppercase tracking-tight text-neutral-900 sm:text-5xl">
             Tu tienda entera, en una sola pantalla
           </h2>
           <p className="mt-4 text-base leading-relaxed text-neutral-600">
@@ -106,7 +108,7 @@ export function MarketingShowcase() {
             className="absolute -bottom-8 left-10 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block"
           >
             <div className="flex items-center gap-2.5">
-              <Wrench className="h-4 w-4 text-violet-500" />
+              <Wrench className="h-4 w-4 text-accent" />
               <div>
                 <p className="text-xs font-semibold text-neutral-900">
                   Ticket #128 listo

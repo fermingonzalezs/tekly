@@ -1,12 +1,7 @@
-import { Building2, Radio, ShieldCheck, Users } from "lucide-react";
-import { Reveal } from "./ui/reveal";
+import { Radio, Users } from "lucide-react";
+import { RevealItem, RevealStagger } from "./ui/reveal";
 
 const STATS = [
-  {
-    icon: Building2,
-    title: "Multi-organización",
-    detail: "Cada negocio, su propio espacio y sus datos aislados",
-  },
   {
     icon: Users,
     title: "3 roles",
@@ -17,24 +12,21 @@ const STATS = [
     title: "Todo en tiempo real",
     detail: "Lo que carga tu equipo, lo ves al instante",
   },
-  {
-    icon: ShieldCheck,
-    title: "Seguro por organización",
-    detail: "Row Level Security en base de datos, no solo en la pantalla",
-  },
 ];
 
 /**
  * Franja de confianza. Todavía no hay clientes reales para mostrar, así que
- * en vez de logos inventados van datos factuales del producto.
+ * en vez de logos inventados van datos factuales del producto -- solo los
+ * que le importan a quien todavía no usa un CRM (multi-organización y RLS
+ * son detalles de implementación, no un argumento de venta).
  */
 export function MarketingLogosStrip() {
   return (
     <section className="border-y border-neutral-200/80 bg-white/60">
-      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+      <RevealStagger className="mx-auto grid max-w-2xl grid-cols-1 gap-6 px-4 py-10 sm:grid-cols-2 sm:px-6">
         {STATS.map((stat) => (
-          <Reveal key={stat.title} className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+          <RevealItem key={stat.title} className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent transition-transform duration-200 hover:scale-110">
               <stat.icon className="h-5 w-5" strokeWidth={2} />
             </span>
             <div>
@@ -45,9 +37,9 @@ export function MarketingLogosStrip() {
                 {stat.detail}
               </p>
             </div>
-          </Reveal>
+          </RevealItem>
         ))}
-      </div>
+      </RevealStagger>
     </section>
   );
 }

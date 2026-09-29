@@ -101,14 +101,14 @@ export function MockupDashboard({ className }: { className?: string }) {
 
         {/* Tabla de actividad */}
         <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-          <div className="border-b border-neutral-100 bg-[#352f86] px-3 py-1.5 text-[8px] font-bold uppercase tracking-wider text-white">
+          <div className="border-b border-neutral-100 bg-table-header px-3 py-1.5 text-[8px] font-bold uppercase tracking-wider text-white">
             Actividad reciente
           </div>
           {ROWS.map((row, i) => (
             <div
               key={row.item}
               className={`flex items-center gap-2 px-3 py-2 text-[9px] ${
-                i % 2 === 0 ? "bg-white" : "bg-[#f0eff9]"
+                i % 2 === 0 ? "bg-white" : "bg-accent-soft"
               }`}
             >
               <span className={`h-1.5 w-1.5 rounded-full ${row.tone}`} />

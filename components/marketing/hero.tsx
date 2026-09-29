@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, CheckCircle2, CalendarDays, Wrench } from "lucide-react";
 import { AnimatedWords } from "./ui/animated-words";
 import { MockupDashboard } from "./ui/mockup-dashboard";
+import { MarketingButton } from "./ui/marketing-button";
 import { useReducedMotionSafe } from "./ui/use-reduced-motion";
 import { signupUrl } from "@/lib/marketing/app-url";
 
@@ -62,14 +63,27 @@ export function MarketingHero() {
 
   return (
     <section className="relative overflow-hidden">
-      {/* Fondo: gradientes suaves de marca (solo en la landing). */}
+      {/* Fondo: gradientes suaves de marca (solo en la landing), a la
+          deriva -- movimiento ambiente lento, no ligado al scroll. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10"
       >
-        <div className="absolute -top-32 left-1/2 h-96 w-[42rem] max-w-full -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" />
-        <div className="absolute right-[-10rem] top-40 h-72 w-72 rounded-full bg-accent/10 blur-3xl" />
-        <div className="absolute left-[-8rem] top-72 h-64 w-64 rounded-full bg-accent/10 blur-3xl" />
+        <motion.div
+          className="absolute -top-32 left-1/2 h-96 w-[42rem] max-w-full -translate-x-1/2 rounded-full bg-accent/15 blur-3xl"
+          animate={reduced ? undefined : { x: [0, 24, 0], y: [0, -16, 0] }}
+          transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute right-[-10rem] top-40 h-72 w-72 rounded-full bg-accent/10 blur-3xl"
+          animate={reduced ? undefined : { x: [0, -18, 0], y: [0, 20, 0] }}
+          transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute left-[-8rem] top-72 h-64 w-64 rounded-full bg-accent/10 blur-3xl"
+          animate={reduced ? undefined : { x: [0, 16, 0], y: [0, -22, 0] }}
+          transition={{ duration: 13, repeat: Infinity, ease: "easeInOut" }}
+        />
       </div>
 
       <div
@@ -81,7 +95,7 @@ export function MarketingHero() {
             Para tiendas de venta y reparación de iPhones
           </span>
 
-          <h1 className="mt-5 font-grotesk text-4xl font-semibold leading-tight tracking-tight text-neutral-900 sm:text-5xl lg:text-[3.4rem]">
+          <h1 className="mt-5 font-grotesk text-5xl font-bold uppercase leading-[1.05] tracking-tight text-neutral-900 sm:text-6xl lg:text-[4rem]">
             <AnimatedWords text="Gestioná tu tienda de iPhones sin perderte nada" />
           </h1>
 
@@ -100,19 +114,13 @@ export function MarketingHero() {
             delay={0.6}
             className="mt-8 flex flex-wrap items-center gap-3"
           >
-            <a
-              href={signupUrl()}
-              className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-xl shadow-accent/25 transition-colors duration-150 hover:bg-accent/90"
-            >
+            <MarketingButton href={signupUrl()} variant="primary" size="lg">
               Probar gratis
               <ArrowRight className="h-4 w-4" />
-            </a>
-            <a
-              href="#como-funciona"
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-3 text-sm font-semibold text-neutral-700 transition-colors duration-150 hover:border-neutral-300 hover:bg-neutral-50"
-            >
+            </MarketingButton>
+            <MarketingButton href="#como-funciona" variant="outline" size="lg">
               Ver cómo funciona
-            </a>
+            </MarketingButton>
           </FadeIn>
         </div>
 
@@ -169,7 +177,7 @@ export function MarketingHero() {
           >
             <motion.div style={reduced ? undefined : { y: yCardTop }}>
               <div className="flex items-center gap-2.5">
-                <Wrench className="h-4 w-4 text-violet-500" />
+                <Wrench className="h-4 w-4 text-accent" />
                 <div>
                   <p className="text-xs font-semibold text-neutral-900">
                     Ticket #128 listo

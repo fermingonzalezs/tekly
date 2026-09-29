@@ -40,7 +40,7 @@ export function MarketingHowItWorks() {
           <p className="text-xs font-semibold uppercase tracking-wider text-accent">
             Cómo funciona
           </p>
-          <h2 className="mt-3 font-grotesk text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
+          <h2 className="mt-3 font-grotesk text-4xl font-bold uppercase tracking-tight text-neutral-900 sm:text-5xl">
             Arrancar no podría ser más simple
           </h2>
           <p className="mt-4 text-base leading-relaxed text-neutral-600">
@@ -67,7 +67,7 @@ export function MarketingHowItWorks() {
               key={step.title}
               className="flex gap-4 lg:flex-col lg:items-center lg:gap-0 lg:text-center"
             >
-              <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-accent bg-white font-grotesk text-sm font-semibold text-accent">
+              <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-accent bg-white font-grotesk text-sm font-semibold text-accent transition-transform duration-200 hover:scale-110">
                 {i + 1}
               </span>
               <div className="lg:mt-5">

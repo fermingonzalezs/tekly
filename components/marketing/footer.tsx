@@ -1,4 +1,5 @@
 import { loginUrl, signupUrl } from "@/lib/marketing/app-url";
+import { MarketingButton } from "./ui/marketing-button";
 
 /**
  * Footer mínimo de la landing: marca, links a las secciones y a la app. Sin
@@ -36,12 +37,9 @@ export function MarketingFooter() {
           >
             Ingresar
           </a>
-          <a
-            href={signupUrl()}
-            className="font-semibold text-accent transition-colors duration-150 hover:text-accent/80"
-          >
+          <MarketingButton href={signupUrl()} variant="primary" size="sm">
             Probar gratis
-          </a>
+          </MarketingButton>
         </nav>
       </div>
 
