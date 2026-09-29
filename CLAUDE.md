@@ -63,11 +63,13 @@ app/login/, app/signup/,
 app/forgot-password/,
 app/reset-password/       fuera del grupo (app) -- fondo blurreado + AuthModal
 app/auth/confirm/route.ts único lugar que recibe los links de mail de Supabase Auth
-middleware.ts             protege rutas (sin sesión -> /login)
+app/marketing/           landing de tekly.tech (metadata propia, sin sesión) -- ver "Landing (tekly.tech)"
+middleware.ts             protege rutas (sin sesión -> /login) + rewrite de tekly.tech/ → /marketing según host
 components/ui/            primitivos reutilizables (ver abajo)
 components/auth/          AuthModal, AppPreviewBackdrop, UserMenu
 components/dashboard/     widgets del Dashboard
 components/notifications/ Toaster (en layout) + NotificationsBell (en Topbar)
+components/marketing/    secciones de la landing (nav, hero, features, showcase, ...)
 lib/auth/                 sesión + login/signup -- única puerta a @supabase/* para auth
 lib/db/<dominio>.ts       una por dominio migrado -- única puerta a @supabase/* para datos
 lib/mock-data.ts          datos de ejemplo de las secciones TODAVÍA no migradas
@@ -75,12 +77,29 @@ lib/types.ts              tipos del dominio (contrato entre lib/db y las página
 lib/status.ts             estados (tickets, equipos, turnos, pagos) + tonos
 lib/format.ts             formateo de moneda / fechas
 lib/realtime.ts           pub/sub de eventos + describe() para el toast
+lib/marketing/            appUrl/loginUrl/signupUrl -- CTAs de la landing a NEXT_PUBLIC_APP_URL
 lib/cajas.ts, lib/ventas.ts  lógica de negocio pura (sin Supabase) con tests en *.test.ts
 supabase/migrations/      schema versionado, aplicado vía MCP al proyecto real
+public/                   favicon.ico + og-image.png (placeholder) -- compartidos por toda la app
 ```
 
 Páginas server por defecto; `"use client"` solo donde hay interacción
 (filtros, dialogs, estado local, `publish`).
+
+### Landing (tekly.tech)
+
+`app/marketing/` + `components/marketing/` + `lib/marketing/`: la landing de
+marketing vive en este mismo proyecto (un solo deploy, dos dominios), sin
+sesión ni Supabase. `middleware.ts` la resuelve por **host**: si el request
+viene de `tekly.tech` / `www.tekly.tech` (o `tekly.localhost` en dev, los
+`.localhost` resuelven a 127.0.0.1 solos), reescribe `/` → `/marketing`
+(rewrite, no redirect -- el usuario sigue viendo `tekly.tech/`) y no corre
+nada de auth/cookies. Los CTAs ("Ingresar" / "Probar gratis") son absolutos
+a `NEXT_PUBLIC_APP_URL` (default `https://sistema.tekly.tech`) vía
+`lib/marketing/app-url.ts`. En la landing NO aplican las reglas "forbidden
+defaults" de la app de gestión (gradientes/parallax OK, ver plan-landing);
+sí `prefers-reduced-motion` (`useReducedMotion` en reveal/hero/showcase --
+la única parte del repo que lo maneja).
 
 ## Backend y multi-tenancy
 

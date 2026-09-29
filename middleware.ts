@@ -9,7 +9,28 @@ const GUEST_ONLY_PATHS = ["/login", "/signup", "/forgot-password"];
 // recuperar contraseña estando logueado en otra pestaña).
 const ALWAYS_PUBLIC_PATHS = ["/auth"];
 
+// Dominios de marketing (landing en tekly.tech). Si el host es uno de
+// estos, `/` se reescribe (rewrite, no redirect -- el usuario sigue viendo
+// tekly.tech/) a /marketing y no corre nada de la lógica de auth/cookies de
+// abajo: la landing no necesita sesión. `tekly.localhost` es el alias para
+// probarlo en dev (los .localhost resuelven a 127.0.0.1 sin /etc/hosts).
+const MARKETING_HOSTNAMES = new Set([
+  "tekly.tech",
+  "www.tekly.tech",
+  "tekly.localhost",
+]);
+
 export async function middleware(request: NextRequest) {
+  const hostname = request.headers.get("host")?.split(":")[0] ?? "";
+  if (MARKETING_HOSTNAMES.has(hostname)) {
+    if (request.nextUrl.pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/marketing";
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
+  }
+
   const response = NextResponse.next({ request });
   const supabase = createMiddlewareClient(request, response);
 
