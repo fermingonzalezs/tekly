@@ -4,6 +4,7 @@ import { MarketingLogosStrip } from "@/components/marketing/logos-strip";
 import { MarketingFeatures } from "@/components/marketing/features";
 import { MarketingHowItWorks } from "@/components/marketing/how-it-works";
 import { MarketingShowcase } from "@/components/marketing/showcase";
+import { MarketingPricing } from "@/components/marketing/pricing";
 import { MarketingCtaFinal } from "@/components/marketing/cta-final";
 import { MarketingFooter } from "@/components/marketing/footer";
 
@@ -22,6 +23,7 @@ export default function MarketingPage() {
         <MarketingFeatures />
         <MarketingHowItWorks />
         <MarketingShowcase />
+        <MarketingPricing />
         <MarketingCtaFinal />
       </main>
       <MarketingFooter />

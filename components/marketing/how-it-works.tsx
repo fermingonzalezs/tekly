@@ -1,9 +1,17 @@
+import { ArrowRight } from "lucide-react";
 import { Reveal, RevealItem, RevealStagger } from "./ui/reveal";
+import { MarketingEyebrow } from "./ui/marketing-eyebrow";
+import { AmbientBlobs } from "./ui/ambient-blobs";
 
 /**
- * "Cómo funciona": 4 pasos con línea conectora (vertical en mobile,
- * horizontal en lg) y reveal secuencial. Las líneas quedan estáticas a
- * propósito: los pasos se revelan encima de ellas, la línea no viaja.
+ * "Cómo funciona": fila horizontal en zigzag (en vez de una timeline
+ * vertical larga) -- usa el ancho completo de la sección, mucha menos
+ * altura. Cada paso es una tarjeta que aparece una sola vez al entrar en
+ * viewport (Reveal, ver ui/reveal.tsx -- respeta prefers-reduced-motion
+ * solo), sin efecto de parallax atado al scroll: más prolijo que la
+ * versión anterior. El offset vertical alternado (par arriba, impar abajo)
+ * + las flechas entre tarjetas dan la sensación de recorrido de lado a
+ * lado sin necesidad de una línea conectada pixel-perfect.
  */
 
 const STEPS = [
@@ -33,54 +41,74 @@ export function MarketingHowItWorks() {
   return (
     <section
       id="como-funciona"
-      className="scroll-mt-20 border-y border-neutral-200/80 bg-white"
+      className="relative scroll-mt-20 overflow-hidden border-y border-neutral-200/80 bg-white"
     >
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+      <AmbientBlobs
+        blobs={[
+          {
+            className:
+              "absolute left-1/3 -top-24 h-72 w-72 rounded-full bg-accent/5 blur-3xl",
+            dx: -22,
+            dy: 16,
+            duration: 15,
+          },
+          {
+            className:
+              "absolute -right-16 bottom-0 h-64 w-64 rounded-full bg-accent/5 blur-3xl",
+            dx: 16,
+            dy: -18,
+            duration: 12,
+          },
+        ]}
+      />
+      <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-            Cómo funciona
-          </p>
-          <h2 className="mt-3 font-grotesk text-4xl font-bold uppercase tracking-tight text-neutral-900 sm:text-5xl">
+          <MarketingEyebrow>Cómo funciona</MarketingEyebrow>
+          <h2 className="mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
             Arrancar no podría ser más simple
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-neutral-600">
+          <p className="mt-5 text-lg leading-relaxed text-neutral-600">
             Sin instalar nada y sin capacitación larga: el sistema se usa
             desde el primer día.
           </p>
         </Reveal>
 
-        <RevealStagger className="relative mt-14 grid gap-10 sm:gap-12 lg:grid-cols-4 lg:gap-6">
-          {/* Conectores: los círculos de número (bg-white, z-10) tapan la línea
-              que pasa por detrás. En lg los centros de las 4 columnas quedan
-              en 12.5% / 37.5% / 62.5% / 87.5% del ancho. */}
-          <div
-            aria-hidden="true"
-            className="absolute bottom-14 left-[1.25rem] top-5 w-0.5 rounded bg-neutral-200 lg:hidden"
-          />
-          <div
-            aria-hidden="true"
-            className="absolute left-[12.5%] right-[12.5%] top-[1.25rem] hidden h-0.5 rounded bg-neutral-200 lg:block"
-          />
-
+        <RevealStagger className="mt-16 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-4">
           {STEPS.map((step, i) => (
-            <RevealItem
-              key={step.title}
-              className="flex gap-4 lg:flex-col lg:items-center lg:gap-0 lg:text-center"
-            >
-              <span className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-accent bg-white font-grotesk text-sm font-semibold text-accent transition-transform duration-200 hover:scale-110">
-                {i + 1}
-              </span>
-              <div className="lg:mt-5">
-                <h3 className="font-grotesk text-base font-semibold text-neutral-900">
-                  {step.title}
-                </h3>
-                <p className="mt-1 text-[13px] leading-relaxed text-neutral-600">
-                  {step.detail}
-                </p>
+            <div key={step.title} className="flex flex-1 items-start gap-4">
+              <div
+                className={`flex-1 ${i % 2 === 0 ? "lg:mt-0" : "lg:mt-14"}`}
+              >
+                <RevealItem className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-accent bg-accent-soft font-grotesk text-sm font-semibold text-accent">
+                    {i + 1}
+                  </span>
+                  <h3 className="mt-4 font-grotesk text-xl font-semibold text-neutral-900">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-base leading-relaxed text-neutral-600">
+                    {step.detail}
+                  </p>
+                </RevealItem>
               </div>
-            </RevealItem>
+
+              {i < STEPS.length - 1 && (
+                <div
+                  aria-hidden="true"
+                  className={`hidden shrink-0 items-center pt-10 lg:flex ${i % 2 === 0 ? "lg:mt-0" : "lg:mt-14"}`}
+                >
+                  <ArrowRight className="h-5 w-5 text-neutral-300" />
+                </div>
+              )}
+            </div>
           ))}
         </RevealStagger>
+
+        <Reveal delay={0.2} className="mt-10 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wider text-accent">
+            Y quedás list@ para vender ↓
+          </p>
+        </Reveal>
       </div>
     </section>
   );

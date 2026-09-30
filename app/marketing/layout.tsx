@@ -10,11 +10,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://tekly.tech"),
   title: "Tekly — Sistema de gestión para tiendas de iPhones",
   description:
-    "Inventario, ventas, reparaciones, cajas y turnos en un solo lugar. El sistema pensado para negocios de venta y reparación de iPhones.",
+    "Dejá de anotar tu stock en tres lugares distintos. Inventario, ventas, cajas, turnos y reparaciones, todo en un solo lugar.",
   openGraph: {
     title: "Tekly — Sistema de gestión para tiendas de iPhones",
     description:
-      "Inventario, ventas, reparaciones, cajas y turnos en un solo lugar, en tiempo real para todo tu equipo.",
+      "Dejá de anotar tu stock en tres lugares distintos. Todo tu negocio, en tiempo real para todo el equipo.",
     type: "website",
     url: "https://tekly.tech",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Tekly" }],

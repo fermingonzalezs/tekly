@@ -9,6 +9,7 @@ const LINKS = [
   { label: "Producto", href: "#producto" },
   { label: "Funciones", href: "#features" },
   { label: "Cómo funciona", href: "#como-funciona" },
+  { label: "Precios", href: "#precios" },
 ];
 
 export function MarketingNav() {
@@ -30,7 +31,7 @@ export function MarketingNav() {
           : "border-b border-transparent bg-transparent"
       }`}
     >
-      <nav className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+      <nav className="mx-auto grid h-16 max-w-[100rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 xl:px-12">
         <a
           href="#"
           className="flex items-center gap-2 transition-transform duration-150 hover:scale-[1.03]"
@@ -44,36 +45,38 @@ export function MarketingNav() {
           </span>
         </a>
 
-        <div className="ml-2 hidden items-center gap-1 md:flex">
+        <div className="hidden items-center justify-center gap-1 md:flex">
           {LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="rounded-full px-3 py-1.5 text-sm font-medium text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
+              className="rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
             >
               {link.label}
             </a>
           ))}
         </div>
 
-        <div className="ml-auto hidden items-center gap-3 md:flex">
-          <MarketingButton href={loginUrl()} variant="outline" size="sm">
-            Ingresar
-          </MarketingButton>
-          <MarketingButton href={signupUrl()} variant="primary" size="sm">
-            Probar gratis
-          </MarketingButton>
-        </div>
+        <div className="flex items-center justify-end gap-3">
+          <div className="hidden items-center gap-3 md:flex">
+            <MarketingButton href={loginUrl()} variant="outline" size="sm">
+              Ingresar
+            </MarketingButton>
+            <MarketingButton href={signupUrl()} variant="primary" size="sm">
+              Probar gratis
+            </MarketingButton>
+          </div>
 
-        <button
-          type="button"
-          aria-label={open ? "Cerrar menú" : "Abrir menú"}
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="ml-auto flex h-10 w-10 items-center justify-center rounded-lg text-neutral-700 transition-colors duration-150 hover:bg-neutral-100 md:hidden"
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+          <button
+            type="button"
+            aria-label={open ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-neutral-700 transition-colors duration-150 hover:bg-neutral-100 md:hidden"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </nav>
 
       {open && (

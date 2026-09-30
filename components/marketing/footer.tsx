@@ -8,7 +8,7 @@ import { MarketingButton } from "./ui/marketing-button";
 export function MarketingFooter() {
   return (
     <footer className="border-t border-neutral-200 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-center">
+      <div className="mx-auto flex max-w-[100rem] flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-center xl:px-12">
         <div className="flex items-center gap-4">
           <a href="#" className="flex items-center gap-2" aria-label="Tekly">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent font-grotesk text-xs font-bold text-white">
@@ -19,8 +19,7 @@ export function MarketingFooter() {
             </span>
           </a>
           <p className="hidden text-[13px] text-neutral-500 md:block">
-            El sistema de gestión para tiendas de venta y reparación de
-            iPhones.
+            Dejá de anotar tu stock en tres lugares distintos.
           </p>
         </div>
 
@@ -44,7 +43,7 @@ export function MarketingFooter() {
       </div>
 
       <div className="border-t border-neutral-100">
-        <p className="mx-auto max-w-6xl px-4 py-4 text-xs text-neutral-500 sm:px-6">
+        <p className="mx-auto max-w-[100rem] px-4 py-4 text-xs text-neutral-500 sm:px-6 xl:px-12">
           © {new Date().getFullYear()} Tekly
         </p>
       </div>

@@ -1,16 +1,30 @@
-import { Radio, Users } from "lucide-react";
+import { Link2, Monitor, Radio, Users } from "lucide-react";
 import { RevealItem, RevealStagger } from "./ui/reveal";
 
 const STATS = [
   {
     icon: Users,
-    title: "3 roles",
-    detail: "Admin, vendedor y técnico: cada quien ve lo suyo",
+    title: "Multi-rol",
+    detail:
+      "Admin, vendedor y técnico: cada uno entra con su propio usuario y ve solo lo que le toca hacer.",
   },
   {
     icon: Radio,
-    title: "Todo en tiempo real",
-    detail: "Lo que carga tu equipo, lo ves al instante",
+    title: "Actualización en tiempo real",
+    detail:
+      "Una venta, un ticket o un turno cargado por un compañero aparece al instante en tu pantalla, sin recargar.",
+  },
+  {
+    icon: Link2,
+    title: "Todo conectado",
+    detail:
+      "Una venta descuenta stock, genera el movimiento de caja y queda en la ficha del cliente, sola.",
+  },
+  {
+    icon: Monitor,
+    title: "Sin instalación",
+    detail:
+      "Funciona en el navegador, desde cualquier compu del local. No hay nada que instalar ni mantener.",
   },
 ];
 
@@ -23,7 +37,7 @@ const STATS = [
 export function MarketingLogosStrip() {
   return (
     <section className="border-y border-neutral-200/80 bg-white/60">
-      <RevealStagger className="mx-auto grid max-w-2xl grid-cols-1 gap-6 px-4 py-10 sm:grid-cols-2 sm:px-6">
+      <RevealStagger className="mx-auto grid max-w-[100rem] grid-cols-1 gap-6 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 xl:px-12">
         {STATS.map((stat) => (
           <RevealItem key={stat.title} className="flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent transition-transform duration-200 hover:scale-110">

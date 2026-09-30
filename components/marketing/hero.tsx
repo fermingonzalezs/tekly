@@ -6,6 +6,8 @@ import { ArrowRight, CheckCircle2, CalendarDays, Wrench } from "lucide-react";
 import { AnimatedWords } from "./ui/animated-words";
 import { MockupDashboard } from "./ui/mockup-dashboard";
 import { MarketingButton } from "./ui/marketing-button";
+import { MarketingEyebrow } from "./ui/marketing-eyebrow";
+import { AmbientBlobs } from "./ui/ambient-blobs";
 import { useReducedMotionSafe } from "./ui/use-reduced-motion";
 import { signupUrl } from "@/lib/marketing/app-url";
 
@@ -62,51 +64,56 @@ export function MarketingHero() {
   const yCardBottom = useTransform(scrollYProgress, [0, 1], [0, -14]);
 
   return (
-    <section className="relative overflow-hidden">
+    <section className="relative flex min-h-screen flex-col justify-center overflow-hidden">
       {/* Fondo: gradientes suaves de marca (solo en la landing), a la
           deriva -- movimiento ambiente lento, no ligado al scroll. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10"
-      >
-        <motion.div
-          className="absolute -top-32 left-1/2 h-96 w-[42rem] max-w-full -translate-x-1/2 rounded-full bg-accent/15 blur-3xl"
-          animate={reduced ? undefined : { x: [0, 24, 0], y: [0, -16, 0] }}
-          transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="absolute right-[-10rem] top-40 h-72 w-72 rounded-full bg-accent/10 blur-3xl"
-          animate={reduced ? undefined : { x: [0, -18, 0], y: [0, 20, 0] }}
-          transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="absolute left-[-8rem] top-72 h-64 w-64 rounded-full bg-accent/10 blur-3xl"
-          animate={reduced ? undefined : { x: [0, 16, 0], y: [0, -22, 0] }}
-          transition={{ duration: 13, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
+      <AmbientBlobs
+        blobs={[
+          {
+            className:
+              "absolute -top-32 left-1/2 h-96 w-[42rem] max-w-full -translate-x-1/2 rounded-full bg-accent/15 blur-3xl",
+            dx: 24,
+            dy: -16,
+            duration: 14,
+          },
+          {
+            className:
+              "absolute right-[-10rem] top-40 h-72 w-72 rounded-full bg-accent/10 blur-3xl",
+            dx: -18,
+            dy: 20,
+            duration: 11,
+          },
+          {
+            className:
+              "absolute left-[-8rem] top-72 h-64 w-64 rounded-full bg-accent/10 blur-3xl",
+            dx: 16,
+            dy: -22,
+            duration: 13,
+          },
+        ]}
+      />
 
       <div
         ref={ref}
-        className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-20 pt-16 sm:px-6 md:pt-24 lg:grid-cols-2 lg:gap-8"
+        className="mx-auto grid max-w-[100rem] items-center gap-12 px-4 pb-20 pt-16 sm:px-6 md:pt-24 lg:grid-cols-2 lg:gap-16 xl:px-12 xl:gap-24"
       >
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft px-3 py-1 text-xs font-semibold text-accent">
-            Para tiendas de venta y reparación de iPhones
-          </span>
+          <MarketingEyebrow>
+            Dejá de anotar tu stock en tres lugares distintos
+          </MarketingEyebrow>
 
-          <h1 className="mt-5 font-grotesk text-5xl font-bold uppercase leading-[1.05] tracking-tight text-neutral-900 sm:text-6xl lg:text-[4rem]">
+          <h1 className="mt-5 font-grotesk text-6xl font-bold uppercase leading-[1.02] tracking-tight text-neutral-900 sm:text-7xl lg:text-[4.6rem]">
             <AnimatedWords text="Gestioná tu tienda de iPhones sin perderte nada" />
           </h1>
 
           <FadeIn
             delay={0.45}
-            className="mt-5 max-w-xl text-base leading-relaxed text-neutral-600 sm:text-lg"
+            className="mt-6 max-w-xl text-lg leading-relaxed text-neutral-600 sm:text-xl"
           >
             <p>
-              Inventario, ventas, reparaciones, cajas y turnos en un solo
-              lugar. Todo lo que pasa en tu negocio, cargado una sola vez y
-              visible para todo tu equipo al instante.
+              Inventario, ventas, cajas y turnos en un solo lugar —
+              reparaciones incluidas. Todo lo que pasa en tu negocio, cargado
+              una sola vez y visible para todo tu equipo al instante.
             </p>
           </FadeIn>
 
@@ -114,11 +121,11 @@ export function MarketingHero() {
             delay={0.6}
             className="mt-8 flex flex-wrap items-center gap-3"
           >
-            <MarketingButton href={signupUrl()} variant="primary" size="lg">
+            <MarketingButton href={signupUrl()} variant="primary">
               Probar gratis
               <ArrowRight className="h-4 w-4" />
             </MarketingButton>
-            <MarketingButton href="#como-funciona" variant="outline" size="lg">
+            <MarketingButton href="#como-funciona" variant="outline">
               Ver cómo funciona
             </MarketingButton>
           </FadeIn>

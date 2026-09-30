@@ -1,10 +1,8 @@
-"use client";
-
-import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Reveal } from "./ui/reveal";
 import { MarketingButton } from "./ui/marketing-button";
-import { useReducedMotionSafe } from "./ui/use-reduced-motion";
+import { MarketingEyebrow } from "./ui/marketing-eyebrow";
+import { AmbientBlobs } from "./ui/ambient-blobs";
 import { signupUrl } from "@/lib/marketing/app-url";
 
 /**
@@ -15,32 +13,37 @@ import { signupUrl } from "@/lib/marketing/app-url";
  * seguir la paleta de marketing (violeta) en vez de quedar índigo a mano.
  */
 export function MarketingCtaFinal() {
-  const reduced = useReducedMotionSafe();
-
   return (
-    <section className="mx-auto max-w-6xl px-4 pb-20 pt-4 sm:px-6 sm:pb-24">
+    <section className="mx-auto max-w-[100rem] px-4 pb-20 pt-4 sm:px-6 sm:pb-24 xl:px-12">
       <Reveal>
         <div className="relative overflow-hidden rounded-3xl bg-[linear-gradient(135deg,var(--chart-1),var(--chart-2),var(--chart-3))] px-6 py-16 text-center sm:px-12 sm:py-20">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-          >
-            <motion.div
-              className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl"
-              animate={reduced ? undefined : { x: [0, 20, 0], y: [0, 16, 0] }}
-              transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute -bottom-28 -right-16 h-72 w-72 rounded-full bg-white/10 blur-3xl"
-              animate={reduced ? undefined : { x: [0, -22, 0], y: [0, -18, 0] }}
-              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </div>
+          <AmbientBlobs
+            blobs={[
+              {
+                className:
+                  "absolute -left-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl",
+                dx: 20,
+                dy: 16,
+                duration: 12,
+              },
+              {
+                className:
+                  "absolute -bottom-28 -right-16 h-72 w-72 rounded-full bg-white/10 blur-3xl",
+                dx: -22,
+                dy: -18,
+                duration: 15,
+              },
+            ]}
+          />
 
-          <h2 className="relative font-grotesk text-4xl font-bold uppercase tracking-tight text-white sm:text-5xl">
+          <MarketingEyebrow tone="light" className="relative">
+            Empezá hoy
+          </MarketingEyebrow>
+
+          <h2 className="relative mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-white sm:text-6xl">
             Empezá a gestionar tu tienda hoy mismo
           </h2>
-          <p className="relative mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/80 sm:text-base">
+          <p className="relative mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/80 sm:text-lg">
             Creá tu organización en un minuto, invitá a tu equipo y cargá tu
             stock. El resto del negocio queda registrado solo.
           </p>
@@ -48,7 +51,6 @@ export function MarketingCtaFinal() {
           <MarketingButton
             href={signupUrl()}
             variant="white"
-            size="lg"
             className="relative mt-8"
           >
             Empezá gratis

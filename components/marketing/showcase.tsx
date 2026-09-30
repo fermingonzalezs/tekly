@@ -9,6 +9,7 @@ import {
 import { CalendarDays, CheckCircle2, Wrench } from "lucide-react";
 import { MockupDashboard } from "./ui/mockup-dashboard";
 import { Reveal } from "./ui/reveal";
+import { MarketingEyebrow } from "./ui/marketing-eyebrow";
 import { useReducedMotionSafe } from "./ui/use-reduced-motion";
 
 /**
@@ -49,22 +50,20 @@ export function MarketingShowcase() {
         </div>
       </div>
 
-      <div ref={ref} className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+      <div ref={ref} className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-            Producto
-          </p>
-          <h2 className="mt-3 font-grotesk text-4xl font-bold uppercase tracking-tight text-neutral-900 sm:text-5xl">
+          <MarketingEyebrow>Producto</MarketingEyebrow>
+          <h2 className="mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
             Tu tienda entera, en una sola pantalla
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-neutral-600">
+          <p className="mt-5 text-lg leading-relaxed text-neutral-600">
             Lo que tu equipo carga en ventas, reparaciones o caja aparece al
             instante en el dashboard y en las analíticas. Sin exportar
             planillas ni recopilar nada a mano.
           </p>
         </Reveal>
 
-        <Reveal className="relative mx-auto mt-14 max-w-2xl">
+        <Reveal className="relative mx-auto mt-14 max-w-4xl">
           <motion.div style={reduced ? undefined : { y: yMockup }}>
             <MockupDashboard />
           </motion.div>

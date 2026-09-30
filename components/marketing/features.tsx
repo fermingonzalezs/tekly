@@ -1,52 +1,47 @@
-import {
-  BarChart3,
-  CalendarDays,
-  Package,
-  ShoppingCart,
-  Wallet,
-  Wrench,
-} from "lucide-react";
 import { Reveal, RevealItem, RevealStagger } from "./ui/reveal";
+import { MarketingEyebrow } from "./ui/marketing-eyebrow";
+import { AmbientBlobs } from "./ui/ambient-blobs";
 
 /**
  * Grid de 6 funciones de la landing: una por sección real del sistema, con
  * scroll-reveal en cascada. Copy factual -- sin promesas de features que no
- * existen (ej. alertas de stock, ver plan).
+ * existen (ej. alertas de stock, ver plan). El emoji es la firma visual de
+ * cada tarjeta (de fondo, grande) -- reemplaza el ícono chico de lucide.
  */
 
 const FEATURES = [
   {
-    icon: Package,
+    emoji: "📦",
     title: "Inventario",
     detail:
       "Equipos únicos por IMEI, repuestos por modelo y otros ítems con su cantidad e historial de movimientos.",
   },
   {
-    icon: Wrench,
-    title: "Reparaciones",
-    detail:
-      "Tickets con checklist de ingreso y egreso, catálogo de servicios y presupuesto listo para mandarle al cliente.",
-  },
-  {
-    icon: ShoppingCart,
+    emoji: "🛒",
     title: "Ventas",
     detail:
       "Pago dividido en varios medios, canje de equipos recibidos, cuenta corriente y garantía en PDF.",
   },
   {
-    icon: Wallet,
+    emoji: "💰",
     title: "Cajas",
     detail:
       "Varias cajas por moneda y medio de pago, conciliación contra lo contado y cada movimiento atado a su venta.",
   },
   {
-    icon: CalendarDays,
+    emoji: "📅",
     title: "Turnos",
     detail:
       "Agenda semanal de compras, entregas y retiros, con los equipos del cliente vinculados a cada turno.",
   },
   {
-    icon: BarChart3,
+    emoji: "🔧",
+    title: "Reparaciones",
+    detail:
+      "Tickets con checklist de ingreso y egreso, catálogo de servicios y presupuesto listo para mandarle al cliente.",
+  },
+  {
+    emoji: "📊",
     title: "Analíticas",
     detail:
       "Márgenes por tipo de producto, facturación por vendedor, cohortes de clientes y la foto completa del negocio.",
@@ -55,37 +50,58 @@ const FEATURES = [
 
 export function MarketingFeatures() {
   return (
-    <section id="features" className="scroll-mt-20">
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
-        <Reveal className="max-w-2xl">
-          <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-            Funciones
-          </p>
-          <h2 className="mt-3 font-grotesk text-4xl font-bold uppercase tracking-tight text-neutral-900 sm:text-5xl">
+    <section id="features" className="relative scroll-mt-20 overflow-hidden">
+      <AmbientBlobs
+        blobs={[
+          {
+            className:
+              "absolute -left-24 top-0 h-80 w-80 rounded-full bg-accent/5 blur-3xl",
+            dx: 20,
+            dy: 18,
+            duration: 16,
+          },
+          {
+            className:
+              "absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-accent/5 blur-3xl",
+            dx: -18,
+            dy: -14,
+            duration: 13,
+          },
+        ]}
+      />
+      <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
+        <Reveal className="mx-auto max-w-2xl text-center">
+          <MarketingEyebrow>Funciones</MarketingEyebrow>
+          <h2 className="mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
             Seis módulos, un solo sistema
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-neutral-600">
+          <p className="mt-5 text-lg leading-relaxed text-neutral-600">
             Todo funciona sobre los mismos datos: una venta descuenta stock,
             genera el movimiento de caja y queda en la ficha del cliente. Sin
             planillas paralelas ni datos duplicados.
           </p>
         </Reveal>
 
-        <RevealStagger className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <RevealStagger className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature) => (
             <RevealItem
               key={feature.title}
-              className="group rounded-2xl border border-neutral-200 bg-white p-5 transition-all duration-200 hover:-translate-y-1 hover:border-accent/50 hover:shadow-lg hover:shadow-accent/10"
+              className="group relative overflow-hidden rounded-2xl border border-neutral-200 bg-white p-6 text-center transition-all duration-200 hover:-translate-y-1 hover:border-accent/50 hover:shadow-lg hover:shadow-accent/10"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent transition-transform duration-200 group-hover:scale-110">
-                <feature.icon className="h-5 w-5" strokeWidth={2} />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-5 -top-6 select-none text-8xl opacity-[0.08] transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6"
+              >
+                {feature.emoji}
               </span>
-              <h3 className="mt-4 font-grotesk text-base font-semibold text-neutral-900">
-                {feature.title}
-              </h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-neutral-600">
-                {feature.detail}
-              </p>
+              <div className="relative flex flex-col items-center">
+                <h3 className="font-grotesk text-lg font-bold uppercase tracking-tight text-neutral-900">
+                  {feature.title}
+                </h3>
+                <p className="mt-2 text-base leading-relaxed text-neutral-600">
+                  {feature.detail}
+                </p>
+              </div>
             </RevealItem>
           ))}
         </RevealStagger>
