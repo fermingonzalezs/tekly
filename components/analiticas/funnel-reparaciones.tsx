@@ -50,8 +50,8 @@ export function FunnelReparaciones({
                 </span>
                 <div className="h-6 min-w-0 flex-1 overflow-hidden rounded-md bg-accent-soft">
                   <div
-                    className="h-6 rounded-md bg-accent"
-                    style={{ width: `${(e.alcanzados / base) * 100}%` }}
+                    className="h-6 w-full origin-left rounded-md bg-accent transition-transform duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
+                    style={{ transform: `scaleX(${e.alcanzados / base})` }}
                   />
                 </div>
                 <span className="w-7 shrink-0 text-right text-[13px] font-semibold tabular-nums">

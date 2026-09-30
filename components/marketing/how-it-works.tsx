@@ -1,7 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { Reveal, RevealItem, RevealStagger } from "./ui/reveal";
 import { MarketingEyebrow } from "./ui/marketing-eyebrow";
-import { AmbientBlobs } from "./ui/ambient-blobs";
 
 /**
  * "Cómo funciona": fila horizontal en zigzag (en vez de una timeline
@@ -41,26 +40,8 @@ export function MarketingHowItWorks() {
   return (
     <section
       id="como-funciona"
-      className="relative scroll-mt-20 overflow-hidden border-y border-neutral-200/80 bg-white"
+      className="scroll-mt-20 border-y border-neutral-200/80 bg-white"
     >
-      <AmbientBlobs
-        blobs={[
-          {
-            className:
-              "absolute left-1/3 -top-24 h-72 w-72 rounded-full bg-accent/5 blur-3xl",
-            dx: -22,
-            dy: 16,
-            duration: 15,
-          },
-          {
-            className:
-              "absolute -right-16 bottom-0 h-64 w-64 rounded-full bg-accent/5 blur-3xl",
-            dx: 16,
-            dy: -18,
-            duration: 12,
-          },
-        ]}
-      />
       <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
           <MarketingEyebrow>Cómo funciona</MarketingEyebrow>

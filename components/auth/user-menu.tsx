@@ -46,7 +46,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
       </button>
 
       {open && (
-        <div className="animate-toast-in absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+        <div className="animate-menu-in origin-top-right absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
           <div className="flex items-start gap-3 border-b border-neutral-100 px-4 py-3">
             <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent text-[13px] font-semibold text-white">
               {iniciales(user.nombre)}

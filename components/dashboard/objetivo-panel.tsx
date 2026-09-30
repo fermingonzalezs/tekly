@@ -54,7 +54,7 @@ export function ObjetivoPanel({
               style={{ background: GHOST_STRIPES }}
             >
               <div
-                className="absolute inset-y-0 left-0 flex items-center justify-end rounded-full pr-2"
+                className="absolute inset-y-0 left-0 flex items-center justify-end rounded-full pr-2 transition-[width] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
                 style={{ width: `${pct}%`, background: DASH_ACCENT }}
               >
                 {/* Con el mes recién arrancado el tramo cumplido es muy

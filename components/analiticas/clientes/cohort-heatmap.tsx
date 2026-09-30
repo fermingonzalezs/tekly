@@ -100,7 +100,7 @@ export function CohortHeatmap({
                       onMouseEnter={() => setHoverCelda({ fila, m })}
                       onMouseLeave={() => setHoverCelda(null)}
                       className={cn(
-                        "h-full w-full rounded-md text-[11px] font-semibold tabular-nums transition-transform hover:scale-[1.04]",
+                        "h-full w-full rounded-md text-[11px] font-semibold tabular-nums transition-transform [@media(hover:hover)_and_(pointer:fine)]:hover:scale-[1.04]",
                         cell.dark ? "text-neutral-700" : "text-white",
                         esSel && "ring-2 ring-accent ring-offset-1",
                       )}

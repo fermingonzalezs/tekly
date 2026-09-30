@@ -115,7 +115,7 @@ export function TopNav({
                 </button>
 
                 {open && (
-                  <div className="animate-fade-in absolute left-1/2 top-full z-50 mt-2 w-52 -translate-x-1/2 overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl">
+                  <div className="animate-menu-in origin-top absolute left-1/2 top-full z-50 mt-2 w-52 -translate-x-1/2 overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl">
                     {children.map((c) => {
                       const childActive =
                         pathname === c.href || pathname.startsWith(c.href + "/");

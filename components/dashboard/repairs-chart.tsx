@@ -27,9 +27,9 @@ export function RepairsChart({ tickets }: { tickets: Ticket[] }) {
             </span>
             <div className="h-4 flex-1 overflow-hidden rounded-full bg-neutral-100">
               <div
-                className="h-full rounded-full"
+                className="h-full w-full origin-left rounded-full transition-transform duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
                 style={{
-                  width: `${(s.count / max) * 100}%`,
+                  transform: `scaleX(${s.count / max})`,
                   background: s.color,
                 }}
               />

@@ -151,7 +151,7 @@ export function TendenciaRubros({ data, className }: { data: RubroMes[]; classNa
                 </span>
                 <div
                   className={cn(
-                    "flex w-[72%] flex-col gap-[3px] transition-opacity",
+                    "flex w-[72%] flex-col gap-[3px] transition-[opacity,height] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]",
                     dim && "opacity-40",
                   )}
                   style={{ height: `${bh(i)}%` }}

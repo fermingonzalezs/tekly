@@ -109,7 +109,7 @@ export function ClientePicker({
     <div ref={ref} className={cn("relative", className)}>
       <Input value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => setOpen(true)} placeholder={placeholder} />
       {open && (
-        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
+        <div className="animate-menu-in origin-top absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
           {creando ? (
             <div className="space-y-2 p-3">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">

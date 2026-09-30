@@ -1126,11 +1126,9 @@ export function InventarioClient({
                               }}
                               className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
                             >
-                              {expanded ? (
-                                <ChevronUp className="h-3.5 w-3.5" />
-                              ) : (
-                                <ChevronDown className="h-3.5 w-3.5" />
-                              )}
+                              <ChevronDown
+                                className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")}
+                              />
                             </button>
                           )}
                         </div>
@@ -1177,7 +1175,7 @@ export function InventarioClient({
 
                         {o.serializado && expanded && (
                           <div
-                            className="mt-2.5 overflow-hidden rounded-lg border border-neutral-200 font-mono"
+                            className="animate-fade-in mt-2.5 overflow-hidden rounded-lg border border-neutral-200 font-mono"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div
@@ -1267,11 +1265,9 @@ export function InventarioClient({
                                         }}
                                         className="text-neutral-400 hover:text-accent"
                                       >
-                                        {expanded ? (
-                                          <ChevronUp className="h-3.5 w-3.5" />
-                                        ) : (
-                                          <ChevronDown className="h-3.5 w-3.5" />
-                                        )}
+                                        <ChevronDown
+                                          className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")}
+                                        />
                                       </button>
                                     )}
                                   </span>
@@ -1319,7 +1315,7 @@ export function InventarioClient({
                             {o.serializado && expanded && (
                               <tr className="bg-neutral-50">
                                 <td colSpan={puedeVerCosto ? 6 : 5} className="px-5 py-3">
-                                  <div className="overflow-hidden rounded-lg border border-neutral-200 font-mono">
+                                   <div className="animate-fade-in overflow-hidden rounded-lg border border-neutral-200 font-mono">
                                     <div
                                       className={cn(
                                         "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-500",
@@ -1547,7 +1543,7 @@ export function InventarioClient({
 
       {/* Recuento -- siempre en un modal aparte, la tabla no cambia de forma */}
       <RecuentoEquiposModalDialog
-        key={recuentoModalTipo === "equipos" ? "equipos" : "none"}
+         key={recuentoModalTipo === "equipos" ? "equipos" : "recuento-equipos-none"}
         open={recuentoModalTipo === "equipos"}
         items={equipos
           .filter((e) => e.estado !== "vendido")
@@ -1565,7 +1561,7 @@ export function InventarioClient({
         key={
           recuentoModalTipo === "repuestos" || recuentoModalTipo === "otros"
             ? recuentoModalTipo
-            : "none"
+             : "recuento-modal-none"
         }
         tipo={recuentoModalTipo === "otros" ? "otros" : "repuestos"}
         open={recuentoModalTipo === "repuestos" || recuentoModalTipo === "otros"}

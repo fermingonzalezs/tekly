@@ -28,7 +28,7 @@ export function ReparacionesSplit({
         <div className="relative h-9">
           <div className="flex h-full overflow-hidden rounded-full">
             <div
-              className="h-full"
+              className="h-full transition-[width] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
               style={{ width: `${pct}%`, background: CHART_ACCENT }}
             />
             <div
@@ -38,7 +38,7 @@ export function ReparacionesSplit({
           </div>
           {/* marcador en el punto de corte */}
           <div
-            className="absolute -top-1.5 flex -translate-x-1/2 flex-col items-center"
+            className="absolute -top-1.5 flex -translate-x-1/2 flex-col items-center transition-[left] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
             style={{ left: `${pct}%` }}
           >
             <span

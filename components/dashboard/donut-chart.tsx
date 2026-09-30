@@ -69,6 +69,7 @@ export function DonutChart({
               strokeLinecap="butt"
               strokeDasharray={`${s.len} ${C - s.len}`}
               strokeDashoffset={s.dashOffset}
+              className="transition-[stroke-dasharray,stroke-dashoffset] duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
             />
           ))}
         </g>

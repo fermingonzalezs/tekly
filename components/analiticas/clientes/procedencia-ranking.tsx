@@ -92,8 +92,8 @@ export function ProcedenciaRanking({
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-100">
                     <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${w}%`, background: colorDe(f.label === SIN_PROCEDENCIA ? null : f.label) }}
+                      className="h-full w-full origin-left rounded-full transition-transform duration-200 ease-[cubic-bezier(0.77,0,0.175,1)]"
+                      style={{ transform: `scaleX(${w / 100})`, background: colorDe(f.label === SIN_PROCEDENCIA ? null : f.label) }}
                     />
                   </div>
                   <p className="mt-1 text-[10px] text-neutral-400">

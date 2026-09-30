@@ -66,7 +66,7 @@ export function StatCard({
       className={cn(
         "overflow-hidden p-3 sm:p-4",
         center && "text-center",
-        onClick && "cursor-pointer transition-colors hover:border-neutral-300",
+        onClick && "cursor-pointer transition duration-150 hover:border-neutral-300 active:scale-[0.97]",
         active && "border-accent bg-accent-soft",
         className,
       )}

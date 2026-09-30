@@ -102,8 +102,8 @@ function BarRows({ rows, fmt }: { rows: Row[]; fmt?: (n: number) => string }) {
           </div>
           <div className="mt-1 h-2 rounded-full bg-neutral-100">
             <div
-              className="h-2 rounded-full bg-accent"
-              style={{ width: `${(r.value / max) * 100}%` }}
+              className="h-2 w-full origin-left rounded-full bg-accent transition-transform duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
+              style={{ transform: `scaleX(${r.value / max})` }}
             />
           </div>
         </li>

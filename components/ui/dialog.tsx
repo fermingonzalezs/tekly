@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +40,24 @@ export function Dialog({
   size?: "md" | "lg" | "xl" | "2xl";
   accent?: boolean;
 }) {
+  const [rendered, setRendered] = useState(open);
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      setClosing(false);
+      return;
+    }
+    if (!rendered) return;
+    setClosing(true);
+    const t = setTimeout(() => {
+      setRendered(false);
+      setClosing(false);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [open, rendered]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -51,7 +69,7 @@ export function Dialog({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!rendered) return null;
 
   return (
     <div
@@ -68,7 +86,8 @@ export function Dialog({
             // sobresale se recorta en vez de flotar sobre el modal. El redondeo
             // lo lleva cada borde por su cuenta (header arriba, footer/body
             // abajo).
-            "animate-toast-in relative my-8 w-full rounded-2xl border bg-white shadow-2xl",
+            closing ? "animate-modal-out" : "animate-modal-in",
+            "relative my-8 w-full rounded-2xl border bg-white shadow-2xl",
             accent ? "border-accent" : "border-neutral-200",
             size === "2xl"
               ? "max-w-4xl"
@@ -113,7 +132,7 @@ export function Dialog({
             <button
               onClick={onClose}
               className={cn(
-                "grid h-8 w-8 shrink-0 place-items-center rounded-lg",
+                "grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors",
                 accent
                   ? "text-white/70 hover:bg-white/10 hover:text-white"
                   : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600",

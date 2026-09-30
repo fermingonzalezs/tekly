@@ -125,12 +125,12 @@ export function FlujoCaja({
                   title={`${m.label}: ingresos ${fmtUsd(m.ingresos)} · egresos ${fmtUsd(m.egresos)}`}
                 >
                   <div
-                    className="w-[38%] rounded-t-md bg-emerald-500"
-                    style={{ height: `${Math.max(4, (m.ingresos / maxFlujo) * 140)}px` }}
+                    className="h-[140px] w-[38%] origin-bottom rounded-t-md bg-emerald-500 transition-transform duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
+                    style={{ transform: `scaleY(${Math.max(4 / 140, m.ingresos / maxFlujo)})` }}
                   />
                   <div
-                    className="w-[38%] rounded-t-md bg-red-400"
-                    style={{ height: `${Math.max(4, (m.egresos / maxFlujo) * 140)}px` }}
+                    className="h-[140px] w-[38%] origin-bottom rounded-t-md bg-red-400 transition-transform duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
+                    style={{ transform: `scaleY(${Math.max(4 / 140, m.egresos / maxFlujo)})` }}
                   />
                 </div>
                 <span className="text-xs text-neutral-500">{m.label}</span>

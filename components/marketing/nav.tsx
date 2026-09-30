@@ -33,8 +33,8 @@ export function MarketingNav() {
     >
       <nav className="mx-auto grid h-16 max-w-[100rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 xl:px-12">
         <a
-          href="#"
-          className="flex items-center gap-2 transition-transform duration-150 hover:scale-[1.03]"
+          href="/"
+          className="flex items-center gap-2 rounded-lg transition-transform duration-150 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1"
           aria-label="Tekly"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent font-grotesk text-sm font-bold text-white">
@@ -50,7 +50,7 @@ export function MarketingNav() {
             <a
               key={link.href}
               href={link.href}
-              className="rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900"
+              className="rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               {link.label}
             </a>
@@ -72,7 +72,7 @@ export function MarketingNav() {
             aria-label={open ? "Cerrar menú" : "Abrir menú"}
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-neutral-700 transition-colors duration-150 hover:bg-neutral-100 md:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-700 transition-colors duration-150 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 md:hidden"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -87,7 +87,7 @@ export function MarketingNav() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
               >
                 {link.label}
               </a>

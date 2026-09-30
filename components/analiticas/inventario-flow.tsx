@@ -51,8 +51,8 @@ export function InventarioFlow({
     <div className="flex flex-col items-center gap-1">
       <div className="flex h-[72px] w-6 items-end">
         <div
-          className="w-full rounded-t-md"
-          style={{ height: `${Math.max(v > 0 ? 3 : 0, (v / maxTodo) * ALTO)}px`, background: color }}
+          className="h-full w-full origin-bottom rounded-t-md transition-transform duration-300 ease-[cubic-bezier(0.77,0,0.175,1)]"
+          style={{ transform: `scaleY(${v > 0 ? Math.max(3 / ALTO, v / maxTodo) : 0})`, background: color }}
         />
       </div>
       <span className="text-[10px] font-semibold tabular-nums text-neutral-600">{v}</span>

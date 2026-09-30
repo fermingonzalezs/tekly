@@ -95,7 +95,7 @@ export function CommandPalette({ rol }: { rol: Rol }) {
             className="mx-auto mt-[12vh] w-full max-w-lg px-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="animate-toast-in overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
+            <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                 <input

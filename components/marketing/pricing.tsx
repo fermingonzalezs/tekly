@@ -2,7 +2,6 @@ import { Check, Info } from "lucide-react";
 import { Reveal, RevealItem, RevealStagger } from "./ui/reveal";
 import { MarketingEyebrow } from "./ui/marketing-eyebrow";
 import { MarketingButton } from "./ui/marketing-button";
-import { AmbientBlobs } from "./ui/ambient-blobs";
 import { signupUrl } from "@/lib/marketing/app-url";
 
 /**
@@ -18,53 +17,30 @@ import { signupUrl } from "@/lib/marketing/app-url";
 const PLANES = [
   {
     nombre: "Starter",
-    precio: "$14.990",
+    precio: "AR$ 14.990",
     resumen: "Para un local que recién arranca a ordenarse",
-    features: [
-      "Todas las funciones del sistema",
-      "Hasta 3 usuarios",
-      "Soporte por email",
-    ],
+    features: ["Hasta 3 usuarios", "Soporte por email"],
     destacado: false,
   },
   {
     nombre: "Negocio",
-    precio: "$24.990",
+    precio: "AR$ 24.990",
     resumen: "El más elegido por tiendas con equipo completo",
-    features: [
-      "Todas las funciones del sistema",
-      "Usuarios ilimitados",
-      "Soporte prioritario",
-    ],
+    features: ["Usuarios ilimitados", "Soporte prioritario"],
     destacado: true,
   },
   {
     nombre: "Negocio+",
-    precio: "$39.990",
+    precio: "AR$ 39.990",
     resumen: "Para equipos grandes que quieren acompañamiento",
-    features: [
-      "Todas las funciones del sistema",
-      "Usuarios ilimitados",
-      "Onboarding asistido 1 a 1",
-    ],
+    features: ["Usuarios ilimitados", "Onboarding asistido 1 a 1"],
     destacado: false,
   },
 ];
 
 export function MarketingPricing() {
   return (
-    <section id="precios" className="relative scroll-mt-20 overflow-hidden">
-      <AmbientBlobs
-        blobs={[
-          {
-            className:
-              "absolute left-1/2 -top-20 h-80 w-[36rem] max-w-full -translate-x-1/2 rounded-full bg-accent/5 blur-3xl",
-            dx: 18,
-            dy: 14,
-            duration: 17,
-          },
-        ]}
-      />
+    <section id="precios" className="scroll-mt-20">
       <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
           <MarketingEyebrow>Precios</MarketingEyebrow>

@@ -1,6 +1,5 @@
 import { Reveal, RevealItem, RevealStagger } from "./ui/reveal";
 import { MarketingEyebrow } from "./ui/marketing-eyebrow";
-import { AmbientBlobs } from "./ui/ambient-blobs";
 
 /**
  * Grid de 6 funciones de la landing: una por sección real del sistema, con
@@ -50,25 +49,7 @@ const FEATURES = [
 
 export function MarketingFeatures() {
   return (
-    <section id="features" className="relative scroll-mt-20 overflow-hidden">
-      <AmbientBlobs
-        blobs={[
-          {
-            className:
-              "absolute -left-24 top-0 h-80 w-80 rounded-full bg-accent/5 blur-3xl",
-            dx: 20,
-            dy: 18,
-            duration: 16,
-          },
-          {
-            className:
-              "absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-accent/5 blur-3xl",
-            dx: -18,
-            dy: -14,
-            duration: 13,
-          },
-        ]}
-      />
+    <section id="features" className="scroll-mt-20">
       <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
           <MarketingEyebrow>Funciones</MarketingEyebrow>

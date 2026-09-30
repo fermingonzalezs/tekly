@@ -181,6 +181,19 @@ input[type="number"]::-webkit-inner-spin-button {
   margin: 0;
 }
 
+/* Movimiento real baja a un simple fundido bajo prefers-reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-modal-in,
+  .animate-drawer-in,
+  .animate-menu-in {
+    animation: fade-in 0.18s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .animate-modal-out,
+  .animate-drawer-out {
+    animation: fade-out 0.18s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+}
+
 /* Impresión: `ReciboImprimir` porta el recibo a `#recibo-print-root` (hijo
    directo de `body`, sin ningún modal de por medio) mientras dispara
    `window.print()` -- ver `components/recibos/recibo.tsx`. Así el contenido

@@ -10,7 +10,11 @@ export function MarketingFooter() {
     <footer className="border-t border-neutral-200 bg-white">
       <div className="mx-auto flex max-w-[100rem] flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-center xl:px-12">
         <div className="flex items-center gap-4">
-          <a href="#" className="flex items-center gap-2" aria-label="Tekly">
+          <a
+            href="/"
+            className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1"
+            aria-label="Tekly"
+          >
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent font-grotesk text-xs font-bold text-white">
               T
             </span>
@@ -26,17 +30,17 @@ export function MarketingFooter() {
         <nav className="flex items-center gap-6 text-sm md:ml-auto">
           <a
             href="#producto"
-            className="font-medium text-neutral-600 transition-colors duration-150 hover:text-neutral-900"
+            className="rounded-md font-medium text-neutral-600 transition-colors duration-150 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             Producto
           </a>
           <a
             href={loginUrl()}
-            className="font-medium text-neutral-600 transition-colors duration-150 hover:text-neutral-900"
+            className="rounded-md font-medium text-neutral-600 transition-colors duration-150 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
             Ingresar
           </a>
-          <MarketingButton href={signupUrl()} variant="primary" size="sm">
+          <MarketingButton href={signupUrl()} variant="primary">
             Probar gratis
           </MarketingButton>
         </nav>

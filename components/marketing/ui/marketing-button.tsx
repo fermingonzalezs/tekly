@@ -32,7 +32,7 @@ export function MarketingButton({
         "inline-flex items-center justify-center gap-1.5 whitespace-nowrap font-bold uppercase tracking-wider transition-all duration-150",
         shape === "pill" ? "rounded-full" : "rounded-lg",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1",
-        size === "sm" ? "h-8 px-3.5 text-[11px]" : "h-9 px-4 text-xs",
+        size === "sm" ? "h-10 px-4 text-[11px]" : "h-11 px-5 text-xs",
         variant === "primary" && [
           "text-white bg-[linear-gradient(180deg,var(--chart-3),var(--chart-2))]",
           "hover:brightness-95 active:brightness-90",

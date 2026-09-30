@@ -1384,7 +1384,7 @@ function ItemBuscador({
         }}
       />
       {open && (
-        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg">
+         <div className="animate-menu-in origin-top absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg">
           {matches.slice(0, 8).map((c) => (
             <button
               key={c.key}

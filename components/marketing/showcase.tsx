@@ -6,7 +6,7 @@ import {
   useScroll,
   useTransform,
 } from "framer-motion";
-import { CalendarDays, CheckCircle2, Wrench } from "lucide-react";
+import { TrendingUp, Wallet, Users } from "lucide-react";
 import { MockupDashboard } from "./ui/mockup-dashboard";
 import { Reveal } from "./ui/reveal";
 import { MarketingEyebrow } from "./ui/marketing-eyebrow";
@@ -73,13 +73,13 @@ export function MarketingShowcase() {
             className="absolute -left-4 -top-8 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block md:-left-10"
           >
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
               <div>
                 <p className="text-xs font-semibold text-neutral-900">
-                  Venta confirmada
+                  Margen del mes
                 </p>
                 <p className="text-[11px] text-neutral-500">
-                  U$ 1.150 · V-1042 · iPhone 13 Pro
+                  +18% vs. mes anterior
                 </p>
               </div>
             </div>
@@ -90,13 +90,13 @@ export function MarketingShowcase() {
             className="absolute -right-4 top-1/4 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block md:-right-10"
           >
             <div className="flex items-center gap-2.5">
-              <CalendarDays className="h-4 w-4 text-accent" />
+              <Wallet className="h-4 w-4 text-accent" />
               <div>
                 <p className="text-xs font-semibold text-neutral-900">
-                  Turno agendado
+                  Caja conciliada
                 </p>
                 <p className="text-[11px] text-neutral-500">
-                  Deja equipo · mañana 10:30
+                  Diferencia: U$ 0
                 </p>
               </div>
             </div>
@@ -107,13 +107,13 @@ export function MarketingShowcase() {
             className="absolute -bottom-8 left-10 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block"
           >
             <div className="flex items-center gap-2.5">
-              <Wrench className="h-4 w-4 text-accent" />
+              <Users className="h-4 w-4 text-accent" />
               <div>
                 <p className="text-xs font-semibold text-neutral-900">
-                  Ticket #128 listo
+                  Cliente recurrente
                 </p>
                 <p className="text-[11px] text-neutral-500">
-                  iPhone 12 · batería cambiada
+                  3ª compra este año
                 </p>
               </div>
             </div>

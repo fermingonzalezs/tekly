@@ -114,7 +114,7 @@ export function ValueMap({
                   onMouseEnter={() => setHover({ cliente: c, left, bottom, d })}
                   onMouseLeave={() => setHover((h) => (h?.cliente.id === c.id ? null : h))}
                   className={cn(
-                    "absolute -translate-x-1/2 translate-y-1/2 rounded-full ring-2 ring-white transition-all duration-150 hover:z-20 hover:scale-125",
+                    "absolute -translate-x-1/2 translate-y-1/2 rounded-full ring-2 ring-white transition-all duration-150 [@media(hover:hover)_and_(pointer:fine)]:hover:z-20 [@media(hover:hover)_and_(pointer:fine)]:hover:scale-125",
                     coincide ? "opacity-75 hover:opacity-100" : "opacity-[0.12]",
                   )}
                   style={{

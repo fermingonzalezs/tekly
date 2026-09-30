@@ -82,7 +82,7 @@ export function NotificationsBell({ esAdmin }: { esAdmin: boolean }) {
       </button>
 
       {open && (
-        <div className="animate-toast-in absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+        <div className="animate-menu-in origin-top-right absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-2.5">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Notificaciones
