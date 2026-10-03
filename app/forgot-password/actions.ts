@@ -16,7 +16,14 @@ export async function forgotPasswordAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
-  const { error } = await requestPasswordReset(parsed.data.email);
+  // Mismo criterio que signup: no viaja por zod, es el token del widget de
+  // Turnstile (`components/auth/turnstile-widget.tsx`).
+  const captchaToken = formData.get("cf-turnstile-response");
+
+  const { error } = await requestPasswordReset(
+    parsed.data.email,
+    typeof captchaToken === "string" ? captchaToken : undefined,
+  );
   if (error) return { error };
 
   return { error: null, sent: true };

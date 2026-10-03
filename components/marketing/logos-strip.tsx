@@ -37,20 +37,22 @@ const STATS = [
 export function MarketingLogosStrip() {
   return (
     <section className="border-y border-neutral-200/80 bg-white/60">
-      <RevealStagger className="mx-auto grid max-w-[100rem] grid-cols-1 gap-6 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 xl:px-12">
+      <RevealStagger className="mx-auto grid max-w-[100rem] grid-cols-1 divide-y divide-neutral-200/80 px-4 sm:px-6 lg:grid-cols-4 lg:divide-x lg:divide-y-0 xl:px-12">
         {STATS.map((stat) => (
-          <RevealItem key={stat.title} className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent transition-transform duration-200 hover:scale-110">
-              <stat.icon className="h-5 w-5" strokeWidth={2} />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-neutral-900">
-                {stat.title}
-              </p>
-              <p className="mt-0.5 text-[13px] leading-snug text-neutral-500">
-                {stat.detail}
-              </p>
-            </div>
+          <RevealItem
+            key={stat.title}
+            className="flex flex-col items-center px-5 py-6 text-center"
+          >
+            <p className="inline-flex items-center justify-center text-xs font-semibold text-neutral-900">
+              <stat.icon
+                className="mr-1.5 h-3.5 w-3.5 shrink-0 text-accent"
+                strokeWidth={2}
+              />
+              {stat.title}
+            </p>
+            <p className="mt-1.5 line-clamp-3 max-w-[200px] text-[11px] leading-relaxed text-neutral-500">
+              {stat.detail}
+            </p>
           </RevealItem>
         ))}
       </RevealStagger>

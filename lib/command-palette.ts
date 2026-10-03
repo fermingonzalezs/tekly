@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Rol } from "@/lib/auth/types";
+import type { NavItem } from "@/lib/nav";
 
 export type QuickAction = {
   /** También el valor del query param `?accion=` que lo dispara. */
@@ -102,6 +103,16 @@ export function filterQuickActions(
       normalizar(a.label).includes(q) ||
       a.keywords.some((k) => normalizar(k).includes(q)),
   );
+}
+
+/** Filtra secciones de la nav (`NAV`) por label normalizado -- los resultados
+ * "Ir a" de la CommandPalette. Igual criterio que `filterQuickActions`:
+ * matcheo local e instantáneo, sin red; el gating por rol lo resuelve quien
+ * llama con `navForRole`. */
+export function filterNavItems(items: NavItem[], query: string): NavItem[] {
+  const q = normalizar(query);
+  if (!q) return items;
+  return items.filter((i) => normalizar(i.label).includes(q));
 }
 
 const APERTURA_MIN = 9 * 60; // 09:00

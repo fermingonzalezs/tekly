@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { AuthError } from "@/components/auth/auth-error";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = { error: null };
@@ -25,6 +26,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
 
   return (
     <form action={formAction} className="space-y-4">
+      <TurnstileWidget />
       <Field label="Email">
         <Input name="email" type="email" required autoComplete="email" autoFocus />
       </Field>

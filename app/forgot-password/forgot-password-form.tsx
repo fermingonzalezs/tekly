@@ -6,6 +6,7 @@ import { MailCheck } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { AuthError } from "@/components/auth/auth-error";
+import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { forgotPasswordAction, type ForgotPasswordState } from "./actions";
 
 const initialState: ForgotPasswordState = { error: null };
@@ -41,6 +42,7 @@ export function ForgotPasswordForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      <TurnstileWidget />
       <p className="text-sm text-neutral-500">
         Ingresá tu email y te mandamos un link para elegir una contraseña
         nueva.

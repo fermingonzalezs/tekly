@@ -151,11 +151,19 @@ export async function signIn(
   email: string,
   password: string,
   rememberMe: boolean,
+  /** Token del widget de Turnstile (`components/auth/turnstile-widget.tsx`)
+   * -- Supabase lo exige por igual en login/signup/recover una vez que
+   * "Bot and Abuse Protection" está prendido en el dashboard (confirmado en
+   * `auth_logs`: los tres rutas rechazan sin `captcha_token` por igual, no
+   * solo `/signup`). Mismo criterio opcional que `signUp`: si el dashboard
+   * no tiene el captcha prendido, Supabase ignora el campo. */
+  captchaToken?: string,
 ): Promise<AuthResult> {
   const supabase = createServerClient();
   const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
+    options: { captchaToken },
   });
   if (error) return { error: authErrorMessage(error.message) };
 
@@ -296,10 +304,15 @@ export async function inviteMember(params: {
  * distingue "el mail no existe" para no filtrar qué emails están
  * registrados, así que la pantalla de "olvidé mi contraseña" muestra el
  * mismo mensaje exista o no la cuenta. */
-export async function requestPasswordReset(email: string): Promise<AuthResult> {
+export async function requestPasswordReset(
+  email: string,
+  /** Ver comentario de `captchaToken` en `signIn` -- mismo criterio. */
+  captchaToken?: string,
+): Promise<AuthResult> {
   const supabase = createServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: authCallbackUrl("/reset-password"),
+    captchaToken,
   });
   return { error: error ? authErrorMessage(error.message) : null };
 }

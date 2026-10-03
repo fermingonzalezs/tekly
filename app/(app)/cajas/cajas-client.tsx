@@ -95,7 +95,7 @@ export function CajasClient({
   const [vista, setVista] = useState<"dia" | "historial">("dia");
   const [medioFiltro, setMedioFiltro] = useState<MedioPago | null>(null);
   const [cajaFiltro, setCajaFiltro] = useState<string | null>(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(useSearchParams().get("q") ?? "");
   const [openMov, setOpenMov] = useState<MovimientoCaja | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [nuevoOpen, setNuevoOpen] = useState(false);
@@ -123,6 +123,14 @@ export function CajasClient({
     setNuevoOpen(true);
     router.replace("/cajas"); // limpia el param -- evita reabrir con back/refresh
   }, [searchParams, router]);
+
+  // ?q= (búsqueda global): prefildea el filtro de movimientos. Efecto además
+  // del useState inicial para que también funcione ya parado en /cajas (sin
+  // remount). No se limpia el param: el filtro queda en la URL.
+  useEffect(() => {
+    const qParam = searchParams.get("q");
+    if (qParam) setQ(qParam);
+  }, [searchParams]);
 
   const cajaById = new Map(cajas.map((c) => [c.id, c]));
   const cajaDe = (m: MovimientoCaja) => cajaById.get(m.cajaId)!;

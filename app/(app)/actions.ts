@@ -3,12 +3,32 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { signOut, updateOwnProfile, type AuthResult } from "@/lib/auth";
+import {
+  requireUser,
+  signOut,
+  updateOwnProfile,
+  type AuthResult,
+} from "@/lib/auth";
 import { crearReporteBug } from "@/lib/db/reportes";
+import {
+  buscarGlobal,
+  type ResultadoBusqueda,
+} from "@/lib/db/busqueda";
 
 export async function signOutAction() {
   await signOut();
   redirect("/login");
+}
+
+/** Búsqueda en vivo de la CommandPalette (Cmd+K) -- trae datos reales
+ * (clientes, ventas, tickets, equipos, movimientos de caja) de la
+ * organización del usuario. No es una mutación (sin revalidatePath), pero sí
+ * `requireUser()` primero, mismo criterio que toda action de este archivo. */
+export async function buscarGlobalAction(
+  query: string,
+): Promise<ResultadoBusqueda[]> {
+  await requireUser();
+  return buscarGlobal(query);
 }
 
 export async function updateOwnProfileAction(

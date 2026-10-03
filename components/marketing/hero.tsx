@@ -104,7 +104,12 @@ export function MarketingHero() {
           </MarketingEyebrow>
 
           <h1 className="mt-5 font-display text-6xl font-bold uppercase leading-[1.02] tracking-tight text-neutral-900 sm:text-7xl lg:text-[4.6rem]">
-            <AnimatedWords text="Gestioná tu tienda de iPhones sin perderte nada" />
+            <AnimatedWords text="Mejor gestión," className="block" />
+            <AnimatedWords
+              text="menos problemas"
+              className="block"
+              delay={0.1}
+            />
           </h1>
 
           <FadeIn
@@ -112,9 +117,9 @@ export function MarketingHero() {
             className="mt-6 max-w-xl text-lg leading-relaxed text-neutral-600 sm:text-xl"
           >
             <p>
-              Inventario, ventas, cajas y turnos en un solo lugar —
-              reparaciones incluidas. Todo lo que pasa en tu negocio, cargado
-              una sola vez y visible para todo tu equipo al instante.
+              Mantené tu negocio organizado: cargá la información una sola
+              vez y se actualiza en tiempo real para que todo el equipo se
+              entere.
             </p>
           </FadeIn>
 

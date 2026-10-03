@@ -13,37 +13,37 @@ const FEATURES = [
     emoji: "📦",
     title: "Inventario",
     detail:
-      "Equipos únicos por IMEI, repuestos por modelo y otros ítems con su cantidad e historial de movimientos.",
+      "Equipos únicos por IMEI, repuestos por modelo y accesorios por cantidad — cada tipo de stock con su propio control.",
   },
   {
     emoji: "🛒",
     title: "Ventas",
     detail:
-      "Pago dividido en varios medios, canje de equipos recibidos, cuenta corriente y garantía en PDF.",
+      "Métodos de pago y cajas personalizables, pago en canje de equipos, cuentas corrientes y comprobantes en PDF para el cliente.",
   },
   {
     emoji: "💰",
     title: "Cajas",
     detail:
-      "Varias cajas por moneda y medio de pago, conciliación contra lo contado y cada movimiento atado a su venta.",
+      "Varias cajas por moneda, cada una con su medio de pago, conciliación periódica para detectar diferencias a tiempo y el historial completo de cada movimiento.",
   },
   {
     emoji: "📅",
     title: "Turnos",
     detail:
-      "Agenda semanal de compras, entregas y retiros, con los equipos del cliente vinculados a cada turno.",
+      "Agenda semanal de compras, entregas, retiros y cotizaciones — todo el equipo sabe quién llega y para qué.",
   },
   {
     emoji: "🔧",
     title: "Reparaciones",
     detail:
-      "Tickets con checklist de ingreso y egreso, catálogo de servicios y presupuesto listo para mandarle al cliente.",
+      "Checklist de ingreso y egreso, catálogo de servicios y repuestos personalizable, y presupuestos a medida para cada cliente.",
   },
   {
     emoji: "📊",
     title: "Analíticas",
     detail:
-      "Márgenes por tipo de producto, facturación por vendedor, cohortes de clientes y la foto completa del negocio.",
+      "Análisis integral del negocio: márgenes, facturación y comportamiento de tus clientes, en un solo lugar.",
   },
 ];
 
@@ -52,14 +52,13 @@ export function MarketingFeatures() {
     <section id="features" className="scroll-mt-20">
       <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <MarketingEyebrow>Funciones</MarketingEyebrow>
+          <MarketingEyebrow>Módulos</MarketingEyebrow>
           <h2 className="mt-4 font-display text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
-            Seis módulos, un solo sistema
+            Un módulo para cada área
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-neutral-600">
-            Todo funciona sobre los mismos datos: una venta descuenta stock,
-            genera el movimiento de caja y queda en la ficha del cliente. Sin
-            planillas paralelas ni datos duplicados.
+            Seis módulos conectados entre sí, pero separados para que cada
+            área trabaje sin pisarse.
           </p>
         </Reveal>
 

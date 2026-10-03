@@ -511,8 +511,8 @@ no asumir que ya se respeta.
 
 ### Forbidden defaults (específico de esta app)
 
-Además de lo genérico (`lorem ipsum`, hero centrado con blob de gradiente,
-glassmorphism): **sin dark mode** (`color-scheme: light` fijo en
+Además de lo genérico (`lorem ipsum`, hero centrado con blob de gradiente):
+**sin dark mode** (`color-scheme: light` fijo en
 `globals.css` — no agregar `dark:` sueltos sin decidir soportarlo de
 verdad), **un solo hue en gráficos** (paleta monocromática índigo de
 `lib/chart.ts` — nunca colores arbitrarios por serie, ver "Paleta de

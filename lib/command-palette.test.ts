@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { NAV } from "@/lib/nav";
 import {
   QUICK_ACTIONS,
   defaultTurnoSlot,
+  filterNavItems,
   filterQuickActions,
   quickActionsForRole,
 } from "@/lib/command-palette";
@@ -39,6 +41,35 @@ describe("filterQuickActions", () => {
 
   it("sin resultados para query que no matchea nada", () => {
     expect(filterQuickActions(QUICK_ACTIONS, "xyz123")).toEqual([]);
+  });
+});
+
+describe("filterNavItems", () => {
+  it("query vacía devuelve todas", () => {
+    expect(filterNavItems(NAV, "")).toHaveLength(NAV.length);
+    expect(filterNavItems(NAV, "   ")).toHaveLength(NAV.length);
+  });
+
+  it("matchea por label, por prefijo (includes, no exacto)", () => {
+    expect(filterNavItems(NAV, "ventas").map((i) => i.href)).toEqual([
+      "/ventas",
+    ]);
+    expect(filterNavItems(NAV, "cuentas").map((i) => i.href)).toEqual([
+      "/cuentas-corrientes",
+    ]);
+  });
+
+  it("insensible a mayúsculas y tildes", () => {
+    expect(filterNavItems(NAV, "ANALITICAS").map((i) => i.href)).toEqual([
+      "/analiticas",
+    ]);
+    expect(filterNavItems(NAV, "reparacion").map((i) => i.href)).toEqual([
+      "/reparaciones",
+    ]);
+  });
+
+  it("sin resultados para query que no matchea nada", () => {
+    expect(filterNavItems(NAV, "xyz123")).toEqual([]);
   });
 });
 

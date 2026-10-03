@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Plus,
   ClipboardCheck,
@@ -197,7 +198,15 @@ export function InventarioClient({
   // o ingresar stock nuevo, porque ahí es él quien lo escribe.
   const puedeVerCosto = user.rol !== "vendedor";
   const [, startDeleteTransition] = useTransition();
-  const [tab, setTab] = useState<Tab>("equipos");
+  // ?tab=/?q= (búsqueda global de la CommandPalette): la tab inicial y el
+  // prefill del buscador se leen de la URL (un resultado de "Equipos" linkea
+  // /inventario?tab=equipos&q=...). Acá arriba porque el useState de `q`
+  // (más abajo) ya los usa.
+  const urlParams = useSearchParams();
+  const tabParam = urlParams.get("tab");
+  const [tab, setTab] = useState<Tab>(
+    tabParam === "repuestos" || tabParam === "otros" ? tabParam : "equipos",
+  );
   const [equipos, setEquipos] = useState<Equipo[]>(initialEquipos);
   const [repuestos, setRepuestos] = useState<Repuesto[]>(initialRepuestos);
   const [otros, setOtros] = useState<OtroItem[]>(initialOtros);
@@ -209,7 +218,7 @@ export function InventarioClient({
   const [recuentoModalTipo, setRecuentoModalTipo] = useState<
     "equipos" | "repuestos" | "otros" | null
   >(null);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(urlParams.get("q") ?? "");
   const [statsOpen, setStatsOpen] = useState(true);
   const [chartsOpen, setChartsOpen] = useState(true);
   const [equipoFiltro, setEquipoFiltro] = useState<
@@ -255,6 +264,24 @@ export function InventarioClient({
     setOtroFiltro("todos");
     setTab(t);
   }
+
+  // Sync con ?tab=/?q= (búsqueda global): como efecto, además del useState
+  // inicial, para que también funcione ya parado en /inventario (el
+  // componente no se remonta en la misma ruta). setTab directo (NO
+  // switchTab): switchTab limpia el buscador, y el `q` de la URL es
+  // justamente lo que hay que mostrar.
+  useEffect(() => {
+    const tabParam = urlParams.get("tab");
+    const qParam = urlParams.get("q");
+    if (
+      tabParam === "equipos" ||
+      tabParam === "repuestos" ||
+      tabParam === "otros"
+    ) {
+      setTab(tabParam);
+    }
+    if (qParam) setQ(qParam);
+  }, [urlParams]);
 
   const needle = q.trim().toLowerCase();
   const equiposFiltrados = equipos.filter(

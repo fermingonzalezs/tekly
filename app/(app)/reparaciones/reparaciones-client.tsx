@@ -212,7 +212,7 @@ export function ReparacionesClient({
   const [datePreset, setDatePreset] = useState<DatePreset>("todos");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(useSearchParams().get("q") ?? "");
   const [openId, setOpenId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -248,6 +248,14 @@ export function ReparacionesClient({
     setCreating(true);
     router.replace("/reparaciones"); // limpia el param -- evita reabrir con back/refresh
   }, [searchParams, router]);
+
+  // ?q= (búsqueda global): prefildea el filtro de la tabla. Efecto además del
+  // useState inicial para que también funcione ya parado en /reparaciones
+  // (sin remount). No se limpia el param: el filtro queda en la URL.
+  useEffect(() => {
+    const qParam = searchParams.get("q");
+    if (qParam) setQ(qParam);
+  }, [searchParams]);
 
   const clientesPorId = useMemo(
     () => new Map(clientesOpciones.map((c) => [c.id, c])),

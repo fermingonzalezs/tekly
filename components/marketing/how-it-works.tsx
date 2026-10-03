@@ -17,22 +17,22 @@ const STEPS = [
   {
     title: "Creá tu organización",
     detail:
-      "Registrate con tu email y creá el espacio de tu negocio. Quedás como admin, sin configuración inicial.",
+      "Registrate con tu email y creá tu organización. Quedás como admin, sin configuración inicial.",
   },
   {
     title: "Invitá a tu equipo",
     detail:
-      "Sumá vendedores y técnicos con su propio usuario. Cada rol ve lo que le corresponde.",
+      "Sumá vendedores y técnicos con su propio usuario: cada rol ve lo que le corresponde.",
   },
   {
     title: "Cargá tu stock",
     detail:
-      "Equipos por IMEI, repuestos y accesorios. Si ya lo tenés anotado, importalo por CSV.",
+      "Importá tu stock por CSV si ya lo tenés anotado, o cargalo de cero — lo que te resulte más cómodo.",
   },
   {
-    title: "Vendé, repará y controlá",
+    title: "Empezá a registrar",
     detail:
-      "Ventas, tickets, cajas y turnos sobre los mismos datos, con notificaciones en tiempo real para todo el equipo.",
+      "Ya tenés todo listo: vendé, repará y controlá tu negocio desde el primer registro.",
   },
 ];
 
@@ -46,11 +46,11 @@ export function MarketingHowItWorks() {
         <Reveal className="mx-auto max-w-2xl text-center">
           <MarketingEyebrow>Cómo funciona</MarketingEyebrow>
           <h2 className="mt-4 font-display text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
-            Arrancar no podría ser más simple
+            De la planilla al sistema, hoy
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-neutral-600">
-            Sin instalar nada y sin capacitación larga: el sistema se usa
-            desde el primer día.
+            Sin instalaciones tediosas ni capacitaciones largas: el sistema
+            se usa desde el primer día.
           </p>
         </Reveal>
 
@@ -84,12 +84,6 @@ export function MarketingHowItWorks() {
             </div>
           ))}
         </RevealStagger>
-
-        <Reveal delay={0.2} className="mt-10 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-            Y quedás list@ para vender ↓
-          </p>
-        </Reveal>
       </div>
     </section>
   );

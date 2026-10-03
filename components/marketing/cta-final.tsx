@@ -40,11 +40,11 @@ export function MarketingCtaFinal() {
           </MarketingEyebrow>
 
           <h2 className="relative mt-4 font-display text-5xl font-bold uppercase tracking-tight text-white sm:text-6xl">
-            Empezá a gestionar tu tienda hoy mismo
+            Todo tu negocio, un sistema
           </h2>
           <p className="relative mx-auto mt-5 max-w-xl text-base leading-relaxed text-white sm:text-lg">
-            Creá tu organización en un minuto, invitá a tu equipo y cargá tu
-            stock. El resto del negocio queda registrado solo.
+            Cada venta, cada reparación, cada movimiento de caja — un solo
+            sistema, siempre al día.
           </p>
 
           <MarketingButton
@@ -56,8 +56,8 @@ export function MarketingCtaFinal() {
           </MarketingButton>
 
           <p className="relative mt-5 text-xs text-white/90">
-            Sin instalación: funciona en el navegador, con los datos de tu
-            organización aislados de los demás.
+            Los datos de tu organización quedan aislados de los demás —
+            nadie fuera de tu equipo los ve.
           </p>
         </div>
       </Reveal>

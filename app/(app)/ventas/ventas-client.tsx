@@ -100,6 +100,10 @@ function matchesQuery(v: Venta, q: string, equiposPorId: Map<string, Equipo>) {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
   if (v.cliente.toLowerCase().includes(needle)) return true;
+  // Número exacto: la búsqueda global (CommandPalette) matchea ventas por
+  // `numero` -- el deep link /ventas?q=1042 tiene que encontrar la fila.
+  // `Venta.id` ya es el "V-<numero>" (lib/db/ventas.ts).
+  if (/^\d+$/.test(needle) && v.id.toLowerCase() === `v-${needle}`) return true;
   return v.items.some((i) => {
     if (i.detalle.toLowerCase().includes(needle)) return true;
     const equipo = i.equipoId ? equiposPorId.get(i.equipoId) : undefined;
@@ -152,7 +156,7 @@ export function VentasClient({
   // default en mobile -- el buscador y "Nueva venta" quedan siempre
   // visibles. Sin efecto desde md (siempre en línea, como antes).
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(useSearchParams().get("q") ?? "");
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -178,6 +182,14 @@ export function VentasClient({
     setCreating(true);
     router.replace("/ventas"); // limpia el param -- evita reabrir con back/refresh
   }, [searchParams, router]);
+
+  // ?q= (búsqueda global): prefildea el filtro de la tabla. Como el de arriba,
+  // efecto además del useState inicial para que también funcione ya parado en
+  // /ventas (sin remount). No se limpia el param: el filtro queda en la URL.
+  useEffect(() => {
+    const qParam = searchParams.get("q");
+    if (qParam) setQ(qParam);
+  }, [searchParams]);
 
   const equiposPorId = useMemo(
     () => new Map(equipos.map((e) => [e.id, e])),
