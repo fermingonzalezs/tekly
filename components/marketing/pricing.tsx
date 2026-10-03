@@ -44,7 +44,7 @@ export function MarketingPricing() {
       <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
           <MarketingEyebrow>Precios</MarketingEyebrow>
-          <h2 className="mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
+          <h2 className="mt-4 font-display text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
             Un plan para cada tamaño de negocio
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-neutral-600">
@@ -73,7 +73,7 @@ export function MarketingPricing() {
                 </span>
               )}
 
-              <h3 className="font-grotesk text-lg font-semibold text-neutral-900">
+              <h3 className="font-display text-lg font-semibold text-neutral-900">
                 {plan.nombre}
               </h3>
               <p className="mt-1 text-[13px] leading-snug text-neutral-500">
@@ -81,7 +81,7 @@ export function MarketingPricing() {
               </p>
 
               <p className="mt-5 flex items-baseline gap-1">
-                <span className="font-grotesk text-4xl font-bold tabular-nums text-neutral-900">
+                <span className="font-display text-4xl font-bold tabular-nums text-neutral-900">
                   {plan.precio}
                 </span>
                 <span className="text-sm font-medium text-neutral-500">

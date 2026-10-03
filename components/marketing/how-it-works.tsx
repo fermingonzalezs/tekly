@@ -45,7 +45,7 @@ export function MarketingHowItWorks() {
       <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
           <MarketingEyebrow>Cómo funciona</MarketingEyebrow>
-          <h2 className="mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
+          <h2 className="mt-4 font-display text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
             Arrancar no podría ser más simple
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-neutral-600">
@@ -61,10 +61,10 @@ export function MarketingHowItWorks() {
                 className={`flex-1 ${i % 2 === 0 ? "lg:mt-0" : "lg:mt-14"}`}
               >
                 <RevealItem className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-accent bg-accent-soft font-grotesk text-sm font-semibold text-accent">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-accent bg-accent-soft font-display text-sm font-semibold text-accent">
                     {i + 1}
                   </span>
-                  <h3 className="mt-4 font-grotesk text-xl font-semibold text-neutral-900">
+                  <h3 className="mt-4 font-display text-xl font-semibold text-neutral-900">
                     {step.title}
                   </h3>
                   <p className="mt-2 text-base leading-relaxed text-neutral-600">

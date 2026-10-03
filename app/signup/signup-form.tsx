@@ -2,11 +2,14 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import Link from "next/link";
+import Script from "next/script";
 import { MailCheck } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { AuthError } from "@/components/auth/auth-error";
 import { signupAction, type SignupState } from "./actions";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 const initialState: SignupState = { error: null };
 
@@ -41,6 +44,28 @@ export function SignupForm() {
 
   return (
     <form action={formAction} className="space-y-4">
+      {TURNSTILE_SITE_KEY && (
+        <>
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+            strategy="afterInteractive"
+            async
+            defer
+          />
+          {/* El script de Cloudflare renderiza el widget acá adentro y mete
+           * un input oculto `cf-turnstile-response` -- viaja solo con el
+           * resto del FormData porque está dentro del <form>. Sin
+           * NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, este bloque entero
+           * no se renderiza y el signup sigue funcionando igual que antes
+           * (Supabase ignora un captchaToken ausente si el captcha no está
+           * prendido en el dashboard). */}
+          <div
+            className="cf-turnstile"
+            data-sitekey={TURNSTILE_SITE_KEY}
+            data-refresh-expired="auto"
+          />
+        </>
+      )}
       <Field label="Nombre de la empresa">
         <Input name="organizacionNombre" required autoFocus />
       </Field>

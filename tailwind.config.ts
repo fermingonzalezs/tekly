@@ -15,6 +15,15 @@ const config: Config = {
           "system-ui",
           "sans-serif",
         ],
+        // Headlines de la landing (--font-marketing-display, Bricolage
+        // Grotesque, cargada en app/marketing/layout.tsx). Sin uso fuera de
+        // components/marketing -- el dashboard interno usa `grotesk`.
+        display: [
+          "var(--font-marketing-display)",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+        ],
       },
       colors: {
         // accent/table-header siguen las CSS vars del tema activo

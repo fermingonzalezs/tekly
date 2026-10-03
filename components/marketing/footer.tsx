@@ -15,10 +15,10 @@ export function MarketingFooter() {
             className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1"
             aria-label="Tekly"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent font-grotesk text-xs font-bold text-white">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent font-display text-xs font-bold text-white">
               T
             </span>
-            <span className="font-grotesk text-base font-semibold text-neutral-900">
+            <span className="font-display text-base font-semibold text-neutral-900">
               Tekly
             </span>
           </a>

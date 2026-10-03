@@ -122,6 +122,31 @@ export async function requireRole(...roles: Rol[]): Promise<SessionUser> {
   return session;
 }
 
+/** Allowlist de admins de plataforma -- emails separados por comas en
+ * `PLATFORM_ADMIN_EMAILS` (server-only). Identidad de plataforma a propósito
+ * fuera de la base: alcanza para 1-2 personas (el dueño del SaaS); el día que
+ * haga falta un equipo de soporte, ahí sí una columna `is_platform_admin`.
+ * El admin de plataforma sigue siendo un usuario normal con su propia
+ * organización/perfil -- esta variable solo lo habilita además a entrar a
+ * `/admin`. */
+const PLATFORM_ADMIN_EMAILS = (process.env.PLATFORM_ADMIN_EMAILS ?? "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+/** Sesión de un admin de plataforma -- redirige a `/` si el email de la
+ * sesión no está en la allowlist (o si no hay sesión). Gate de todo lo que
+ * cuelga de `/admin`: el layout de esa ruta y cada una de sus server
+ * actions -- ver `lib/db/admin.ts` (que corre por service role y confía en
+ * que quien la llama ya pasó por acá). */
+export async function requirePlatformAdmin(): Promise<SessionUser> {
+  const session = await requireUser();
+  if (!PLATFORM_ADMIN_EMAILS.includes(session.email.toLowerCase())) {
+    redirect("/");
+  }
+  return session;
+}
+
 export async function signIn(
   email: string,
   password: string,
@@ -153,6 +178,14 @@ export async function signUp(params: {
   password: string;
   nombre: string;
   organizacionNombre: string;
+  /** Token del widget de Turnstile (`signup-form.tsx`) -- Supabase lo valida
+   * server-side contra el secret key configurado en el dashboard
+   * (Authentication -> Settings -> Bot and Abuse Protection); esta app nunca
+   * ve ese secret, solo la site key pública (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`,
+   * ver `.env.local.example`) que renderiza el widget. Opcional a propósito:
+   * si el dashboard no tiene el captcha prendido, Supabase ignora el campo
+   * en vez de rechazar el signup -- no bloquea el flujo mientras se activa. */
+  captchaToken?: string;
 }): Promise<SignUpResult> {
   const supabase = createServerClient();
   const { data, error } = await supabase.auth.signUp({
@@ -165,6 +198,7 @@ export async function signUp(params: {
       // Password" de este mismo usuario), mismo mecanismo que ya usa
       // `inviteMember` más abajo.
       data: { nombre: params.nombre },
+      captchaToken: params.captchaToken,
     },
   });
   if (error) return { error: authErrorMessage(error.message) };

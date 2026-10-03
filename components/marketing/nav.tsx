@@ -37,10 +37,10 @@ export function MarketingNav() {
           className="flex items-center gap-2 rounded-lg transition-transform duration-150 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1"
           aria-label="Tekly"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent font-grotesk text-sm font-bold text-white">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent font-display text-sm font-bold text-white">
             T
           </span>
-          <span className="font-grotesk text-lg font-semibold text-neutral-900">
+          <span className="font-display text-lg font-semibold text-neutral-900">
             Tekly
           </span>
         </a>

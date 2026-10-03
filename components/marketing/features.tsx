@@ -53,7 +53,7 @@ export function MarketingFeatures() {
       <div className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
           <MarketingEyebrow>Funciones</MarketingEyebrow>
-          <h2 className="mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
+          <h2 className="mt-4 font-display text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
             Seis módulos, un solo sistema
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-neutral-600">
@@ -76,7 +76,7 @@ export function MarketingFeatures() {
                 {feature.emoji}
               </span>
               <div className="relative flex flex-col items-center">
-                <h3 className="font-grotesk text-lg font-bold uppercase tracking-tight text-neutral-900">
+                <h3 className="font-display text-lg font-bold uppercase tracking-tight text-neutral-900">
                   {feature.title}
                 </h3>
                 <p className="mt-2 text-base leading-relaxed text-neutral-600">

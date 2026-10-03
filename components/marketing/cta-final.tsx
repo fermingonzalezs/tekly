@@ -1,4 +1,3 @@
-import { ArrowRight } from "lucide-react";
 import { Reveal } from "./ui/reveal";
 import { MarketingButton } from "./ui/marketing-button";
 import { MarketingEyebrow } from "./ui/marketing-eyebrow";
@@ -40,7 +39,7 @@ export function MarketingCtaFinal() {
             Empezá hoy
           </MarketingEyebrow>
 
-          <h2 className="relative mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-white sm:text-6xl">
+          <h2 className="relative mt-4 font-display text-5xl font-bold uppercase tracking-tight text-white sm:text-6xl">
             Empezá a gestionar tu tienda hoy mismo
           </h2>
           <p className="relative mx-auto mt-5 max-w-xl text-base leading-relaxed text-white sm:text-lg">
@@ -54,7 +53,6 @@ export function MarketingCtaFinal() {
             className="relative mt-8"
           >
             Probar gratis
-            <ArrowRight className="h-4 w-4" />
           </MarketingButton>
 
           <p className="relative mt-5 text-xs text-white/90">

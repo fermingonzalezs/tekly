@@ -53,7 +53,7 @@ export function MarketingShowcase() {
       <div ref={ref} className="mx-auto max-w-[100rem] px-4 py-20 sm:px-6 sm:py-24 xl:px-12">
         <Reveal className="mx-auto max-w-2xl text-center">
           <MarketingEyebrow>Producto</MarketingEyebrow>
-          <h2 className="mt-4 font-grotesk text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
+          <h2 className="mt-4 font-display text-5xl font-bold uppercase tracking-tight text-neutral-900 sm:text-6xl">
             Tu tienda entera, en una sola pantalla
           </h2>
           <p className="mt-5 text-lg leading-relaxed text-neutral-600">

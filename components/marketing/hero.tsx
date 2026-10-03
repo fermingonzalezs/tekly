@@ -2,7 +2,8 @@
 
 import { useRef, type ReactNode } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { ArrowRight, CheckCircle2, CalendarDays, Wrench } from "lucide-react";
+import { CheckCircle2, CalendarDays, Wrench } from "lucide-react";
+
 import { AnimatedWords } from "./ui/animated-words";
 import { MockupDashboard } from "./ui/mockup-dashboard";
 import { MarketingButton } from "./ui/marketing-button";
@@ -102,7 +103,7 @@ export function MarketingHero() {
             Dejá de anotar tu stock en tres lugares distintos
           </MarketingEyebrow>
 
-          <h1 className="mt-5 font-grotesk text-6xl font-bold uppercase leading-[1.02] tracking-tight text-neutral-900 sm:text-7xl lg:text-[4.6rem]">
+          <h1 className="mt-5 font-display text-6xl font-bold uppercase leading-[1.02] tracking-tight text-neutral-900 sm:text-7xl lg:text-[4.6rem]">
             <AnimatedWords text="Gestioná tu tienda de iPhones sin perderte nada" />
           </h1>
 
@@ -123,7 +124,6 @@ export function MarketingHero() {
           >
             <MarketingButton href={signupUrl()} variant="primary">
               Probar gratis
-              <ArrowRight className="h-4 w-4" />
             </MarketingButton>
             <MarketingButton href="#como-funciona" variant="outline">
               Ver cómo funciona

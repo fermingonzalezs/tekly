@@ -21,7 +21,15 @@ export async function signupAction(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
-  const { error, needsEmailConfirmation } = await signUp(parsed.data);
+  // No viaja por zod: no es un campo de negocio, es el token del widget de
+  // Turnstile (`signup-form.tsx`), string vacío cuando el captcha está
+  // deshabilitado (sin NEXT_PUBLIC_TURNSTILE_SITE_KEY) o todavía sin resolver.
+  const captchaToken = formData.get("cf-turnstile-response");
+
+  const { error, needsEmailConfirmation } = await signUp({
+    ...parsed.data,
+    captchaToken: typeof captchaToken === "string" ? captchaToken : undefined,
+  });
   if (error) return { error };
 
   if (needsEmailConfirmation) return { error: null, sent: true };
