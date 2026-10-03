@@ -2,10 +2,11 @@
 
 import { useRef, type ReactNode } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { CheckCircle2, CalendarDays, Wrench } from "lucide-react";
+import { ShoppingCart, CalendarClock, Wrench } from "lucide-react";
 
 import { AnimatedWords } from "./ui/animated-words";
-import { MockupDashboard } from "./ui/mockup-dashboard";
+import { MockupTurnos } from "./ui/mockup-turnos";
+import { GlassSpotlightCard } from "./ui/glass-spotlight-card";
 import { MarketingButton } from "./ui/marketing-button";
 import { MarketingEyebrow } from "./ui/marketing-eyebrow";
 import { AmbientBlobs } from "./ui/ambient-blobs";
@@ -65,7 +66,7 @@ export function MarketingHero() {
   const yCardBottom = useTransform(scrollYProgress, [0, 1], [0, -14]);
 
   return (
-    <section className="relative flex min-h-screen flex-col justify-center overflow-hidden">
+    <section className="relative flex flex-col justify-center overflow-hidden">
       {/* Fondo: gradientes suaves de marca (solo en la landing), a la
           deriva -- movimiento ambiente lento, no ligado al scroll. */}
       <AmbientBlobs
@@ -96,18 +97,21 @@ export function MarketingHero() {
 
       <div
         ref={ref}
-        className="mx-auto grid max-w-[100rem] items-center gap-12 px-4 pb-20 pt-16 sm:px-6 md:pt-24 lg:grid-cols-2 lg:gap-16 xl:px-12 xl:gap-24"
+        className="mx-auto grid max-w-[100rem] items-center gap-10 px-4 py-12 sm:px-6 md:py-16 lg:grid-cols-2 lg:gap-12 xl:px-12 xl:gap-16"
       >
-        <div>
+        <GlassSpotlightCard className="relative z-10 p-8 sm:p-10 lg:w-[135%] xl:w-[125%]">
           <MarketingEyebrow>
             Dejá de anotar tu stock en tres lugares distintos
           </MarketingEyebrow>
 
-          <h1 className="mt-5 font-display text-6xl font-bold uppercase leading-[1.02] tracking-tight text-neutral-900 sm:text-7xl lg:text-[4.6rem]">
-            <AnimatedWords text="Mejor gestión," className="block" />
+          <h1 className="mt-5 font-display text-5xl font-bold uppercase leading-[1.03] tracking-tight text-neutral-900 sm:text-6xl md:text-7xl lg:text-[4rem] xl:text-[4.6rem]">
+            <AnimatedWords
+              text="Mejor gestión,"
+              className="block whitespace-nowrap"
+            />
             <AnimatedWords
               text="menos problemas"
-              className="block"
+              className="block whitespace-nowrap"
               delay={0.1}
             />
           </h1>
@@ -134,30 +138,36 @@ export function MarketingHero() {
               Ver cómo funciona
             </MarketingButton>
           </FadeIn>
-        </div>
+        </GlassSpotlightCard>
 
         {/* Mockup con capas parallax */}
         <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
           <FadeIn delay={0.2}>
             <motion.div style={reduced ? undefined : { y: yMockup }}>
-              <MockupDashboard className="rotate-[0.5deg]" />
+              <MockupTurnos className="rotate-[0.5deg]" />
             </motion.div>
           </FadeIn>
 
-          {/* Tarjetas flotantes: las notificaciones en tiempo real del sistema */}
+          {/* Tarjetas flotantes: mismo copy/ícono que arma `describe()`
+              (lib/realtime.ts) y mismo estilo que el Toaster real
+              (bg-blue-50 + text-accent en el ícono, title/detail con los
+              mismos pesos) -- actor/cliente son nombres reales del seed
+              (lib/mock-data.ts), no el usuario de la cuenta. */}
           <FadeIn
             delay={0.7}
             className="absolute -right-3 -top-6 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block"
           >
             <motion.div style={reduced ? undefined : { y: yCardTop }}>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <div className="flex items-start gap-2.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-50 text-accent">
+                  <ShoppingCart className="h-4 w-4" />
+                </span>
                 <div>
-                  <p className="text-xs font-semibold text-neutral-900">
-                    Venta confirmada
+                  <p className="text-xs font-medium leading-snug text-neutral-900">
+                    Caro realizó una venta por U$ 735
                   </p>
-                  <p className="text-[11px] text-neutral-500">
-                    U$ 985 · V-1042 · iPhone 14 Pro
+                  <p className="mt-0.5 text-[11px] font-semibold text-neutral-500">
+                    V-4821 · Juan Pérez
                   </p>
                 </div>
               </div>
@@ -169,14 +179,16 @@ export function MarketingHero() {
             className="absolute -bottom-6 -left-3 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block"
           >
             <motion.div style={reduced ? undefined : { y: yCardBottom }}>
-              <div className="flex items-center gap-2.5">
-                <CalendarDays className="h-4 w-4 text-accent" />
+              <div className="flex items-start gap-2.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-50 text-accent">
+                  <CalendarClock className="h-4 w-4" />
+                </span>
                 <div>
-                  <p className="text-xs font-semibold text-neutral-900">
-                    Turno agendado
+                  <p className="text-xs font-medium leading-snug text-neutral-900">
+                    Nuevo turno · Diego Sánchez
                   </p>
-                  <p className="text-[11px] text-neutral-500">
-                    Retira equipo · hoy 15:00
+                  <p className="mt-0.5 text-[11px] font-semibold text-neutral-500">
+                    Deja reparación · hoy 15:00 · agendó Meli
                   </p>
                 </div>
               </div>
@@ -188,14 +200,16 @@ export function MarketingHero() {
             className="absolute -left-6 top-1/3 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 xl:block"
           >
             <motion.div style={reduced ? undefined : { y: yCardTop }}>
-              <div className="flex items-center gap-2.5">
-                <Wrench className="h-4 w-4 text-accent" />
+              <div className="flex items-start gap-2.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-50 text-accent">
+                  <Wrench className="h-4 w-4" />
+                </span>
                 <div>
-                  <p className="text-xs font-semibold text-neutral-900">
+                  <p className="text-xs font-medium leading-snug text-neutral-900">
                     Ticket #128 listo
                   </p>
-                  <p className="text-[11px] text-neutral-500">
-                    iPhone 12 · batería cambiada
+                  <p className="mt-0.5 text-[11px] font-semibold text-neutral-500">
+                    iPhone 12 · marcó Meli
                   </p>
                 </div>
               </div>

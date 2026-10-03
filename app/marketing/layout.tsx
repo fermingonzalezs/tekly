@@ -22,13 +22,13 @@ const marketingDisplay = Bricolage_Grotesque({
 });
 export const metadata: Metadata = {
   metadataBase: new URL("https://tekly.tech"),
-  title: "Tekly — Sistema de gestión para tiendas de iPhones",
+  title: "Tekly — Gestión integral para venta de celulares y tecnología",
   description:
-    "Dejá de anotar tu stock en tres lugares distintos. Inventario, ventas, cajas, turnos y reparaciones, todo en un solo lugar.",
+    "Empezá a registrar las operaciones diarias ahora, para llevar tu negocio al siguiente nivel.",
   openGraph: {
-    title: "Tekly — Sistema de gestión para tiendas de iPhones",
+    title: "Tekly — Gestión integral para venta de celulares y tecnología",
     description:
-      "Dejá de anotar tu stock en tres lugares distintos. Todo tu negocio, en tiempo real para todo el equipo.",
+      "Empezá a registrar las operaciones diarias ahora, para llevar tu negocio al siguiente nivel.",
     type: "website",
     url: "https://tekly.tech",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Tekly" }],

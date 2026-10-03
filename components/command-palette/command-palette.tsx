@@ -244,17 +244,19 @@ export function CommandPalette({ rol }: { rol: Rol }) {
 
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-neutral-900/30 backdrop-blur-md backdrop-saturate-150"
+          className="fixed inset-0 z-50 bg-neutral-900/20 backdrop-blur-sm backdrop-saturate-150"
           onClick={() => setOpen(false)}
         >
           <div
             className="mx-auto mt-[12vh] w-full max-w-lg px-4"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* "Liquid glass": panel translúcido con blur fuerte + highlight
-                blanco sutil arriba (ring) + sombra difusa, sin borde duro.
-                El texto encima va en neutral-900/500, legible sobre el blur. */}
-            <div className="overflow-hidden rounded-2xl bg-white/70 shadow-[0_8px_40px_rgba(0,0,0,0.25)] ring-1 ring-white/60 backdrop-blur-xl">
+            {/* "Liquid glass" con tinte del color primario: blur moderado
+                (no tan fuerte como antes) + vidrio teñido de accent en vez
+                de blanco neutro + highlight del mismo tono arriba (ring) +
+                sombra difusa, sin borde duro. El texto encima sigue en
+                neutral-900/500, legible sobre el blur. */}
+            <div className="overflow-hidden rounded-2xl bg-accent/15 shadow-[0_8px_40px_rgba(79,73,189,0.25)] ring-1 ring-accent/25 backdrop-blur-md">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                 <input
@@ -271,7 +273,7 @@ export function CommandPalette({ rol }: { rol: Rol }) {
                   <Loader2 className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-neutral-500" />
                 )}
               </div>
-              <div className="max-h-80 overflow-y-auto border-t border-white/60">
+              <div className="max-h-80 overflow-y-auto border-t border-accent/15">
                 {flat.length === 0 ? (
                   <p className="py-6 text-center text-sm text-neutral-500">
                     Sin resultados
@@ -317,7 +319,7 @@ export function CommandPalette({ rol }: { rol: Rol }) {
                   ))
                 )}
               </div>
-              <div className="border-t border-white/60 px-4 py-2 text-[11px] text-neutral-500">
+              <div className="border-t border-accent/15 px-4 py-2 text-[11px] text-neutral-500">
                 ↑↓ para navegar · Enter para elegir · Esc para cerrar
               </div>
             </div>

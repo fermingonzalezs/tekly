@@ -6,17 +6,18 @@ import {
   useScroll,
   useTransform,
 } from "framer-motion";
-import { TrendingUp, Wallet, Users } from "lucide-react";
-import { MockupDashboard } from "./ui/mockup-dashboard";
+import { Wallet, ShoppingCart } from "lucide-react";
+import { MockupCajas } from "./ui/mockup-cajas";
+import { MockupBuscador } from "./ui/mockup-buscador";
 import { Reveal } from "./ui/reveal";
 import { MarketingEyebrow } from "./ui/marketing-eyebrow";
 import { useReducedMotionSafe } from "./ui/use-reduced-motion";
 
 /**
- * Showcase: el MockupDashboard del hero en otra composición (más grande,
- * centrado), con las tarjetas de notificaciones en parallax a distinta
- * velocidad (máx ~60px entre capas, ver plan). Con prefers-reduced-motion
- * todo queda estático.
+ * Showcase: dos ilustraciones "ventana completa" lado a lado (Cajas +
+ * buscador global con "Nueva venta"), cada una con su propia tarjeta de
+ * notificación flotante en parallax. Con prefers-reduced-motion todo
+ * queda estático.
  */
 
 export function MarketingShowcase() {
@@ -32,7 +33,6 @@ export function MarketingShowcase() {
   const yMockup = useTransform(scrollYProgress, [0, 1], [12, -12]);
   const yCardLeft = useTransform(scrollYProgress, [0, 1], [42, -42]);
   const yCardRight = useTransform(scrollYProgress, [0, 1], [-24, 24]);
-  const yCardBottom = useTransform(scrollYProgress, [0, 1], [30, -30]);
 
   return (
     <section id="producto" className="relative scroll-mt-20 overflow-hidden">
@@ -63,61 +63,58 @@ export function MarketingShowcase() {
           </p>
         </Reveal>
 
-        <Reveal className="relative mx-auto mt-14 max-w-4xl">
-          <motion.div style={reduced ? undefined : { y: yMockup }}>
-            <MockupDashboard />
-          </motion.div>
+        <Reveal className="mx-auto mt-14 grid max-w-[90rem] gap-20 sm:grid-cols-2">
+          <div className="relative">
+            <motion.div style={reduced ? undefined : { y: yMockup }}>
+              <MockupCajas />
+            </motion.div>
+            <p className="mt-4 text-center text-sm font-medium text-neutral-500">
+              Cada caja conciliada, sin sorpresas
+            </p>
 
-          <motion.div
-            style={reduced ? undefined : { y: yCardLeft }}
-            className="absolute -left-4 -top-8 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block md:-left-10"
-          >
-            <div className="flex items-center gap-2.5">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-              <div>
-                <p className="text-xs font-semibold text-neutral-900">
-                  Margen del mes
-                </p>
-                <p className="text-[11px] text-neutral-500">
-                  +18% vs. mes anterior
-                </p>
+            <motion.div
+              style={reduced ? undefined : { y: yCardLeft }}
+              className="absolute -left-4 -top-6 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 md:-left-8 md:block"
+            >
+              <div className="flex items-center gap-2.5">
+                <Wallet className="h-4 w-4 text-accent" />
+                <div>
+                  <p className="text-xs font-semibold text-neutral-900">
+                    Caja conciliada
+                  </p>
+                  <p className="text-[11px] text-neutral-500">
+                    Diferencia: U$ 0
+                  </p>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
 
-          <motion.div
-            style={reduced ? undefined : { y: yCardRight }}
-            className="absolute -right-4 top-1/4 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block md:-right-10"
-          >
-            <div className="flex items-center gap-2.5">
-              <Wallet className="h-4 w-4 text-accent" />
-              <div>
-                <p className="text-xs font-semibold text-neutral-900">
-                  Caja conciliada
-                </p>
-                <p className="text-[11px] text-neutral-500">
-                  Diferencia: U$ 0
-                </p>
-              </div>
-            </div>
-          </motion.div>
+          <div className="relative">
+            <motion.div style={reduced ? undefined : { y: yMockup }}>
+              <MockupBuscador />
+            </motion.div>
+            <p className="mt-4 text-center text-sm font-medium text-neutral-500">
+              Buscá cualquier cosa, o creala al toque
+            </p>
 
-          <motion.div
-            style={reduced ? undefined : { y: yCardBottom }}
-            className="absolute -bottom-8 left-10 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 sm:block"
-          >
-            <div className="flex items-center gap-2.5">
-              <Users className="h-4 w-4 text-accent" />
-              <div>
-                <p className="text-xs font-semibold text-neutral-900">
-                  Cliente recurrente
-                </p>
-                <p className="text-[11px] text-neutral-500">
-                  3ª compra este año
-                </p>
+            <motion.div
+              style={reduced ? undefined : { y: yCardRight }}
+              className="absolute -right-4 -top-6 hidden rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl shadow-neutral-900/5 md:-right-8 md:block"
+            >
+              <div className="flex items-center gap-2.5">
+                <ShoppingCart className="h-4 w-4 text-accent" />
+                <div>
+                  <p className="text-xs font-semibold text-neutral-900">
+                    Venta creada
+                  </p>
+                  <p className="text-[11px] text-neutral-500">
+                    Desde el buscador · U$ 690
+                  </p>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </Reveal>
       </div>
     </section>
