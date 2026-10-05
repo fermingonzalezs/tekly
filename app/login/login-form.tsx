@@ -14,7 +14,7 @@ const initialState: LoginState = { error: null };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" shape="pill" disabled={pending} className="w-full justify-center">
+    <Button type="submit" disabled={pending} className="w-full justify-center">
       {pending ? "Entrando…" : "Entrar"}
     </Button>
   );
@@ -26,7 +26,6 @@ export function LoginForm({ initialError }: { initialError?: string }) {
 
   return (
     <form action={formAction} className="space-y-4">
-      <TurnstileWidget />
       <Field label="Email">
         <Input name="email" type="email" required autoComplete="email" autoFocus />
       </Field>
@@ -58,6 +57,13 @@ export function LoginForm({ initialError }: { initialError?: string }) {
           Creá tu organización
         </Link>
       </p>
+      <p className="text-center text-sm text-neutral-500">
+        ¿Solo querés ver cómo funciona?{" "}
+        <Link href="/demo/dashboard" className="font-medium text-accent">
+          Probá la demo sin registrarte
+        </Link>
+      </p>
+      <TurnstileWidget size="flexible" />
     </form>
   );
 }

@@ -1,0 +1,32 @@
+---
+titulo: "Eliminar una venta (y sus 5 reversiones)"
+resumen: "Solo el admin puede borrar una venta. Podés elegir qué se revierte: equipos, repuestos, caja, cuenta corriente y canje."
+seccion: ventas
+roles: [admin]
+orden: 5
+actualizado: 2026-10-04
+---
+
+Borrar una venta no revierte nada solo: Tekly te muestra **hasta 5 opciones** y vos elegís qué devolver.
+
+<Paso n={1} titulo="Abrí la venta y tocá «Eliminar venta»">
+Solo el **admin** ve ese botón, en rojo, abajo a la izquierda del detalle.
+</Paso>
+
+<Paso n={2} titulo="Marcá qué reversar">
+- **Devolver los equipos** vendidos al inventario (vuelven a «disponible»).
+- **Devolver los repuestos** usados al stock.
+- **Borrar los movimientos de caja** que generó.
+- **Borrar el movimiento de cuenta corriente** que generó.
+- **Borrar la compra de canje** generada.
+
+Cada opción aparece solo si aplica a esa venta.
+</Paso>
+
+<Aviso titulo="Si no marcás una opción" tono="warning">
+El movimiento queda «huérfano» como si fuera manual. Por ejemplo, si no borrás el movimiento de caja, la plata sigue registrada en la caja aunque la venta ya no exista.
+</Aviso>
+
+## Ver también
+
+- [Módulo Ventas](/ayuda/ventas/guia)

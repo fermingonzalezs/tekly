@@ -13,19 +13,18 @@ import {
   ClipboardCheck,
   Pencil,
   Search,
-  ChevronDown,
-  ChevronUp,
-  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { ChecklistEditor, CHECKLIST_VACIO } from "@/components/ui/checklist-editor";
 import { Tabs } from "@/components/ui/tabs";
+import { SeccionTabla } from "@/components/ui/seccion-tabla";
+import { BarraFiltros } from "@/components/ui/barra-filtros";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiciosCatalogo } from "@/components/servicios-catalogo";
@@ -176,7 +175,10 @@ function egresoHoja2(ticket: Ticket, negocio: Negocio) {
 function matchesQuery(t: Ticket, q: string) {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
+  // "#128" / "128" (deep link de "Mis tickets" del dashboard de técnico)
+  const idNeedle = needle.replace(/^#/, "");
   return (
+    String(t.id) === idNeedle ||
     t.cliente.toLowerCase().includes(needle) ||
     t.equipo.toLowerCase().includes(needle) ||
     t.falla.toLowerCase().includes(needle) ||
@@ -230,8 +232,6 @@ export function ReparacionesClient({
     index: number;
     valor: string;
   } | null>(null);
-  const [chartsOpen, setChartsOpen] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     setEditandoPrecio(null);
@@ -255,6 +255,16 @@ export function ReparacionesClient({
   useEffect(() => {
     const qParam = searchParams.get("q");
     if (qParam) setQ(qParam);
+  }, [searchParams]);
+
+  // ?estado= (deep link del widget "Taller" del dashboard): filtra la tabla
+  // por ese estado. Mismo patrón que el ?q= de arriba -- el valor se valida
+  // contra TICKET_FLOW para no fabricar un estado inexistente.
+  useEffect(() => {
+    const estadoParam = searchParams.get("estado");
+    if (estadoParam && (TICKET_FLOW as readonly string[]).includes(estadoParam)) {
+      setEstFilter(estadoParam as "todos" | TicketStatus);
+    }
   }, [searchParams]);
 
   const clientesPorId = useMemo(
@@ -375,184 +385,172 @@ export function ReparacionesClient({
 
   return (
     <>
-      <div className="space-y-5">
-        {/* gráficos: siempre visibles (tickets o servicios), se pueden ocultar */}
-        <div>
-          <div className="flex justify-end">
-            <button
-              onClick={() => setChartsOpen((v) => !v)}
-              className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
+      <SeccionTabla
+        id="reparaciones"
+        columnasTarjetas={8}
+        graficos={
+          <>
+            <ReparacionesSplit tickets={enRango} />
+            <RepairsChart tickets={enRango} />
+          </>
+        }
+        tarjetas={
+          <>
+            {/* En mobile, 8 tarjetas son demasiadas: desplegable equivalente */}
+            <Select
+              value={estFilter}
+              onChange={(e) =>
+                setEstFilter(e.target.value as "todos" | TicketStatus)
+              }
+              className={cn("col-span-2 w-full sm:hidden", filterPill)}
+              aria-label="Filtrar por estado"
             >
-              {chartsOpen ? (
-                <ChevronUp className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
-              )}
-              {chartsOpen ? "Ocultar gráficos" : "Mostrar gráficos"}
-            </button>
-          </div>
-          {chartsOpen && (
-            <div className="mt-3 grid gap-5 xl:grid-cols-2">
-              <ReparacionesSplit tickets={enRango} />
-              <RepairsChart tickets={enRango} />
-            </div>
-          )}
-        </div>
-
-        {/* pipeline resumen: siempre visible -- en mobile son 8 tarjetas
-            (demasiadas para esa altura), se reemplaza por un desplegable */}
-        <Select
-          value={estFilter}
-          onChange={(e) => setEstFilter(e.target.value as "todos" | TicketStatus)}
-          className={cn("w-full sm:hidden", filterPill)}
-        >
-          <option value="todos">Todos los estados ({list.length})</option>
-          {counts.map(({ s, n }) => (
-            <option key={s} value={s}>
-              {ticketStatus[s].label} ({n})
-            </option>
-          ))}
-        </Select>
-        <div className="hidden gap-3 sm:grid sm:grid-cols-4 xl:grid-cols-8">
-          {counts.map(({ s, n }) => (
-            <StatCard
-              key={s}
-              align="left"
-              label={ticketStatus[s].label}
-              value={n}
-              active={estFilter === s}
-              onClick={() => setEstFilter(estFilter === s ? "todos" : s)}
-            />
-          ))}
-        </div>
-
-        {/* tabs + filtros + acción, todo en la misma fila */}
-        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
-          <Tabs
-            value={vista}
-            onChange={setVista}
-            className="w-full justify-between md:w-auto md:justify-start"
-            options={[
-              { value: "tickets", label: "Tickets", count: list.length },
-              { value: "servicios", label: "Servicios" },
-            ]}
-          />
-          {vista === "tickets" && (
-            <>
-              <div className="relative w-full md:w-64">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-                <Input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Buscar por cliente, equipo o IMEI…"
-                  className={cn("w-full pl-9", filterPill)}
-                />
-              </div>
-
-              <button
-                onClick={() => setFiltersOpen((v) => !v)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-3.5 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 md:hidden"
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-                Filtros
-                {filtersOpen ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </button>
-
-              <div
-                className={cn(
-                  "flex-col gap-2 md:contents",
-                  filtersOpen ? "flex" : "hidden",
-                )}
-              >
-                <Select
-                  value={tecFilter}
-                  onChange={(e) => setTecFilter(e.target.value)}
-                  className={cn("w-full md:w-52", filterPill)}
-                  aria-label="Filtrar por técnico"
-                >
-                  <option value="todos">Todos los técnicos</option>
-                  <option value="sin">Sin asignar</option>
-                  {tecnicos.map((t) => (
-                    <option key={t.id} value={t.nombre}>
-                      {t.nombre}
-                    </option>
-                  ))}
-                </Select>
-                {/* En mobile el estado ya se filtra con el desplegable del
-                    pipeline de arriba -- este queda solo de sm en adelante,
-                    al lado de las tarjetas. */}
-                <Select
-                  value={estFilter}
-                  onChange={(e) =>
-                    setEstFilter(e.target.value as "todos" | TicketStatus)
-                  }
-                  className={cn("hidden sm:block sm:w-52", filterPill)}
-                  aria-label="Filtrar por estado"
-                >
-                  <option value="todos">Todos los estados</option>
-                  {TICKET_FLOW.map((s) => (
-                    <option key={s} value={s}>
-                      {ticketStatus[s].label}
-                    </option>
-                  ))}
-                </Select>
-                <Select
-                  value={datePreset}
-                  onChange={(e) => setDatePreset(e.target.value as DatePreset)}
-                  className={cn("w-full md:w-44", filterPill)}
-                  aria-label="Filtrar por fecha"
-                >
-                  {DATE_PRESETS.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </Select>
-                {datePreset === "personalizado" && (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="date"
-                      value={desde}
-                      onChange={(e) => setDesde(e.target.value)}
-                      className={cn("w-full md:w-36", filterPill)}
-                    />
-                    <span className="text-xs text-neutral-400">a</span>
-                    <Input
-                      type="date"
-                      value={hasta}
-                      onChange={(e) => setHasta(e.target.value)}
-                      className={cn("w-full md:w-36", filterPill)}
-                    />
-                  </div>
-                )}
-                {datePreset !== "todos" && (
-                  <button
-                    onClick={() => {
-                      setDatePreset("todos");
-                      setDesde("");
-                      setHasta("");
-                    }}
-                    className="text-xs text-neutral-400 hover:text-neutral-600"
+              <option value="todos">Todos los estados ({list.length})</option>
+              {counts.map(({ s, n }) => (
+                <option key={s} value={s}>
+                  {ticketStatus[s].label} ({n})
+                </option>
+              ))}
+            </Select>
+            {counts.map(({ s, n }) => (
+              <StatCard
+                key={s}
+                align="left"
+                label={ticketStatus[s].label}
+                value={n}
+                active={estFilter === s}
+                onClick={() => setEstFilter(estFilter === s ? "todos" : s)}
+                className="hidden sm:block"
+              />
+            ))}
+          </>
+        }
+        filtros={
+          <BarraFiltros
+            contadorFiltros={
+              (tecFilter !== "todos" ? 1 : 0) +
+              (estFilter !== "todos" ? 1 : 0) +
+              (datePreset !== "todos" ? 1 : 0) +
+              (q ? 1 : 0)
+            }
+            tabs={
+              <Tabs
+                value={vista}
+                onChange={setVista}
+                className="w-full justify-between md:w-auto md:justify-start"
+                options={[
+                  { value: "tickets", label: "Tickets", count: list.length },
+                  { value: "servicios", label: "Servicios" },
+                ]}
+              />
+            }
+            busqueda={
+              vista === "tickets" ? (
+                <div className="relative w-full md:w-64">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <Input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Buscar por cliente, equipo o IMEI…"
+                    className={cn("w-full pl-9", filterPill)}
+                    aria-label="Buscar tickets"
+                  />
+                </div>
+              ) : undefined
+            }
+            filtros={
+              vista === "tickets" ? (
+                <>
+                  <Select
+                    value={tecFilter}
+                    onChange={(e) => setTecFilter(e.target.value)}
+                    className={cn("w-full md:w-52", filterPill)}
+                    aria-label="Filtrar por técnico"
                   >
-                    limpiar fecha
-                  </button>
-                )}
-              </div>
-
-              <button
-                onClick={() => setCreating(true)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft md:ml-auto md:w-auto"
-              >
-                <Plus className="h-4 w-4" />
-                Nuevo ticket
-              </button>
-            </>
-          )}
-        </div>
+                    <option value="todos">Todos los técnicos</option>
+                    <option value="sin">Sin asignar</option>
+                    {tecnicos.map((t) => (
+                      <option key={t.id} value={t.nombre}>
+                        {t.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                  {/* En mobile el estado ya se filtra con el desplegable del
+                      pipeline de arriba -- este queda solo de sm en adelante. */}
+                  <Select
+                    value={estFilter}
+                    onChange={(e) =>
+                      setEstFilter(e.target.value as "todos" | TicketStatus)
+                    }
+                    className={cn("hidden sm:block sm:w-52", filterPill)}
+                    aria-label="Filtrar por estado"
+                  >
+                    <option value="todos">Todos los estados</option>
+                    {TICKET_FLOW.map((s) => (
+                      <option key={s} value={s}>
+                        {ticketStatus[s].label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Select
+                    value={datePreset}
+                    onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+                    className={cn("w-full md:w-44", filterPill)}
+                    aria-label="Filtrar por fecha"
+                  >
+                    {DATE_PRESETS.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </Select>
+                  {datePreset === "personalizado" && (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="date"
+                        value={desde}
+                        onChange={(e) => setDesde(e.target.value)}
+                        className={cn("w-full md:w-36", filterPill)}
+                        aria-label="Desde"
+                      />
+                      <span className="text-xs text-neutral-400">a</span>
+                      <Input
+                        type="date"
+                        value={hasta}
+                        onChange={(e) => setHasta(e.target.value)}
+                        className={cn("w-full md:w-36", filterPill)}
+                        aria-label="Hasta"
+                      />
+                    </div>
+                  )}
+                  {datePreset !== "todos" && (
+                    <button
+                      onClick={() => {
+                        setDatePreset("todos");
+                        setDesde("");
+                        setHasta("");
+                      }}
+                      className="text-xs text-neutral-400 hover:text-neutral-600"
+                    >
+                      limpiar fecha
+                    </button>
+                  )}
+                </>
+              ) : undefined
+            }
+            accion={
+              vista === "tickets" ? (
+                <Button icon={Plus}
+                  onClick={() => setCreating(true)}
+                  variant="tonal" fullOnMobile
+                >
+                  Nuevo ticket
+                </Button>
+              ) : undefined
+            }
+          />
+        }
+      >
 
         {vista === "servicios" ? (
           <ServiciosCatalogo
@@ -685,41 +683,40 @@ export function ReparacionesClient({
         </Card>
         </>
         )}
-      </div>
+      </SeccionTabla>
 
       {/* Detalle */}
       <Dialog
         open={!!open}
         onClose={() => setOpenId(null)}
-        size="lg"
-        accent
+        size="3xl"
         title={open ? `Ticket #${open.id} · ${open.equipo}` : ""}
         description={open ? `${open.cliente} · ingresó ${open.ingreso}` : ""}
         footer={
           open && (
             <>
               {esAdmin && (
-                <button
+                <Button icon={Trash2}
                   onClick={() => setConfirmDelete(true)}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                  variant="danger-outline" fullOnMobile className="sm:mr-auto"
                 >
-                  <Trash2 className="h-4 w-4" /> Eliminar ticket
-                </button>
+                  Eliminar ticket
+                </Button>
               )}
-              <button
+              <Button
                 onClick={() => setOpenId(null)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+                variant="outline" fullOnMobile
               >
                 Cerrar
-              </button>
+              </Button>
               {open.estado !== "listo" && open.estado !== "entregado" && (
-                <button
+                <Button
                   onClick={() =>
                     ["en_reparacion", "esperando_repuesto"].includes(open.estado)
                       ? aplicarEstado(open.id, "listo")
                       : advance(open.id)
                   }
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
+                  variant="primary" fullOnMobile
                 >
                   {["en_reparacion", "esperando_repuesto"].includes(open.estado) ? (
                     <>Marcar listo</>
@@ -730,15 +727,15 @@ export function ReparacionesClient({
                       <ArrowRight className="h-4 w-4" />
                     </>
                   )}
-                </button>
+                </Button>
               )}
               {open.estado === "listo" && (
-                <button
+                <Button
                   onClick={() => setEntregando(open)}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
+                  variant="primary" fullOnMobile
                 >
                   Entregar equipo <ArrowRight className="h-4 w-4" />
-                </button>
+                </Button>
               )}
             </>
           )
@@ -746,6 +743,8 @@ export function ReparacionesClient({
       >
         {open && (
           <div className="space-y-4">
+            <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+              <div className="space-y-4">
             <div>
               <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
                 Información general
@@ -842,6 +841,8 @@ export function ReparacionesClient({
                 })}
               </ol>
             </div>
+            </div>
+
 
             {/* servicios */}
             <div>
@@ -1011,6 +1012,7 @@ export function ReparacionesClient({
                 </>
               )}
             </div>
+            </div>
 
             {open.nota && (
               <div className="rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
@@ -1019,36 +1021,36 @@ export function ReparacionesClient({
             )}
 
             <div className="flex flex-wrap items-center justify-center gap-2 border-t border-neutral-100 pt-3">
-              <button
+              <Button icon={FileText}
                 onClick={() => setRecibo({ ticket: open, tipo: "ingreso" })}
-                className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                variant="tonal" size="sm"
               >
-                <FileText className="h-3.5 w-3.5" /> Ticket de ingreso
-              </button>
+                Ticket de ingreso
+              </Button>
               {open.servicios.length > 0 && (
-                <button
+                <Button icon={Receipt}
                   onClick={() => setRecibo({ ticket: open, tipo: "presupuesto" })}
-                  className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                  variant="tonal" size="sm"
                 >
-                  <Receipt className="h-3.5 w-3.5" /> Presupuesto
-                </button>
+                  Presupuesto
+                </Button>
               )}
               {["listo", "entregado"].includes(open.estado) && (
-                <button
+                <Button icon={FileCheck2}
                   onClick={() => open.checklistEgreso && setRecibo({ ticket: open, tipo: "egreso" })}
                   disabled={!open.checklistEgreso}
                   title={!open.checklistEgreso ? "Completá el checklist de egreso primero" : undefined}
-                  className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-accent/40 disabled:hover:bg-transparent"
+                  variant="tonal" size="sm"
                 >
-                  <FileCheck2 className="h-3.5 w-3.5" /> Ticket de egreso
-                </button>
+                  Ticket de egreso
+                </Button>
               )}
-              <button
+              <Button icon={ClipboardCheck}
                 onClick={() => setChecklistEgresoTicket(open)}
-                className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                variant="tonal" size="sm"
               >
-                <ClipboardCheck className="h-3.5 w-3.5" /> Checklist
-              </button>
+                Checklist
+              </Button>
             </div>
           </div>
         )}
@@ -1261,7 +1263,7 @@ export function ReparacionesClient({
       <Dialog
         open={!!checklistEgresoTicket}
         onClose={() => setChecklistEgresoTicket(null)}
-        size="lg"
+        size="3xl"
         title={checklistEgresoTicket ? `Checklist de egreso · Ticket #${checklistEgresoTicket.id}` : ""}
         description="Estado del equipo al momento de la entrega."
         footer={
@@ -1292,6 +1294,7 @@ export function ReparacionesClient({
       >
         {checklistEgresoTicket && (
           <ChecklistEditor
+            gridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
             value={checklistEgresoTicket.checklistEgreso ?? CHECKLIST_VACIO}
             onChange={(next) =>
               setChecklistEgresoTicket((t) => (t ? { ...t, checklistEgreso: next } : t))
@@ -1452,7 +1455,7 @@ function AgregarItemDialog({
                 ))}
               </Select>
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <Field label="Cantidad">
                 <Input
                   type="number"
@@ -1558,29 +1561,28 @@ function NuevoTicketDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      size="lg"
-      accent
+      size="3xl"
       title="Nuevo ticket de reparación"
       description="Se crea en estado «Recibido»."
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={submit}
             disabled={!equipo || !falla || !cliente || pending}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Creando…" : "Crear ticket"}
-          </button>
+          </Button>
         </>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start lg:gap-6 lg:space-y-0">
         <div className="space-y-3">
           <Field label="Cliente">
             <ClientePicker clientes={clientesOpciones} value={cliente} onChange={setCliente} />
@@ -1588,7 +1590,7 @@ function NuevoTicketDialog({
           <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Datos del equipo
           </p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Field label="Marca">
               <Input value={marca} onChange={(e) => setMarca(e.target.value)} />
             </Field>
@@ -1620,7 +1622,7 @@ function NuevoTicketDialog({
               <Input value={claveCodigo} onChange={(e) => setClaveCodigo(e.target.value)} />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Field label="Falla reportada">
               <Textarea
                 rows={2}
@@ -1654,7 +1656,11 @@ function NuevoTicketDialog({
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Checklist de ingreso
           </p>
-          <ChecklistEditor value={checklist} onChange={setChecklist} />
+          <ChecklistEditor
+            value={checklist}
+            onChange={setChecklist}
+            gridClassName="grid-cols-1 sm:grid-cols-2"
+          />
         </div>
       </div>
     </Dialog>
@@ -1819,33 +1825,36 @@ function EntregarEquipoDialog({
     <Dialog
       open={!!ticket}
       onClose={onClose}
-      size="lg"
-      accent
+      size="3xl"
       title="Entregar equipo"
       description={ticket ? `Ticket #${ticket.id} · ${ticket.cliente}` : ""}
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={confirmarClick}
             disabled={!valid || pending}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Entregando…" : "Confirmar entrega"}
-          </button>
+          </Button>
         </>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-start lg:gap-5 lg:space-y-0">
         {/* Checklist de egreso */}
         <Card className="p-4">
           <Eyebrow>Checklist de egreso</Eyebrow>
-          <ChecklistEditor value={checklist} onChange={setChecklist} />
+          <ChecklistEditor
+            value={checklist}
+            onChange={setChecklist}
+            gridClassName="grid-cols-1 sm:grid-cols-2"
+          />
         </Card>
 
         {/* Pago */}
@@ -1936,14 +1945,7 @@ function EntregarEquipoDialog({
                             }}
                           />
                         )}
-                        <button
-                          type="button"
-                          onClick={() => rmPago(p._k)}
-                          disabled={pagos.length === 1}
-                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmPago(p._k)} disabled={pagos.length === 1} />
                       </div>
                     </div>
                     {recargoPct > 0 && p.montoUsd > 0 && (
@@ -1977,13 +1979,9 @@ function EntregarEquipoDialog({
                   {restante > 0 ? "Faltan " : "Sobran "}
                   {fmtUsd(Math.abs(restante))}
                 </span>
-                <button
-                  type="button"
-                  onClick={saldar}
-                  className="rounded-md border border-neutral-200 px-2 py-0.5 text-[11px] font-medium text-neutral-600 hover:bg-neutral-50"
-                >
+                <Button type="button" variant="outline" size="sm" onClick={saldar}>
                   Saldar
-                </button>
+                </Button>
               </span>
             )}
           </div>
@@ -1993,26 +1991,25 @@ function EntregarEquipoDialog({
       <Dialog
         open={confirmMonto}
         onClose={() => setConfirmMonto(false)}
-        accent
         title="El monto no coincide"
         footer={
           <>
-            <button
+            <Button
               onClick={() => setConfirmMonto(false)}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+              variant="outline" fullOnMobile
             >
               Revisar pagos
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={pending}
               onClick={() => {
                 setConfirmMonto(false);
                 submit();
               }}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+              variant="primary" fullOnMobile
             >
               Confirmar de todas formas
-            </button>
+            </Button>
           </>
         }
       >

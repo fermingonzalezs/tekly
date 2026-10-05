@@ -31,14 +31,23 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 export function RealtimeProvider({
   organizationId,
   children,
+  enabled = true,
 }: {
   organizationId: string;
   children: React.ReactNode;
+  /** `false` = sin transporte (demo): `publish`/`subscribe` son no-op. Nunca
+   * montar la demo con el `organizationId` "demo" real -- el canal sería
+   * compartido entre visitantes. */
+  enabled?: boolean;
 }) {
   const listenersRef = useRef(new Set<Listener>());
   const publishImplRef = useRef<(e: AppEvent) => void>(() => {});
 
   useEffect(() => {
+    if (!enabled) {
+      publishImplRef.current = () => {};
+      return;
+    }
     const channelName = `crm-events:${organizationId}`;
 
     if (supabaseUrl && supabaseKey) {
@@ -63,21 +72,23 @@ export function RealtimeProvider({
     bc.onmessage = (ev) => listenersRef.current.forEach((fn) => fn(ev.data as AppEvent));
     publishImplRef.current = (e) => bc.postMessage(e);
     return () => bc.close();
-  }, [organizationId]);
+  }, [organizationId, enabled]);
 
   const value = useMemo<RealtimeCtx>(
     () => ({
       publish: (e, opts) => {
+        if (!enabled) return;
         if (opts?.self) listenersRef.current.forEach((fn) => fn(e));
         publishImplRef.current(e);
       },
       subscribe: (fn) => {
+        if (!enabled) return () => {};
         listenersRef.current.add(fn);
         return () => listenersRef.current.delete(fn);
       },
-      transport: supabaseUrl && supabaseKey ? "supabase" : "broadcastchannel",
+      transport: enabled && supabaseUrl && supabaseKey ? "supabase" : "broadcastchannel",
     }),
-    [],
+    [enabled],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -1,58 +1,60 @@
-import { Link2, Monitor, Radio, Users } from "lucide-react";
+import { Cloud, Link2, Users, Zap } from "lucide-react";
 import { RevealItem, RevealStagger } from "./ui/reveal";
+import { GLASS } from "./ui/glass";
+import { SECTION_WRAP } from "./ui/section-heading";
 
-const STATS = [
+/**
+ * Pilares: banda de vidrio con los 4 diferenciales del producto, justo
+ * debajo del hero. Cada pilar separado por una línea vertical fina (en
+ * mobile se apilan y la línea pasa a ser horizontal).
+ */
+
+const PILARES = [
   {
     icon: Users,
     title: "Multi-rol",
-    detail:
-      "Admin, vendedor y técnico: cada uno entra con su propio usuario y ve solo lo que le toca hacer.",
+    detail: "Admin, vendedor y técnico: cada uno ve solo lo que necesita.",
   },
   {
-    icon: Radio,
-    title: "Actualización en tiempo real",
-    detail:
-      "Una venta, un ticket o un turno cargado por un compañero aparece al instante en tu pantalla, sin recargar.",
+    icon: Zap,
+    title: "Tiempo real",
+    detail: "Una venta en el mostrador se refleja en el stock y la caja al instante.",
   },
   {
     icon: Link2,
     title: "Todo conectado",
-    detail:
-      "Una venta descuenta stock, genera el movimiento de caja y queda en la ficha del cliente, sola.",
+    detail: "Un canje entra al inventario y una reparación cobrada, a la caja.",
   },
   {
-    icon: Monitor,
+    icon: Cloud,
     title: "Sin instalación",
-    detail:
-      "Funciona en el navegador, desde cualquier compu del local. No hay nada que instalar ni mantener.",
+    detail: "Funciona en el navegador, desde la PC del local o el celular.",
   },
 ];
 
-/**
- * Franja de confianza. Todavía no hay clientes reales para mostrar, así que
- * en vez de logos inventados van datos factuales del producto -- solo los
- * que le importan a quien todavía no usa un CRM (multi-organización y RLS
- * son detalles de implementación, no un argumento de venta).
- */
+// Divisores por posición: 1 columna (mobile) → línea arriba; 2 columnas
+// (sm) → grilla 2×2; 4 columnas (lg) → solo líneas verticales.
+const BORDES = [
+  "",
+  "border-t sm:border-l sm:border-t-0",
+  "border-t lg:border-l lg:border-t-0",
+  "border-t sm:border-l lg:border-t-0",
+];
+
 export function MarketingLogosStrip() {
   return (
-    <section className="border-y border-neutral-200/80 bg-white/60">
-      <RevealStagger className="mx-auto grid max-w-[100rem] grid-cols-1 divide-y divide-neutral-200/80 px-4 sm:px-6 lg:grid-cols-4 lg:divide-x lg:divide-y-0 xl:px-12">
-        {STATS.map((stat) => (
+    <section className={`${SECTION_WRAP} pb-16 sm:pb-28`}>
+      <RevealStagger
+        className={`grid overflow-hidden rounded-3xl sm:grid-cols-2 lg:grid-cols-4 ${GLASS}`}
+      >
+        {PILARES.map(({ icon: Icon, title, detail }, i) => (
           <RevealItem
-            key={stat.title}
-            className="flex flex-col items-center px-5 py-6 text-center"
+            key={title}
+            className={`flex h-full flex-col gap-2.5 border-neutral-900/[.06] p-7 ${BORDES[i]}`}
           >
-            <p className="inline-flex items-center justify-center text-xs font-semibold text-neutral-900">
-              <stat.icon
-                className="mr-1.5 h-3.5 w-3.5 shrink-0 text-accent"
-                strokeWidth={2}
-              />
-              {stat.title}
-            </p>
-            <p className="mt-1.5 line-clamp-3 max-w-[200px] text-[11px] leading-relaxed text-neutral-500">
-              {stat.detail}
-            </p>
+            <Icon className="h-[22px] w-[22px] text-accent" strokeWidth={2} />
+            <span className="text-base font-semibold">{title}</span>
+            <span className="text-sm leading-normal text-neutral-600">{detail}</span>
           </RevealItem>
         ))}
       </RevealStagger>

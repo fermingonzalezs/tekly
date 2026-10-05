@@ -1,0 +1,38 @@
+---
+titulo: "Cargar el inventario inicial (manual o CSV)"
+resumen: "Dos formas de arrancar el stock: alta manual de a uno, o importar todos los equipos y clientes desde un CSV."
+seccion: primeros-pasos
+roles: [admin]
+orden: 4
+actualizado: 2026-10-04
+---
+
+Tenés dos caminos. Si tenés poco stock, cargá a mano. Si venís de otro sistema, importá un CSV.
+
+## Alta manual
+
+<Paso n={1} titulo="Inventario → Equipos → Agregar equipo">
+Cargá **modelo, almacenamiento, color, IMEI, batería, condición, costo y precio**. El IMEI es único: dos equipos no pueden repetirlo.
+</Paso>
+
+<Paso n={2} titulo="Cargá repuestos y «Otros» en sus pestañas">
+Los **Repuestos** son stock por modelo (pantallas, baterías). **Otros** son iPad, AirPods, accesorios. Podés usar **Ingreso** para sumar unidades a un ítem que ya existe.
+</Paso>
+
+## Importar desde CSV
+
+<Paso n={1} titulo="Configuración → Importar datos">
+Elegí si vas a importar **equipos** o **clientes**. Podés descargar la **plantilla** con las columnas correctas.
+</Paso>
+
+<Paso n={2} titulo="Subí el archivo">
+Tekly valida cada fila y avisa de las que tienen errores antes de importar. Detecta duplicados: equipos por **IMEI** y clientes por **teléfono/email**.
+</Paso>
+
+<Aviso titulo="No importa ventas históricas" tono="warning">
+La importación es para el **stock actual** y los **clientes**, no para ventas del pasado. Un equipo importado puede quedar «disponible» listo para vender o «vendido» si ya no lo tenés.
+</Aviso>
+
+## Ver también
+
+- [Módulo Inventario](/ayuda/inventario/guia)

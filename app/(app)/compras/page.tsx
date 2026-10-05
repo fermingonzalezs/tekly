@@ -16,7 +16,7 @@ export default async function ComprasPage() {
   ]);
 
   return (
-    <Section title="Compras">
+    <Section title="Compras" ayuda="compras">
       <ComprasClient initialCompras={compras} user={user} negocio={negocio} cajas={cajas} />
     </Section>
   );

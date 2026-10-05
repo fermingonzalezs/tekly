@@ -40,7 +40,7 @@ export function CohortHeatmap({
         <ChartTitle align="left" divider sub="% de cada cohorte que volvió a operar cada mes">
           Cohortes de clientes
         </ChartTitle>
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin clientes con operaciones todavía -- no hay cohortes que seguir.
         </p>
       </Card>
@@ -62,7 +62,7 @@ export function CohortHeatmap({
       <div className="mt-3 overflow-x-auto border-t border-neutral-100 pt-3">
         <div className="min-w-[560px]">
           {/* header */}
-          <div className="grid grid-cols-[64px_repeat(8,1fr)] gap-1.5 text-center text-[10px] font-medium text-neutral-400">
+          <div className="grid grid-cols-[64px_repeat(8,1fr)] gap-1.5 text-center text-[10px] font-medium text-neutral-500">
             <span />
             {Array.from({ length: COHORTE_MESES + 1 }, (_, m) => (
               <span key={m}>M{m}</span>
@@ -138,7 +138,7 @@ export function CohortHeatmap({
           ))}
         </div>
       </div>
-      <p className="mt-3 text-[11px] leading-relaxed text-neutral-400">
+      <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
         Retención por actividad (una reparación también es volver) · el mes en
         curso está a medias -- las cohortes recientes ganan contexto con el tiempo.
       </p>
@@ -151,7 +151,7 @@ export function CohortHeatmap({
             {delSel.length} {delSel.length === 1 ? "cliente" : "clientes"}
           </p>
           {delSel.length === 0 ? (
-            <p className="mt-2 text-xs text-neutral-400">Sin actividad en ese mes.</p>
+            <p className="mt-2 text-xs text-neutral-500">Sin actividad en ese mes.</p>
           ) : (
             <div className="mt-2 space-y-0.5">
               {delSel.map((c) => (
@@ -163,13 +163,13 @@ export function CohortHeatmap({
                   <span className="truncate font-medium text-neutral-800">
                     {c.nombre}
                   </span>
-                  <span className="ml-auto shrink-0 text-neutral-400">
+                  <span className="ml-auto shrink-0 text-neutral-500">
                     {c.operaciones} ops
                   </span>
                   <span className="shrink-0 tabular-nums text-neutral-500">
                     {fmtUsd(c.gastadoUsd)}
                   </span>
-                  <span className="shrink-0 tabular-nums text-neutral-400">
+                  <span className="shrink-0 tabular-nums text-neutral-500">
                     últ. {c.ultimaISO ? fmtDateSlash(c.ultimaISO) : "—"}
                   </span>
                 </Link>

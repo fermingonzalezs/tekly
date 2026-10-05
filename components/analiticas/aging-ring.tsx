@@ -34,7 +34,7 @@ export function AgingRing({ buckets }: { buckets: ReturnType<typeof agingBuckets
         Antigüedad del stock
       </ChartTitle>
       {totalUnidades === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin registros de ingreso para medir la antigüedad -- los ítems anteriores a los
           movimientos de stock no tienen fecha.
         </p>
@@ -82,7 +82,7 @@ export function AgingRing({ buckets }: { buckets: ReturnType<typeof agingBuckets
               <span className="font-grotesk text-2xl font-semibold tabular-nums text-neutral-900">
                 {activo ? activo.total.unidades : totalUnidades}
               </span>
-              <span className="text-[11px] text-neutral-400">
+              <span className="text-[11px] text-neutral-500">
                 {activo ? activo.rango + " días" : "unidades en stock"}
               </span>
             </div>
@@ -107,7 +107,7 @@ export function AgingRing({ buckets }: { buckets: ReturnType<typeof agingBuckets
                   style={{ background: colorDe(i) }}
                 />
                 {b.rango}
-                <span className="text-neutral-400">{b.total.unidades}u</span>
+                <span className="text-neutral-500">{b.total.unidades}u</span>
               </button>
             ))}
           </div>

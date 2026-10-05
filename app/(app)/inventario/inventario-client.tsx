@@ -7,19 +7,19 @@ import {
   ClipboardCheck,
   Search,
   ChevronDown,
-  ChevronUp,
   Tag,
   Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { InventarioValor } from "@/components/inventario-valor";
-import { InventarioUnidades } from "@/components/inventario-unidades";
+import { SeccionTabla } from "@/components/ui/seccion-tabla";
+import { BarraFiltros } from "@/components/ui/barra-filtros";
+import { GraficoDona, GraficoRanking } from "@/components/seccion/graficos";
 import {
   equipoStatus,
   otroCategoria,
@@ -29,7 +29,18 @@ import {
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import { GHOST_STRIPES } from "@/lib/chart";
 import { fmtUsd } from "@/lib/format";
-import { otroCantidad, otroCostoPromedio, otroValorStock } from "@/lib/otros";
+import { otroCantidad, otroCostoPromedio } from "@/lib/otros";
+import {
+  agingEquipos,
+  equiposPorEstado,
+  resumenEquipos,
+  resumenOtros,
+  resumenRepuestos,
+  stockVsMinimo,
+  unidadesPorCategoria,
+  valorPorCategoria,
+  valorPorProveedor,
+} from "@/lib/inventario";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import type {
@@ -59,6 +70,7 @@ import {
   getMovimientosAction,
 } from "./actions";
 import type { EquipoInput, RepuestoInput } from "@/lib/db/inventario";
+import type { MovimientoStockBulk } from "@/lib/db/inventario";
 import type { SessionUser } from "@/lib/auth/types";
 
 type Tab = "equipos" | "repuestos" | "otros";
@@ -69,30 +81,6 @@ const CATS: OtroCategoria[] = [
   "accesorio",
   "otro",
 ];
-
-function StatsToggle({
-  open,
-  onToggle,
-}: {
-  open: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex justify-end">
-      <button
-        onClick={onToggle}
-        className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
-      >
-        {open ? (
-          <ChevronUp className="h-3.5 w-3.5" />
-        ) : (
-          <ChevronDown className="h-3.5 w-3.5" />
-        )}
-        {open ? "Ocultar tarjetas" : "Mostrar tarjetas"}
-      </button>
-    </div>
-  );
-}
 
 function MovimientosLog({ movimientos }: { movimientos: Movimiento[] | null }) {
   return (
@@ -184,11 +172,19 @@ export function InventarioClient({
   initialEquipos,
   initialRepuestos,
   initialOtros,
+  movimientos,
+  hoy,
   user,
 }: {
   initialEquipos: Equipo[];
   initialRepuestos: Repuesto[];
   initialOtros: OtroItem[];
+  /** Movimientos de stock de la org (ingreso/egreso/baja) -- alimentan el
+   *  gráfico de antigüedad de Equipos. */
+  movimientos: MovimientoStockBulk[];
+  /** "Hoy" en hora de Argentina (server) -- pasarlo evita el mismatch de
+   *  hidratación al medir antigüedad con `new Date()` en cada lado. */
+  hoy: string;
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
@@ -219,11 +215,9 @@ export function InventarioClient({
     "equipos" | "repuestos" | "otros" | null
   >(null);
   const [q, setQ] = useState(urlParams.get("q") ?? "");
-  const [statsOpen, setStatsOpen] = useState(true);
-  const [chartsOpen, setChartsOpen] = useState(true);
-  const [equipoFiltro, setEquipoFiltro] = useState<
-    "todos" | "disponible" | "reservado"
-  >("todos");
+  const [equipoFiltro, setEquipoFiltro] = useState<"todos" | EquipoStatus>(
+    "todos",
+  );
   const [repuestoFiltro, setRepuestoFiltro] = useState<
     "todos" | "bajo" | "sin"
   >("todos");
@@ -315,235 +309,318 @@ export function InventarioClient({
     { value: "repuestos" as Tab, label: "Repuestos", count: repuestos.length },
     { value: "otros" as Tab, label: "Otros", count: otros.length },
   ];
-  // En mobile el Tabs se repite justo arriba de las tarjetas de cada pestaña
-  // (después de las StatCard) en vez de ir arriba de todo junto al buscador.
-  const mobileTabs = (
-    <Tabs
-      value={tab}
-      onChange={switchTab}
-      className="w-full justify-between md:hidden"
-      options={tabOptions}
-    />
-  );
 
-  // En mobile los filtros (buscador + acciones) van abajo de las StatCard de
-  // cada pestaña, no arriba de todo -- se repiten igual que mobileTabs.
-  const mobileFilters = (
-    <div className="flex flex-col gap-2 md:hidden">
-      <div className="relative w-full">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={
-            tab === "equipos"
-              ? "Buscar por modelo, color o IMEI…"
-              : tab === "repuestos"
-                ? "Buscar por nombre, SKU, modelo o proveedor…"
-                : "Buscar por nombre…"
-          }
-          className={cn("w-full pl-9", filterPill)}
-        />
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full sm:w-auto"
-          onClick={() => setRecuentoModalTipo(tab)}
-        >
-          <ClipboardCheck className="h-4 w-4" /> Recuento
-        </Button>
-        <button
-          onClick={() =>
-            tab === "equipos"
-              ? setAddEquipo(true)
-              : tab === "repuestos"
-                ? setAddRepuesto(true)
-                : setAddOtro(true)
-          }
-          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-        >
-          <Plus className="h-4 w-4" />
-          {tab === "equipos"
-            ? "Agregar equipo"
+  // Derivados de la tab activa. Las tarjetas y los gráficos son una foto del
+  // inventario completo (no de la búsqueda): el buscador filtra la tabla, no
+  // los KPIs.
+  const eq = resumenEquipos(equipos);
+  const rep = resumenRepuestos(repuestos);
+  const ot = resumenOtros(otros);
+  const estadoSlices = equiposPorEstado(equipos);
+  const agingRows = agingEquipos(equipos, movimientos, hoy);
+  const stockMinRows = stockVsMinimo(repuestos);
+  const proveedorRows = valorPorProveedor(repuestos);
+  const categoriaUnidades = unidadesPorCategoria(otros);
+  const categoriaValor = valorPorCategoria(otros);
+
+  const busqueda = (
+    <div className="relative w-full md:w-64">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+      <Input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={
+          tab === "equipos"
+            ? "Buscar por modelo, color o IMEI…"
             : tab === "repuestos"
-              ? "Agregar / ingresar repuesto"
-              : "Agregar / ingresar producto"}
-        </button>
-      </div>
+              ? "Buscar por nombre, SKU, modelo o proveedor…"
+              : "Buscar por nombre…"
+        }
+        className={cn("w-full pl-9", filterPill)}
+        aria-label="Buscar en inventario"
+      />
     </div>
   );
 
+  const accion = (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <Button icon={ClipboardCheck}
+        variant="outline"
+        size="sm"
+        className="w-full sm:w-auto"
+        onClick={() => setRecuentoModalTipo(tab)}
+      >
+        Recuento
+      </Button>
+      <Button icon={Plus}
+        onClick={() =>
+          tab === "equipos"
+            ? setAddEquipo(true)
+            : tab === "repuestos"
+              ? setAddRepuesto(true)
+              : setAddOtro(true)
+        }
+        variant="tonal" fullOnMobile
+      >
+        {tab === "equipos"
+          ? "Agregar equipo"
+          : tab === "repuestos"
+            ? "Agregar / ingresar repuesto"
+            : "Agregar / ingresar producto"}
+      </Button>
+    </div>
+  );
+
+  const filtrosTab =
+    tab === "equipos" ? (
+      <Select
+        value={equipoFiltro}
+        onChange={(e) =>
+          setEquipoFiltro(e.target.value as "todos" | EquipoStatus)
+        }
+        className={cn("w-full md:w-52", filterPill)}
+        aria-label="Filtrar por estado"
+      >
+        <option value="todos">Todos los estados</option>
+        {ESTADOS.map((s) => (
+          <option key={s} value={s}>
+            {equipoStatus[s].label}
+          </option>
+        ))}
+      </Select>
+    ) : tab === "repuestos" ? (
+      <Select
+        value={repuestoFiltro}
+        onChange={(e) =>
+          setRepuestoFiltro(e.target.value as "todos" | "bajo" | "sin")
+        }
+        className={cn("w-full md:w-52", filterPill)}
+        aria-label="Filtrar por stock"
+      >
+        <option value="todos">Todo el stock</option>
+        <option value="bajo">Bajo mínimo</option>
+        <option value="sin">Sin stock</option>
+      </Select>
+    ) : (
+      <Select
+        value={otroFiltro}
+        onChange={(e) =>
+          setOtroFiltro(e.target.value as "todos" | "serializado")
+        }
+        className={cn("w-full md:w-52", filterPill)}
+        aria-label="Filtrar por tipo"
+      >
+        <option value="todos">Todos los productos</option>
+        <option value="serializado">Serializados</option>
+      </Select>
+    );
+
+  const filtrosActivos =
+    (tab === "equipos"
+      ? equipoFiltro !== "todos"
+      : tab === "repuestos"
+        ? repuestoFiltro !== "todos"
+        : otroFiltro !== "todos")
+      ? 1
+      : 0;
+
   return (
     <>
-      <div className="space-y-5">
-        <div>
-          <div className="flex justify-end">
-            <button
-              onClick={() => setChartsOpen((v) => !v)}
-              className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
-            >
-              {chartsOpen ? (
-                <ChevronUp className="h-3.5 w-3.5" />
+      <SeccionTabla
+        id="inventario"
+        graficos={
+          tab === "equipos" ? (
+            <>
+              <GraficoDona
+                title="Estado de los equipos"
+                sub="unidades por estado"
+                data={estadoSlices}
+                vacio="Sin equipos cargados."
+              />
+              <GraficoRanking
+                title="Antigüedad del stock"
+                sub="equipos sin vender, por días desde el ingreso"
+                rows={agingRows}
+                vacio="Sin registros de ingreso para medir la antigüedad."
+              />
+            </>
+          ) : tab === "repuestos" ? (
+            <>
+              <GraficoRanking
+                title="Stock vs mínimo"
+                sub="unidades en stock · el mínimo va en cada fila"
+                rows={stockMinRows}
+                vacio="Sin repuestos con stock mínimo definido."
+              />
+              <GraficoRanking
+                title="Valor por proveedor"
+                sub="a costo"
+                rows={proveedorRows}
+                fmt={fmtUsd}
+                vacio="Sin repuestos cargados."
+              />
+            </>
+          ) : (
+            <>
+              <GraficoDona
+                title="Unidades por categoría"
+                sub="unidades en stock"
+                data={categoriaUnidades}
+                vacio="Sin productos cargados."
+              />
+              <GraficoRanking
+                title="Valor por categoría"
+                sub="a costo"
+                rows={categoriaValor}
+                fmt={fmtUsd}
+                vacio="Sin productos cargados."
+              />
+            </>
+          )
+        }
+        tarjetas={
+          tab === "equipos" ? (
+            <>
+              <StatCard
+                align="left"
+                label="Equipos"
+                value={eq.total}
+                hint="unidades"
+              />
+              {puedeVerCosto ? (
+                <StatCard
+                  align="left"
+                  label="Valor a costo"
+                  value={fmtUsd(eq.valorCosto)}
+                  hint="inventario histórico"
+                />
               ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
-              )}
-              {chartsOpen ? "Ocultar gráficos" : "Mostrar gráficos"}
-            </button>
-          </div>
-          {chartsOpen && (
-            <div className={cn("mt-3 grid gap-5", puedeVerCosto && "lg:grid-cols-2")}>
-              {puedeVerCosto && (
-                <InventarioValor
-                  equipos={equipos}
-                  repuestos={repuestos}
-                  otros={otros}
+                <StatCard
+                  align="left"
+                  label="Valor de venta"
+                  value={fmtUsd(eq.valorVenta)}
+                  hint="precio de lista"
                 />
               )}
-              <InventarioUnidades
-                equipos={equipos}
-                repuestos={repuestos}
-                otros={otros}
+              <StatCard
+                align="left"
+                label="Disponibles"
+                value={eq.disponibles}
+                hint="para vender"
               />
-            </div>
-          )}
-        </div>
-
-        {/* tabs + filtros + acción, todo en la misma fila -- solo desktop;
-            en mobile el buscador/acciones van abajo de las StatCard de cada
-            pestaña (mobileFilters) y el Tabs justo arriba de las tarjetas
-            (mobileTabs). */}
-        <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
-          <div className="relative w-full md:w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={
-                tab === "equipos"
-                  ? "Buscar por modelo, color o IMEI…"
-                  : tab === "repuestos"
-                    ? "Buscar por nombre, SKU, modelo o proveedor…"
-                    : "Buscar por nombre…"
-              }
-              className={cn("w-full pl-9", filterPill)}
-            />
-          </div>
-          <Tabs
-            value={tab}
-            onChange={switchTab}
-            className="hidden md:flex md:w-auto md:justify-start"
-            options={tabOptions}
+              {puedeVerCosto ? (
+                <StatCard
+                  align="left"
+                  label="Capital inmovilizado"
+                  value={fmtUsd(eq.capitalInmovilizado)}
+                  hint="stock sin vender"
+                />
+              ) : (
+                <StatCard
+                  align="left"
+                  label="Reservados"
+                  value={eq.reservados}
+                  hint="turno pendiente"
+                />
+              )}
+            </>
+          ) : tab === "repuestos" ? (
+            <>
+              <StatCard
+                align="left"
+                label="Repuestos"
+                value={rep.total}
+                hint="SKUs"
+              />
+              {puedeVerCosto ? (
+                <StatCard
+                  align="left"
+                  label="Valor"
+                  value={fmtUsd(rep.valor)}
+                  hint="a costo"
+                />
+              ) : (
+                <StatCard
+                  align="left"
+                  label="Unidades"
+                  value={rep.unidades}
+                  hint="en stock"
+                />
+              )}
+              <StatCard
+                align="left"
+                label="Bajo mínimo"
+                value={rep.bajoMinimo}
+                hint="≤ punto de reposición"
+              />
+              <StatCard
+                align="left"
+                label="Sin stock"
+                value={rep.sinStock}
+                hint="reponer ya"
+              />
+            </>
+          ) : (
+            <>
+              <StatCard
+                align="left"
+                label="Ítems"
+                value={ot.total}
+                hint="productos"
+              />
+              <StatCard
+                align="left"
+                label="Unidades"
+                value={ot.unidades}
+                hint="en stock"
+              />
+              {puedeVerCosto ? (
+                <StatCard
+                  align="left"
+                  label="Valor"
+                  value={fmtUsd(ot.valor)}
+                  hint="a costo"
+                />
+              ) : (
+                <StatCard
+                  align="left"
+                  label="Valor de venta"
+                  value={fmtUsd(ot.valorVenta)}
+                  hint="precio de lista"
+                />
+              )}
+              <StatCard
+                align="left"
+                label="Serializados"
+                value={ot.serializados}
+                hint="con IMEI/serial"
+              />
+            </>
+          )
+        }
+        filtros={
+          <BarraFiltros
+            contadorFiltros={filtrosActivos + (q ? 1 : 0)}
+            tabs={
+              <Tabs
+                value={tab}
+                onChange={switchTab}
+                className="w-full justify-between md:w-auto md:justify-start"
+                options={tabOptions}
+              />
+            }
+            busqueda={busqueda}
+            filtros={filtrosTab}
+            accion={accion}
           />
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center md:ml-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto"
-              onClick={() => setRecuentoModalTipo(tab)}
-            >
-              <ClipboardCheck className="h-4 w-4" /> Recuento
-            </Button>
-            <button
-              onClick={() =>
-                tab === "equipos"
-                  ? setAddEquipo(true)
-                  : tab === "repuestos"
-                    ? setAddRepuesto(true)
-                    : setAddOtro(true)
-              }
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-            >
-              <Plus className="h-4 w-4" />
-              {tab === "equipos"
-                ? "Agregar equipo"
-                : tab === "repuestos"
-                  ? "Agregar / ingresar repuesto"
-                  : "Agregar / ingresar producto"}
-            </button>
-          </div>
-        </div>
+        }
+      >
 
         {/* ── Equipos ───────────────────────────── */}
         {tab === "equipos" &&
           (() => {
-            const disponibles = equipos.filter(
-              (e) => e.estado === "disponible",
-            ).length;
-            const reservados = equipos.filter(
-              (e) => e.estado === "reservado",
-            ).length;
-            const valor = equipos
-              .filter((e) => e.estado !== "vendido")
-              .reduce((a, e) => a + e.costoUsd, 0);
-            const valorVenta = equipos
-              .filter((e) => e.estado !== "vendido")
-              .reduce((a, e) => a + e.precioUsd, 0);
-
             return (
               <>
-                <StatsToggle
-                  open={statsOpen}
-                  onToggle={() => setStatsOpen((v) => !v)}
-                />
-                {statsOpen && (
-                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                    <StatCard
-                      align="left"
-                      label="Equipos"
-                      value={equipos.length}
-                      hint="unidades"
-                      active={equipoFiltro === "todos"}
-                      onClick={() => setEquipoFiltro("todos")}
-                    />
-                    <StatCard
-                      align="left"
-                      label="Disponibles"
-                      value={disponibles}
-                      hint="para vender"
-                      active={equipoFiltro === "disponible"}
-                      onClick={() =>
-                        setEquipoFiltro(
-                          equipoFiltro === "disponible" ? "todos" : "disponible",
-                        )
-                      }
-                    />
-                    <StatCard
-                      align="left"
-                      label="Reservados"
-                      value={reservados}
-                      hint="turno pendiente"
-                      valueClassName={reservados ? "text-blue-600" : undefined}
-                      active={equipoFiltro === "reservado"}
-                      onClick={() =>
-                        setEquipoFiltro(
-                          equipoFiltro === "reservado" ? "todos" : "reservado",
-                        )
-                      }
-                    />
-                    {puedeVerCosto ? (
-                      <StatCard
-                        align="left"
-                        label="Valor de stock"
-                        value={fmtUsd(valor)}
-                        hint="a costo"
-                      />
-                    ) : (
-                      <StatCard
-                        align="left"
-                        label="Valor de venta"
-                        value={fmtUsd(valorVenta)}
-                        hint="precio de lista"
-                      />
-                    )}
-                  </div>
-                )}
-
-                {mobileFilters}
-
-                {mobileTabs}
-
                 <div className="space-y-2 md:hidden">
                   {equiposFiltrados.map((e) => (
                     <Card
@@ -702,80 +779,12 @@ export function InventarioClient({
         {/* ── Repuestos ─────────────────────────── */}
         {tab === "repuestos" &&
           (() => {
-            const nBajo = repuestos.filter(
-              (r) => r.stock > 0 && r.stock <= r.stockMin,
-            ).length;
-            const nSin = repuestos.filter((r) => r.stock <= 0).length;
-            const valor = repuestos.reduce(
-              (a, r) => a + r.stock * r.costoUsd,
-              0,
-            );
             const reponerList = repuestos
               .filter((r) => r.stock <= r.stockMin)
               .sort((a, b) => a.stock / a.stockMin - b.stock / b.stockMin);
 
             return (
               <>
-                <StatsToggle
-                  open={statsOpen}
-                  onToggle={() => setStatsOpen((v) => !v)}
-                />
-                {statsOpen && (
-                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                    <StatCard
-                      align="left"
-                      label="Repuestos"
-                      value={repuestos.length}
-                      hint="SKUs"
-                      active={repuestoFiltro === "todos"}
-                      onClick={() => setRepuestoFiltro("todos")}
-                    />
-                    <StatCard
-                      align="left"
-                      label="Stock bajo"
-                      value={nBajo}
-                      hint="≤ punto de repo."
-                      active={repuestoFiltro === "bajo"}
-                      onClick={() =>
-                        setRepuestoFiltro(
-                          repuestoFiltro === "bajo" ? "todos" : "bajo",
-                        )
-                      }
-                    />
-                    <StatCard
-                      align="left"
-                      label="Sin stock"
-                      value={nSin}
-                      hint="reponer ya"
-                      active={repuestoFiltro === "sin"}
-                      onClick={() =>
-                        setRepuestoFiltro(
-                          repuestoFiltro === "sin" ? "todos" : "sin",
-                        )
-                      }
-                    />
-                    {puedeVerCosto ? (
-                      <StatCard
-                        align="left"
-                        label="Valor de stock"
-                        value={fmtUsd(valor)}
-                        hint="a costo"
-                      />
-                    ) : (
-                      <StatCard
-                        align="left"
-                        label="Unidades"
-                        value={repuestos.reduce((a, r) => a + r.stock, 0)}
-                        hint="en stock"
-                      />
-                    )}
-                  </div>
-                )}
-
-                {mobileFilters}
-
-                {mobileTabs}
-
                 <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
                   <div className="space-y-2 md:hidden">
                     {repuestosFiltrados.map((r) => {
@@ -837,15 +846,15 @@ export function InventarioClient({
                                 />
                               </div>
                             </div>
-                            <button
+                            <Button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 reponer(r.id);
                               }}
-                              className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                              variant="tonal" size="sm"
                             >
                               Reponer
-                            </button>
+                            </Button>
                           </div>
                           </div>
                         </Card>
@@ -967,15 +976,15 @@ export function InventarioClient({
                                 </span>
                               </td>
                               <td className="px-5 py-2 text-center">
-                                <button
+                                <Button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     reponer(r.id);
                                   }}
-                                  className="mx-auto flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                                  variant="tonal" size="sm"
                                 >
                                   Reponer
-                                </button>
+                                </Button>
                               </td>
                             </tr>
                           );
@@ -1020,12 +1029,12 @@ export function InventarioClient({
                                 <span className="truncate text-sm font-medium">
                                   {r.nombre}
                                 </span>
-                                <button
+                                <Button
                                   onClick={() => reponer(r.id)}
-                                  className="shrink-0 rounded-full bg-accent px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white"
+                                  variant="primary"
                                 >
                                   Reponer
-                                </button>
+                                </Button>
                               </div>
                               <p className="text-[11px] text-neutral-400">
                                 {r.sku} · {r.proveedor}
@@ -1066,70 +1075,8 @@ export function InventarioClient({
         {/* ── Otros ─────────────────────────────── */}
         {tab === "otros" &&
           (() => {
-            const unidades = otros.reduce((a, o) => a + otroCantidad(o), 0);
-            const serializados = otros.filter((o) => o.serializado).length;
-            const valor = otros.reduce((a, o) => a + otroValorStock(o), 0);
-            const valorVenta = otros.reduce(
-              (a, o) => a + otroCantidad(o) * o.precioUsd,
-              0,
-            );
-
             return (
               <>
-                <StatsToggle
-                  open={statsOpen}
-                  onToggle={() => setStatsOpen((v) => !v)}
-                />
-                {statsOpen && (
-                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                    <StatCard
-                      align="left"
-                      label="Productos"
-                      value={otros.length}
-                      hint="SKUs"
-                      active={otroFiltro === "todos"}
-                      onClick={() => setOtroFiltro("todos")}
-                    />
-                    <StatCard
-                      align="left"
-                      label="Unidades"
-                      value={unidades}
-                      hint="en stock"
-                    />
-                    <StatCard
-                      align="left"
-                      label="Serializados"
-                      value={serializados}
-                      hint="con IMEI/serial"
-                      active={otroFiltro === "serializado"}
-                      onClick={() =>
-                        setOtroFiltro(
-                          otroFiltro === "serializado" ? "todos" : "serializado",
-                        )
-                      }
-                    />
-                    {puedeVerCosto ? (
-                      <StatCard
-                        align="left"
-                        label="Valor de stock"
-                        value={fmtUsd(valor)}
-                        hint="a costo"
-                      />
-                    ) : (
-                      <StatCard
-                        align="left"
-                        label="Valor de venta"
-                        value={fmtUsd(valorVenta)}
-                        hint="precio de lista"
-                      />
-                    )}
-                  </div>
-                )}
-
-                {mobileFilters}
-
-                {mobileTabs}
-
                 <div className="space-y-2 md:hidden">
                   {otrosFiltrados.map((o) => {
                     const cantidad = otroCantidad(o);
@@ -1145,18 +1092,10 @@ export function InventarioClient({
                             {o.nombre}
                           </p>
                           {o.serializado && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
+                            <IconButton aria-label="Expandir" icon={ChevronDown} variant="ghost" size="sm" onClick={(e) => {
                                 e.stopPropagation();
                                 toggleExpandOtro(o.id);
-                              }}
-                              className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
-                            >
-                              <ChevronDown
-                                className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")}
-                              />
-                            </button>
+                              }} />
                           )}
                         </div>
 
@@ -1401,7 +1340,7 @@ export function InventarioClient({
               </>
             );
           })()}
-      </div>
+      </SeccionTabla>
 
       {/* Agregar equipo */}
       <EquipoFormDialog
@@ -1675,26 +1614,25 @@ function RecuentoModalDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      size="lg"
-      accent
+      size="2xl"
       title={RECUENTO_MODAL_TITULO[tipo]}
       description={`Anotá la cantidad real al lado de cada producto — lo que dejes en blanco no entra en el recuento. El stock no se ajusta solo, queda pendiente de revisión en «Recuentos».`}
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
             disabled={pending}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={guardar}
             disabled={pending || contadosCount === 0}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Guardando…" : "Guardar recuento"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -1819,26 +1757,25 @@ function RecuentoEquiposModalDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      size="lg"
-      accent
+      size="2xl"
       title="Recuento de equipos"
       description="Tildá los equipos que encontraste físicamente -- las diferencias quedan pendientes de revisión en «Recuentos», no se marcan extraviados al toque. Los equipos vendidos no entran en el recuento."
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
             disabled={pending}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={guardar}
             disabled={pending}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Guardando…" : "Guardar recuento"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -1962,8 +1899,7 @@ function EquipoFormDialog({
       <Dialog
         open={open}
         onClose={onClose}
-        size="lg"
-        accent
+        size="3xl"
         title={edit ? `Equipo · ${equipo!.modelo}` : "Agregar equipo"}
         description={
           edit
@@ -1975,20 +1911,20 @@ function EquipoFormDialog({
         footer={
           <>
             {onDelete && (
-              <button
+              <Button icon={Trash2}
                 onClick={() => setConfirmDelete(true)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                variant="danger-outline" fullOnMobile className="sm:mr-auto"
               >
-                <Trash2 className="h-4 w-4" /> Eliminar equipo
-              </button>
+                Eliminar equipo
+              </Button>
             )}
-            <button
+            <Button
               onClick={onClose}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+              variant="outline" fullOnMobile
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={!valid || pending}
               onClick={() =>
                 startTransition(async () => {
@@ -2005,10 +1941,10 @@ function EquipoFormDialog({
                   });
                 })
               }
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+              variant="primary" fullOnMobile
             >
               {pending ? "Guardando…" : edit ? "Guardar" : "Agregar"}
-            </button>
+            </Button>
           </>
         }
       >
@@ -2017,7 +1953,7 @@ function EquipoFormDialog({
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Modelo">
                 <Input
                   value={f.modelo}
@@ -2167,27 +2103,26 @@ function RepuestoFormDialog({
       <Dialog
         open={open}
         onClose={onClose}
-        size="lg"
-        accent
+        size="3xl"
         title={repuesto ? `Repuesto · ${repuesto.nombre}` : "Repuesto"}
         description={repuesto ? `${repuesto.modelo} · ${repuesto.sku}` : ""}
         footer={
           <>
             {onDelete && (
-              <button
+              <Button icon={Trash2}
                 onClick={() => setConfirmDelete(true)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                variant="danger-outline" fullOnMobile className="sm:mr-auto"
               >
-                <Trash2 className="h-4 w-4" /> Eliminar repuesto
-              </button>
+                Eliminar repuesto
+              </Button>
             )}
-            <button
+            <Button
               onClick={onClose}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+              variant="outline" fullOnMobile
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={!valid || pending}
               onClick={() =>
                 startTransition(async () => {
@@ -2202,10 +2137,10 @@ function RepuestoFormDialog({
                   });
                 })
               }
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+              variant="primary" fullOnMobile
             >
               {pending ? "Guardando…" : "Guardar"}
-            </button>
+            </Button>
           </>
         }
       >
@@ -2214,7 +2149,7 @@ function RepuestoFormDialog({
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Nombre">
                 <Input
                   value={f.nombre}
@@ -2398,27 +2333,26 @@ function OtroFormDialog({
       <Dialog
         open={open}
         onClose={onClose}
-        size="lg"
-        accent
+        size="3xl"
         title={item ? `Producto · ${item.nombre}` : "Producto"}
         description={item ? otroCategoria[item.categoria].label : ""}
         footer={
           <>
             {onDelete && (
-              <button
+              <Button icon={Trash2}
                 onClick={() => setConfirmDelete(true)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                variant="danger-outline" fullOnMobile className="sm:mr-auto"
               >
-                <Trash2 className="h-4 w-4" /> Eliminar producto
-              </button>
+                Eliminar producto
+              </Button>
             )}
-            <button
+            <Button
               onClick={onClose}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+              variant="outline" fullOnMobile
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               disabled={!valid || !item || pending}
               onClick={() =>
                 item &&
@@ -2435,10 +2369,10 @@ function OtroFormDialog({
                   });
                 })
               }
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+              variant="primary" fullOnMobile
             >
               {pending ? "Guardando…" : "Guardar"}
-            </button>
+            </Button>
           </>
         }
       >
@@ -2447,7 +2381,7 @@ function OtroFormDialog({
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Nombre">
                 <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
               </Field>
@@ -2568,14 +2502,7 @@ function OtroFormDialog({
                             }
                           />
                         )}
-                        <button
-                          type="button"
-                          onClick={() => rmUnidad(i)}
-                          disabled={unidadesManual.length === 1}
-                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmUnidad(i)} disabled={unidadesManual.length === 1} />
                       </div>
                     ))}
                   </div>
@@ -2624,13 +2551,9 @@ function OtroFormDialog({
                           }
                           placeholder="Costo c/u (U$)"
                         />
-                        <button
-                          type="button"
-                          onClick={aplicarBulk}
-                          className="rounded-lg bg-accent px-3 text-xs font-semibold text-white transition-colors hover:bg-accent/90"
-                        >
+                        <Button type="button" onClick={aplicarBulk}>
                           Agregar unidades
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -2782,7 +2705,6 @@ function IngresoDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      accent
       title={locked ? "Reponer stock" : `Agregar / ingresar ${titulo}`}
       description={
         locked
@@ -2791,16 +2713,16 @@ function IngresoDialog({
       }
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending
               ? "Guardando…"
@@ -2809,7 +2731,7 @@ function IngresoDialog({
                 : modo === "existente"
                   ? "Ingresar stock"
                   : "Crear"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -2865,7 +2787,7 @@ function IngresoDialog({
               />
             </Field>
             {categoria && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                 <Field label="Categoría">
                   <Select
                     value={cat}
@@ -2961,14 +2883,7 @@ function IngresoDialog({
                           })
                         }
                       />
-                      <button
-                        type="button"
-                        onClick={() => rmUnidad(i)}
-                        disabled={unidadesManual.length === 1}
-                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmUnidad(i)} disabled={unidadesManual.length === 1} />
                     </div>
                   ))}
                 </div>
@@ -2990,7 +2905,7 @@ function IngresoDialog({
                     placeholder={"IPAD9-010\nIPAD9-011\nIPAD9-012"}
                   />
                 </Field>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <Field label="Color (para todos)">
                     <Input
                       value={bulkColor}
@@ -3020,7 +2935,7 @@ function IngresoDialog({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Field label="Cantidad">
               <Input
                 type="number"

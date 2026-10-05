@@ -14,6 +14,7 @@ import {
   type SignUpResult,
 } from "@/lib/auth/types";
 import { authErrorMessage } from "@/lib/auth/error-messages";
+import { TERMINOS_VERSION } from "@/lib/legal";
 
 export type { Rol, SessionUser, AuthResult, SignUpResult } from "@/lib/auth/types";
 
@@ -84,13 +85,14 @@ export async function getSession(): Promise<SessionUser | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("organization_id, rol, nombre, alias, organizations(nombre)")
+    .select("organization_id, rol, nombre, alias, terminos_version, organizations(nombre)")
     .eq("id", user.id)
     .maybeSingle<{
       organization_id: string;
       rol: Rol;
       nombre: string;
       alias: string | null;
+      terminos_version: string | null;
       organizations: { nombre: string } | null;
     }>();
   if (!profile) return null;
@@ -103,7 +105,24 @@ export async function getSession(): Promise<SessionUser | null> {
     rol: profile.rol,
     nombre: profile.nombre,
     alias: profile.alias,
+    terminosVersion: profile.terminos_version,
   };
+}
+
+/** Registra que el usuario aceptó la versión vigente de Términos/Privacidad
+ * (plan 012). `profiles` no tiene policy de update para `authenticated`: va
+ * por service role, con el id de la sesión (nunca uno que venga del cliente). */
+export async function aceptarTerminos(): Promise<AuthResult> {
+  const user = await requireUser();
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("profiles")
+    .update({
+      terminos_version: TERMINOS_VERSION,
+      terminos_aceptados_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+  return { error: error ? error.message : null };
 }
 
 /** Para Server Components/Actions que requieren sesión -- redirige a
@@ -186,6 +205,9 @@ export async function signUp(params: {
   password: string;
   nombre: string;
   organizacionNombre: string;
+  /** Versión de los Términos/Privacidad que aceptó en el form (`lib/legal.ts`);
+   * se guarda en el perfil junto con la fecha. */
+  terminosVersion: string | null;
   /** Token del widget de Turnstile (`signup-form.tsx`) -- Supabase lo valida
    * server-side contra el secret key configurado en el dashboard
    * (Authentication -> Settings -> Bot and Abuse Protection); esta app nunca
@@ -245,6 +267,8 @@ export async function signUp(params: {
     rol: "admin" satisfies Rol,
     nombre: params.nombre,
     email: params.email,
+    terminos_version: params.terminosVersion,
+    terminos_aceptados_at: params.terminosVersion ? new Date().toISOString() : null,
   });
   if (profileError) {
     await service.from("organizations").delete().eq("id", org.id);

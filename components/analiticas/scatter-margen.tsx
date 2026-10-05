@@ -47,7 +47,7 @@ export function ScatterMargen({
         Margen vs facturación
       </ChartTitle>
       {puntos.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin ventas con costo cargado en el período filtrado.
         </p>
       ) : (
@@ -69,7 +69,7 @@ export function ScatterMargen({
               return (
                 <span
                   key={`l${f}`}
-                  className="absolute text-[10px] tabular-nums text-neutral-400"
+                  className="absolute text-[10px] tabular-nums text-neutral-500"
                   style={{ bottom: `calc(${yToPct(valor)}% - 4px)`, left: 2 }}
                 >
                   {Math.round(valor)}%
@@ -115,7 +115,7 @@ export function ScatterMargen({
           </div>
 
           {/* eje X: facturación */}
-          <div className="relative mt-1 border-t border-neutral-200 pt-1 text-[10px] tabular-nums text-neutral-400">
+          <div className="relative mt-1 border-t border-neutral-200 pt-1 text-[10px] tabular-nums text-neutral-500">
             <span className="absolute left-0">0</span>
             <span className="absolute left-1/2 -translate-x-1/2">{fmtUsd(Math.round(maxX / 2))}</span>
             <span className="absolute right-0">{fmtUsd(maxX)}</span>

@@ -1,0 +1,38 @@
+---
+titulo: "Módulo Inventario"
+resumen: "Equipos por IMEI, repuestos con stock por modelo, y \"Otros\" (iPad, AirPods, accesorios). Recuento e Ingreso."
+seccion: inventario
+roles: []
+orden: 1
+actualizado: 2026-10-04
+---
+
+Inventario tiene **3 pestañas**:
+
+- **Equipos**: unidades únicas identificadas por **IMEI** (modelo, almacenamiento, color, batería, condición, costo y precio).
+- **Repuestos**: stock por modelo (pantallas, baterías…), con stock mínimo.
+- **Otros**: iPad, AirPods, tablets y accesorios. Pueden ser por cantidad o **serializados** (una unidad por serial).
+
+## Operaciones
+
+<Paso n={1} titulo="Agregar o editar un equipo">
+Tocá una fila de Equipos para ver y editar **todos** sus campos, incluido el estado. El botón **«Agregar equipo»** abre el mismo formulario en blanco.
+</Paso>
+
+<Paso n={2} titulo="Ingreso de stock">
+En Repuestos u Otros, el botón **«Ingreso»** suma unidades a un ítem existente (con cantidad y precio de compra) o crea uno nuevo.
+</Paso>
+
+<Paso n={3} titulo="Recuento">
+**«Recuento»** es una auditoría: en Equipos tildás los que **encontraste** físicamente; en Repuestos y Otros anotás la **cantidad real** de cada producto. Las diferencias quedan **pendientes** y un administrador las revisa en [Recuentos](/ayuda/recuentos/guia); recién ahí se ajusta el stock. Cada cambio deja un registro en el **historial de movimientos** del ítem.
+</Paso>
+
+<Aviso titulo="Estados de un equipo" tono="info">
+Un equipo puede estar **en revisión, disponible, reservado, vendido o extraviado**. Al venderlo, pasa a «vendido» automáticamente.
+</Aviso>
+
+## Ver también
+
+- [Primeros pasos: inventario inicial](/ayuda/primeros-pasos/inventario-inicial)
+- [Módulo Recuentos](/ayuda/recuentos/guia)
+- [Módulo Compras](/ayuda/compras/guia)

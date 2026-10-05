@@ -14,9 +14,13 @@ import { useReducedMotionSafe } from "./use-reduced-motion";
  */
 export function GlassSpotlightCard({
   className,
+  innerClassName,
   children,
 }: {
   className?: string;
+  /** Clases para el wrapper interno (`relative`) -- ej. `flex h-full flex-col`
+   * para contenido que se distribuye (botón anclado abajo con `mt-auto`). */
+  innerClassName?: string;
   children: ReactNode;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -46,7 +50,9 @@ export function GlassSpotlightCard({
             "radial-gradient(280px circle at 20% 10%, rgba(148,141,222,0.3), transparent 65%)",
         }}
       />
-      <div className="relative">{children}</div>
+      <div className={innerClassName ? `relative ${innerClassName}` : "relative"}>
+        {children}
+      </div>
     </div>
   );
 }

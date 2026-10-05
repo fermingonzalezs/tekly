@@ -1,18 +1,23 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Search, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { StatCard } from "@/components/ui/stat-card";
+import { SeccionTabla } from "@/components/ui/seccion-tabla";
+import { BarraFiltros } from "@/components/ui/barra-filtros";
 import { ticketStatus, turnoStatus, dotClass, type Tone } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { Cliente } from "@/lib/types";
+import type { KpisClientes } from "@/lib/clientes-inteligencia";
 import type { SessionUser } from "@/lib/auth/types";
 import {
   createClienteAction,
@@ -24,11 +29,13 @@ import type { HistorialEntry } from "@/lib/db/clientes";
 
 export function ClientesClient({
   initialClientes,
-  charts,
+  kpis,
+  graficos,
   user,
 }: {
   initialClientes: Cliente[];
-  charts: React.ReactNode;
+  kpis: KpisClientes;
+  graficos: React.ReactNode;
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
@@ -41,7 +48,6 @@ export function ClientesClient({
   const [openId, setOpenId] = useState<string | null>(openParam);
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [chartsOpen, setChartsOpen] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [, startDeleteTransition] = useTransition();
 
@@ -82,42 +88,60 @@ export function ClientesClient({
   );
 
   return (
-    <div className="space-y-5">
-      <div>
-        <div className="flex justify-end">
-          <button
-            onClick={() => setChartsOpen((v) => !v)}
-            className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-neutral-400 hover:text-neutral-600"
-          >
-            {chartsOpen ? (
-              <ChevronUp className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5" />
-            )}
-            {chartsOpen ? "Ocultar gráficos" : "Mostrar gráficos"}
-          </button>
-        </div>
-        {chartsOpen && <div className="mt-3">{charts}</div>}
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar cliente…"
-            className={cn("w-full pl-9", filterPill)}
+    <SeccionTabla
+      id="clientes"
+      graficos={graficos}
+      tarjetas={
+        <>
+          <StatCard align="left" label="Clientes" value={kpis.total} />
+          <StatCard
+            align="left"
+            label="Activos"
+            value={kpis.activos}
+            hint="últimos 90 días"
+            delta={kpis.deltaActivos ?? undefined}
+            deltaHint="vs 90 d previos"
           />
-        </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:ml-auto sm:w-auto"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo cliente
-        </button>
-      </div>
+          <StatCard
+            align="left"
+            label="Valor por activo"
+            value={fmtUsd(kpis.valorPromedio)}
+            delta={kpis.deltaValorPromedio ?? undefined}
+            deltaHint="vs 90 d previos"
+          />
+          <StatCard
+            align="left"
+            label="En riesgo"
+            value={kpis.enRiesgo}
+            hint={kpis.riesgoValorUsd > 0 ? `${fmtUsd(kpis.riesgoValorUsd)} en juego` : "sin historial"}
+          />
+        </>
+      }
+      filtros={
+        <BarraFiltros
+          busqueda={
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar cliente…"
+                className={cn("w-full pl-9", filterPill)}
+                aria-label="Buscar clientes"
+              />
+            </div>
+          }
+          accion={
+            <Button icon={Plus}
+              onClick={() => setCreating(true)}
+              variant="tonal" fullOnMobile
+            >
+              Nuevo cliente
+            </Button>
+          }
+        />
+      }
+    >
 
       <div className="space-y-2 md:hidden">
         {filtered.map((c) => (
@@ -204,33 +228,32 @@ export function ClientesClient({
       <Dialog
         open={!!open && !editing}
         onClose={() => setOpenId(null)}
-        size="lg"
-        accent
+        size="2xl"
         title={open?.nombre ?? ""}
         description={open ? `Cliente desde ${open.desde}` : ""}
         footer={
           open && (
             <>
               {esAdmin && (
-                <button
+                <Button icon={Trash2}
                   onClick={() => setConfirmDelete(true)}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                  variant="danger-outline" fullOnMobile className="sm:mr-auto"
                 >
-                  <Trash2 className="h-4 w-4" /> Eliminar cliente
-                </button>
+                  Eliminar cliente
+                </Button>
               )}
-              <button
+              <Button
                 onClick={() => setOpenId(null)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+                variant="outline" fullOnMobile
               >
                 Cerrar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setEditing(true)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
+                variant="primary" fullOnMobile
               >
                 Editar
-              </button>
+              </Button>
             </>
           )
         }
@@ -269,7 +292,7 @@ export function ClientesClient({
           setCreating(false);
         }}
       />
-    </div>
+    </SeccionTabla>
   );
 }
 
@@ -518,23 +541,22 @@ function ClienteFormDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      accent
       title={cliente ? "Editar cliente" : "Nuevo cliente"}
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={submit}
             disabled={!nombre.trim() || pending}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Guardando…" : cliente ? "Guardar" : "Crear cliente"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -542,7 +564,7 @@ function ClienteFormDialog({
         <Field label="Nombre y apellido">
           <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Juan Pérez" />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <Field label="Teléfono">
             <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+54 9 11 …" />
           </Field>

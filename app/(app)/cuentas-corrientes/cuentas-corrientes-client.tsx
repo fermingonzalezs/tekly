@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, IconButton } from "@/components/ui/button";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2 } from "lucide-react";
@@ -7,11 +8,21 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { SeccionTabla } from "@/components/ui/seccion-tabla";
+import { BarraFiltros } from "@/components/ui/barra-filtros";
+import {
+  GraficoBarrasAgrupadas,
+  GraficoRanking,
+} from "@/components/seccion/graficos";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { dotClass } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
-import { saldoDe } from "@/lib/cuentas-corrientes";
+import {
+  cargosPagosPorMes,
+  deudaPorCliente,
+  saldoDe,
+} from "@/lib/cuentas-corrientes";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
@@ -130,42 +141,100 @@ export function CuentasCorrientesClient({
 
   const openRow = cuentas.find((r) => r.cliente.id === openClienteId) ?? null;
 
+  // Los gráficos respetan el buscador: solo los movimientos de las cuentas
+  // visibles. La agrupación vive en `lib/cuentas-corrientes.ts` (pura).
+  const movimientosVisibles = useMemo(() => {
+    const ids = new Set(cuentas.map((r) => r.cliente.id));
+    return movimientos.filter((m) => ids.has(m.clienteId));
+  }, [movimientos, cuentas]);
+
+  const rankingDeuda = useMemo(
+    () => deudaPorCliente(movimientosVisibles, clientes),
+    [movimientosVisibles, clientes],
+  );
+
+  const porMes = useMemo(
+    () => cargosPagosPorMes(movimientosVisibles),
+    [movimientosVisibles],
+  );
+
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard align="left" label="Clientes con deuda" value={conDeuda.length} />
-        <StatCard
-          align="left"
-          label="Total por cobrar"
-          value={fmtUsd(totalPorCobrar)}
-          valueClassName={totalPorCobrar > 0 ? "text-red-500" : undefined}
-        />
-        <StatCard align="left" label="Cobrado (histórico)" value={fmtUsd(totalCobrado)} />
-        <StatCard align="left" label="Cuentas al día" value={alDia} />
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar cliente por nombre o teléfono…"
-            className={cn("w-full pl-9", filterPill)}
+    <SeccionTabla
+      id="cuentas-corrientes"
+      graficos={
+        <>
+          <GraficoRanking
+            title="Deuda por cliente"
+            sub="Top 8 por saldo pendiente"
+            rows={rankingDeuda.map((r) => ({ label: r.nombre, value: r.saldo }))}
+            fmt={fmtUsd}
+            vacio="Sin deudas pendientes."
           />
-        </div>
-        <button
-          onClick={() => {
-            setNuevoDefault(null);
-            setNuevoOpen(true);
-          }}
-          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:ml-auto sm:w-auto"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo movimiento
-        </button>
-      </div>
-
+          <GraficoBarrasAgrupadas
+            title="Cargos vs pagos por mes"
+            sub="Movimientos visibles"
+            labels={porMes.labels}
+            series={[
+              { name: "Cargos", values: porMes.cargos },
+              { name: "Pagos", values: porMes.pagos },
+            ]}
+            fmt={fmtUsd}
+            vacio="Sin movimientos."
+          />
+        </>
+      }
+      tarjetas={
+        <>
+          <StatCard
+            align="left"
+            label="Clientes con deuda"
+            value={conDeuda.length}
+            hint="con saldo pendiente"
+          />
+          <StatCard
+            align="left"
+            label="Total por cobrar"
+            value={fmtUsd(totalPorCobrar)}
+            valueClassName={totalPorCobrar > 0 ? "text-red-500" : undefined}
+            hint="saldo pendiente"
+          />
+          <StatCard
+            align="left"
+            label="Cobrado (histórico)"
+            value={fmtUsd(totalCobrado)}
+            hint="pagos registrados"
+          />
+          <StatCard align="left" label="Cuentas al día" value={alDia} hint="saldo cero" />
+        </>
+      }
+      filtros={
+        <BarraFiltros
+          busqueda={
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar cliente por nombre o teléfono…"
+                className={cn("w-full pl-9", filterPill)}
+                aria-label="Buscar cuentas corrientes"
+              />
+            </div>
+          }
+          accion={
+            <Button icon={Plus}
+              onClick={() => {
+                setNuevoDefault(null);
+                setNuevoOpen(true);
+              }}
+              variant="tonal" fullOnMobile
+            >
+              Nuevo movimiento
+            </Button>
+          }
+        />
+      }
+    >
       <div className="space-y-2 md:hidden">
         {cuentas.map((r) => (
           <Card
@@ -179,7 +248,7 @@ export function CuentasCorrientesClient({
             <div className="flex items-stretch gap-3 p-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs text-neutral-500">{r.cliente.telefono}</p>
-                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-500">
                   <span>{r.movs.length} movimientos</span>
                   <span>{r.ultimo ? `${r.ultimo.fecha} · ${r.ultimo.hora}` : "—"}</span>
                 </div>
@@ -192,7 +261,7 @@ export function CuentasCorrientesClient({
                       ? "text-red-500"
                       : r.saldo < 0
                         ? "text-emerald-600"
-                        : "text-neutral-400",
+                        : "text-neutral-500",
                   )}
                 >
                   {r.saldo === 0
@@ -204,7 +273,7 @@ export function CuentasCorrientesClient({
           </Card>
         ))}
         {cuentas.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+          <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
             Sin clientes para esta búsqueda.
           </p>
         )}
@@ -213,7 +282,7 @@ export function CuentasCorrientesClient({
       <Card className="hidden overflow-hidden md:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-neutral-100 text-xs text-neutral-400">
+            <tr className="border-b border-neutral-100 text-xs text-neutral-500">
               <th className={cn("px-5 py-3 text-center", thDivider)}>Cliente</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Teléfono</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Movimientos</th>
@@ -235,7 +304,7 @@ export function CuentasCorrientesClient({
                 <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                   {r.movs.length}
                 </td>
-                <td className="px-5 py-2 text-center text-neutral-400">
+                <td className="px-5 py-2 text-center text-neutral-500">
                   {r.ultimo ? `${r.ultimo.fecha} · ${r.ultimo.hora}` : "—"}
                 </td>
                 <td
@@ -245,7 +314,7 @@ export function CuentasCorrientesClient({
                       ? "text-red-500"
                       : r.saldo < 0
                         ? "text-emerald-600"
-                        : "text-neutral-400",
+                        : "text-neutral-500",
                   )}
                 >
                   {r.saldo === 0
@@ -256,7 +325,7 @@ export function CuentasCorrientesClient({
             ))}
             {cuentas.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-sm text-neutral-400">
+                <td colSpan={5} className="px-5 py-10 text-center text-sm text-neutral-500">
                   Sin clientes para esta búsqueda.
                 </td>
               </tr>
@@ -268,8 +337,7 @@ export function CuentasCorrientesClient({
       <Dialog
         open={!!openRow}
         onClose={() => setOpenClienteId(null)}
-        size="lg"
-        accent
+        size="2xl"
         title={openRow?.cliente.nombre ?? ""}
         description={
           openRow
@@ -283,21 +351,21 @@ export function CuentasCorrientesClient({
         footer={
           openRow && (
             <>
-              <button
+              <Button
                 onClick={() => setOpenClienteId(null)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+                variant="outline" fullOnMobile
               >
                 Cerrar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => {
                   setNuevoDefault({ clienteId: openRow.cliente.id, tipo: "pago" });
                   setNuevoOpen(true);
                 }}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
+                variant="primary" fullOnMobile
               >
                 Registrar pago
-              </button>
+              </Button>
             </>
           )
         }
@@ -310,7 +378,7 @@ export function CuentasCorrientesClient({
 
             <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
               {openRow.movs.length === 0 ? (
-                <p className="px-4 py-3 text-center text-[13px] text-neutral-400">
+                <p className="px-4 py-3 text-center text-[13px] text-neutral-500">
                   Sin movimientos registrados.
                 </p>
               ) : (
@@ -338,13 +406,7 @@ export function CuentasCorrientesClient({
                       {fmtUsd(m.montoUsd)}
                     </span>
                     {esAdmin && (
-                      <button
-                        onClick={() => setConfirmDeleteId(m.id)}
-                        title="Eliminar movimiento"
-                        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <IconButton aria-label="Eliminar movimiento" icon={Trash2} variant="danger-ghost" size="sm" onClick={() => setConfirmDeleteId(m.id)} title="Eliminar movimiento" />
                     )}
                   </div>
                 ))
@@ -365,7 +427,7 @@ export function CuentasCorrientesClient({
                 {esAdmin && <span />}
               </div>
               {openRow.movs.length === 0 ? (
-                <p className="px-4 py-3 text-center text-[13px] text-neutral-400">
+                <p className="px-4 py-3 text-center text-[13px] text-neutral-500">
                   Sin movimientos registrados.
                 </p>
               ) : (
@@ -400,13 +462,7 @@ export function CuentasCorrientesClient({
                       {fmtUsd(m.montoUsd)}
                     </span>
                     {esAdmin && (
-                      <button
-                        onClick={() => setConfirmDeleteId(m.id)}
-                        title="Eliminar movimiento"
-                        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <IconButton aria-label="Eliminar movimiento" icon={Trash2} variant="danger-ghost" size="sm" onClick={() => setConfirmDeleteId(m.id)} title="Eliminar movimiento" />
                     )}
                   </div>
                 ))
@@ -437,7 +493,7 @@ export function CuentasCorrientesClient({
         defaultClienteId={nuevoDefault?.clienteId}
         defaultTipo={nuevoDefault?.tipo}
       />
-    </div>
+    </SeccionTabla>
   );
 }
 
@@ -487,23 +543,22 @@ function NuevoMovimientoCCDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      accent
       title="Nuevo movimiento"
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Registrando…" : "Registrar movimiento"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -533,7 +588,7 @@ function NuevoMovimientoCCDialog({
             placeholder="0"
           />
         </Field>
-        <p className="text-[11px] text-neutral-400">
+        <p className="text-[11px] text-neutral-500">
           Se registra como <span className="text-neutral-600">{usuarioNombre}</span>.
         </p>
       </div>

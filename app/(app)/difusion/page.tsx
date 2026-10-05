@@ -11,7 +11,7 @@ export default async function DifusionPage() {
   ]);
 
   return (
-    <Section title="Difusión">
+    <Section title="Difusión" ayuda="difusion">
       <DifusionClient initialListas={listas} equipos={equipos} otros={otros} />
     </Section>
   );

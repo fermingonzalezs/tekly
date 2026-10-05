@@ -67,7 +67,7 @@ export function WaterfallResultado({
         Waterfall de resultado
       </ChartTitle>
       {ingresos <= 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin ventas con costo cargado en el período filtrado.
         </p>
       ) : (

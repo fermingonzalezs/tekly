@@ -351,13 +351,13 @@ export const clientesDemografia: Record<
 
 // "Fiado": cargo aumenta la deuda del cliente, pago la reduce. Todo en USD.
 export const movimientosCC: MovimientoCC[] = [
-  { id: "cc-1", clienteId: "c-1", fecha: "28 ago", hora: "11:20", concepto: "iPhone 12 128GB a cuenta", tipo: "cargo", montoUsd: 560, usuario: "Caro" },
-  { id: "cc-2", clienteId: "c-1", fecha: "05 sep", hora: "17:10", concepto: "Pago parcial", tipo: "pago", montoUsd: 200, usuario: "Fermín G." },
-  { id: "cc-3", clienteId: "c-3", fecha: "01 sep", hora: "10:05", concepto: "Reparación de placa a cuenta", tipo: "cargo", montoUsd: 160, usuario: "Meli" },
-  { id: "cc-4", clienteId: "c-3", fecha: "06 sep", hora: "12:40", concepto: "Pago total", tipo: "pago", montoUsd: 160, usuario: "Fermín G." },
-  { id: "cc-5", clienteId: "c-7", fecha: "03 sep", hora: "09:30", concepto: "AirPods Pro 2 a cuenta", tipo: "cargo", montoUsd: 190, usuario: "Caro" },
-  { id: "cc-6", clienteId: "c-5", fecha: "07 sep", hora: "16:00", concepto: "Cambio de pantalla a cuenta", tipo: "cargo", montoUsd: 90, usuario: "Meli" },
-  { id: "cc-7", clienteId: "c-5", fecha: "08 sep", hora: "10:15", concepto: "Pago parcial", tipo: "pago", montoUsd: 40, usuario: "Fermín G." },
+  { id: "cc-1", clienteId: "c-1", fecha: "28 ago", fechaISO: "2026-08-28", hora: "11:20", concepto: "iPhone 12 128GB a cuenta", tipo: "cargo", montoUsd: 560, ticketId: null, usuario: "Caro" },
+  { id: "cc-2", clienteId: "c-1", fecha: "05 sep", fechaISO: "2026-09-05", hora: "17:10", concepto: "Pago parcial", tipo: "pago", montoUsd: 200, ticketId: null, usuario: "Fermín G." },
+  { id: "cc-3", clienteId: "c-3", fecha: "01 sep", fechaISO: "2026-09-01", hora: "10:05", concepto: "Reparación de placa a cuenta", tipo: "cargo", montoUsd: 160, ticketId: null, usuario: "Meli" },
+  { id: "cc-4", clienteId: "c-3", fecha: "06 sep", fechaISO: "2026-09-06", hora: "12:40", concepto: "Pago total", tipo: "pago", montoUsd: 160, ticketId: null, usuario: "Fermín G." },
+  { id: "cc-5", clienteId: "c-7", fecha: "03 sep", fechaISO: "2026-09-03", hora: "09:30", concepto: "AirPods Pro 2 a cuenta", tipo: "cargo", montoUsd: 190, ticketId: null, usuario: "Caro" },
+  { id: "cc-6", clienteId: "c-5", fecha: "07 sep", fechaISO: "2026-09-07", hora: "16:00", concepto: "Cambio de pantalla a cuenta", tipo: "cargo", montoUsd: 90, ticketId: null, usuario: "Meli" },
+  { id: "cc-7", clienteId: "c-5", fecha: "08 sep", fechaISO: "2026-09-08", hora: "10:15", concepto: "Pago parcial", tipo: "pago", montoUsd: 40, ticketId: null, usuario: "Fermín G." },
 ];
 
 // ───────────────────────── Compras ─────────────────────────

@@ -172,6 +172,7 @@ export async function entregarTicket(id: number, data: EntregarTicketInput): Pro
         medio_pago: pago.medio,
         tipo: "ingreso",
         monto,
+        cotizacion: data.dolarVenta,
         usuario_id: user.id,
         usuario_nombre: user.nombre,
         ticket_id: id,

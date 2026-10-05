@@ -319,7 +319,7 @@ export function LifecycleSankey({ flujo }: { flujo: FlujoClientes }) {
         Customer lifecycle
       </ChartTitle>
       {totalPrimera === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin clientes con operaciones todavía -- no hay recorrido que mostrar.
         </p>
       ) : (
@@ -359,7 +359,7 @@ export function LifecycleSankey({ flujo }: { flujo: FlujoClientes }) {
                   <p className="truncate text-[11px] font-medium text-neutral-500">{t}</p>
                   <p className="font-grotesk text-sm font-semibold tabular-nums text-neutral-900">
                     {total}
-                    <span className="ml-1 text-[10px] font-medium text-neutral-400">
+                    <span className="ml-1 text-[10px] font-medium text-neutral-500">
                       {Math.round((total / totalPrimera) * 100)}%
                     </span>
                   </p>
@@ -492,10 +492,10 @@ export function LifecycleSankey({ flujo }: { flujo: FlujoClientes }) {
                     )}
                   </div>
                 ))}
-                <p className="absolute text-left text-[10px] font-medium uppercase tracking-wide text-neutral-400" style={{ left: 0, top: `${BAR_TOP + 1.5}%` }}>
+                <p className="absolute text-left text-[10px] font-medium uppercase tracking-wide text-neutral-500" style={{ left: 0, top: `${BAR_TOP + 1.5}%` }}>
                   inactivos
                 </p>
-                <p className="absolute text-right text-[10px] tabular-nums text-neutral-400" style={{ right: 0, top: `${BAR_TOP + 1.5}%` }}>
+                <p className="absolute text-right text-[10px] tabular-nums text-neutral-500" style={{ right: 0, top: `${BAR_TOP + 1.5}%` }}>
                   {totalInactivos}
                 </p>
               </>
@@ -515,7 +515,7 @@ export function LifecycleSankey({ flujo }: { flujo: FlujoClientes }) {
             )}
           </div>
 
-          <p className="mt-1 text-[11px] leading-relaxed text-neutral-400">
+          <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">
             Inactivos: sin actividad hace más de {DIAS_RIESGO} días
             {totalInactivos === 0 && " -- nadie superó la ventana todavía"}
             {flujo.enCurso > 0 &&

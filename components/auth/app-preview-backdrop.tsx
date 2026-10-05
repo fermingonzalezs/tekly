@@ -1,4 +1,5 @@
 import { Smartphone, ShoppingCart, Wrench, CalendarClock, Boxes } from "lucide-react";
+import { TeklyLogo } from "@/components/brand/tekly-logo";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { ChartTitle } from "@/components/ui/chart-title";
@@ -33,9 +34,7 @@ export function AppPreviewBackdrop() {
     >
       <div className="h-16 flex items-center gap-4 border-b border-neutral-200 bg-white/90 px-5">
         <div className="flex shrink-0 items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-white">
-            <Smartphone className="h-5 w-5" />
-          </div>
+          <TeklyLogo variante="icono" altura={36} alt="" />
           <span className="text-sm font-semibold">Tekly</span>
         </div>
         <nav className="flex flex-1 items-center justify-center gap-1">

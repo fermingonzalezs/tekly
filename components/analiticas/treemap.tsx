@@ -88,7 +88,7 @@ export function Treemap({
     return (
       <div
         className={cn(
-          "grid h-56 w-full place-items-center text-sm text-neutral-400",
+          "grid h-56 w-full place-items-center text-sm text-neutral-500",
           className,
         )}
       >

@@ -1,0 +1,43 @@
+---
+titulo: "Módulo Reparaciones"
+resumen: "Tickets de reparación con checklist de ingreso y egreso, presupuesto, servicios/repuestos e impresión de los 3 documentos."
+seccion: reparaciones
+roles: []
+orden: 1
+actualizado: 2026-10-04
+---
+
+La sección tiene dos pestañas: **Tickets** (el flujo de reparaciones) y **Servicios** (el catálogo de servicios con precio y días de garantía).
+
+## El flujo de un ticket
+
+<Paso n={1} titulo="Nuevo ticket">
+Cargá **cliente, marca (ej. Apple), modelo, IMEI, falla, técnico** y el **checklist de ingreso** (22 ítems bien/mal/n-a + color). El selector de técnico ofrece cualquier usuario activo, no sólo los de rol técnico.
+</Paso>
+
+<Paso n={2} titulo="Avanzá el estado">
+El pipeline va de **Recibido → Diagnosticado → Presupuestado → Aprobado → En reparación → Listo → Entregado**.
+</Paso>
+
+<Paso n={3} titulo="Servicios asociados">
+Con **«Agregar»** sumás ítems de 3 orígenes: **catálogo** (servicio con precio y garantía fijos), **repuesto** del inventario (descuenta stock) o **libre** (nombre y precio a mano).
+</Paso>
+
+<Paso n={4} titulo="Checklist de egreso">
+Aparte del de ingreso, con el botón **«Checklist»** en el detalle, en cualquier momento antes de entregar.
+</Paso>
+
+## Los 3 documentos
+
+- **Ticket de ingreso**: lo que el cliente deja firmado al dejar el equipo (incluye checklist y aclaraciones).
+- **Ticket de egreso**: al retirar, con el checklist de egreso.
+- **Presupuesto**: para mandarle al cliente, con el checklist comparado ingreso/egreso y los ítems separados por origen.
+
+<Aviso titulo="El presupuesto no cobra" tono="warning">
+El KPI de «Cobrado» de Analíticas cuenta la plata que **entró** (pagos al entregar), no el presupuesto de los tickets creados.
+</Aviso>
+
+## Ver también
+
+- [Módulo Turnos](/ayuda/turnos/guia)
+- [Módulo Analíticas](/ayuda/analiticas/guia)

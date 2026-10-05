@@ -1,141 +1,76 @@
-"use client";
-
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
-import { Input, Select } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 import { fmtUsd } from "@/lib/format";
 import type { VentaReciente } from "@/lib/dashboard";
 
+/** Lista de últimas ventas: cada fila abre el detalle (`/ventas?open=<id>`)
+ * y el footer linkea a la sección completa. Sin buscador ni filtros -- con
+ * 6 filas no se justifica. */
 export function RecentSales({
   className,
   sales,
+  ventasHref = "/ventas",
 }: {
   className?: string;
   sales: VentaReciente[];
+  /** Base del link al detalle/lista de ventas (en demo `/demo/ventas`). */
+  ventasHref?: string;
 }) {
-  const [q, setQ] = useState("");
-  const [cat, setCat] = useState("Todas");
-  const CATEGORIAS = useMemo(
-    () => ["Todas", ...Array.from(new Set(sales.map((s) => s.categoria)))],
-    [sales],
-  );
-
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return sales.filter((s) => {
-      if (cat !== "Todas" && s.categoria !== cat) return false;
-      if (!needle) return true;
-      return [s.id, s.cliente, s.item, s.vendedor]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle);
-    });
-  }, [q, cat]);
-
   return (
     <Card className={cn("flex min-h-0 flex-col overflow-hidden", className)}>
       <div className="shrink-0 px-4 pt-4">
-        <div className="flex flex-wrap items-start gap-2">
-          <div className="mr-auto min-w-0">
-            <ChartTitle align="left" sub="Seguimiento de las últimas ventas">
-              Ventas recientes
-            </ChartTitle>
-          </div>
-
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <div className="relative min-w-0">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
-              <Input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar…"
-                className="h-8 w-24 min-w-0 pl-8 text-[13px] sm:w-36"
-              />
-            </div>
-
-            <Select
-              value={cat}
-              onChange={(e) => setCat(e.target.value)}
-              className="h-8 w-28 min-w-0 text-[13px] sm:w-44"
-              aria-label="Filtrar por categoría"
-            >
-              {CATEGORIAS.map((c) => (
-                <option key={c} value={c}>
-                  {c === "Todas" ? "Todas las categorías" : c}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
-
+        <ChartTitle align="left" sub="Seguimiento de las últimas ventas">
+          Ventas recientes
+        </ChartTitle>
         <div className="mt-3 border-t border-neutral-100" />
       </div>
 
-      <div className="mt-3 min-h-0 flex-1 overflow-auto">
-        <table className="hidden w-full text-[13px] sm:table">
-          <tbody>
-            {filtered.slice(0, 6).map((s) => (
-              <tr
-                key={s.id}
-                className="border-t border-neutral-100 last:border-b-0"
+      <div className="min-h-0 flex-1 overflow-auto">
+        <ul className="divide-y divide-neutral-100">
+          {sales.slice(0, 6).map((s) => (
+            <li key={s.id}>
+              <Link
+                href={`${ventasHref}?open=${encodeURIComponent(s.id)}`}
+                className="flex items-start justify-between gap-3 px-4 py-3 transition-colors hover:bg-neutral-50"
               >
-                <td className="px-4 py-3 text-start font-medium text-neutral-500">
-                  {s.id}
-                </td>
-                <td className="px-4 py-3 text-start">{s.cliente}</td>
-                <td className="px-4 py-3 text-start text-neutral-500">
-                  {s.item}
-                </td>
-                <td className="px-4 py-3 font-semibold">
-                  <span className="block text-right tabular-nums">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-neutral-900">
+                    {s.cliente}
+                  </p>
+                  <p className="mt-0.5 truncate text-[13px] text-neutral-500">
+                    {s.item}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold tabular-nums">
                     {fmtUsd(s.monto)}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr className="border-t border-neutral-100">
-                <td
-                  colSpan={4}
-                  className="px-4 py-6 text-center text-[13px] text-neutral-400"
-                >
-                  Sin resultados
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-
-        {/* Mobile: tarjetas en vez de tabla -- con 4 columnas apretadas no
-            se llega a leer nada. */}
-        <div className="divide-y divide-neutral-100 sm:hidden">
-          {filtered.slice(0, 6).map((s) => (
-            <div key={s.id} className="flex flex-col gap-1 px-4 py-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="min-w-0 truncate font-medium text-neutral-900">
-                  {s.cliente}
-                </span>
-                <span className="shrink-0 font-semibold tabular-nums">
-                  {fmtUsd(s.monto)}
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between gap-2 text-[12px] text-neutral-500">
-                <span className="min-w-0 truncate">{s.item}</span>
-                <span className="shrink-0 tabular-nums text-neutral-400">
-                  {s.id}
-                </span>
-              </div>
-            </div>
+                  </p>
+                  <p className="mt-0.5 whitespace-nowrap text-[11px] tabular-nums text-neutral-500">
+                    {s.hace} · {s.vendedor}
+                  </p>
+                </div>
+              </Link>
+            </li>
           ))}
-          {filtered.length === 0 && (
-            <div className="px-4 py-6 text-center text-[13px] text-neutral-400">
-              Sin resultados
-            </div>
+          {sales.length === 0 && (
+            <li className="px-4 py-8 text-center text-sm text-neutral-500">
+              Todavía no hay ventas
+            </li>
           )}
-        </div>
+        </ul>
+      </div>
+
+      <div className="shrink-0 border-t border-neutral-100 px-4 py-2.5">
+        <Link
+          href={ventasHref}
+          className="inline-flex items-center gap-1 text-[13px] font-medium text-accent transition-colors hover:underline"
+        >
+          Ver todas
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
     </Card>
   );

@@ -50,6 +50,7 @@ export async function createTicketAction(data: {
     tecnicoId: data.tecnicoId,
   });
   revalidatePath("/reparaciones");
+  revalidatePath("/dashboard");
   return ticket;
 }
 
@@ -69,6 +70,7 @@ export async function entregarTicketAction(
   revalidatePath("/reparaciones");
   revalidatePath("/cajas");
   revalidatePath("/cuentas-corrientes");
+  revalidatePath("/dashboard");
   return ticket;
 }
 
@@ -101,6 +103,7 @@ export async function setTicketEstadoAction(id: number, estado: TicketStatus) {
   await requireUser();
   const ticket = await setTicketEstado(id, estado);
   revalidatePath("/reparaciones");
+  revalidatePath("/dashboard");
   return ticket;
 }
 
@@ -109,6 +112,7 @@ export async function deleteTicketAction(id: number) {
   await deleteTicket(id);
   revalidatePath("/reparaciones");
   revalidatePath("/turnos");
+  revalidatePath("/dashboard");
 }
 
 export async function saveServicioAction(servicio: Servicio) {

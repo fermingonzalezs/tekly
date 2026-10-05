@@ -80,7 +80,8 @@ lib/realtime.ts           pub/sub de eventos + describe() para el toast
 lib/marketing/            appUrl/loginUrl/signupUrl -- CTAs de la landing a NEXT_PUBLIC_APP_URL
 lib/cajas.ts, lib/ventas.ts  lógica de negocio pura (sin Supabase) con tests en *.test.ts
 supabase/migrations/      schema versionado, aplicado vía MCP al proyecto real
-public/                   favicon.ico + og-image.png (placeholder) -- compartidos por toda la app
+components/brand/         TeklyLogo: único punto de uso del kit de logos (ver "Marca")
+public/                   favicon.ico + og-image.png (placeholder) + tekly-logo-kit/ (logos) -- compartidos por toda la app
 ```
 
 Páginas server por defecto; `"use client"` solo donde hay interacción
@@ -100,6 +101,106 @@ a `NEXT_PUBLIC_APP_URL` (default `https://sistema.tekly.tech`) vía
 defaults" de la app de gestión (gradientes/parallax OK, ver plan-landing);
 sí `prefers-reduced-motion` (`useReducedMotion` en reveal/hero/showcase --
 la única parte del repo que lo maneja).
+
+**SEO de la landing**: `app/marketing/layout.tsx` fija title/description/
+keywords, canonical `/`, Open Graph/Twitter (`es_AR`) con imagen **absoluta**
+(`https://tekly.tech/og-image.png`, 1200×630 generada con el logo real; si se
+cambia el claim, regenerarla) y `robots: index`. El root layout
+(`app/layout.tsx`) es `noindex, nofollow` — **todo lo que no sea la landing no
+se indexa** (la app, `/login`, `/signup`, …); una página pública nueva
+(legales, ayuda) tiene que pisar `robots` con `index: true`, agregarse a
+`app/sitemap.ts` y quitarse del `disallow` de `app/robots.ts`. `robots.ts`
+decide por **host** (tekly.tech indexable; sistema.tekly.tech y cualquier otro
+`Disallow: /`); `middleware.ts` deja pasar `/robots.txt` y `/sitemap.xml` sin
+sesión y redirige `www.tekly.tech` → `tekly.tech` (308). `lib/marketing/seo.ts`
+tiene `SITE_URL` y el JSON-LD (Organization + WebSite + SoftwareApplication) —
+**sin `offers`** mientras los precios de la landing sean provisorios.
+
+**Legales** (plan 012): `/terminos`, `/privacidad` y `/cookies` viven en
+`app/(legal)/` (TSX con `LegalLayout`/`Seccion`/`Lista`, sin dependencias),
+públicas en ambos hosts (`ALWAYS_PUBLIC_PATHS` en el middleware) y linkeadas
+desde el footer de la landing y el signup. `lib/legal.ts` es la fuente única:
+`TERMINOS_VERSION` (subirla cuando cambie un texto), `EMPRESA` (datos
+pendientes `[…]`) y **`LEGAL_BORRADOR`**: mientras sea `true` las páginas
+existen **solo en desarrollo** (404 en producción) con el aviso de borrador,
+y quedan ocultos/inactivos: los links del footer, el checkbox del signup (no
+se registra aceptación), el aviso de cookies y la re-aceptación obligatoria. Pasarlo a `false` solo después de la
+revisión de un abogado y de completar `EMPRESA`. Aceptación: checkbox
+obligatorio en `/signup` (zod `acepta` + server action) que guarda
+`profiles.terminos_version`/`terminos_aceptados_at`; con `LEGAL_BORRADOR=false`,
+`(app)/layout.tsx` manda a `/aceptar-terminos` a invitados y usuarios que no
+aceptaron la versión vigente (`requiereAceptarTerminos`, `aceptarTerminos()`
+por service role). El aviso de cookies (`AvisoCookies`) es **informativo**
+(solo cookies necesarias, sin "rechazar"): si se agrega analytics/marketing o
+cualquier script de terceros hay que actualizar la tabla de `/cookies` y
+convertirlo en banner de consentimiento previo.
+
+**Mobile de la landing** (revisada a 390 y 360 px; escritorio no se toca):
+el `h1` del hero usa `min(3rem, (100vw-2rem)/7.6)` en mobile para que
+"ORGANIZACIÓN," nunca sea más ancho que la pantalla (desde `sm` vuelve al
+`clamp` de escritorio); los CTA del hero van apilados a ancho completo; el
+feed del hero parte los textos en 2 líneas en vez de cortarlos con "…"
+(`sm:truncate`); las secciones separan `pb-20` en mobile y `sm:pb-36` en
+escritorio. Un hijo de una grilla CSS **no** se achica por debajo de su
+contenido: las grillas de la landing que llevan tablas/gráficos usan
+`grid-cols-[minmax(0,1fr)]` o `[&>*]:min-w-0` (sin eso, el panel de
+Analíticas y las tarjetas de módulos se pasaban del borde). Los montos de
+las mini-tablas llevan `whitespace-nowrap`. Probar siempre a 360 px, no solo
+a 390.
+
+### Centro de ayuda (plan 013)
+
+Manual de usuario y tutoriales, público e indexable. **El contenido vive en
+el repo**: `content/ayuda/<seccion>/<slug>.mdx` (frontmatter `titulo`,
+`resumen`, `seccion`, `roles`, `orden`, `actualizado`), versionado con el
+código — **cambió una pantalla → actualizá su artículo en el mismo PR**.
+`lib/ayuda.ts` (puro, con test) parsea/valida el frontmatter, arma el índice
+por sección/rol, los relacionados, el anterior/siguiente y la búsqueda;
+también `headings()` (índice lateral) y `slugify()` (ids de ancla).
+
+Rutas: `app/ayuda/` (home buscable + `[seccion]/[slug]` con
+`generateStaticParams`/`generateMetadata`). El MDX se compila con
+`next-mdx-remote/rsc` + `gray-matter` (ver `next.config.mjs`,
+`mdx-components.tsx`); los componentes propios (`Paso`, `Aviso`, `Captura`,
+`Video`) están en `components/ayuda/mdx.tsx` y usan el sistema de diseño.
+`/ayuda` es público en ambos hosts (`ALWAYS_PUBLIC_PATHS`) e indexable
+(metadata propia, canonical, JSON-LD `Article`+`BreadcrumbList`, entrada en
+`sitemap.ts`). **Capturas con datos demo, nunca de una organización real.**
+
+Ayuda contextual: `Section` acepta `ayuda={<seccion>}` y muestra un `?`
+(`aria-label`) en el `Topbar` que abre `/ayuda/<seccion>` en una pestaña
+nueva. Regla: si una guía es solo-admin, el link no debe ofrecerse a un
+vendedor/técnico (`articuloDeSeccion` filtra por rol). Videos ≤ 90 s con
+`<video preload="metadata">`; si se agrega un reproductor de terceros, hay
+que actualizar `/cookies` (plan 012).
+
+### Demo sin cuenta (plan 014)
+
+`/demo` (redirige a `/demo/dashboard`) y `/demo/ventas` son públicas, sin
+sesión y sin Supabase: el visitante prueba Dashboard + Ventas con datos de
+ejemplo que viven **solo en su pestaña** (`sessionStorage`, clave
+`tekly:demo:v1`). Públicas vía `ALWAYS_PUBLIC_PATHS` en `middleware.ts`;
+heredan `noindex` del root layout.
+
+- **Aislamiento por construcción**: nada bajo `app/demo/`, `lib/demo/` ni
+  `components/demo/` importa (en runtime) `@/lib/db/*`, `@/lib/auth*`,
+  `@supabase/*` ni `server-only` — lo verifica
+  `lib/demo/aislamiento.guard.test.ts` (los `import type` sí se permiten, se
+  borran al compilar).
+- `lib/demo/seed.ts` (`crearSeedDemo(hoy)`, determinista), `lib/demo/store.tsx`
+  (`DemoProvider`/`useDemo`: estado + espejo en `sessionStorage`; el primer
+  render usa el seed para no romper la hidratación), `lib/demo/operaciones.ts`
+  (`crearVentaDemo`/`eliminarVentaDemo`, puros) y `lib/demo/ventas-query.ts`
+  (`consultarVentas`: filtro/orden/paginación en memoria, mismas reglas que la
+  SQL real).
+- `VentasClient` acepta `basePath` (default `/ventas`), `acciones` (default:
+  las server actions) y `modoDemo` (oculta cuenta corriente y canje);
+  `DashboardAdmin`/`RecentSales` aceptan `ventasHref`; `RealtimeProvider` acepta
+  `enabled={false}`. La demo monta el provider **sin transporte** (nunca con el
+  `organizationId` "demo", sería un canal compartido entre visitantes).
+- Usuario fijo admin (`lib/demo/usuario.ts`), nav propia
+  (`components/demo/demo-nav.tsx`) y banner con "Reiniciar demo"
+  (`components/demo/demo-banner.tsx`). CTAs "Ver demo" en la landing y el login.
 
 ## Backend y multi-tenancy
 
@@ -231,10 +332,9 @@ muda del shell de la app, blureada, `components/auth/app-preview-backdrop.tsx`
 un gráfico de barras/donut blureado se lee mal, una tabla con el patrón
 cebra global se banca el blur bien) + `AuthModal`
 (`components/auth/auth-modal.tsx`, header índigo parecido al de `Dialog` con
-`accent`, pero **no** es un `Dialog` -- no le aplica su regla de pills a
-mano). El botón primario de cada form usa `<Button shape="pill">` (ver
-"Otros primitivos"): mismo gradiente/sombra del `Button` default, redondeado
-para hacer juego con el header. `UserMenu`
+`accent`, pero **no** es un `Dialog` -- no le aplica su regla de footer a
+mano). El botón primario de cada form usa `<Button chip>` (login/signup; ver
+"Botones"). `UserMenu`
 (`components/topnav.tsx`) reemplaza el avatar simple: muestra nombre/rol y
 permite cerrar sesión o editar nombre/alias (`updateOwnProfile`).
 
@@ -375,6 +475,40 @@ cálculo de margen.
 Referencia visual: "Cocos CRM" — limpio, mucho whitespace, esquinas
 redondeadas, paleta neutra + un acento **índigo**.
 
+### Marca: logos de Tekly (`public/tekly-logo-kit/`)
+
+Kit de logo de la **plataforma** (ícono = T blanca sobre un globo de líneas,
+fondo índigo `#4f49bd`; nombre "Tekly" en Bricolage Grotesque 700, ya
+convertido a trazos: no hace falta la fuente). El detalle del paquete está
+en `public/tekly-logo-kit/LEEME.md`; `public/tekly-logo-kit.zip` es solo el
+paquete original (no se referencia desde la app).
+
+**Siempre se usa vía `<TeklyLogo variante="…" altura={px} />`**
+(`components/brand/tekly-logo.tsx`): un solo lugar con las rutas y las
+proporciones; no hardcodear `/tekly-logo-kit/…` en los componentes. `alt=""`
+cuando el link/botón que lo contiene ya tiene `aria-label`.
+
+| Archivo (SVG en `public/tekly-logo-kit/`) | Variante | Dónde va |
+|---|---|---|
+| `tekly-isologo-horizontal.svg` | `horizontal` | Header y footer de la landing (`components/marketing/nav.tsx`, `footer.tsx`); header del drawer móvil del sistema (`components/mobile-nav-drawer.tsx`). Solo sobre fondo claro. |
+| `tekly-icono.svg` | `icono` | Marca chica: panel de plataforma (`app/admin/layout.tsx`); maqueta borrosa del login (`components/auth/app-preview-backdrop.tsx`). También avatar/redes. |
+| `tekly-icono-invertido.svg` | `icono-invertido` | Encabezado índigo de las pantallas de auth (`components/auth/auth-modal.tsx`: login, signup, olvidé/restablecer contraseña) y header del sistema (`components/topnav.tsx`) cuando la organización no cargó su propio logo (**prueba**: sobre el header blanco el tile desaparece y queda la T índigo con el globo en línea fina; si se prefiere el tile sólido, volver a `icono`). Para cualquier fondo índigo u oscuro. |
+| `tekly-isologo-horizontal-blanco.svg` | `horizontal-blanco` | **Sin uso todavía.** Isologo con texto blanco y fondo transparente, para fondos índigo/oscuros (ej. el banner de cierre de la landing si se quiere marca ahí). |
+| `tekly-isologo-horizontal-sobre-indigo.svg` | `horizontal-sobre-indigo` | **Sin uso todavía.** Isologo con el fondo índigo incluido. |
+| `tekly-isologo-vertical.svg` | `vertical` | **Sin uso todavía.** Pensado para login/splash; hoy el login ya lleva el ícono en el header de la card, así que no se agregó un segundo logo. |
+| `tekly-wordmark.svg` | `wordmark` | **Sin uso todavía.** Solo el nombre. |
+| `tekly-favicon-32.svg` / `-16.svg` | — | Favicon SVG (`icons.icon` en `app/layout.tsx`). |
+| `favicon.ico` (16 y 32 px) | — | Copiado a `public/favicon.ico`; es el favicon de respaldo. |
+| `png/tekly-icono-180.png` | — | `apple-touch-icon` (`icons.apple` en `app/layout.tsx`). |
+| `png/tekly-icono-192.png`, `-512.png` | — | **Sin uso todavía:** reservados para un `manifest` PWA (no hay). |
+| `png/tekly-favicon-16/32.png`, `png/tekly-isologo-*.png` | — | PNG de respaldo (isologos a 3x) para donde no sirva SVG (mails, redes, documentos). |
+
+El logo de la **plataforma** no es el de cada **negocio**: el header del
+sistema muestra primero el logo y el nombre que la organización cargó en
+Configuración (`organizations`), con "by tekly" debajo; los recibos/PDF
+llevan el membrete del negocio. Tekly aparece ahí solo como fallback (ícono
+cuando el negocio no subió logo) y en "by tekly".
+
 ### Color
 
 | Token | Valor | Uso |
@@ -441,10 +575,18 @@ para columnas de tabla.
 Pesos: `font-semibold` para valores y títulos; `font-medium` para labels.
 Números (montos, contadores, IMEI): **siempre `tabular-nums`**.
 
+**Fuente del texto: Sora** (toda la app y la landing: cuerpo, tablas, botones,
+formularios, recibos). Variable font cargada con `next/font` en
+`app/layout.tsx` (`--font-sora`), aplicada al `body` en `app/globals.css` y a
+la utilidad `font-sans` de `tailwind.config.ts`. Soporta `tabular-nums` (los
+dígitos miden todos lo mismo), así que las columnas de montos siguen
+alineadas. Es más ancha que `system-ui`: al agregar columnas/botones densos
+revisar que no desborden. Las únicas otras fuentes: Bricolage Grotesque
+(`font-display`, solo titulares de la landing) y `font-mono` para IMEI/series.
+
 **Números hero** (valor de `StatCard` / `MetricCards`, número grande de un
 gráfico): fuente **Space Grotesk** vía la utilidad `font-grotesk` (cargada con
-`next/font` en `app/layout.tsx`, variable `--font-space-grotesk`; el resto de la
-UI usa `system-ui`). `StatCard` ya la aplica → una fila de KPIs con `StatCard`
+`next/font` en `app/layout.tsx`, variable `--font-space-grotesk`). `StatCard` ya la aplica → una fila de KPIs con `StatCard`
 sale sola. El `MetricCards` del dashboard (card compacta propia) también.
 
 **Labels y eyebrows en MAYÚSCULA**: el `Label` de `components/ui/field.tsx` ya
@@ -516,11 +658,11 @@ Además de lo genérico (`lorem ipsum`, hero centrado con blob de gradiente):
 `globals.css` — no agregar `dark:` sueltos sin decidir soportarlo de
 verdad), **un solo hue en gráficos** (paleta monocromática índigo de
 `lib/chart.ts` — nunca colores arbitrarios por serie, ver "Paleta de
-gráficos"), **el único gradiente permitido** es el del `Button`
-`variant="primary"` (`linear-gradient` índigo, ver `components/ui/button.tsx`)
-y el header violeta de `AuthModal`/recibos — no crear un segundo gradiente
+gráficos"), **sin gradientes en botones** (el `Button` primario va en
+`accent` plano + sombra, ver `components/ui/button.tsx`) y el header violeta
+de `AuthModal`/recibos es el único degradé que queda — no crear un gradiente
 para otro botón o card, **`Badge` es siempre `rounded-md`** (nunca pill —
-`shape` no existe como prop suya, a diferencia de `Button`), y **nunca**
+`shape` no existe como prop suya, a diferencia del `IconButton`), y **nunca**
 `toLocaleString("en-US")`/`"USD "` a mano para moneda (ver "Moneda").
 
 ### Errores de UI/accesibilidad que ya nos mordieron — no repetirlos
@@ -562,6 +704,19 @@ la regla es para no reintroducirlos en código nuevo:
   (ej. el ARS de un pago viejo) se muestra con el dato guardado, no
   recalculado contra la cotización de hoy — recalcular con la cotización
   vigente es correcto solo para operaciones nuevas, todavía no persistidas.
+- **(Landing) Los blobs de fondo (`AmbientBlobs`, wrapper `-z-10`) quedan
+  invisibles si la sección que los contiene no crea su propio stacking
+  context** — el `-z-10` pinta en el paso 2 del contexto raíz y el
+  `bg-neutral-50` del layout de marketing (div ancestre, opaco) pinta después
+  (paso 3) encima: los blobs del hero y del banner de cierre pasaron meses
+  enterrados sin que nadie lo notara. Toda sección/contenedor con
+  `AmbientBlobs` lleva `isolate` (hero y banner del cierre ya lo tienen).
+- **(Landing) No centrar un blob con `left-1/2 -translate-x-1/2` si
+  framer-motion anima `x`/`y` en el mismo div** — el `transform` inline que
+  escribe framer pisa el translate de la clase de Tailwind y el elemento
+  queda corrido (el blob superior del hero renderizaba ~340px descentrado).
+  Centrar con margen negativo (`left-1/2 -ml-[mitad-del-ancho]`), que framer
+  no toca.
 
 ### Moneda
 
@@ -589,15 +744,13 @@ Aplica a **toda tabla, presente y futura** (menos los recibos/PDF):
 - Números en columnas → `tabular-nums`. Texto de las celdas: peso normal (dejar
   `font-semibold` solo para el dato que tiene que destacar, ej. Total).
 - Fuera de tablas, alinear a la izquierda con `text-start`.
-- **Pendiente de resolver**: el `/ux-ui-audit` (`AUDIT.md`) encontró que 10 de
-  13 secciones (Cajas, Inventario, Recuentos, Ventas, Compras, Reparaciones,
-  Clientes, Configuración, Cuentas corrientes, Difusión) centran *todas* las
-  columnas de sus tablas (`text-center` en cada `th`/`td`, incluidas
-  columnas de texto — nombre, email, IMEI), no solo la excepción de celda
-  vacía que dice esta regla. Es una decisión de producto tomarla en una
-  sola dirección — sacar el `text-center` de columnas de texto en esas 10
-  secciones, o asumir que centrado es el estándar real y actualizar esta
-  regla — no asumir que el código de una sección nueva debería copiar el
+- **Decisión tomada (plan 007): texto a la izquierda, montos a la
+  derecha.** Ventas es la sección de referencia — código/estado corto a la
+  izquierda, plata/% a la derecha (`text-right tabular-nums`), acciones en
+  columna angosta a la derecha (`w-px whitespace-nowrap`). Las otras 9
+  secciones que hoy centran todas sus columnas (Cajas, Inventario, Recuentos,
+  Compras, Reparaciones, Clientes, Configuración, Cuentas corrientes,
+  Difusión) se migran a este criterio después (plan aparte) — no copiar el
   patrón centrado solo porque es mayoritario hoy.
 
 ## Componentes reutilizables — usar SIEMPRE estos
@@ -685,8 +838,11 @@ gaps de `strokeDasharray` (quedan inclinados). `%` de cada segmento en chip
 `rgba(255,255,255,.25)` + texto blanco. Leyenda debajo.
 
 **Heatmap** (Turnos): números **siempre `text-white`**; celda coloreada por
-`heatCell(count, 0, max)` (usa `HEAT_SCALE` índigo). Celdas cuadradas
-(`aspect-square`), columnas de ancho fijo para que queden pegadas.
+`heatCell(count, 0, max)` (usa `HEAT_SCALE` índigo). Columnas de ancho fijo
+para que queden pegadas. En el widget del dashboard las filas se estiran
+para ocupar todo el alto de la card (sin `aspect-square`: la lista
+"Próximos" de al lado es más alta que 3 filas cuadradas y dejaba un hueco
+abajo); en Analíticas (`HeatmapActividad`) las celdas siguen cuadradas.
 
 **Tooltip de hover** (Tendencia, Turnos): caja `bg-neutral-900` texto blanco,
 `rounded-lg`, `shadow-lg`, `pointer-events-none`. Título centrado; cada fila
@@ -697,18 +853,103 @@ la barra/celda + gap, y salta al otro lado cerca del borde derecho.
 directa (ej. el `%` dentro del segmento de la dona) — identidad nunca solo por
 color.
 
+### Layout estándar de sección con tabla
+
+Toda sección con tabla (Ventas, Compras, Reparaciones, Inventario, Cajas,
+Clientes, Cuentas corrientes, Recuentos) arma su página con `SeccionTabla`
+(plan 009). Orden fijo, siempre el mismo:
+
+1. **Barra de visibilidad** — dos botones "Gráficos" / "Tarjetas"
+   (Eye/EyeOff, `aria-pressed`, `aria-controls`), alineados a la derecha. La
+   provee `SeccionTabla`; no armar toggles propios.
+2. **Gráficos** — 2 cards lado a lado (`xl:grid-cols-2`), **alto fijo `h-72`**
+   desde `sm`. Cada uno va dentro de `GraficoCard` (o de un wrapper de
+   `components/seccion/graficos.tsx`); ninguno define su propia altura.
+3. **Tarjetas** — 4 `StatCard` por defecto (`grid-cols-2 gap-3
+   lg:grid-cols-4`), con `hint` o `delta` para que midan igual. Excepciones
+   confirmadas: Reparaciones (8 del pipeline) y Cajas · Movimientos (5 por
+   medio de pago) conservan su cantidad porque filtran la tabla —
+   `columnasTarjetas={8}` / `columnasTarjetas={5}`.
+4. **Filtros** — una sola fila (`BarraFiltros`): tabs (de *entidad* y de
+   *vista de la misma entidad*) · buscador · selects · acción primaria a la
+   derecha. Los tabs van siempre visibles (`BarraFiltros.tabs`); en mobile
+   solo los selects se colapsan detrás de "Filtros · N".
+5. **Tabla** (con `Pagination` si es server-paginada).
+
+Los tabs (Inventario Equipos/Repuestos/Otros, Cajas
+Movimientos/Conciliaciones/Cajas, Recuentos Recuentos/Movimientos, Ventas
+Ventas/Ítems vendidos, Reparaciones Tickets/Servicios) van todos en la fila de
+filtros, con el resto de los filtros de la sección — no arriba de los
+gráficos.
+
+Gráficos y tarjetas son **dos bloques independientes**: cada uno se oculta con
+su propio botón (persistido por sección en `localStorage`, `tekly:ui:<id>`) y
+la tabla sube al desmontarse. Los gráficos respetan los filtros de la sección;
+los de una sección server-paginada (Ventas) se calculan en el server sobre el
+período completo (`resumenVentas`/`graficosVentas`), nunca con la página
+visible.
+
+### Botones (plan 010)
+
+**Un solo sistema de botones** en `components/ui/button.tsx`: la landing y
+la app usan el **mismo código de estilos** (la landing cambia solo el tamaño
+vía el envoltorio `MarketingButton`). Nada de `<button>`/`<Link>` con clases
+de botón escritas a mano — un test guarda (`lib/botones.guard.test.ts`)
+falla si aparece uno.
+
+- **`Button`** — `variant: primary · outline · tonal · ghost · danger ·
+  danger-outline · link · inverse`; `size: sm` (32px) · `md` (36px, default
+  de la app) · `lg` (40px) · `xl` (48px, hero/CTA de la landing); `chip`
+  (círculo con `ArrowRight` que se desliza al hover; **solo la landing** —
+  el login/signup y el resto de la app van sin flecha); `icon` (lucide: en
+  `primary`/`outline`/`tonal`/`danger`/`danger-outline`/`inverse` va dentro
+  de un **círculo a la derecha**, del mismo tamaño que el chip de flecha,
+  con una animación mínima al hover — el "+" gira 90°, los demás crecen un
+  poco; en `ghost`/`link` queda suelto a la izquierda). El ícono se pasa
+  siempre con la prop `icon`, **no** como hijo; `loading` (spinner
+  `Loader2`, deshabilita y mantiene el ancho); `fullOnMobile` (`w-full
+  sm:w-auto`, footers). Pill, `font-semibold` **sin mayúsculas**. `inverse`
+  es solo para la landing (CTA blanco sobre fondo accent).
+- **`IconButton`** — solo ícono; `aria-label` es **obligatorio** (el tipo lo
+  exige); `variant: ghost · outline · danger-ghost`; `size: sm · md · lg`;
+  `shape: round · square`.
+- **`ButtonLink`** — misma apariencia, renderiza `next/link`. Para links de
+  **navegación** con look de botón (ej. "Ver inventario"). Un link de texto
+  dentro de un párrafo no es botón.
+- `MarketingButton` (`components/marketing/ui/marketing-button.tsx`) es un
+  envoltorio de `buttonClasses()` para el `<a>` de la landing (apunta a otro
+  origen). **Su aspecto no debe cambiar.**
+- Variante por caso: `primary` = acción principal de un form/alta; `tonal` =
+  acción de toolbar/acción extra de dialog; `outline` = Cancelar/Cerrar/
+  filtros; `ghost` = toggles/texto; `danger`/`danger-outline` = destructivo
+  (borrar); `link` = link de texto.
+- **Controles vecinos** (`Tabs`, `filterPill`, los botones de página de
+  `Pagination`, `BotonBloque` de `SeccionTabla`): misma altura (36px), radio
+  pill, borde `border-neutral-900/10` y foco que `outline` md, para que una
+  fila de filtros se vea pareja — **sin** convertirlos en `Button`.
+- Galería de QA en dev: `/qa` (pública solo fuera de producción vía
+  `middleware.ts`; `notFound()` en prod).
+
 ### Otros primitivos
 
 | Componente | Archivo | Notas |
 |---|---|---|
 | `Section` | `components/section.tsx` | `{ title, children, mainClassName?, toolbar? }` — wrapper de toda página. El `Topbar` **ya no muestra `title`** (se mantiene por compat); `toolbar` = control opcional en la Topbar (ej. selector de período del dashboard). **Sin `actions`** |
 | `Card` | `components/ui/card.tsx` | contenedor base (`rounded-2xl border shadow-sm`) |
-| `Button` | `components/ui/button.tsx` | `variant: primary \| outline \| ghost`, `size: sm \| md`, `shape: rounded \| pill` (default `rounded`; `pill` = mismo gradiente/sombra/mayúscula pero `rounded-full` — usado en `/login` y `/signup`, cuyo `AuthModal` lleva `accent`) |
+| `Button` | `components/ui/button.tsx` | sistema único de botones (plan 010) — ver sección "Botones". Resumen: `variant: primary \| outline \| tonal \| ghost \| danger \| danger-outline \| link \| inverse`; `size: sm \| md \| lg \| xl` (`md` por defecto); `chip` (flecha), `icon`, `loading`, `fullOnMobile`. Renderiza un `<button>` |
+| `IconButton` | `components/ui/button.tsx` | solo ícono: `{ aria-label (obligatorio), icon, variant: ghost \| outline \| danger-ghost, size: sm \| md \| lg, shape: round \| square }` |
+| `ButtonLink` | `components/ui/button.tsx` | misma apariencia que `Button` pero `next/link`. `MarketingButton` es un envoltorio suyo |
 | `Badge` | `components/ui/badge.tsx` | `{ tone, dot?, className? }` — forma ÚNICA cuadrada (`rounded-md`); no hay prop de forma. Colores por `lib/status.ts` |
-| `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg, accent? }` — **centrado vertical**, con scroll propio si el contenido es alto; cierra con Esc / click fuera. Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
+| `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg \| xl \| 2xl \| 3xl \| 4xl }` (anchos `max-w-md/2xl/3xl/4xl/5xl/6xl`; **modal que se acerca a 100vh → ensancharlo y partirlo en columnas en `lg:`**, no alargarlo: Nuevo ticket, Entregar equipo, Nueva venta (`4xl`, 2 columnas), canje, Nueva compra, alta de equipo/repuesto/producto en `3xl`; detalles en `2xl`; `ChecklistEditor` acepta `gridClassName`) — **vidrio único** (plan 011): header oscuro `table-header` con texto blanco, panel traslúcido (`bg-white/80`; `xl`/`2xl` → `bg-white/90`), `border-accent/70`, overlay `bg-neutral-900/[0.07] backdrop-blur-[2px]` (anidado: sin segundo blur). Centrado vertical, scroll propio, `createPortal` a `<body>`, cierra con Esc / click fuera, `role="dialog" aria-modal`. Los campos dentro del body se re-estilan a 42px/radio 14px/blanco 70%. Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
 | `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }], accent? }` — `accent` (hex) para teñir el estado activo con otro color; por defecto usa `accent` |
+| `Pagination` | `components/ui/pagination.tsx` | `{ page, total, pageSize?, onPageChange, className? }` — "Mostrando 1–50 de N" + números de página (‹ Anterior · 1 2 3 … N · Siguiente ›), se oculta con una sola página. `paginasVisibles` (helper puro, con test) en `lib/pagination.ts`; `PAGE_SIZE = 50` |
+| `SeccionTabla` | `components/ui/seccion-tabla.tsx` | Layout estándar de una sección con tabla (ver "Layout estándar de sección con tabla"): fija el orden tabs → visibilidad → gráficos → tarjetas → filtros → tabla. `{ id, tabs?, graficos?, tarjetas?, columnasTarjetas? (4\|5\|8), filtros?, children }` |
+| `GraficoCard` | `components/ui/grafico-card.tsx` | Contenedor de un gráfico de sección: `Card` con alto fijo `h-72` desde `sm`, encabezado `ChartTitle align="left" divider` y cuerpo `flex-1`. **Todo gráfico de una sección con tabla va adentro** — ninguno define su propia altura. `{ title, sub?, action?, children }` |
+| `BarraFiltros` | `components/ui/barra-filtros.tsx` | Fila de filtros estándar: tabs de vista → buscador → selects → chips → acción (`ml-auto`), con colapso mobile "Filtros · N". `{ tabs?, busqueda?, filtros?, chips?, accion?, contadorFiltros? }` |
+| `useVisibilidadBloques` | `components/ui/use-visibilidad-bloques.ts` | Hook `{ graficos, tarjetas, toggle }` que persiste la visibilidad de los bloques en `localStorage` (`tekly:ui:<id>`). Lógica pura testeable en `lib/visibilidad-bloques.ts`; visible en SSR/primer render para no romper la hidratación |
+| Gráficos genéricos | `components/seccion/graficos.tsx` | `GraficoBarrasVerticales`, `GraficoRanking` (con `suffix`), `GraficoDona` y `GraficoBarrasAgrupadas` — cada uno ya envuelto en `GraficoCard` y con empty state. Reusar antes de crear un gráfico nuevo |
 | `Field` / `Input` / `Select` / `Textarea` / `Label` | `components/ui/field.tsx` | inputs con estilo consistente; `Field` = `Label` + control |
-| `ClientePicker` | `components/ui/cliente-picker.tsx` | `{ clientes: ClienteOpcion[], value: ClienteSeleccion \| null, onChange, allowLibre?, placeholder?, className? }` — desplegable con buscador para elegir cliente. **Usar SIEMPRE este en vez de un `<Select>`/`Input` a mano** en cualquier form que necesite un cliente (Ventas, Reparaciones, Cuentas corrientes, Turnos son los 4 casos hoy). `ClienteSeleccion` (`lib/types.ts`) = `{tipo:"existente",id,nombre} \| {tipo:"nuevo",nombre,telefono?} \| {tipo:"libre",nombre}`. La creación queda **diferida**: elegir "Crear cliente nuevo" solo arma el borrador, recién se persiste (`resolveCliente` en `lib/db/clientes.ts`) cuando la action del formulario confirma — cancelar el diálogo no deja un cliente fantasma. `allowLibre` agrega "usar sin registrar" (`tipo:"libre"`, sin fila en `clientes`) — solo Turnos lo usa (`Turno.clienteId` es nullable a propósito, para turnos de gente que aún no es cliente registrado); las acciones que sí requieren un cliente real (`createVentaAction`/`createTicketAction`/`createMovimientoCCAction`) tipan su input como `Exclude<ClienteSeleccion, {tipo:"libre"}>` y llaman `resolveCliente`. Comparte `useOutsideClick` (`components/ui/use-outside-click.ts`) con el buscador de ítems de Nueva venta (`ItemBuscador`, en `ventas-client.tsx`, que no se tocó — sigue siendo su propio combobox porque busca sobre equipos/repuestos/otros/servicios, no clientes). |
+| `ClientePicker` | `components/ui/cliente-picker.tsx` | `{ clientes: ClienteOpcion[], value: ClienteSeleccion \| null, onChange, allowLibre?, placeholder?, className? }` — desplegable con buscador para elegir cliente. **Usar SIEMPRE este en vez de un `<Select>`/`Input` a mano** en cualquier form que necesite un cliente (Ventas, Reparaciones, Cuentas corrientes, Turnos son los 4 casos hoy). `ClienteSeleccion` (`lib/types.ts`) = `{tipo:"existente",id,nombre} \| {tipo:"nuevo",nombre,telefono?} \| {tipo:"libre",nombre}`. La creación queda **diferida**: elegir "Crear cliente nuevo" solo arma el borrador, recién se persiste (`resolveCliente` en `lib/db/clientes.ts`) cuando la action del formulario confirma — cancelar el diálogo no deja un cliente fantasma. `allowLibre` agrega "usar sin registrar" (`tipo:"libre"`, sin fila en `clientes`) — solo Turnos lo usa (`Turno.clienteId` es nullable a propósito, para turnos de gente que aún no es cliente registrado); las acciones que sí requieren un cliente real (`createVentaAction`/`createTicketAction`/`createMovimientoCCAction`) tipan su input como `Exclude<ClienteSeleccion, {tipo:"libre"}>` y llaman `resolveCliente`. Comparte `useOutsideClick` (`components/ui/use-outside-click.ts`) con el buscador de ítems de Nueva venta (`ItemBuscador`, en `ventas-client.tsx`, que sigue siendo su propio combobox porque busca sobre equipos/repuestos/otros/servicios, no clientes; el plan 007 le agregó flechas/Enter/Esc y devolver el foco al buscador tras agregar). |
 
 ### Estados de elementos interactivos
 
@@ -727,51 +968,24 @@ de uno nuevo. **Empty states** son ad hoc por tabla (fila con celda
 `text-center`, texto tipo "Sin resultados") — no hay componente
 `EmptyState` compartido todavía.
 
-### `Dialog`: todos los de una sección son una sola familia visual
+### `Dialog`: footer con el sistema único de botones
 
-Regla de oro: **los dialogs de una misma sección tienen que verse como parte
-del mismo sistema entre sí** — mismo header, misma familia de botones en el
-footer. No mezclar el header violeta con un footer de otra familia de botón
-(o viceversa) dentro de la misma sección; eso es lo primero que se nota mal.
+El footer de **todos** los dialogs usa el mismo primitivo `Button`:
+`variant="outline"` para «Cancelar»/«Cerrar» y `variant="primary"` para la
+acción principal (`danger`/`danger-outline` para destructivos, `tonal` para
+acciones extra en secciones que no tienen acción primaria). `fullOnMobile`
+para que en mobile ocupe el ancho. El header es siempre el oscuro del vidrio
+(ya no hay `accent`/blanco, plan 011).
 
-Hay dos familias de botón para el footer, y van pegadas a si el `Dialog`
-lleva `accent` o no:
-
-- **Header violeta (`accent`)** → footer con **pills a mano** (`<button>`,
-  no el componente `Button`): «Cancelar» = pill neutro
-  `rounded-full border border-neutral-200 px-4 text-sm font-semibold
-  text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50`; la acción
-  primaria = pill sólido `rounded-full bg-accent px-4 text-sm font-semibold
-  text-white hover:bg-accent/90 disabled:opacity-50`; acciones extra (ej.
-  «Recibo de mercadería») = pill `border-accent/40 text-accent`. Esta es la
-  familia por defecto — úsala tanto para dialogs de **detalle/vista**
-  (ficha de cliente, ticket, venta, movimiento de caja — sección
-  "Información general" en grid de `Card`: `grid grid-cols-3 gap-3`, cada
-  celda `<Card className="p-3 text-center">` con label `font-grotesk
-  border-b border-neutral-300 ... uppercase` + valor `mt-2 text-sm`) como
-  para los de **alta/edición** de esa misma sección (`EquipoFormDialog` en
-  Inventario, `CajaDialog` y `NuevoMovimientoDialog` en Cajas, **Nueva
-  venta** y `CanjeModal` en Ventas — mismo `accent`, mismo footer a pills,
-  body con `Field` normal; cada sección del form lleva su propio eyebrow
-  con línea (`border-b border-neutral-200 pb-2`, ver `Eyebrow` en
-  `ventas-client.tsx`) para que se lean como bloques separados en un form
-  largo).
-- **Header blanco (sin `accent`)** → footer con el componente **`Button`**
-  (`variant="outline" size="sm"` para «Cancelar», `size="sm"
-  disabled={...}` para la acción primaria). Úsala en secciones que **no**
-  tienen ningún dialog de detalle/vista con `accent` todavía —
-  `NuevoClienteDialog` (Clientes), `NuevoTicketDialog` (Reparaciones),
-  `ServicioDialog` (Servicios).
-
-En ambas familias: body `<div className="space-y-3">` con `Field` + `Input`
-/ `Select` / `Textarea` apilados (pares cortos → `grid grid-cols-2 gap-3`);
-un flag booleano tipo "activo" va como checkbox debajo de los campos,
-**dentro del dialog** — no como botón aparte en la fila de la tabla
-(`ServicioDialog`, "Servicio activo", es la referencia). Título: `id ?
-"Editar X" : "Nuevo X"`. Para elegir entre opciones dentro de un form usar
-**`Select`**, nunca `Tabs` — `Tabs` es el pill de navegación/filtro de
-página (Del día/Historial, Equipos/Repuestos/Otros), no un control de
-formulario.
+Body: `<div className="space-y-3">` con `Field` + `Input` / `Select` /
+`Textarea` apilados (pares cortos → `grid grid-cols-1 gap-3.5
+sm:grid-cols-2`, campos largos con `sm:col-span-2`); un flag
+booleano tipo "activo" va como checkbox debajo de los campos, **dentro del
+dialog** — no como botón aparte en la fila de la tabla (`ServicioDialog`,
+"Servicio activo", es la referencia). Título: `id ? "Editar X" : "Nuevo X"`.
+Para elegir entre opciones dentro de un form usar **`Select`**, nunca
+`Tabs` — `Tabs` es el pill de navegación/filtro de página (Del
+día/Historial, Equipos/Repuestos/Otros), no un control de formulario.
 
 ## Convenciones al agregar una sección
 
@@ -785,11 +999,13 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
 1. `app/(app)/<seccion>/page.tsx`: server component, devuelve
    `<Section title="…">` con el fetch inicial vía `lib/db/<dominio>.ts`.
    **El header de sección NO lleva botones ni acciones — solo el título.**
-   Las acciones de sección (alta, filtros, «Recuento», etc.) van en una
-   **toolbar arriba del contenido**, alineadas a la derecha con `ml-auto`
-   (o al lado de las `Tabs`). Acciones globales / destructivas (ej.
+   Las acciones de sección (alta, filtros, «Recuento», etc.) van en la
+   **fila de filtros** (`BarraFiltros.accion`), alineadas a la derecha con
+   `ml-auto` (o al lado de las `Tabs`). Acciones globales / destructivas (ej.
    «Conciliar cajas») van **abajo** de la página. `Section` no acepta
-   `actions`.
+   `actions`. Si la sección tiene tabla, **toda la página se arma con
+   `SeccionTabla`** (ver "Layout estándar de sección con tabla") — no repetir
+   el orden a mano.
 2. Agregar el ítem a `NAV` en `lib/nav.ts` (href, label, icono de lucide,
    `roles?` si hace falta acotarlo a admin/vendedor/técnico — ver
    `navForRole`).
@@ -799,8 +1015,10 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
    `lib/types.ts`). La interacción (dialogs, filtros, estado local) va en
    `<seccion>-client.tsx`; las mutaciones en `actions.ts`
    (`requireUser()` + `revalidatePath`).
-4. KPIs arriba → `StatCard`. Tablas → `<Card>` + `<table>` (headers y celdas
-   ya vienen con estilo del global). Estados → `Badge` + `lib/status.ts`.
+4. KPIs arriba → `StatCard` (4 por defecto, dentro de `SeccionTabla.tarjetas`;
+   8 en Reparaciones, 5 en Cajas · Movimientos). Tablas → `<Card>` +
+   `<table>` (headers y celdas ya vienen con estilo del global), como
+   children de `SeccionTabla`. Estados → `Badge` + `lib/status.ts`.
    Medios de pago (`MedioPago`): `pesos` ("Efectivo (pesos)" 💵), `dolares`
    ("Dólares" 💲), `transferencia` 🏦, `cripto` 🪙, `tarjeta` ("Tarjeta de
    crédito") 💳, `canje` ("Mercadería") 📦 — label/tone/emoji centralizados
@@ -955,26 +1173,87 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   ítems) con un total general aparte -- Garantía solo en la tabla de
   Servicios (`lineaDeItem`), Repuestos/Ítems extra no la traen
   (`lineaSinGarantia`) porque no tienen garantía de catálogo.
-- **Ventas** (`app/(app)/ventas/`, migrado): click en una fila → detalle
-  (`VentaDetalle`) con botones **«Comprobante de venta»**, **«Garantía»**
-  (siempre visible, no depende de que algún ítem tenga `equipoId`) y, por
-  cada pago en `canje`, un link **«Ver compra de canje»** hacia
-  `/compras?open=<id>` — el detalle completo (equipo, checklist, PDF) vive
-  en Compras, acá solo la referencia (`Pago.compraId`, ver "Compras" más
-  abajo). También hay ícono de Garantía en la columna Acciones de
-  la tabla de Ventas (venta completa) y de "Ítems vendidos" (un solo ítem) —
-  mismo documento, mismo `garantiaContenido(items)` en `ventas-client.tsx`.
-  Selector **Ventas / Ítems vendidos** (`Tabs`) sobre la tabla: la segunda
-  vista aplana `Venta.items` (1 fila por ítem, con el IMEI vía
-  `equiposPorId`; sin columnas de Categoría/Cantidad, solo Ítem/Serie/
-  Precio), respeta los mismos filtros/búsqueda que la tabla de ventas pero a
-  nivel ítem, y click en una fila abre el mismo `VentaDetalle`.
+- **Ventas** (`app/(app)/ventas/`, migrado): **la URL es la fuente de
+  verdad de los filtros** (`lib/ventas-filtros.ts`, con test): `preset`
+  (default `mes`), `desde`/`hasta`, `vendedor` (id de `profiles`, no
+  nombre), `tipo` (rubro de los ítems vía `categoriaDe`, no `Venta.tipo`),
+  `q`, `vista` (`ventas`/`items`), `page`, `sort` (`fecha`/`total_usd`/
+  `numero`/`margen_pct`) y `dir`. Params inválidos caen a los defaults; un
+  vendedor no puede ordenar por margen ni por URL. El server (`page.tsx`)
+  parsea, arma el rango en **hora de Argentina** (nunca `toISOString()`) y
+  llama en paralelo a `listVentasPagina`/`listItemsVendidosPagina` (`.range`
+  + `count: "exact"`, 50 por página), `contarVentas`/`contarItemsVendidos`
+  (contadores de los tabs), `resumenVentas` (KPIs del período **completo**,
+  no solo la página, con `resumenDeVentas` puro) y `resumenVentas` del
+  período anterior (`periodoAnterior` de `lib/date-presets.ts`) para el
+  `delta` de cada `StatCard`. La búsqueda `q` matchea número exacto,
+  `cliente ilike` e ítems (`venta_items.detalle` + `equipos.imei`, tope 500
+  ids). El cliente deja de tener `list`/`filtered` en estado: cada cambio de
+  filtro hace `router.replace` con la URL nueva (vuelve a `page=1`) dentro
+  de `startTransition`; mientras carga la tabla baja a `opacity-60`, y el
+  buscador tiene debounce de 300 ms. Hay chips de filtros activos + "Limpiar
+  todo", y el botón "Filtros · N" en mobile. **Paginador** reutilizable
+  `components/ui/pagination.tsx` (`paginasVisibles` en `lib/pagination.ts`,
+  con test). Alta y baja de venta → `router.refresh()` (ya no se muta una
+  lista local). Deep link `?open=<id>` (lo usa "Ventas recientes" del
+  dashboard): si la venta está en la página se abre de la lista, si no
+  `getVenta(id)` la trae aparte (`ventaAbierta`); al cerrar se saca el
+  param. `?q=` y `?accion=nueva-venta` del CommandPalette siguen andando.
+  **Alineación**: texto a la izquierda, montos/% a la derecha (`text-right
+  tabular-nums`), acciones al final en columna angosta — Ventas es la
+  sección de referencia (ver "Reglas globales de tablas").
+  La lista es una tabla (`VentaCardMobile` debajo de `md`) con Venta
+  (`V-1042` + fecha), Cliente, Detalle, Pago (**un solo chip**: el medio de
+  mayor `montoUsd` + "+N", `title` con el detalle vía `montoPagoLabel`),
+  Margen (solo `puedeVerCosto`) y Total; los headers Venta/Total/Margen son
+  ordenables. Se sacó la columna Costo de la lista (queda en el detalle).
+  El detalle (`VentaDetalle`) tiene footer de **3 botones** (Eliminar
+  admin, Cerrar y un menú **«Imprimir ▾»** con Comprobante/Garantía,
+  navegable con flechas); "Ver compra de canje" pasó al bloque de pagos; el
+  viejo "Resumen financiero" se parte en **Pagos** (una fila por pago: chip
+  de medio + caja + monto, recargo/cotización, link de canje, total cobrado)
+  y **Rentabilidad** (Costo/Ganancia/Margen en 3 `StatCard`, solo
+  `puedeVerCosto`). "Ítems vendidos" es una query paginada aparte
+  (`listItemsVendidosPagina`, `venta_items` con `ventas!inner`) con 1 fila
+  por ítem (Venta/Cliente/Ítem/Serie/Precio/Margen) y abre el mismo
+  `VentaDetalle`. También hay ícono de Garantía en la columna Acciones de
+  Ventas y de "Ítems vendidos" — mismo documento, mismo
+  `garantiaContenido(items)` en `ventas-client.tsx`.
   `VentaItem.costoUsd?` y
-  `Venta.procedencia?` existen; el costo NO se muestra ni edita en el modal de
-  alta. Vender un ítem con `equipoId` marca ese equipo `vendido`. "Cliente
+  `Venta.procedencia?` existen; el costo NO se edita en el modal de
+  alta. **Margen**: `margenVenta(items)` (`lib/ventas.ts`, con test) es la
+  única fuente del costo/ganancia/margen de una venta — solo ítems con
+  `costoUsd` cargado (mismo criterio que `margenPorTipo` en Analíticas);
+  venta sin ningún costo → "—" en tabla/detalle (sin dato, no 100 %). El KPI
+  "Margen promedio" usa `margenPonderado(ventas)` (ponderado por
+  facturación, `null` → "—" con hint "sin costos cargados") — nunca el
+  promedio simple de `margenPct`. La columna `margen_pct` se persiste con
+  el mismo criterio (`margenVenta(...) ?? 0`) y se recalculó histórica en
+  `20261004140000_ventas_recalcular_margen.sql` (solo margen: la cotización
+  de pagos en pesos de ventas anteriores NO se reconstruyó); la UI no la lee para
+  mostrar margen (calcula desde los ítems). Vender un ítem con `equipoId`
+  marca ese equipo `vendido`. "Cliente
   nuevo" en el modal ahora persiste de verdad (`createCliente`) antes de
   crear la venta. El margen/restante/saldar del pago dividido usan
-  `lib/ventas.ts` (con tests), no lógica inline. `VentaItem.categoria`
+  `lib/ventas.ts` (con tests), no lógica inline.
+  **Montos de pagos en pesos**: `Pago.cotizacion`/`Pago.montoArs`
+  (snapshot persistido en el `jsonb` de `pagos` por `createVenta`) — el
+  `montoArs` ES el `monto` del movimiento de caja generado (recargo
+  incluido). La UI muestra pagos ya guardados con `montoPagoLabel`
+  (`lib/ventas.ts`): ARS con snapshot → `fmtArs(montoArs)`; venta vieja
+  sin snapshot → USD + aclaración "Monto en pesos no registrado" en el
+  detalle; **nunca** se recalcula con el blue de hoy (mismo
+  criterio anti-hidratación que el resto de los montos persistidos). El
+  blue en vivo (`useDolar()`) solo se usa dentro de `NuevaVentaDialog`
+  (operación todavía no persistida). El recargo se muestra en el detalle
+  ("+ 10 % recargo") cuando el pago lo tiene.
+  **Vendedor de la venta**: un vendedor/técnico registra siempre a su
+  propio nombre — `createVentaAction` ignora lo que venga del cliente y
+  fuerza `user.id`/`user.nombre` si `rol !== "admin"`; la UI lo refleja
+  (campo Vendedor como texto fijo con el look de input deshabilitado,
+  `NuevaVentaDialog` recibe `user`). Solo el admin elige (`Select` que
+  arranca en sí mismo; `listVendedores` incluye a los admin).
+  `VentaItem.categoria`
   (`"equipo" | "servicio" | "otro" | "libre"`) guarda el `origen` con el que
   se agregó el ítem en el modal -- alimenta `ventasPorRubro` de
   `lib/dashboard.ts` (ver Dashboard abajo) y `margenPorTipo` de
@@ -988,7 +1267,12 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   borrar el/los movimiento(s) de caja generados, borrar el movimiento de
   cuenta corriente generado (ver "Medios de pago" arriba), borrar la
   `Compra` de canje generada — `deleteVenta` (`lib/db/ventas.ts`) recibe
-  los 5 como un objeto de opciones.
+  los 5 como un objeto de opciones. La fila se saca de la lista recién
+  cuando la action confirmó (si falla, el error se muestra dentro del
+  `ConfirmDialog` y la venta no "desaparece"); `createVenta` compensa una
+  falla a mitad con ese mismo `deleteVenta` (todo en `true`) para no dejar
+  ventas/equipos/movimientos a medias — no es una transacción real,
+  ver el comentario en `lib/db/ventas.ts`.
 - **Clientes** (`app/(app)/clientes/`, migrado): tabla (no cards). Soporta
   deep link `/clientes?open=<id>` (`useSearchParams`, mismo patrón que
   Compras) — es a donde linkean el mapa de valor, las cohortes y las listas
@@ -1071,61 +1355,106 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   cada sección del mensaje) se guarda tal cual en el `jsonb` de
   `listas_difusion`, sin mapeo especial. Sin borrado de listas (el original
   tampoco lo tenía).
-- **Analíticas** (`app/(app)/analiticas/`, migrado): `page.tsx` (server) trae
-  ventas/equipos/repuestos/otros/clientes/turnos/cajas/movimientos reales de
-  los `lib/db/*` ya existentes (ninguna query nueva) y calcula
-  `ventasPorMes`/`facturacionDiaria` reales a partir de `ventas` —
-  `lib/analiticas.ts`, con test (cuidado ahí con el bug de huso horario:
-  `fechaISO` se lee con `.slice()`, nunca con `new Date(iso).getMonth()`,
-  que corre un día en husos negativos). Tab **Clientes** = Customer
-  Intelligence: la lógica vive en `lib/clientes-inteligencia.ts` (puro, con
-  test — fuente de verdad de las definiciones: operación = venta o ticket,
-  los turnos NO cuentan; gasto = `ventas.totalUsd`; procedencia del cliente
-  = la de su primera venta con `procedencia`, columna de `ventas` no de
-  `clientes`; activo = ≥1 op en 90 días; en riesgo = historial y nada en
-  180; tasa de recurrencia = ≥2 ops sobre ≥1; recurrente del lifecycle =
-  ≥3). Foto del estado actual: el filtro de fecha NO aplica al tab, y
-  `hoy: Date` se pasa del server al client para que SSR e hidratación
-  computen lo mismo (husos horarios distintos romperían la hidratación).
-  Contenido: 4 KPIs (nunca filtrados) + mapa de valor (X operaciones, Y
-  gasto, tamaño antigüedad, color canal de adquisición — top 220 por gasto,
-  mismo recorte que `StockBubble`) + compras vs reparaciones (zonas por
-  mediana del set graficado, guías no clasificación) + lifecycle Sankey
-  (1ª op → 2ª → recurrentes por mix, con caídas a una barra de inactivos;
-  ribbons en SVG estirado + labels en overlay HTML, patrón
-  `TendenciaRubros`) + cohortes M0-M6 con drill-down por celda + ingresos
-  nuevos vs existentes (línea SVG) + ranking de canales con toggle
-  Clientes/Ingresos (click filtra los scatters por procedencia — "Sin dato"
-  gris, nunca un tono de la paleta) + listas de atención. Componentes en
-  `components/analiticas/clientes/`; todos los linkeos a clientes van a
-  `/clientes?open=<id>`. Facturación por vendedor, ingresos por
-  medio de pago, ventas por canal (`procedencia`), equipos por estado y
-  facturación acumulada (SVG) ya eran cálculos genéricos sobre esos arrays,
-  no cambiaron. `margenPorTipo` (`lib/analiticas.ts`, con test) es real
-  desde que `VentaItem` tiene tabla propia (`venta_items`) — ver "Backend y
-  multi-tenancy" y "Estado de la migración". `tiempoPorFalla`,
-  `rendimientoTecnicos` y `TendenciaRubros` (`salesByMonth`) siguen en mock
-  — ver "Estado de la migración" arriba para el porqué de cada uno. Helper
-  `BarRows`.
-- **Dashboard** (`app/(app)/dashboard/`, migrado): `page.tsx` (server) trae
-  ventas/equipos/tickets/turnos vía los `lib/db/*` ya existentes y calcula
-  todo lo derivable con `lib/dashboard.ts` (con tests):
-  `metricasDashboard` (las 6 `MetricCard` — delta 0 en las que son un
-  conteo puntual sin serie histórica: tickets abiertos, equipos en
-  revisión, turnos hoy), `objetivoDelMes` (`current`/`prevTotal` reales;
-  `target` sigue en `monthGoal` de `lib/mock-data.ts`, sin owner de
-  configuración), `ventaGananciaPorPeriodo` (venta/ganancia por día para
-  los 3 períodos del selector — mismo cuidado de fechas que
-  `lib/analiticas.ts`), `ventasRecientes` (categoría derivada de
-  `Venta.tipo`) y `ventasPorRubro` (mix real Equipos/Reparaciones/
-  Accesorios/Otros del donut `RubrosPie`, a partir de `VentaItem.categoria`
-  -- el origen elegido en "Nueva venta": equipo del stock, servicio del
-  catálogo, producto de "Otros" o ítem libre; una venta de antes de este
-  campo cae en "Equipos" si tiene `equipoId`, si no en "Otros"). `TrendChart`
-  parte la barra al hover con este mismo `rubrosPorPeriodo[periodo]` (prop
-  `rubroMix`) — ya no hay un mock separado para eso.
-  Los 6 widgets (`components/dashboard/*`) pasaron de importar mock-data
-  directo a recibir todo por prop desde `dashboard-client.tsx`.
+- **Analíticas** (`app/(app)/analiticas/`, migrado): **solo admin**
+  (`requireRole("admin")` en el page + `roles: ["admin"]` en `lib/nav.ts`).
+  **Tab + período viven en la URL** (`lib/analiticas-filtros.ts`, con test:
+  `parseFiltrosAnaliticas` → `{ tab, preset, desde, hasta }`, defaults
+  `tab=ventas`/`preset=mes`; `personalizado` sin fechas válidas → `mes`;
+  `desde > hasta` se intercambian). `page.tsx` parsea la URL, calcula el
+  rango en hora argentina (`rangoDe` + `presetRange`) y **solo trae y
+  calcula lo del tab activo** — al cliente le llegan agregados
+  serializables, nunca arrays crudos de la historia.
+  **`lib/analiticas-resumen.ts`** (puro, con test) tiene un `resumen*` por
+  pestaña (`resumenVentas`, `resumenReparaciones`, `resumenFinanzas`,
+  `resumenInventario`, `resumenClientes`, `resumenTurnos`): reciben los datos
+  crudos + `ContextoAnaliticas` (`{ rango, rangoAnterior, preset, hoy }`) y
+  devuelven el objeto que dibuja la pestaña. El cliente
+  (`analiticas-client.tsx`) es solo el shell (selector de período + `Tabs` +
+  contexto + `opacity-60` en transición, mismo patrón que Ventas del plan
+  007) y un componente por pestaña en `app/(app)/analiticas/tabs/<tab>-tab.tsx`.
+  Sin `useDolar()`: Finanzas convierte **solo** con
+  `movimientos_caja.cotizacion` (`movimientoEnUsd`); los movimientos ARS sin
+  cotización (previos a la columna) no se suman y se informan aparte
+  (`sinCotizacion`). Regla: **todo alta de movimiento de caja guarda la
+  cotización** (venta con pago ARS, entrega de ticket, compra en pesos,
+  movimiento manual ARS); los viejos quedan en `null` a propósito, sin
+  backfill.
+  Definiciones corregidas: **Margen promedio = `margenPonderado`**
+  (ponderado por facturación, `null` → "—" con hint "sin costos cargados"),
+  el mismo criterio que "Ganancia por categoría" (`margenPorTipo`). **KPI
+  "Cobrado" de Reparaciones** = `cobradoReparaciones` (ingresos de caja con
+  `ticket_id` + cargos de `movimientos_cc` con `ticket_id`, fechados al
+  cobrar — no `presupuestoUsd` de tickets creados); "Gasto en repuestos" y
+  "Ganancia final" salen de los tickets **cobrados**. **Venta promedio por
+  día de la semana** grafica `promedioUsd` (÷ cantidad de ocurrencias del
+  día), no el total. **Facturación acumulada** respeta el período (con
+  "Todas las fechas", agrupado por mes). **Turnos** = historial del período
+  (`listTurnosRango`, hasta hoy), no la semana próxima; "Estado de los
+  turnos" (no "Asistencia": no existe ese estado, no se inventa) + "Sin
+  confirmar (ya pasaron)" = `pendiente` con `dayOffset < 0` (proxy honesto de
+  "no se sabe si vino"; medir asistencia real requeriría persistir el
+  "Cliente llegó", decisión de producto fuera de alcance).
+  Gráficos que **no** dependen del período llevan un chip
+  `components/analiticas/periodo-chip.tsx` ("Estado actual") en el `sub` del
+  `ChartTitle`; Inventario deshabilita el selector de período (solo el
+  "Flujo de inventario" filtra). Duplicados quitados: "Ingresos por medio de
+  pago" queda **solo en Finanzas**, el treemap de rubros **solo en Ventas**.
+  "Facturación por vendedor" es ranking `BarRows` (sin límite de colores).
+  Colores: rojo/verde solo como estado/signo (`flujo-caja`,
+  `waterfall-resultado`, ratio de compras/ventas ≥1×/<1×); series
+  categóricas usan `CHART_COLORS`/`CHART_ACCENT` ("Compras vs ventas",
+  "Gastos por categoría"). Tab **Clientes** = Customer Intelligence: la
+  lógica vive en `lib/clientes-inteligencia.ts` (puro, con test — fuente de
+  verdad de las definiciones: operación = venta o ticket, los turnos NO
+  cuentan; gasto = `ventas.totalUsd`; procedencia del cliente = la de su
+  primera venta con `procedencia`; activo = ≥1 op en 90 días; en riesgo =
+  historial y nada en 180; tasa de recurrencia = ≥2 ops sobre ≥1; recurrente
+  del lifecycle = ≥3). Foto del estado actual (el filtro de fecha NO aplica
+  al tab); `hoy: Date` se pasa del server al client para que SSR e
+  hidratación computen lo mismo. Contenido: 4 KPIs (nunca filtrados) + mapa
+  de valor + compras vs reparaciones + lifecycle Sankey + cohortes M0-M6 con
+  drill-down + ingresos nuevos vs existentes + ranking de canales (click
+  filtra los scatters; "Sin dato" gris, nunca un tono de la paleta) + listas
+  de atención. Componentes en `components/analiticas/clientes/`; linkeos a
+  `/clientes?open=<id>`. `margenPorTipo` (`lib/analiticas.ts`, con test) es
+  real desde que `VentaItem` tiene tabla propia (`venta_items`). Helper
+  `BarRows`/`BarColumns` (`app/(app)/analiticas/bar-rows.tsx`).
+- **Dashboard** (`app/(app)/dashboard/`, migrado): **dos dashboards por
+  rol, la ramificación vive en el server** (`page.tsx`, ver plan 005) —
+  `admin` → `dashboard-admin.tsx`; `vendedor`/`tecnico` →
+  `dashboard-empleado.tsx`. Regla de oro: **el filtrado por rol no es CSS ni
+  esconder props — al empleado no se le calcula ni se le pasa ganancia,
+  margen, `costoUsd` ni el objetivo de facturación de la org** (todo lo que
+  viaja en el payload RSC se lee desde DevTools). El vendedor ve su propia
+  facturación (tendencia SIN línea de ganancia — `TrendChart` tiene
+  `ganancia?: number[]`, `undefined` = sin curva/marcadores/columna/tooltip
+  de ganancia) y "Listos para retirar" de toda la org; el técnico ve sus
+  tickets (`ticketsDeTecnico`). Sin cabecera de saludo ni widget "Taller"
+  (se sacaron a pedido del usuario; la columna derecha es solo turnos
+  agendados + ventas recientes). Cálculo en `lib/dashboard.ts` (con tests):
+  `metricasDashboard` (5 métricas, `delta` **opcional** — los conteos
+  puntuales no van con el chip "+0.0%"; `destacada` = la principal sobre
+  `bg-accent` ocupando 2 columnas), `metricasEmpleado` (4 por rol),
+  `objetivoDelMes` (`target` = `organizations.objetivo_mes_usd`),
+  `ventaGananciaPorPeriodo` (venta/ganancia/**fechas** ISO por día para los
+  3 períodos), `ventasPorRubro` (mix del donut `RubrosPie` desde
+  `VentaItem.categoria`), `ventasRecientes` (lista clicable → `/ventas?open=`
+  con `hace` relativo calculado en el server — `Venta.fechaISO` no tiene
+  hora, granularidad por día) y `ticketsEje`/`fmtUsdCompact` en
+  `lib/chart.ts` (escala del eje Y contra el máximo "lindo", no el crudo —
+  o las marcas mienten). `TrendChart`: barras en reposo `CHART_TRACK`, la
+  de hoy en `CHART_COLORS[3]`, eje X con día del mes + mes en la primera
+  etiqueta, tooltip con fecha real (`fechaCorta`, ISO parseado con
+  `.slice()` + `Date.UTC` — nunca `new Date(iso)`), pill "Prom." al borde
+  derecho. **Tiempo real**: `useRefrescoEnVivo` (`components/dashboard/`)
+  — evento de la org → `router.refresh()` con debounce de 1,5 s (el emisor
+  no recibe su propio evento; para él alcanza el
+  `revalidatePath("/dashboard")` que hacen las actions de
+  ventas/reparaciones/turnos). Deep links nuevos: `?estado=` en
+  Reparaciones (desde el widget Taller, validado contra `TICKET_FLOW`),
+  `?open=` en Ventas (desde Ventas recientes, mismo patrón que
+  Clientes/Compras) y búsqueda por `#id` de ticket en Reparaciones
+  (desde "Mis tickets" del técnico).
 - **Configuración** (`app/(app)/configuracion/`, migrado): admin-only salvo
   la tab "Mi cuenta" (visible a cualquier rol, ya era real desde antes vía
   `updateOwnProfile`). "Usuarios y roles" lista `profiles` reales de la org

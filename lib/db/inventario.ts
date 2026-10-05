@@ -732,6 +732,7 @@ function toRecuento(row: RecuentoRow): Recuento {
     tipo: row.tipo,
     fecha: fmtDayMonth(row.fecha),
     hora: fmtTime(row.fecha),
+    fechaISO: row.fecha.slice(0, 10),
     responsable: row.responsable_nombre,
     estado: row.estado,
     revisadoPor: row.revisado_por_nombre ?? undefined,
@@ -960,6 +961,7 @@ export async function listMovimientosStock(filtro: {
   return data.map((m) => ({
     fecha: fmtDayMonth(m.fecha),
     hora: fmtTime(m.fecha),
+    fechaISO: m.fecha.slice(0, 10),
     detalle: m.detalle,
     usuario: m.usuario_nombre,
     tipo: m.tipo as MovimientoTipo,

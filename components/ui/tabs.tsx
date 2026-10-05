@@ -25,12 +25,15 @@ export function Tabs<T extends string>({
             key={o.value}
             onClick={() => onChange(o.value)}
             className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+              // Misma altura (36px), radio (pill), borde y foco que un
+              // `Button` outline (plan 010) para que una fila de filtros se vea
+              // pareja; no es un Button, es un toggle de navegación.
+              "flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1",
               active
                 ? accent
                   ? ""
                   : "border-accent text-accent"
-                : "border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-800",
+                : "border-neutral-900/10 text-neutral-600 hover:border-neutral-900/20 hover:text-neutral-900",
             )}
             style={
               active && accent

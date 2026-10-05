@@ -25,6 +25,7 @@ export async function createMovimientoAction(data: {
   medioPago: MedioPago;
   categoria?: CategoriaGasto | null;
   monto: number;
+  cotizacion?: number | null;
 }) {
   await requireUser();
   const mov = await createMovimiento(data);

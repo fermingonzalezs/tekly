@@ -1,6 +1,7 @@
 "use client";
 
 import { CHECKLIST_ITEMS, checklistItemLabel } from "@/lib/status";
+import { Button } from "@/components/ui/button";
 import type { Checklist, EstadoChecklistItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -19,9 +20,13 @@ const ESTADO_BTN_ACTIVO: Record<EstadoChecklistItem, string> = {
 export function ChecklistEditor({
   value,
   onChange,
+  gridClassName = "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
 }: {
   value: Checklist;
   onChange: (next: Checklist) => void;
+  /** Columnas de la grilla de ítems (default 1→2→3). En un modal ancho o en
+   * media columna conviene fijarlas explícitamente. */
+  gridClassName?: string;
 }) {
   const marcarTodo = (estado: EstadoChecklistItem) =>
     onChange({
@@ -32,22 +37,14 @@ export function ChecklistEditor({
   return (
     <div className="space-y-2">
       <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => marcarTodo("bien")}
-          className="rounded-full border border-neutral-200 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
-        >
+        <Button variant="outline" size="sm" onClick={() => marcarTodo("bien")}>
           Marcar todo bien
-        </button>
-        <button
-          type="button"
-          onClick={() => marcarTodo("na")}
-          className="rounded-full border border-neutral-200 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50"
-        >
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => marcarTodo("na")}>
           No se testeó
-        </button>
+        </Button>
       </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={cn("grid gap-2", gridClassName)}>
         {CHECKLIST_ITEMS.map((id) => (
           <div key={id} className="rounded-lg border border-neutral-200 px-3 py-2">
             <p className="mb-1.5 truncate text-sm text-neutral-700">{checklistItemLabel[id]}</p>

@@ -1,0 +1,42 @@
+---
+titulo: "Módulo Analíticas"
+resumen: "El tablero de análisis (solo admin): ventas, reparaciones, finanzas, inventario, clientes y turnos, con definiciones claras."
+seccion: analiticas
+roles: [admin]
+orden: 1
+actualizado: 2026-10-04
+---
+
+Analíticas es **solo para el admin**. Tiene 6 pestañas y un selector de período. El **tab y el período viven en la URL**: podés compartir un link exacto como `/analiticas?tab=finanzas&preset=mes_anterior`.
+
+## Qué hay en cada pestaña
+
+- **Ventas**: facturación, ticket promedio, operaciones, **margen promedio**, acumulada del período, ranking por vendedor, mix de rubros y venta promedio por día de la semana.
+- **Reparaciones**: **Cobrado** (la plata que entró, no el presupuesto), gasto en repuestos y ganancia final, embudo, aceptación, fallas y actividad.
+- **Finanzas**: ingresos/egresos/neto de cajas, ganancia de ventas, flujo de caja, gastos por categoría y compras vs ventas.
+- **Inventario**: foto del stock (valor, antigüedad, capital inmovilizado) y flujo del período.
+- **Clientes**: activos, en riesgo, recurrencia, cohortes, canales y listas de atención.
+- **Turnos**: estado de los turnos del período, por tipo y ocupación por franja.
+
+## Definiciones (importante)
+
+<Aviso titulo="Margen promedio" tono="info">
+Es el margen **ponderado por facturación** y solo cuenta los ítems con costo cargado (mismo criterio que «Ganancia por categoría»). Si no hay costos, muestra «—».
+</Aviso>
+
+<Aviso titulo="Cliente activo / en riesgo (Clientes)" tono="info">
+**Activo** = al menos una operación en los últimos 90 días. **En riesgo** = tiene historial y nada en los últimos 180 días. Los **turnos no cuentan** como operación.
+</Aviso>
+
+<Aviso titulo="Finanzas en pesos" tono="warning">
+Los movimientos en pesos se convierten con la **cotización guardada** en cada movimiento, nunca con la de hoy. Los movimientos viejos sin cotización se informan aparte y no se suman.
+</Aviso>
+
+<Aviso titulo="Turnos: no hay «asistió»" tono="info">
+Solo existen **pendiente, confirmado y cancelado**. «Sin confirmar (ya pasaron)» son los turnos que quedaron pendientes con la fecha ya pasada.
+</Aviso>
+
+## Ver también
+
+- [Guía del admin](/ayuda/roles/guia-admin)
+- [Glosario](/ayuda/glosario/terminos)

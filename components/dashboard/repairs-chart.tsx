@@ -1,5 +1,4 @@
-import { Card } from "@/components/ui/card";
-import { ChartTitle } from "@/components/ui/chart-title";
+import { GraficoCard } from "@/components/ui/grafico-card";
 import { chartColor } from "@/lib/chart";
 import { TICKET_FLOW, ticketStatus } from "@/lib/status";
 import type { Ticket } from "@/lib/types";
@@ -14,12 +13,8 @@ export function RepairsChart({ tickets }: { tickets: Ticket[] }) {
   const max = Math.max(1, ...stages.map((s) => s.count));
 
   return (
-    <Card className="flex h-72 flex-col overflow-hidden p-5">
-      <ChartTitle align="left" divider sub={`${total} tickets en el taller`}>
-        Reparaciones mes
-      </ChartTitle>
-
-      <div className="mt-3 flex flex-1 flex-col justify-between">
+    <GraficoCard title="Reparaciones mes" sub={`${total} tickets en el taller`}>
+      <div className="mt-1 flex flex-1 flex-col justify-between">
         {stages.map((s) => (
           <div key={s.label} className="flex items-center gap-3">
             <span className="w-24 shrink-0 truncate text-start text-[12px] text-neutral-600 sm:w-40">
@@ -40,6 +35,6 @@ export function RepairsChart({ tickets }: { tickets: Ticket[] }) {
           </div>
         ))}
       </div>
-    </Card>
+    </GraficoCard>
   );
 }

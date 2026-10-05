@@ -70,7 +70,7 @@ export function ValueMap({
         Customer value map
       </ChartTitle>
       {visibles.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin clientes con operaciones todavía -- el mapa necesita actividad.
         </p>
       ) : (
@@ -88,7 +88,7 @@ export function ValueMap({
             {[0, 0.5, 1].map((f) => (
               <span
                 key={f}
-                className="absolute text-[10px] tabular-nums text-neutral-400"
+                className="absolute text-[10px] tabular-nums text-neutral-500"
                 style={{ bottom: `calc(${yToPct(maxY * f)}% - 6px)`, left: 6 }}
               >
                 {f === 0.5 ? fmtUsd(Math.round(maxY / 2)) : f === 1 ? fmtUsd(Math.round(maxY)) : "0"}
@@ -160,7 +160,7 @@ export function ValueMap({
           </div>
 
           {/* eje X: operaciones */}
-          <div className="relative mt-1 border-t border-neutral-200 pt-1 text-[10px] tabular-nums text-neutral-400">
+          <div className="relative mt-1 border-t border-neutral-200 pt-1 text-[10px] tabular-nums text-neutral-500">
             <span className="absolute left-1">0</span>
             <span className="absolute left-1/2 -translate-x-1/2">{Math.round(maxX / 2)}</span>
             <span className="absolute right-1">{maxX}</span>
@@ -175,12 +175,12 @@ export function ValueMap({
               </span>
             ))}
             {ocultos > 0 && (
-              <span className="text-neutral-400">
+              <span className="text-neutral-500">
                 +{ocultos} de menor gasto no mostrados
               </span>
             )}
             {sinOps > 0 && (
-              <span className="text-neutral-400">{sinOps} sin operaciones, fuera del mapa</span>
+              <span className="text-neutral-500">{sinOps} sin operaciones, fuera del mapa</span>
             )}
           </div>
         </div>

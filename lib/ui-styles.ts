@@ -1,7 +1,8 @@
-/** Filtros de sección (selects/inputs de búsqueda): pill redondeado con
- * borde índigo tenue, como los tabs de período del dashboard. */
+/** Filtros de sección (selects/inputs de búsqueda): pill que hace juego con
+ * los botones `outline` (plan 010) -- mismo alto/radio/borde/foco, sin ser un
+ * `Button`. */
 export const filterPill =
-  "truncate rounded-full border-accent/40 text-neutral-600 hover:border-accent/70 focus:border-accent";
+  "truncate rounded-full border-neutral-900/10 text-neutral-900 hover:border-neutral-900/20 focus:border-accent";
 
 /** Separador fino entre headers de tabla: línea blanca corta (no ocupa
  * todo el alto de la celda). Va en el `th`, menos en el último de la fila. */

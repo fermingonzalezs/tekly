@@ -127,7 +127,7 @@ export function StockQuadrant({
         </div>
       </div>
       {puntos.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin stock con registro de ingreso{vista === "categoria" ? "" : " en la categoría activa"}.
         </p>
       ) : (
@@ -184,7 +184,7 @@ export function StockQuadrant({
             })}
           </div>
           {/* eje X con la unidad de la vista activa */}
-          <div className="relative mt-1 border-t border-neutral-200 pt-1 text-[10px] tabular-nums text-neutral-400">
+          <div className="relative mt-1 border-t border-neutral-200 pt-1 text-[10px] tabular-nums text-neutral-500">
             <span className="absolute left-0">
               0 {vista === "categoria" ? "×" : "días"}
             </span>
@@ -210,14 +210,14 @@ export function StockQuadrant({
             </div>
           )}
 
-          <p className="mt-3 border-t border-neutral-100 pt-2 text-[10px] leading-relaxed text-neutral-400">
+          <p className="mt-3 border-t border-neutral-100 pt-2 text-[10px] leading-relaxed text-neutral-500">
             Arriba-izq: productos clave · arriba-der: capital inmovilizado ·
             abajo-izq: movimiento rápido · abajo-der: stock secundario
             (líneas punteadas = mediana).
           </p>
 
           {ocultos > 0 && (
-            <p className="mt-2 text-[11px] text-neutral-400">
+            <p className="mt-2 text-[11px] text-neutral-500">
               +{ocultos} ítems de menor valor no mostrados
             </p>
           )}

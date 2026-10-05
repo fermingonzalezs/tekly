@@ -1,5 +1,4 @@
-import { Card } from "@/components/ui/card";
-import { ChartTitle } from "@/components/ui/chart-title";
+import { GraficoCard } from "@/components/ui/grafico-card";
 import { chartColor, GHOST_STRIPES } from "@/lib/chart";
 import { procedenciaCounts } from "@/lib/db/ventas";
 
@@ -8,9 +7,7 @@ export async function FuenteClientes() {
   const menor = rows[rows.length - 1];
 
   return (
-    <Card className="flex h-auto min-w-0 flex-col p-5 sm:h-72">
-      <ChartTitle align="left" divider>Fuente de clientes</ChartTitle>
-
+    <GraficoCard title="Fuente de clientes">
       <div className="flex flex-1 flex-col justify-center">
         {rows.length === 0 ? (
           <p className="py-6 text-center text-sm text-neutral-400">
@@ -61,6 +58,6 @@ export async function FuenteClientes() {
           </>
         )}
       </div>
-    </Card>
+    </GraficoCard>
   );
 }

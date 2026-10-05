@@ -13,7 +13,7 @@ export default async function CuentasCorrientesPage() {
   ]);
 
   return (
-    <Section title="Cuentas corrientes">
+    <Section title="Cuentas corrientes" ayuda="cuentas-corrientes">
       <CuentasCorrientesClient
         initialMovimientos={movimientos}
         clientes={clientes}

@@ -81,12 +81,14 @@ type MovimientoRow = {
   categoria: CategoriaGasto | null;
   caja_id: string;
   monto: number;
+  cotizacion: number | null;
+  ticket_id: number | null;
   usuario_nombre: string;
   conciliacion_id: string | null;
 };
 
 const MOV_COLS =
-  "id, fecha, concepto, medio_pago, tipo, categoria, caja_id, monto, usuario_nombre, conciliacion_id";
+  "id, fecha, concepto, medio_pago, tipo, categoria, caja_id, monto, cotizacion, ticket_id, usuario_nombre, conciliacion_id";
 
 function toMovimiento(row: MovimientoRow): MovimientoCaja {
   return {
@@ -100,6 +102,8 @@ function toMovimiento(row: MovimientoRow): MovimientoCaja {
     categoria: row.categoria ?? null,
     cajaId: row.caja_id,
     monto: row.monto,
+    cotizacion: row.cotizacion != null ? Number(row.cotizacion) : null,
+    ticketId: row.ticket_id ?? null,
     usuario: row.usuario_nombre,
     conciliacionId: row.conciliacion_id ?? null,
   };
@@ -126,9 +130,25 @@ export async function createMovimiento(data: {
   medioPago: MedioPago;
   categoria?: CategoriaGasto | null;
   monto: number;
+  /** Dólar del momento en que se confirma el movimiento (ARS por USD).
+   * Obligatorio si la caja es en pesos: sin cotización guardada, Analíticas
+   * no puede pasar el movimiento a USD sin recurrir al blue de hoy. */
+  cotizacion?: number | null;
 }): Promise<MovimientoCaja> {
   const user = await requireUser();
   const supabase = createServerClient();
+
+  const { data: caja, error: cajaError } = await supabase
+    .from("cajas")
+    .select("moneda")
+    .eq("id", data.cajaId)
+    .single();
+  if (cajaError) throw cajaError;
+  const cotizacion = data.cotizacion != null && data.cotizacion > 0 ? data.cotizacion : null;
+  if (caja.moneda === "ars" && cotizacion == null) {
+    throw new Error("Falta la cotización del dólar para registrar un movimiento en una caja en pesos.");
+  }
+
   const { data: row, error } = await supabase
     .from("movimientos_caja")
     .insert({
@@ -138,6 +158,7 @@ export async function createMovimiento(data: {
       tipo: data.tipo,
       categoria: data.tipo === "egreso" ? (data.categoria ?? null) : null,
       monto: data.monto,
+      cotizacion,
       usuario_id: user.id,
       usuario_nombre: user.nombre,
     })

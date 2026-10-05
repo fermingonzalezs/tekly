@@ -1,64 +1,51 @@
+import { ArrowRight } from "lucide-react";
 import { Reveal } from "./ui/reveal";
-import { MarketingButton } from "./ui/marketing-button";
-import { MarketingEyebrow } from "./ui/marketing-eyebrow";
-import { AmbientBlobs } from "./ui/ambient-blobs";
+import { SECTION_WRAP } from "./ui/section-heading";
 import { signupUrl } from "@/lib/marketing/app-url";
 
 /**
- * Banner de cierre. El gradiente está permitido en la landing (ver plan: las
- * reglas "forbidden defaults" de la app de gestión no aplican al contexto de
- * marketing), igual que en el hero del AuthModal -- arma con las CSS vars de
- * la paleta activa (`--chart-*`, app/globals.css) en vez de hex fijos, para
- * seguir la paleta de marketing (violeta) en vez de quedar índigo a mano.
+ * Banner de cierre: bloque sólido accent (sin gradiente) con dos formas
+ * blancas translúcidas rotadas de fondo, mismo lenguaje de "formas sólidas"
+ * que el hero y la sección de analíticas.
  */
 export function MarketingCtaFinal() {
   return (
-    <section className="mx-auto max-w-[100rem] px-4 pb-20 pt-4 sm:px-6 sm:pb-24 xl:px-12">
+    <section className={`${SECTION_WRAP} pb-16 sm:pb-24`}>
       <Reveal>
-        <div className="relative overflow-hidden rounded-3xl bg-[linear-gradient(135deg,var(--chart-0),var(--chart-1),var(--chart-2))] px-6 py-16 text-center sm:px-12 sm:py-20">
-          <AmbientBlobs
-            blobs={[
-              {
-                className:
-                  "absolute -left-20 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl",
-                dx: 20,
-                dy: 16,
-                duration: 12,
-              },
-              {
-                className:
-                  "absolute -bottom-28 -right-16 h-72 w-72 rounded-full bg-white/10 blur-3xl",
-                dx: -22,
-                dy: -18,
-                duration: 15,
-              },
-            ]}
+        <div className="relative flex flex-wrap items-center justify-between gap-10 overflow-hidden rounded-[36px] bg-accent px-[clamp(1.5rem,6vw,5rem)] py-[clamp(2.5rem,7vw,5.5rem)] text-white">
+          <div
+            aria-hidden="true"
+            className="absolute -right-[60px] -top-20 h-[340px] w-[340px] rotate-[18deg] rounded-[72px] bg-white/[.08]"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute -bottom-[120px] right-[140px] h-60 w-60 -rotate-12 rounded-[56px] bg-white/[.06]"
           />
 
-          <MarketingEyebrow tone="light" className="relative">
-            Empezá hoy
-          </MarketingEyebrow>
+          <div className="relative flex flex-[1_1_520px] flex-col gap-5">
+            <h2 className="font-display text-[clamp(2.5rem,5.6vw,4.75rem)] font-extrabold uppercase leading-[.93] tracking-[-0.03em]">
+              Todo tu negocio. Un sistema.
+            </h2>
+            <p className="max-w-[520px] text-lg leading-relaxed text-white/85">
+              Cada venta, cada reparación y cada movimiento de caja, en un solo
+              lugar y siempre al día.
+            </p>
+          </div>
 
-          <h2 className="relative mt-4 font-display text-5xl font-bold uppercase tracking-tight text-white sm:text-6xl">
-            Todo tu negocio, un sistema
-          </h2>
-          <p className="relative mx-auto mt-5 max-w-xl text-base leading-relaxed text-white sm:text-lg">
-            Cada venta, cada reparación, cada movimiento de caja — un solo
-            sistema, siempre al día.
-          </p>
-
-          <MarketingButton
-            href={signupUrl()}
-            variant="white"
-            className="relative mt-8"
-          >
-            Probar gratis
-          </MarketingButton>
-
-          <p className="relative mt-5 text-xs text-white/90">
-            Los datos de tu organización quedan aislados de los demás —
-            nadie fuera de tu equipo los ve.
-          </p>
+          <div className="relative flex flex-col items-start gap-3">
+            <a
+              href={signupUrl()}
+              className="group inline-flex items-center gap-2.5 rounded-full bg-white py-[18px] pl-7 pr-[18px] text-[17px] font-semibold text-neutral-900 transition-colors duration-150 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              Empezar gratis
+              <span className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-accent text-white transition-transform duration-200 group-hover:translate-x-1">
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
+              </span>
+            </a>
+            <span className="text-[13px] text-white/75">
+              Los datos de tu organización son solo tuyos.
+            </span>
+          </div>
         </div>
       </Reveal>
     </section>

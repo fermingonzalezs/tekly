@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 const base =
@@ -22,12 +23,12 @@ export function Label({
   );
 }
 
-export function Input({
-  className,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(base, className)} {...props} />;
-}
+export const Input = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement>
+>(function Input({ className, ...props }, ref) {
+  return <input ref={ref} className={cn(base, className)} {...props} />;
+});
 
 export function Select({
   className,

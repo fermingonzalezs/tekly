@@ -2,7 +2,9 @@
  * red. Extraída de `app/ventas/page.tsx` (antes vivía inline en el
  * componente del modal). */
 
-import type { VentaItem } from "@/lib/types";
+import type { MedioPagoVenta, Pago, Venta, VentaItem } from "@/lib/types";
+import { fmtArs, fmtUsd } from "@/lib/format";
+import { hoyISO } from "@/lib/date-presets";
 
 export type PagoDraft = { montoUsd: number };
 
@@ -56,4 +58,168 @@ export function saldarUltimoPago<T extends PagoDraft>(pagos: T[], restante: numb
 export function montoConRecargo(montoUsd: number, recargoPct: number | undefined): number {
   if (!recargoPct) return montoUsd;
   return Math.round(montoUsd * (1 + recargoPct / 100) * 100) / 100;
+}
+
+/** Texto del monto de un pago ya guardado. ARS: usa el snapshot
+ * (`montoArs`, que ya incluye el recargo); si una venta vieja no lo tiene,
+ * cae a USD -- nunca recalcula con la cotización de hoy. */
+export function montoPagoLabel(p: Pago): string {
+  return p.montoArs !== undefined ? fmtArs(p.montoArs) : fmtUsd(p.montoUsd);
+}
+
+/** Margen de una venta: solo sobre los ítems con `costoUsd` cargado
+ * (mismo criterio que `margenPorTipo` en lib/analiticas.ts). `null` si
+ * ningún ítem tiene costo -- "sin dato", no 100 %. */
+export function margenVenta(items: VentaItem[]): {
+  costoUsd: number;
+  gananciaUsd: number;
+  margenPct: number | null;
+} {
+  let precio = 0;
+  let costo = 0;
+  let conCosto = false;
+  for (const i of items) {
+    if (i.costoUsd === undefined) continue;
+    conCosto = true;
+    precio += i.precioUsd * i.cantidad;
+    costo += i.costoUsd * i.cantidad;
+  }
+  if (!conCosto) return { costoUsd: 0, gananciaUsd: 0, margenPct: null };
+  return {
+    costoUsd: costo,
+    gananciaUsd: precio - costo,
+    margenPct: precio > 0 ? ((precio - costo) / precio) * 100 : 0,
+  };
+}
+
+/** Margen agregado de un conjunto de ventas, ponderado por facturación:
+ * Σ ganancia / Σ precio, solo ítems con costo. `null` si ninguna tiene
+ * costos cargados. Acepta cualquier objeto con `items` -- lo usan tanto
+ * `Venta[]` como el resumen liviano del server (plan 007). */
+export function margenPonderado(
+  ventas: { items: { cantidad: number; precioUsd: number; costoUsd?: number }[] }[],
+): number | null {
+  let precio = 0;
+  let ganancia = 0;
+  let conCosto = false;
+  for (const v of ventas) {
+    for (const i of v.items) {
+      if (i.costoUsd === undefined) continue;
+      conCosto = true;
+      precio += i.precioUsd * i.cantidad;
+      ganancia += (i.precioUsd - i.costoUsd) * i.cantidad;
+    }
+  }
+  if (!conCosto) return null;
+  return precio > 0 ? (ganancia / precio) * 100 : 0;
+}
+
+// ───────────────────────── Resumen (KPIs) ─────────────────────────
+
+/** Input liviano del resumen -- lo que devuelve `resumenVentas` (plan 007)
+ * sin traer la venta completa. */
+export type VentaParaResumen = {
+  totalUsd: number;
+  items: { cantidad: number; precioUsd: number; costoUsd?: number }[];
+};
+
+export type ResumenVentas = {
+  operaciones: number;
+  facturado: number;
+  ticketPromedio: number;
+  itemsVendidos: number;
+  /** `margenPonderado` sobre todo el período filtrado; `null` sin costos. */
+  margenPct: number | null;
+};
+
+/** KPIs del período filtrado completo (no solo la página). Lógica pura para
+ * poder testearla sin Supabase. */
+export function resumenDeVentas(ventas: VentaParaResumen[]): ResumenVentas {
+  const operaciones = ventas.length;
+  const facturado = ventas.reduce((a, v) => a + v.totalUsd, 0);
+  const itemsVendidos = ventas.reduce(
+    (a, v) => a + v.items.reduce((b, i) => b + i.cantidad, 0),
+    0,
+  );
+  return {
+    operaciones,
+    facturado,
+    ticketPromedio: operaciones > 0 ? facturado / operaciones : 0,
+    itemsVendidos,
+    margenPct: margenPonderado(ventas),
+  };
+}
+
+// ───────────────────── Gráficos de sección (plan 009) ─────────────────────
+
+export type VentaParaGraficos = {
+  /** Timestamp ISO de la venta (con hora). */
+  fechaISO: string;
+  totalUsd: number;
+  /** Rubro + monto de cada ítem, ya resuelto por quien consulta. */
+  rubros: { rubro: Rubro; monto: number }[];
+};
+
+export type BarraDato = { label: string; value: number };
+
+export type GraficosVentas = {
+  /** Facturación por día (hora argentina), orden cronológico. */
+  porDia: BarraDato[];
+  /** Mix por rubro del período, orden fijo `RUBRO_ORDEN`. */
+  porRubro: BarraDato[];
+};
+
+/** Agrega la facturación por día y el mix por rubro del período filtrado.
+ * Puro para testear sin Supabase; `lib/db/ventas.ts` le pasa las filas. */
+export function graficosDeVentas(ventas: VentaParaGraficos[]): GraficosVentas {
+  const porDia = new Map<string, number>();
+  const porRubro = new Map<Rubro, number>();
+  for (const v of ventas) {
+    // `hoyISO` formatea en hora argentina (no `toISOString`, que es UTC).
+    const dia = hoyISO(new Date(v.fechaISO));
+    porDia.set(dia, (porDia.get(dia) ?? 0) + v.totalUsd);
+    for (const r of v.rubros) {
+      porRubro.set(r.rubro, (porRubro.get(r.rubro) ?? 0) + r.monto);
+    }
+  }
+  const labelDia = (iso: string) => {
+    const [, m, d] = iso.split("-");
+    return `${d}/${m}`;
+  };
+  return {
+    porDia: [...porDia.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([iso, value]) => ({ label: labelDia(iso), value })),
+    porRubro: RUBRO_ORDEN.filter((r) => (porRubro.get(r) ?? 0) > 0).map((r) => ({
+      label: RUBRO_LABEL[r],
+      value: porRubro.get(r)!,
+    })),
+  };
+}
+
+// ─────────────────── Motivo bloqueante de "Nueva venta" ───────────────────
+export type MotivoInput = {
+  clienteNombre: string;
+  items: { detalle?: string; precioUsd: number }[];
+  pagos: { montoUsd: number; medio: MedioPagoVenta; canjeEquipo?: string }[];
+  totalPrecio: number;
+};
+
+/** Primer motivo por el que "Nueva venta" no se puede confirmar, o `null` si
+ * está lista. Orden pensado para guiar al vendedor paso a paso (plan 007);
+ * el botón deshabilitado muestra este texto en el footer. */
+export function motivoNoConfirmable(i: MotivoInput): string | null {
+  if (!i.clienteNombre.trim()) return "Elegí un cliente";
+  if (i.items.length === 0) return "Agregá al menos un ítem";
+  if (i.items.some((it) => !(it.detalle ?? "").trim()))
+    return "Hay un ítem sin nombre";
+  if (i.items.some((it) => it.precioUsd <= 0)) return "Hay un ítem sin precio";
+
+  const restante = calcularRestante(i.totalPrecio, i.pagos);
+  if (restante > 0.005) return `Faltan ${fmtUsd(restante)} por cobrar`;
+  if (restante < -0.005) return `Sobran ${fmtUsd(Math.abs(restante))}`;
+  if (i.pagos.some((p) => p.medio === "canje" && !(p.canjeEquipo ?? "").trim()))
+    return "Falta cargar el equipo del canje";
+  if (i.pagos.some((p) => p.montoUsd <= 0)) return "Completá el monto de cada pago";
+  return null;
 }

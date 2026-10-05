@@ -1,55 +1,59 @@
-import { loginUrl, signupUrl } from "@/lib/marketing/app-url";
-import { MarketingButton } from "./ui/marketing-button";
+import { loginUrl } from "@/lib/marketing/app-url";
+import { LEGAL_BORRADOR } from "@/lib/legal";
+import { TeklyLogo } from "@/components/brand/tekly-logo";
+import { SECTION_WRAP } from "./ui/section-heading";
 
 /**
- * Footer mínimo de la landing: marca, links a las secciones y a la app. Sin
- * redes sociales ni links a páginas que no existen (ver plan).
+ * Footer mínimo de la landing: marca + tagline, links a secciones y a la
+ * app, copyright y links legales (plan 012). Sin redes sociales.
  */
+
+const LINK =
+  "rounded-md text-neutral-600 transition-colors duration-150 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40";
+
 export function MarketingFooter() {
   return (
-    <footer className="border-t border-neutral-200 bg-white">
-      <div className="mx-auto flex max-w-[100rem] flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-center xl:px-12">
-        <div className="flex items-center gap-4">
-          <a
-            href="/"
-            className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1"
-            aria-label="Tekly"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent font-display text-xs font-bold text-white">
-              T
-            </span>
-            <span className="font-display text-base font-semibold text-neutral-900">
-              Tekly
-            </span>
+    <footer className={`${SECTION_WRAP} pb-12`}>
+      <div className="flex flex-wrap items-center justify-between gap-5 border-t border-neutral-900/[.08] pt-7">
+        <a
+          href="/"
+          className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        >
+          <TeklyLogo variante="horizontal" altura={28} />
+          <span className="hidden text-sm text-neutral-600 sm:inline">
+            Gestión para tu local, en tiempo real
+          </span>
+        </a>
+        <nav className="flex gap-6 text-sm">
+          <a href="/#modulos" className={LINK}>
+            Módulos
           </a>
-          <p className="hidden text-[13px] text-neutral-500 md:block">
-            Dejá de anotar tu stock en tres lugares distintos.
-          </p>
-        </div>
-
-        <nav className="flex items-center gap-6 text-sm md:ml-auto">
-          <a
-            href="#producto"
-            className="rounded-md font-medium text-neutral-600 transition-colors duration-150 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-          >
-            Producto
+          <a href="/#precios" className={LINK}>
+            Precios
           </a>
-          <a
-            href={loginUrl()}
-            className="rounded-md font-medium text-neutral-600 transition-colors duration-150 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-          >
+          <a href="/ayuda" className={LINK}>
+            Ayuda
+          </a>
+          <a href={loginUrl()} className={LINK}>
             Ingresar
           </a>
-          <MarketingButton href={signupUrl()} variant="primary">
-            Probar gratis
-          </MarketingButton>
         </nav>
-      </div>
-
-      <div className="border-t border-neutral-100">
-        <p className="mx-auto max-w-[100rem] px-4 py-4 text-xs text-neutral-500 sm:px-6 xl:px-12">
+        <span className="text-[13px] text-neutral-500">
           © {new Date().getFullYear()} Tekly
-        </p>
+        </span>
+        {!LEGAL_BORRADOR && (
+        <nav aria-label="Legales" className="flex w-full flex-wrap justify-center gap-x-5 gap-y-1.5 text-[13px] sm:justify-start">
+          <a href="/terminos" className={LINK}>
+            Términos
+          </a>
+          <a href="/privacidad" className={LINK}>
+            Privacidad
+          </a>
+          <a href="/cookies" className={LINK}>
+            Cookies
+          </a>
+        </nav>
+        )}
       </div>
     </footer>
   );

@@ -1,4 +1,4 @@
-import { Smartphone } from "lucide-react";
+import { TeklyLogo } from "@/components/brand/tekly-logo";
 
 /** Header/card del mismo estilo que `Dialog` con `accent` (header índigo,
  * título en mayúscula, línea + descripción) -- para las pantallas de auth,
@@ -16,9 +16,7 @@ export function AuthModal({
     <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-accent bg-white shadow-2xl">
       <div className="border-b border-table-header bg-table-header px-5 py-4 text-white">
         <div className="flex items-center gap-2.5">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/15">
-            <Smartphone className="h-4 w-4" />
-          </div>
+          <TeklyLogo variante="icono-invertido" altura={32} alt="Tekly" className="shrink-0" />
           <h1 className="text-base font-semibold uppercase tracking-wide">{title}</h1>
         </div>
         {description && (

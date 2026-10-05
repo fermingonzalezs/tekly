@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, IconButton } from "@/components/ui/button";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Link2, X, Smartphone, Plus, Minus, Trash2 } from "lucide-react";
@@ -451,34 +452,33 @@ export function TurnosClient({
       <Dialog
         open={!!sel}
         onClose={() => setSel(null)}
-        size="lg"
-        accent
+        size="2xl"
         title={sel ? sel.cliente : ""}
         description={sel ? `${dayLabel(sel.dayOffset)} · ${sel.hora}` : ""}
         footer={
           sel && (
             <>
               {esAdmin && (
-                <button
+                <Button icon={Trash2}
                   onClick={() => setConfirmDelete(true)}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                  variant="danger-outline" fullOnMobile className="sm:mr-auto"
                 >
-                  <Trash2 className="h-4 w-4" /> Eliminar turno
-                </button>
+                  Eliminar turno
+                </Button>
               )}
-              <button
+              <Button
                 onClick={() => setSel(null)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+                variant="outline" fullOnMobile
               >
                 Cerrar
-              </button>
+              </Button>
               {sel.estado !== "cancelado" && (
-                <button
+                <Button icon={X}
                   onClick={() => cancelar(sel)}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+                  variant="tonal" fullOnMobile
                 >
-                  <X className="h-4 w-4" /> Cancelar turno
-                </button>
+                  Cancelar turno
+                </Button>
               )}
             </>
           )
@@ -883,25 +883,24 @@ function AgendarDialog({
     <Dialog
       open={!!slot}
       onClose={onClose}
-      size="lg"
-      accent
+      size="2xl"
       title="Agendar turno"
       description={dayLabel}
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={submit}
             disabled={!puedeAgendar}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             Agendar
-          </button>
+          </Button>
         </>
       }
     >
@@ -910,7 +909,7 @@ function AgendarDialog({
           <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Información general
           </p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Field label="Cliente">
               <ClientePicker
                 clientes={clientesOpciones}
@@ -980,13 +979,7 @@ function AgendarDialog({
                       <span className="shrink-0 font-medium tabular-nums">
                         {fmtUsd(e.precioUsd)}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleEquipo(e.id)}
-                        className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-red-50 hover:text-red-500"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      <IconButton aria-label="Quitar" icon={X} variant="danger-ghost" size="sm" onClick={() => toggleEquipo(e.id)} />
                     </div>
                   ))}
                   {carritoOtros.map((i) => {
@@ -1006,39 +999,18 @@ function AgendarDialog({
                           </span>
                           {!i.serial && (
                             <span className="flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => cambiarCantidad(i.otroId, -1)}
-                                aria-label={`Restar una unidad de ${i.nombre}`}
-                                className="grid h-5 w-5 place-items-center rounded border border-neutral-200 text-neutral-500 hover:border-neutral-300"
-                              >
-                                <Minus className="h-3 w-3" />
-                              </button>
+                              <IconButton aria-label="Restar" icon={Minus} variant="ghost" onClick={() => cambiarCantidad(i.otroId, -1)} className="rounded" />
                               <span className="w-4 text-center tabular-nums">
                                 {i.cantidad ?? 1}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => cambiarCantidad(i.otroId, 1)}
-                                disabled={(i.cantidad ?? 1) >= max}
-                                aria-label={`Sumar una unidad de ${i.nombre}`}
-                                className="grid h-5 w-5 place-items-center rounded border border-neutral-200 text-neutral-500 hover:border-neutral-300 disabled:opacity-30"
-                              >
-                                <Plus className="h-3 w-3" />
-                              </button>
+                              <IconButton aria-label="Agregar" icon={Plus} variant="ghost" onClick={() => cambiarCantidad(i.otroId, 1)} disabled={(i.cantidad ?? 1) >= max} className="rounded" />
                             </span>
                           )}
                         </span>
                         <span className="shrink-0 font-medium tabular-nums">
                           {fmtUsd(i.precioUsd * (i.cantidad ?? 1))}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => removeOtro(i.otroId, i.serial)}
-                          className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-neutral-400 hover:bg-red-50 hover:text-red-500"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                        <IconButton aria-label="Quitar" icon={X} variant="danger-ghost" size="sm" onClick={() => removeOtro(i.otroId, i.serial)} />
                       </div>
                     );
                   })}
@@ -1085,14 +1057,7 @@ function AgendarDialog({
                             updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
                           }
                         />
-                        <button
-                          type="button"
-                          onClick={() => rmPago(p._k)}
-                          disabled={pagos.length === 1}
-                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-red-500 disabled:opacity-30"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmPago(p._k)} disabled={pagos.length === 1} />
                       </div>
                       {recargoPct > 0 && p.montoUsd > 0 && (
                         <p className="pl-1 text-[11px] text-amber-600">

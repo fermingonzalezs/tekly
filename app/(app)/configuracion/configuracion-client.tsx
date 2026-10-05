@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Store, Trash2 } from "lucide-react";
@@ -59,7 +60,7 @@ export function ConfiguracionClient({
   }
 
   return (
-    <Section title="Configuración">
+    <Section title="Configuración" ayuda="configuracion">
       <div className="space-y-5">
         <Tabs
           value={tab}
@@ -77,13 +78,12 @@ export function ConfiguracionClient({
         {tab === "usuarios" && (
           <div className="space-y-3">
             <div className="flex justify-end">
-              <button
+              <Button icon={Plus}
                 onClick={() => setInvitando(true)}
-                className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                variant="tonal"
               >
-                <Plus className="h-4 w-4" />
                 Invitar usuario
-              </button>
+              </Button>
             </div>
             <div className="space-y-2 md:hidden">
               {miembros.map((u) => (
@@ -232,23 +232,22 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
     <Dialog
       open={open}
       onClose={cerrar}
-      accent
       title="Invitar usuario"
       footer={
         <>
-          <button
+          <Button
             onClick={cerrar}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile className="sm:ml-auto"
           >
             {enviada ? "Cerrar" : "Cancelar"}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={enviar}
             disabled={pending || !email.trim() || !nombre.trim()}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Invitando…" : "Invitar"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -339,37 +338,36 @@ function EditarMiembroDialog({
       <Dialog
         open={!!miembro}
         onClose={onClose}
-        accent
         title={miembro ? `Editar usuario · ${miembro.nombre}` : ""}
         footer={
           esUnoMismo ? (
-            <button
+            <Button
               onClick={onClose}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:ml-auto sm:w-auto"
+              variant="outline" fullOnMobile className="sm:ml-auto"
             >
               Cerrar
-            </button>
+            </Button>
           ) : (
             <>
-              <button
+              <Button icon={Trash2}
                 onClick={() => setConfirmEliminar(true)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                variant="danger-outline" fullOnMobile className="sm:mr-auto"
               >
-                <Trash2 className="h-4 w-4" /> Eliminar usuario
-              </button>
-              <button
+                Eliminar usuario
+              </Button>
+              <Button
                 onClick={onClose}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+                variant="outline" fullOnMobile
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={guardar}
                 disabled={pending || !email.trim()}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                variant="primary" fullOnMobile
               >
                 {pending ? "Guardando…" : "Guardar"}
-              </button>
+              </Button>
             </>
           )
         }
@@ -470,13 +468,13 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
         </div>
       </Card>
       <div className="flex items-center gap-3">
-        <button
+        <Button
           onClick={guardar}
           disabled={pending}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          variant="primary"
         >
           {pending ? "Guardando…" : "Guardar cambios"}
-        </button>
+        </Button>
         {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
       </div>
     </div>
@@ -606,12 +604,12 @@ function PreferenciasForm({ negocio }: { negocio: Negocio }) {
                   <span className="text-xs text-neutral-400">Subiendo…</span>
                 )}
                 {negocio.logoUrl && !logoPending && (
-                  <button
+                  <Button
                     onClick={quitarLogo}
-                    className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+                    variant="outline"
                   >
                     Quitar logo
-                  </button>
+                  </Button>
                 )}
               </div>
               {logoError && <p className="mt-2 text-xs text-red-600">{logoError}</p>}
@@ -668,13 +666,13 @@ function PreferenciasForm({ negocio }: { negocio: Negocio }) {
         </Card>
       </div>
       <div className="flex items-center gap-3">
-        <button
+        <Button
           onClick={guardar}
           disabled={pending}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          variant="primary"
         >
           {pending ? "Guardando…" : "Guardar cambios"}
-        </button>
+        </Button>
         {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
       </div>
     </div>
@@ -814,13 +812,13 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
             </>
           )}
           {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
-          <button
+          <Button
             onClick={guardar}
             disabled={pending}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+            variant="primary"
           >
             {pending ? "Guardando…" : "Guardar cambios"}
-          </button>
+          </Button>
         </div>
         </Card>
     </div>
@@ -865,13 +863,13 @@ function MiCuenta({ user }: { user: SessionUser }) {
         {saved && !error && (
           <p className="text-xs text-emerald-600">Cambios guardados.</p>
         )}
-        <button
+        <Button
           onClick={guardar}
           disabled={pending || !nombre.trim()}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50"
+          variant="primary"
         >
           Guardar cambios
-        </button>
+        </Button>
       </div>
     </Card>
   );

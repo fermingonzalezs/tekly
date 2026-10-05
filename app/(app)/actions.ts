@@ -43,8 +43,8 @@ export async function updateOwnProfileAction(
 /** `ruta` sale del header `referer` de la propia request de la action (la
  * página desde la que se mandó el form) -- no de un campo que arme el
  * cliente a mano. */
-export async function reportarBugAction(descripcion: string) {
+export async function reportarBugAction(descripcion: string, accion: string) {
   const referer = headers().get("referer");
   const ruta = referer ? new URL(referer).pathname : "desconocida";
-  await crearReporteBug(descripcion, ruta);
+  await crearReporteBug(descripcion, ruta, accion);
 }

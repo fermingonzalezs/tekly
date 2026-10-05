@@ -64,3 +64,29 @@ export function heatCell(
   const i = Math.round(t * (scale.length - 1));
   return { bg: scale[i], dark: i <= 2 };
 }
+
+/** Pasos "lindos" para redondear un máximo de eje hacia arriba. */
+const NICE_STEPS = [1, 1.5, 2, 3, 4, 5, 6, 8, 10];
+
+/** Marcas del eje Y de un gráfico de barras: `[0, mitad, máximo]` con el
+ *  máximo redondeado hacia arriba a un número "lindo" (1,5×10^k, 2×10^k, …)
+ *  para que las líneas guía caigan en valores reales. El gráfico tiene que
+ *  escalar contra `ticks[ticks.length - 1]`, no contra el `max` crudo, o las
+ *  marcas mienten. */
+export function ticksEje(max: number): number[] {
+  if (!(max > 0)) return [0, 5, 10];
+  const exp = Math.floor(Math.log10(max));
+  for (const e of [exp, exp + 1]) {
+    const base = Math.pow(10, e);
+    const nice = NICE_STEPS.find((s) => s * base >= max);
+    if (nice) return [0, (nice * base) / 2, nice * base];
+  }
+  return [0, 5, 10];
+}
+
+/** Monto para ejes/etiquetas compactas: "U$ 500" / "U$ 1,5k" / "0". */
+export function fmtUsdCompact(n: number): string {
+  if (n === 0) return "0";
+  if (Math.abs(n) < 1000) return `U$ ${n.toLocaleString("es-AR")}`;
+  return `U$ ${(n / 1000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}k`;
+}

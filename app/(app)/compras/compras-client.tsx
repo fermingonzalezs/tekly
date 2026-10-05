@@ -1,20 +1,16 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Plus,
-  Search,
-  Trash2,
-  FileText,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+import { Plus, Search, Trash2, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
+import { SeccionTabla } from "@/components/ui/seccion-tabla";
+import { BarraFiltros } from "@/components/ui/barra-filtros";
+import { GraficoBarrasVerticales, GraficoRanking } from "@/components/seccion/graficos";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ReciboImprimir,
@@ -28,6 +24,7 @@ import { useDolar } from "@/lib/dolar";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
+import { gastoPorMes, gastoPorProveedor, resumenCompras } from "@/lib/compras";
 import type { Caja, Compra, CompraEstado, CompraItem, MedioPago } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
 import type { SessionUser } from "@/lib/auth/types";
@@ -70,7 +67,6 @@ export function ComprasClient({
   const [openId, setOpenId] = useState<string | null>(openParam);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [eliminarMovimientoCaja, setEliminarMovimientoCaja] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [recibo, setRecibo] = useState(false);
   const [pending, startTransition] = useTransition();
   const searchParams = useSearchParams();
@@ -95,8 +91,9 @@ export function ComprasClient({
   );
 
   const open = list.find((c) => c.id === openId) ?? null;
-  const totalUsd = filtered.reduce((a, c) => a + c.totalUsd, 0);
-  const pendientes = filtered.filter((c) => c.estado === "pendiente").length;
+  const resumen = useMemo(() => resumenCompras(filtered), [filtered]);
+  const porMes = useMemo(() => gastoPorMes(filtered), [filtered]);
+  const porProveedor = useMemo(() => gastoPorProveedor(filtered), [filtered]);
 
   function marcarRecibida(id: string) {
     startTransition(async () => {
@@ -125,67 +122,81 @@ export function ComprasClient({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard align="left" label="Compras" value={filtered.length} />
-        <StatCard align="left" label="Gastado (USD)" value={fmtUsd(totalUsd)} />
-        <StatCard align="left" label="Pendientes de recepción" value={pendientes} />
-        <StatCard
-          align="left"
-          label="Ticket promedio"
-          value={fmtUsd(filtered.length ? totalUsd / filtered.length : 0)}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por proveedor o ítem…"
-            className={cn("w-full pl-9", filterPill)}
+    <SeccionTabla
+      id="compras"
+      graficos={
+        <>
+          <GraficoBarrasVerticales
+            title="Gasto por mes"
+            sub={`${resumen.cantidad} compras`}
+            rows={porMes}
+            fmt={fmtUsd}
+            vacio="Sin compras en el período."
           />
-        </div>
-
-        <button
-          onClick={() => setFiltersOpen((v) => !v)}
-          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-3.5 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:hidden"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-          Filtros
-          {filtersOpen ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </button>
-
-        <div
-          className={cn(
-            "flex-col gap-2 sm:contents",
-            filtersOpen ? "flex" : "hidden",
-          )}
-        >
-          <Select
-            value={estadoFiltro}
-            onChange={(e) => setEstadoFiltro(e.target.value as "todos" | CompraEstado)}
-            className={cn("w-full sm:w-44", filterPill)}
-          >
-            <option value="todos">Todos los estados</option>
-            <option value="pendiente">Pendiente</option>
-            <option value="recibida">Recibida</option>
-          </Select>
-        </div>
-
-        <button
-          onClick={() => setCreating(true)}
-          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:ml-auto sm:w-auto"
-        >
-          <Plus className="h-4 w-4" />
-          Nueva compra
-        </button>
-      </div>
+          <GraficoRanking
+            title="Gasto por proveedor"
+            sub="Top proveedores y clientes de canje"
+            rows={porProveedor}
+            fmt={fmtUsd}
+            vacio="Sin compras en el período."
+          />
+        </>
+      }
+      tarjetas={
+        <>
+          <StatCard align="left" label="Compras" value={resumen.cantidad} hint="del período" />
+          <StatCard align="left" label="Gastado" value={fmtUsd(resumen.gastadoUsd)} />
+          <StatCard
+            align="left"
+            label="Pendientes de recepción"
+            value={resumen.pendientes}
+            hint="sin recibir"
+          />
+          <StatCard
+            align="left"
+            label="Ticket promedio"
+            value={fmtUsd(resumen.ticketPromedioUsd)}
+          />
+        </>
+      }
+      filtros={
+        <BarraFiltros
+          contadorFiltros={(estadoFiltro !== "todos" ? 1 : 0) + (q ? 1 : 0)}
+          busqueda={
+            <div className="relative w-full sm:w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar por proveedor o ítem…"
+                className={cn("w-full pl-9", filterPill)}
+                aria-label="Buscar compras"
+              />
+            </div>
+          }
+          filtros={
+            <Select
+              value={estadoFiltro}
+              onChange={(e) => setEstadoFiltro(e.target.value as "todos" | CompraEstado)}
+              className={cn("w-full sm:w-44", filterPill)}
+              aria-label="Filtrar por estado"
+            >
+              <option value="todos">Todos los estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="recibida">Recibida</option>
+            </Select>
+          }
+          accion={
+            <Button icon={Plus}
+              onClick={() => setCreating(true)}
+              variant="tonal" fullOnMobile
+            >
+              Nueva compra
+            </Button>
+          }
+        />
+      }
+    >
 
       <div className="space-y-2 md:hidden">
         {filtered.map((c) => (
@@ -305,49 +316,48 @@ export function ComprasClient({
       <Dialog
         open={!!open}
         onClose={() => setOpenId(null)}
-        size="lg"
-        accent
+        size="2xl"
         title={open?.id ?? ""}
         description={open ? `${open.fecha} · ${contraparteDe(open)}` : ""}
         footer={
           open && (
             <>
               {esAdmin && (
-                <button
+                <Button icon={Trash2}
                   onClick={() => {
                     setEliminarMovimientoCaja(true);
                     setConfirmDelete(true);
                   }}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                  variant="danger-outline" fullOnMobile className="sm:mr-auto"
                 >
-                  <Trash2 className="h-4 w-4" /> Eliminar compra
-                </button>
+                  Eliminar compra
+                </Button>
               )}
-              <button
+              <Button
                 onClick={() => setOpenId(null)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+                variant="outline" fullOnMobile
               >
                 Cerrar
-              </button>
+              </Button>
               {open.origen === "canje" && (
-                <button
+                <Button icon={FileText}
                   onClick={() => setRecibo(true)}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+                  variant="tonal" fullOnMobile
                 >
-                  <FileText className="h-4 w-4" /> Imprimir recibo de canje
-                </button>
+                  Imprimir recibo de canje
+                </Button>
               )}
               {open.estado === "pendiente" && (
-                <button
+                <Button
                   disabled={pending}
                   onClick={() => {
                     marcarRecibida(open.id);
                     setOpenId(null);
                   }}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:opacity-50 sm:w-auto"
+                  variant="primary" fullOnMobile
                 >
                   Marcar como recibida
-                </button>
+                </Button>
               )}
             </>
           )
@@ -426,7 +436,7 @@ export function ComprasClient({
         }}
         cajas={cajas}
       />
-    </div>
+    </SeccionTabla>
   );
 }
 
@@ -622,29 +632,28 @@ function NuevaCompraDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      size="lg"
-      accent
+      size="3xl"
       title="Nueva compra"
       description="Se asigna un número al confirmar"
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Registrando…" : "Registrar compra"}
-          </button>
+          </Button>
         </>
       }
     >
-      <div className="space-y-3">
+      <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5 lg:space-y-0">
         <div
           className={cn(
             "grid gap-3",
@@ -687,7 +696,7 @@ function NuevaCompraDialog({
           )}
         </div>
 
-        <div>
+        <div className="lg:row-span-2">
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Ítems
           </p>
@@ -727,13 +736,12 @@ function NuevaCompraDialog({
               </div>
             ))}
           </div>
-          <button
+          <Button icon={Plus}
             onClick={() => setItems((prev) => [...prev, { detalle: "", cantidad: 1, costoUsd: 0 }])}
-            className="mt-2 flex items-center gap-1.5 rounded-full border border-accent/40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+            variant="tonal"
           >
-            <Plus className="h-3.5 w-3.5" />
             Agregar ítem
-          </button>
+          </Button>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">

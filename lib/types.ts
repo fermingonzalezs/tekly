@@ -273,6 +273,9 @@ export type Movimiento = {
 export type MovimientoItem = Movimiento & {
   itemTipo: "equipo" | "repuesto" | "otro";
   itemNombre: string;
+  /** Fecha real en ISO (`YYYY-MM-DD`), para agrupar en los gráficos -- la
+   * `fecha` mostrada es `DD mes`, sin año. */
+  fechaISO: string;
 };
 
 /** Estado de una unidad puntual de un "Otro" serializado -- misma semántica
@@ -363,6 +366,9 @@ export type Recuento = {
   tipo: "equipos" | "repuestos" | "otros";
   fecha: string;
   hora: string;
+  /** Fecha real en ISO (`YYYY-MM-DD`), para agrupar por mes en los gráficos
+   * -- `fecha` es `DD mes`, sin año. */
+  fechaISO: string;
   responsable: string;
   estado: "pendiente" | "revisado";
   revisadoPor?: string;
@@ -420,6 +426,12 @@ export type Pago = {
    * `montoUsd * (1 + recargoPct/100)`, `montoUsd` sigue siendo la parte
    * del total de la venta que cubre este pago. */
   recargoPct?: number;
+  /** Cotización usada al cobrar (solo pagos a una caja ARS). Snapshot, no se
+   * recalcula: es la que se usó para el movimiento de caja. */
+  cotizacion?: number;
+  /** Pesos realmente cobrados (incluye `recargoPct`) = el `monto` del
+   * movimiento de caja generado. Solo pagos a una caja ARS. */
+  montoArs?: number;
   /** Si `medio === "canje"`: `Compra.id` de la compra generada para el
    * equipo recibido (ver `CanjeEquipo` -- el detalle completo vive ahí,
    * no acá, para no duplicar/desincronizar). */
@@ -499,6 +511,15 @@ export type MovimientoCaja = {
   /** Caja específica a la que pertenece; `monto` está en la moneda de esa caja. */
   cajaId: string;
   monto: number;
+  /** Dólar (ARS por USD) del momento en que se registró -- snapshot, nunca
+   * se recalcula. Es lo que permite pasar a USD un movimiento de una caja
+   * en pesos sin usar el blue de hoy. `null` en movimientos anteriores a
+   * esta columna (no se reconstruye) y también en cajas USD viejas. */
+  cotizacion: number | null;
+  /** Ticket de Reparaciones que generó este ingreso (cobro al entregar el
+   * equipo) -- `null` en movimientos manuales o de ventas/compras. Es lo
+   * que permite medir "cobrado" por reparaciones en Analíticas. */
+  ticketId: number | null;
   /** Quién lo cargó — manual o generado automático desde una venta/pago. */
   usuario: string;
   /** `null` = todavía sin conciliar. Un movimiento ya archivado bajo una
@@ -535,10 +556,14 @@ export type MovimientoCC = {
   id: string;
   clienteId: string;
   fecha: string;
+  /** "2026-09-07" -- para filtrar por período (la `fecha` display no trae año). */
+  fechaISO: string;
   hora: string;
   concepto: string;
   tipo: "cargo" | "pago";
   montoUsd: number;
+  /** Ticket que generó este cargo (entrega de un equipo a cuenta corriente). */
+  ticketId: number | null;
   usuario: string;
 };
 

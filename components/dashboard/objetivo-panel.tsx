@@ -75,7 +75,7 @@ export function ObjetivoPanel({
           </div>
 
           <div className="flex items-baseline justify-between gap-2 text-xs">
-            <span className="text-neutral-400">faltan {fmtUsd(falta)}</span>
+            <span className="text-neutral-500">faltan {fmtUsd(falta)}</span>
             <span className="tabular-nums text-neutral-500">
               <span className="font-semibold text-neutral-800">
                 {fmtUsd(current)}
@@ -97,7 +97,7 @@ export function ObjetivoPanel({
             value={
               <>
                 {fmtUsd(perDay)}
-                <span className="font-normal text-neutral-400">/día</span>
+                <span className="font-normal text-neutral-500">/día</span>
               </>
             }
             hint={`${daysLeft} días restantes`}
@@ -142,7 +142,7 @@ function Stat({
       <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
         {label}
       </p>
-      <p className="text-[11px] tabular-nums text-neutral-400">{hint}</p>
+      <p className="text-[11px] tabular-nums text-neutral-500">{hint}</p>
     </div>
   );
 }

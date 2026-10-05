@@ -1,0 +1,31 @@
+---
+titulo: "Canje: recibir un equipo como pago"
+resumen: "Cuando el cliente paga con un equipo en parte de pago, Tekly genera una compra con el detalle y el PDF firmable."
+seccion: ventas
+roles: []
+orden: 3
+actualizado: 2026-10-04
+---
+
+Un **canje** es cuando el cliente entrega un equipo (por ejemplo su iPhone viejo) como parte del pago. No es sólo un medio de pago: Tekly **registra el equipo recibido** como una compra.
+
+<Paso n={1} titulo="Elegí el medio «Mercadería» (canje)">
+En el pago, elegí la caja de canje. Se abre el modal **«Equipo recibido en canje»**.
+</Paso>
+
+<Paso n={2} titulo="Cargá el equipo y el checklist">
+Completá **marca, equipo, IMEI, color**, el **checklist de ingreso** (22 ítems bien/mal/n-a) y las **aclaraciones** libres.
+</Paso>
+
+<Paso n={3} titulo="Confirmá la venta">
+Al confirmar, Tekly crea una **Compra** con `origen: canje`, vinculada a esa venta. El detalle completo vive ahí, no en la venta.
+</Paso>
+
+<Aviso titulo="Imprimí el recibo de canje" tono="info">
+En **Compras**, abrí la compra del canje y usá **«Imprimir recibo de canje»**: sale con el checklist y las firmas del cliente y de la empresa. En Ventas sólo hay un link «Ver compra de canje» que te lleva a ese registro.
+</Aviso>
+
+## Ver también
+
+- [Módulo Compras](/ayuda/compras/guia)
+- [Módulo Ventas](/ayuda/ventas/guia)

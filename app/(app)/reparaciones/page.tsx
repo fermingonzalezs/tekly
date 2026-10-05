@@ -21,7 +21,7 @@ export default async function ReparacionesPage() {
     ]);
 
   return (
-    <Section title="Reparaciones">
+    <Section title="Reparaciones" ayuda="reparaciones">
       <ReparacionesClient
         initialTickets={tickets}
         initialServicios={servicios}

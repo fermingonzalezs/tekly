@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { navForRole, navCategoriesForRole, NAV } from "@/lib/nav";
 
-const SOLO_ADMIN_TECNICO = ["/compras", "/cuentas-corrientes", "/cajas", "/analiticas"];
+const SOLO_ADMIN_TECNICO = ["/compras", "/cuentas-corrientes", "/cajas"];
 
 describe("navForRole", () => {
   it("admin ve todo, incluida Configuración", () => {
@@ -21,14 +21,20 @@ describe("navForRole", () => {
     }
   });
 
-  it("vendedor no ve Compras, Cuentas corrientes, Cajas ni Analíticas", () => {
+  it("Analíticas (márgenes, costos, ganancia) es solo admin", () => {
+    expect(navForRole("admin").some((i) => i.href === "/analiticas")).toBe(true);
+    expect(navForRole("tecnico").some((i) => i.href === "/analiticas")).toBe(false);
+    expect(navForRole("vendedor").some((i) => i.href === "/analiticas")).toBe(false);
+  });
+
+  it("vendedor no ve Compras, Cuentas corrientes ni Cajas", () => {
     const hrefs = navForRole("vendedor").map((i) => i.href);
     for (const href of SOLO_ADMIN_TECNICO) {
       expect(hrefs).not.toContain(href);
     }
   });
 
-  it("admin y técnico sí ven esas 4 secciones", () => {
+  it("admin y técnico sí ven esas 3 secciones", () => {
     for (const rol of ["admin", "tecnico"] as const) {
       const hrefs = navForRole(rol).map((i) => i.href);
       for (const href of SOLO_ADMIN_TECNICO) {
@@ -48,6 +54,11 @@ describe("navCategoriesForRole", () => {
   it("a un admin \"Stock\" es un dropdown de 3 (incluye Compras)", () => {
     const stock = navCategoriesForRole("admin").find((c) => c.key === "/inventario");
     expect(stock?.children).toHaveLength(3);
+  });
+
+  it("a un técnico \"Finanzas\" le queda con Cajas y Cuentas corrientes, sin Analíticas", () => {
+    const finanzas = navCategoriesForRole("tecnico").find((c) => c.key === "/cajas");
+    expect(finanzas?.children.map((c) => c.href)).toEqual(["/cajas", "/cuentas-corrientes"]);
   });
 
   it("a un vendedor no le queda categoría \"Finanzas\" (Cajas/Analíticas/Cuentas corrientes ocultas)", () => {

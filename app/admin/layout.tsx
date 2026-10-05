@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { signOutAction } from "@/app/(app)/actions";
+import { TeklyLogo } from "@/components/brand/tekly-logo";
 
 export const metadata: Metadata = {
   title: "Panel de plataforma · Tekly",
@@ -25,9 +26,7 @@ export default async function AdminLayout({
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-[100rem] items-center gap-3 px-4 sm:px-8">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent font-grotesk text-sm font-bold text-white">
-            T
-          </span>
+          <TeklyLogo variante="icono" altura={32} alt="" className="shrink-0" />
           <span className="font-grotesk text-lg font-semibold text-neutral-900">
             Tekly · Panel de plataforma
           </span>

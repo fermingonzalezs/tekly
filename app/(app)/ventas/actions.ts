@@ -19,15 +19,21 @@ export async function createVentaAction(input: {
   tipo: "venta" | "reparacion";
   dolarVenta: number;
 }) {
-  await requireUser();
+  const user = await requireUser();
+
+  // Un vendedor/técnico solo registra ventas a su propio nombre; el admin
+  // puede elegir a cualquiera. Se ignora lo que venga del cliente -- la
+  // UI ya lo respeta (campo fijo), esto es la validación de verdad.
+  const vendedorId = user.rol === "admin" ? input.vendedorId : user.id;
+  const vendedorNombre = user.rol === "admin" ? input.vendedorNombre : user.nombre;
 
   const cliente = await resolveCliente(input.cliente);
 
   const venta = await createVenta({
     clienteId: cliente.id,
     cliente: cliente.nombre,
-    vendedorId: input.vendedorId,
-    vendedorNombre: input.vendedorNombre,
+    vendedorId,
+    vendedorNombre,
     procedencia: input.procedencia,
     modalidad: input.modalidad,
     items: input.items,
@@ -53,4 +59,5 @@ export async function deleteVentaAction(id: string, opts: DeleteVentaOpts) {
   revalidatePath("/cajas");
   revalidatePath("/cuentas-corrientes");
   revalidatePath("/compras");
+  revalidatePath("/dashboard");
 }

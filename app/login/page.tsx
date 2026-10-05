@@ -1,5 +1,6 @@
 import { AppPreviewBackdrop } from "@/components/auth/app-preview-backdrop";
 import { AuthModal } from "@/components/auth/auth-modal";
+import { AvisoCookies } from "@/components/legal/aviso-cookies";
 import { LoginForm } from "./login-form";
 
 export default function LoginPage({
@@ -16,6 +17,7 @@ export default function LoginPage({
           <LoginForm initialError={searchParams.error} />
         </AuthModal>
       </div>
+      <AvisoCookies />
     </main>
   );
 }

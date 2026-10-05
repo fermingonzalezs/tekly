@@ -6,7 +6,8 @@ Verificación).
 
 | # | Title | Status |
 |---|---|---|
-| [001](001-panel-admin-plataforma.md) | Panel de administrador de plataforma (`/admin`) | TODO |
-| [002](002-landing-fuente-headlines.md) | Cambiar la fuente de headlines de la landing | TODO |
-| [003](003-buscador-global.md) | Buscador global (Cmd+K con resultados en vivo + liquid glass) | TODO |
-| [004](004-ilustraciones-secciones-landing.md) | 20 ilustraciones fieles de secciones reales para la landing | TODO |
+| [007](007-ventas-rediseno.md) | Ventas: rediseño de lista/detalle/Nueva venta + paginación en server | HECHO en código — falta verificación manual con datos |
+| [011](011-modales-vidrio.md) | Modales: pasar todo el sistema al estilo vidrio | HECHO en código — falta verificación visual (`/qa/dialog` + modales con sesión) |
+| [012](012-legales-cookies.md) | Legales: términos, privacidad y cookies | HECHO como borrador — falta completar datos de la empresa y revisión de un abogado |
+| [013](013-centro-de-ayuda.md) | Manual de usuario y tutoriales (centro de ayuda) | HECHO en código — falta contenido/capturas del dueño |
+| [014](014-demo-sin-cuenta.md) | Demo sin cuenta: Dashboard + Ventas en el navegador (sin BD) | HECHO y verificado en local — falta desplegar a producción |

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { ChartTitle } from "@/components/ui/chart-title";
+import { GraficoCard } from "@/components/ui/grafico-card";
 import { CHART_ACCENT } from "@/lib/chart";
 import { cn } from "@/lib/utils";
 import type { Periodo, RangoEdad } from "@/lib/clientes";
@@ -24,10 +23,10 @@ export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]
   );
 
   return (
-    <Card className="flex h-auto min-w-0 flex-col p-5 sm:h-72">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <ChartTitle align="left" divider>Demografía de clientes · edad</ChartTitle>
-        <div className="inline-flex w-fit self-center rounded-lg bg-neutral-100 p-0.5 sm:self-auto">
+    <GraficoCard
+      title="Demografía de clientes · edad"
+      action={
+        <div className="inline-flex w-fit shrink-0 self-start rounded-lg bg-neutral-100 p-0.5">
           {PERIODOS.map((p) => (
             <button
               key={p.key}
@@ -43,8 +42,8 @@ export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]
             </button>
           ))}
         </div>
-      </div>
-
+      }
+    >
       <div className="flex flex-1 flex-col justify-center">
         <div className="space-y-3">
           {rows.map((r) => (
@@ -66,6 +65,6 @@ export function DemografiaClientes({ data }: { data: Record<Periodo, RangoEdad[]
           ))}
         </div>
       </div>
-    </Card>
+    </GraficoCard>
   );
 }

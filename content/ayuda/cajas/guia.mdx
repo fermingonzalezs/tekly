@@ -1,0 +1,44 @@
+---
+titulo: "Módulo Cajas y conciliación"
+resumen: "Una fila por medio de pago, movimientos, y conciliación con ventana flexible (no hay \"cerrar el día\")."
+seccion: cajas
+roles: []
+orden: 1
+actualizado: 2026-10-04
+---
+
+Cajas controla la plata que entra y sale. Cada caja tiene **una moneda** (USD o ARS) y **un medio de pago fijo** (efectivo, transferencia, tarjeta…). Podés tener varias cajas del mismo medio (Mostrador y Taller, ambas en pesos).
+
+## Movimientos
+
+<Paso n={1} titulo="Nuevo movimiento">
+Elegí la **caja** (el medio se completa solo), el tipo (ingreso/egreso), el concepto y el monto. Si la caja es en pesos, Tekly guarda la **cotización del momento** para que los totales no cambien después.
+</Paso>
+
+<Paso n={2} titulo="Contralor">
+El toggle **«Desde conciliación»** muestra el neto contra lo esperado desde la última vez que conciliaste; **«Historial»** muestra todo.
+</Paso>
+
+## Conciliar
+
+<Paso n={1} titulo="«Conciliar cajas»">
+Por cada caja activa anotás el **monto real contado** (obligatorio) y un comentario opcional. Tekly calcula la **diferencia** contra lo que el sistema esperaba.
+</Paso>
+
+<Paso n={2} titulo="Se archiva sola">
+Al confirmar, todos los movimientos sin conciliar quedan archivados bajo esa conciliación. Queda el registro en **«Conciliaciones anteriores»**.
+</Paso>
+
+<Captura
+  alt="Diálogo «Conciliar cajas» con el monto contado por caja y la diferencia calculada."
+  caption="La conciliación compara lo contado con lo que esperaba el sistema."
+/>
+
+<Aviso titulo="No hay «cerrar la caja del día»" tono="info">
+El modelo es de **conciliación con ventana flexible**: si un día no conciliás, los movimientos simplemente se acumulan. Nada se bloquea.
+</Aviso>
+
+## Ver también
+
+- [Módulo Ventas](/ayuda/ventas/guia)
+- [Módulo Compras](/ayuda/compras/guia)

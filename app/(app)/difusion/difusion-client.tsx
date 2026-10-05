@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useState, useTransition } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -177,13 +178,12 @@ export function DifusionClient({
             className={cn("w-full pl-9", filterPill)}
           />
         </div>
-        <button
+        <Button icon={Plus}
           onClick={() => setCreatingNew(true)}
-          className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:ml-auto sm:w-auto"
+          variant="tonal" fullOnMobile className="sm:ml-auto"
         >
-          <Plus className="h-4 w-4" />
           Nueva lista
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-2 md:hidden">
@@ -267,7 +267,6 @@ export function DifusionClient({
         open={!!viewing}
         onClose={() => setViewingId(null)}
         size="lg"
-        accent
         title={viewing?.nombre ?? ""}
         description={
           viewing ? `${viewing.secciones.length} secciones · ${totalItems(viewing, equipos, otros)} ítems` : ""
@@ -275,27 +274,27 @@ export function DifusionClient({
         footer={
           viewing && (
             <>
-              <button
+              <Button
                 onClick={() => setViewingId(null)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+                variant="outline" fullOnMobile
               >
                 Cerrar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => {
                   setEditing(viewing);
                   setViewingId(null);
                 }}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
+                variant="tonal" fullOnMobile
               >
                 Editar
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => copiar(viewing)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 sm:w-auto"
+                variant="primary" fullOnMobile
               >
                 {copied ? "¡Copiado!" : "Copiar mensaje"}
-              </button>
+              </Button>
             </>
           )
         }
@@ -379,24 +378,23 @@ function ListaEditorDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      accent
-      size="lg"
+      size="2xl"
       title={lista ? "Editar lista" : "Nueva lista"}
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Guardando…" : "Guardar lista"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -478,13 +476,12 @@ function ListaEditorDialog({
               <p className="text-[13px] text-neutral-400">Sin secciones todavía.</p>
             )}
           </div>
-          <button
+          <Button icon={Plus}
             onClick={addSeccion}
-            className="mt-2 flex items-center gap-1.5 rounded-full border border-accent/40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+            variant="tonal"
           >
-            <Plus className="h-3.5 w-3.5" />
             Agregar sección
-          </button>
+          </Button>
         </div>
 
         <div>
@@ -724,14 +721,13 @@ function AgregarEntrada({
         </div>
       )}
 
-      <button
+      <Button icon={Plus}
         onClick={add}
         disabled={tipo === "manual" && (!manualTexto.trim() || manualPrecio <= 0)}
-        className="flex items-center gap-1.5 rounded-full border border-accent/40 px-3 py-1.5 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft disabled:pointer-events-none disabled:opacity-40"
+        variant="tonal"
       >
-        <Plus className="h-3.5 w-3.5" />
         Agregar
-      </button>
+      </Button>
     </div>
   );
 }

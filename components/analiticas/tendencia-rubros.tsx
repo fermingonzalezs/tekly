@@ -88,19 +88,27 @@ export function TendenciaRubros({ data, className }: { data: RubroMes[]; classNa
     <Card className={cn("flex flex-col p-4", className)}>
       <div className="flex items-start justify-between gap-2">
         <ChartTitle align="left">Tendencia por rubro</ChartTitle>
-        <span
-          className={cn(
-            "shrink-0 rounded-md px-2 py-1 text-xs font-semibold",
-            mom >= 0
-              ? "bg-emerald-50 text-emerald-600"
-              : "bg-red-50 text-red-600",
-          )}
-        >
-          {mom >= 0 ? "+" : ""}
-          {mom.toFixed(1).replace(".", ",")} %
-        </span>
+        {n >= 2 && (
+          <span
+            className={cn(
+              "shrink-0 rounded-md px-2 py-1 text-xs font-semibold",
+              mom >= 0
+                ? "bg-emerald-50 text-emerald-600"
+                : "bg-red-50 text-red-600",
+            )}
+          >
+            {mom >= 0 ? "+" : ""}
+            {mom.toFixed(1).replace(".", ",")} %
+          </span>
+        )}
       </div>
 
+      {n < 2 ? (
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
+          Se completa con más historia — hoy hay datos de {n === 1 ? "1 mes" : "ningún mes"}.
+        </p>
+      ) : (
+        <>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
         {CATS.map((c) => (
           <span key={c.key} className="inline-flex items-center gap-1.5">
@@ -218,6 +226,8 @@ export function TendenciaRubros({ data, className }: { data: RubroMes[]; classNa
           })}
         </div>
       </div>
+        </>
+      )}
     </Card>
   );
 }

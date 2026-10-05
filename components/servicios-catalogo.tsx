@@ -44,13 +44,14 @@ export function ServiciosCatalogo({
 
   return (
     <div className="space-y-4">
-      <button
+      <Button
+        variant="tonal"
+        icon={Plus}
         onClick={() => setEditing(blank)}
-        className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft md:w-auto"
+        className="md:ml-auto"
       >
-        <Plus className="h-4 w-4" />
         Nuevo servicio
-      </button>
+      </Button>
 
       <div className="space-y-2 md:hidden">
         {list.map((s) => (
@@ -180,7 +181,7 @@ function ServicioDialog({
             placeholder="Cambio de pantalla"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <Field label="Precio (U$)">
             <Input
               type="number"

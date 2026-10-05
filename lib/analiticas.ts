@@ -1,5 +1,16 @@
-import type { Equipo, OtroItem, Repuesto, Venta, Ticket, TicketStatus } from "@/lib/types";
+import type {
+  Caja,
+  Equipo,
+  MovimientoCaja,
+  MovimientoCC,
+  OtroItem,
+  Repuesto,
+  Venta,
+  Ticket,
+  TicketStatus,
+} from "@/lib/types";
 import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, type Rubro } from "@/lib/ventas";
+import { diasEntre, enRango, hoyISO, sumarDias, type Rango } from "@/lib/date-presets";
 import { otroValorStock } from "@/lib/otros";
 import type { MovimientoStockBulk } from "@/lib/db/inventario";
 
@@ -90,28 +101,65 @@ export function ventasPorRubroMes(
   return out;
 }
 
-export type VentaDia = { dia: string; usd: number; operaciones: number };
+export type VentaDia = {
+  dia: string;
+  /** Total facturado ese día de la semana en todo el período. */
+  usd: number;
+  operaciones: number;
+  /** Promedio por ocurrencia de ese día en el calendario del período
+   * (`usd / cantidad de lunes, martes, …`). Es lo que se grafica: sumar
+   * totales favorece al día que cae más veces en el rango (5 sábados vs 4
+   * lunes). Cuenta también los días sin ventas. */
+  promedioUsd: number;
+};
 
-/** Facturación real por día de la semana (Lun a Dom), sobre el conjunto de
+/** Facturación por día de la semana (Lun a Dom), sobre el conjunto de
  * ventas que se le pase (respeta el filtro de fecha de la pestaña Ventas
  * si se lo llama con `ventasFiltradas`). `fechaISO` se arma en `Date(y, m-1,
  * d)` -- construcción local a propósito, nunca `new Date(iso).getDay()`
  * (ese constructor parsea la fecha como UTC medianoche, y `getDay()` la lee
  * en hora local -- mismo bug de huso horario que ya nos mordió en
- * `ventasPorMes`/`facturacionDiaria`). */
-export function ventasPorDiaSemana(ventas: Venta[]): VentaDia[] {
+ * `ventasPorMes`/`facturacionDiaria`).
+ *
+ * `rango` define cuántas veces cae cada día de la semana. Un lado vacío es
+ * abierto: sin `desde` arranca en la primera venta; sin `hasta` (o con un
+ * `hasta` futuro) termina hoy -- los días que todavía no pasaron no tienen
+ * ventas y diluirían el promedio. */
+export function ventasPorDiaSemana(
+  ventas: Venta[],
+  rango: Rango = { desde: "", hasta: "" },
+  hoy = new Date(),
+): VentaDia[] {
   const totales = Array.from({ length: 7 }, () => ({ usd: 0, operaciones: 0 }));
+  let primera = "";
   for (const v of ventas) {
-    const [y, m, d] = v.fechaISO.split("-").map(Number);
+    const dia = v.fechaISO.slice(0, 10);
+    if (!primera || dia < primera) primera = dia;
+    const [y, m, d] = dia.split("-").map(Number);
     const dow = new Date(y, m - 1, d).getDay();
     totales[dow].usd += v.totalUsd;
     totales[dow].operaciones += 1;
   }
+
+  const hoyIso = hoyISO(hoy);
+  const desde = rango.desde || primera;
+  const hasta = rango.hasta && rango.hasta < hoyIso ? rango.hasta : hoyIso;
+  // Cuántas veces cae cada día de la semana en [desde, hasta].
+  const ocurrencias = Array.from({ length: 7 }, () => 0);
+  if (desde && desde <= hasta) {
+    const n = diasEntre(desde, hasta) + 1;
+    for (let i = 0; i < n; i++) {
+      const [y, m, d] = sumarDias(desde, i).split("-").map(Number);
+      ocurrencias[new Date(y, m - 1, d).getDay()] += 1;
+    }
+  }
+
   const orden = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dom
   return orden.map((i) => ({
     dia: DIAS_SEMANA[i],
     usd: Math.round(totales[i].usd),
     operaciones: totales[i].operaciones,
+    promedioUsd: ocurrencias[i] > 0 ? Math.round(totales[i].usd / ocurrencias[i]) : 0,
   }));
 }
 
@@ -277,6 +325,30 @@ export function ticketsPorDiaSemana(tickets: Ticket[]): TicketsDia[] {
   }
   const orden = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dom
   return orden.map((i) => ({ dia: DIAS_SEMANA[i], tickets: totales[i] }));
+}
+
+/** Franjas horarias del heatmap de actividad (label + test sobre la hora). */
+export const ACTIVIDAD_FRANJAS = [
+  { label: "Mañana", test: (h: number) => h < 13 },
+  { label: "Tarde", test: (h: number) => h >= 13 && h < 17 },
+  { label: "Noche", test: (h: number) => h >= 17 },
+] as const;
+
+/** Grilla de actividad de tickets: filas = franja horaria (mañana/tarde/
+ * noche), columnas = día de la semana (Lun..Dom). La hora sale del display
+ * `ingreso` ("07 sep 14:32" -> últimos 5 chars) para no tocar el modelo de
+ * Ticket con un campo más; el día con parseo local-safe. Se calcula en el
+ * server (`HeatmapActividad` recibe la grilla ya lista). */
+export function actividadTickets(tickets: Ticket[]): number[][] {
+  const grid = ACTIVIDAD_FRANJAS.map(() => Array.from({ length: 7 }, () => 0));
+  for (const t of tickets) {
+    const [y, m, d] = t.fechaISO.split("-").map(Number);
+    const dow = (new Date(y, m - 1, d).getDay() + 6) % 7; // Lun=0..Dom=6
+    const hora = parseInt(t.ingreso.slice(-5), 10);
+    const fi = ACTIVIDAD_FRANJAS.findIndex((f) => f.test(hora));
+    if (fi >= 0) grid[fi][dow]++;
+  }
+  return grid;
 }
 
 // ── Reparaciones: embudo de estados y aceptación ───────
@@ -548,3 +620,95 @@ export function unidadesDeMovimiento(detalle: string): number | null {
   return m ? Number(m[1]) : null;
 }
 
+
+
+// ─────────────────────── Movimientos de caja en USD ───────────────────────
+
+/** USD de un movimiento de caja: caja en dólares → el monto tal cual; caja en
+ * pesos → monto ÷ la cotización GUARDADA en el movimiento. `null` si es en
+ * pesos y no tiene cotización (todos los anteriores a la columna
+ * `cotizacion`): no se adivina con el blue de hoy -- eso hacía que los
+ * totales de Finanzas cambiaran solos cada día. */
+export function movimientoEnUsd(m: MovimientoCaja, caja: Caja): number | null {
+  if (caja.moneda === "usd") return m.monto;
+  if (m.cotizacion == null || m.cotizacion <= 0) return null;
+  return m.monto / m.cotizacion;
+}
+
+export type SinCotizacion = {
+  cantidad: number;
+  ingresosArs: number;
+  egresosArs: number;
+};
+
+/** Movimientos en pesos que no se pueden pasar a USD (sin cotización
+ * guardada), para informarlos aparte en vez de sumarlos en silencio. */
+export function sinCotizacion(movs: MovimientoCaja[], cajas: Caja[]): SinCotizacion {
+  const porId = new Map(cajas.map((c) => [c.id, c]));
+  const out: SinCotizacion = { cantidad: 0, ingresosArs: 0, egresosArs: 0 };
+  for (const m of movs) {
+    const caja = porId.get(m.cajaId);
+    if (!caja || movimientoEnUsd(m, caja) !== null) continue;
+    out.cantidad += 1;
+    if (m.tipo === "ingreso") out.ingresosArs += m.monto;
+    else out.egresosArs += m.monto;
+  }
+  return out;
+}
+
+export type CobradoReparaciones = {
+  /** Cobrado en cajas (ingresos con `ticketId`), pasado a USD con la
+   * cotización guardada. */
+  cajaUsd: number;
+  /** Entregado a cuenta corriente (cargos con `ticketId`): se factura pero
+   * todavía no es plata en mano. */
+  ccUsd: number;
+  totalUsd: number;
+  /** Tickets que aportaron algún cobro contado en `totalUsd`. */
+  ticketIds: Set<number>;
+  /** Cobros en pesos del rango que quedaron afuera por no tener cotización. */
+  sinCotizacion: { cantidad: number; ars: number };
+};
+
+/** Lo cobrado por reparaciones en el rango: los pagos registrados al
+ * entregar el equipo (`entregarTicket`), fechados por cuándo se cobraron --
+ * no por cuándo se creó el ticket ni por su presupuesto, que incluye
+ * tickets sin aprobar o todavía en el taller. Suma los ingresos de caja con
+ * `ticketId` (pasados a USD con la cotización guardada) y los cargos de
+ * cuenta corriente con `ticketId` (ya en USD). */
+export function cobradoReparaciones(
+  movsCaja: MovimientoCaja[],
+  movsCC: MovimientoCC[],
+  cajas: Caja[],
+  rango: Rango,
+): CobradoReparaciones {
+  const porId = new Map(cajas.map((c) => [c.id, c]));
+  const out: CobradoReparaciones = {
+    cajaUsd: 0,
+    ccUsd: 0,
+    totalUsd: 0,
+    ticketIds: new Set(),
+    sinCotizacion: { cantidad: 0, ars: 0 },
+  };
+
+  for (const m of movsCaja) {
+    if (m.tipo !== "ingreso" || m.ticketId == null || !enRango(m.fechaISO, rango)) continue;
+    const caja = porId.get(m.cajaId);
+    if (!caja) continue;
+    const usd = movimientoEnUsd(m, caja);
+    if (usd === null) {
+      out.sinCotizacion.cantidad += 1;
+      out.sinCotizacion.ars += m.monto;
+      continue;
+    }
+    out.cajaUsd += usd;
+    out.ticketIds.add(m.ticketId);
+  }
+  for (const m of movsCC) {
+    if (m.tipo !== "cargo" || m.ticketId == null || !enRango(m.fechaISO, rango)) continue;
+    out.ccUsd += m.montoUsd;
+    out.ticketIds.add(m.ticketId);
+  }
+  out.totalUsd = out.cajaUsd + out.ccUsd;
+  return out;
+}

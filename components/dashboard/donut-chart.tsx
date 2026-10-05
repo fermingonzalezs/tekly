@@ -130,7 +130,7 @@ export function DonutChart({
                 style={{ background: s.color }}
               />
               <span className="whitespace-nowrap text-neutral-600">{s.label}</span>
-              <span className="whitespace-nowrap tabular-nums text-neutral-400">
+              <span className="whitespace-nowrap tabular-nums text-neutral-500">
                 {s.pct}% · {s.valueLabel}
               </span>
             </div>
@@ -147,7 +147,7 @@ export function DonutChart({
               <span className="min-w-0 flex-1 truncate text-neutral-600">
                 {s.label}
               </span>
-              <span className="w-9 shrink-0 text-end tabular-nums text-neutral-400">
+              <span className="w-9 shrink-0 text-end tabular-nums text-neutral-500">
                 {s.pct}%
               </span>
               <span className="shrink-0 text-end font-medium tabular-nums text-neutral-800">

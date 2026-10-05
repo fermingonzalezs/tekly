@@ -1,6 +1,4 @@
-import { Card } from "@/components/ui/card";
-import { ChartTitle } from "@/components/ui/chart-title";
-import { cn } from "@/lib/utils";
+import { GraficoCard } from "@/components/ui/grafico-card";
 import { GHOST_STRIPES, CHART_ACCENT } from "@/lib/chart";
 import type { Ticket } from "@/lib/types";
 
@@ -19,11 +17,11 @@ export function ReparacionesSplit({
   const pct = (terminadas / total) * 100;
 
   return (
-    <Card className={cn("flex h-72 flex-col p-5", className)}>
-      <ChartTitle align="left" divider sub={`${tickets.length} tickets en el período`}>
-        Reparaciones
-      </ChartTitle>
-
+    <GraficoCard
+      title="Reparaciones"
+      sub={`${tickets.length} tickets en el período`}
+      className={className}
+    >
       <div className="flex flex-1 flex-col justify-center">
         <div className="relative h-9">
           <div className="flex h-full overflow-hidden rounded-full">
@@ -52,14 +50,14 @@ export function ReparacionesSplit({
         <div className="mt-7 flex items-end justify-between">
           <div>
             <p className="text-xl font-semibold tabular-nums">{terminadas}</p>
-            <p className="text-xs text-neutral-400">Terminadas</p>
+            <p className="text-xs text-neutral-500">Terminadas</p>
           </div>
           <div className="text-right">
             <p className="text-xl font-semibold tabular-nums">{enCurso}</p>
-            <p className="text-xs text-neutral-400">En curso</p>
+            <p className="text-xs text-neutral-500">En curso</p>
           </div>
         </div>
       </div>
-    </Card>
+    </GraficoCard>
   );
 }

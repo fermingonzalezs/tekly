@@ -1,0 +1,26 @@
+---
+titulo: "Módulo Compras"
+resumen: "El lado del gasto: compras a proveedor y las compras por canje que se generan solas desde una venta."
+seccion: compras
+roles: []
+orden: 1
+actualizado: 2026-10-04
+---
+
+Compras es el espejo de Ventas del lado del gasto. Tiene dos orígenes:
+
+- **Proveedor**: la compra de siempre (mercadería que pagás). Cargás proveedor, ítems (detalle, cantidad, costo), medio de pago y estado **pendiente/recibida**.
+- **Canje**: se **genera sola** desde una venta cuando cobrás con caja de canje (ver [Canje](/ayuda/ventas/canje)). No se carga a mano.
+
+<Paso n={1} titulo="Nueva compra">
+Cargá el proveedor (podés escribir uno nuevo), los ítems y el medio de pago. Si pagás en pesos, se guarda la cotización del momento.
+</Paso>
+
+<Paso n={2} titulo="Recibo de canje">
+En una compra de canje, el botón **«Imprimir recibo de canje»** genera el PDF con el equipo recibido, el checklist y las firmas.
+</Paso>
+
+## Ver también
+
+- [Canje: recibir un equipo como pago](/ayuda/ventas/canje)
+- [Módulo Cajas](/ayuda/cajas/guia)

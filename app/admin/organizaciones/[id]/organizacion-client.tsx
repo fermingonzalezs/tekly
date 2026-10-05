@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { Select } from "@/components/ui/field";
@@ -206,21 +207,23 @@ export function OrganizacionClient({
                             {u.activo ? "Activo" : "Inactivo"}
                           </span>
                           {esUnoMismo ? null : u.activo ? (
-                            <button
-                              onClick={() => setConfirmDesactivar(u)}
+                            <Button
+                              variant="danger-outline"
+                              size="sm"
                               disabled={pending}
-                              className="flex h-8 shrink-0 items-center rounded-full border border-red-200 px-3 text-xs font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-50"
+                              onClick={() => setConfirmDesactivar(u)}
                             >
                               Desactivar
-                            </button>
+                            </Button>
                           ) : (
-                            <button
-                              onClick={() => reactivar(u)}
+                            <Button
+                              variant="tonal"
+                              size="sm"
                               disabled={pending}
-                              className="flex h-8 shrink-0 items-center rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft disabled:pointer-events-none disabled:opacity-50"
+                              onClick={() => reactivar(u)}
                             >
                               Reactivar
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </td>

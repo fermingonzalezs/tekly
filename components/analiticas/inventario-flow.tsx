@@ -56,7 +56,7 @@ export function InventarioFlow({
         />
       </div>
       <span className="text-[10px] font-semibold tabular-nums text-neutral-600">{v}</span>
-      <span className="text-[9px] uppercase tracking-wide text-neutral-400">{label}</span>
+      <span className="text-[9px] uppercase tracking-wide text-neutral-500">{label}</span>
     </div>
   );
 
@@ -101,7 +101,7 @@ export function InventarioFlow({
         ))}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-[11px] text-neutral-400">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">
         <span>
           Las salidas son ventas (equipos/otros) y repuestos usados en ventas y
           reparaciones.
@@ -112,7 +112,7 @@ export function InventarioFlow({
           </span>
         )}
         {!conMovimiento && (
-          <span className="text-neutral-400">Sin movimientos en el período filtrado.</span>
+          <span className="text-neutral-500">Sin movimientos en el período filtrado.</span>
         )}
       </div>
     </Card>

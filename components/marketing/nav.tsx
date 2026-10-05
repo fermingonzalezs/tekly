@@ -2,14 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
-import { loginUrl, signupUrl } from "@/lib/marketing/app-url";
+import { demoUrl, loginUrl, signupUrl } from "@/lib/marketing/app-url";
 import { MarketingButton } from "./ui/marketing-button";
+import { TeklyLogo } from "@/components/brand/tekly-logo";
+import { LANDING_MAX_W } from "./ui/section-heading";
 
+/** Anclas con `/` adelante: este nav también se usa en `/ayuda`, donde un
+ * `#modulos` suelto no llevaría a ningún lado. En la landing `/#modulos`
+ * scrollea sin recargar. */
 const LINKS = [
-  { label: "Producto", href: "#producto" },
-  { label: "Funciones", href: "#features" },
-  { label: "Cómo funciona", href: "#como-funciona" },
-  { label: "Precios", href: "#precios" },
+  { label: "Módulos", href: "/#modulos" },
+  { label: "Analíticas", href: "/#analiticas" },
+  { label: "Cómo funciona", href: "/#como-funciona" },
+  { label: "Precios", href: "/#precios" },
+  { label: "Ayuda", href: "/ayuda" },
 ];
 
 export function MarketingNav() {
@@ -27,30 +33,25 @@ export function MarketingNav() {
     <header
       className={`sticky top-0 z-40 transition-colors duration-150 ${
         scrolled
-          ? "border-b border-neutral-200/80 bg-white/80 backdrop-blur-md"
+          ? "border-b border-neutral-900/5 bg-[#f7f7fa]/70 backdrop-blur-lg"
           : "border-b border-transparent bg-transparent"
       }`}
     >
-      <nav className="mx-auto grid h-16 max-w-[100rem] grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 xl:px-12">
+      <nav className={`mx-auto grid h-16 ${LANDING_MAX_W} grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6`}>
         <a
           href="/"
           className="flex items-center gap-2 rounded-lg transition-transform duration-150 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-1"
           aria-label="Tekly"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent font-display text-sm font-bold text-white">
-            T
-          </span>
-          <span className="font-display text-lg font-semibold text-neutral-900">
-            Tekly
-          </span>
+          <TeklyLogo variante="horizontal" altura={34} alt="" />
         </a>
 
-        <div className="hidden items-center justify-center gap-1 md:flex">
+        <div className="hidden items-center justify-center gap-4 md:flex">
           {LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-600 transition-colors duration-150 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="rounded-full px-3 py-2 text-sm font-medium text-neutral-600 transition-colors duration-150 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               {link.label}
             </a>
@@ -59,6 +60,9 @@ export function MarketingNav() {
 
         <div className="flex items-center justify-end gap-3">
           <div className="hidden items-center gap-3 md:flex">
+            <MarketingButton href={demoUrl()} variant="outline" size="sm">
+              Ver demo
+            </MarketingButton>
             <MarketingButton href={loginUrl()} variant="outline" size="sm">
               Ingresar
             </MarketingButton>
@@ -93,6 +97,9 @@ export function MarketingNav() {
               </a>
             ))}
             <div className="mt-3 flex flex-col gap-2">
+              <MarketingButton href={demoUrl()} variant="outline" size="md">
+                Ver demo
+              </MarketingButton>
               <MarketingButton href={loginUrl()} variant="outline" size="md">
                 Ingresar
               </MarketingButton>

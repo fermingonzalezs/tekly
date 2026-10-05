@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root,
+[data-tema="indigo"] {
   color-scheme: light;
   /* Paleta default (índigo). Cada preset de lib/theme-presets.ts pisa estos
      valores vía su bloque [data-tema] de abajo; el activo lo elige el layout
@@ -87,7 +88,7 @@
 
 body {
   @apply bg-neutral-50 text-neutral-900 antialiased;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sora), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 /* Reglas globales de tablas del CRM. Sin capa => ganan sobre las utilidades

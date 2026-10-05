@@ -1,9 +1,11 @@
 "use client";
 
+import { IconButton } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Smartphone, X } from "lucide-react";
+import { X } from "lucide-react";
+import { TeklyLogo } from "@/components/brand/tekly-logo";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/lib/nav";
 
@@ -64,17 +66,8 @@ export function MobileNavDrawer({
         )}
       >
         <div className="flex h-16 shrink-0 items-center gap-2 border-b border-neutral-200 px-5">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-white">
-            <Smartphone className="h-5 w-5" />
-          </div>
-          <span className="font-grotesk text-sm font-semibold tracking-wide text-neutral-900">TEKLY</span>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar menú"
-            className="ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <TeklyLogo variante="horizontal" altura={30} />
+          <IconButton aria-label="Cerrar menú" icon={X} variant="ghost" onClick={onClose} className="ml-auto" />
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {items.map(({ href, label, icon: Icon }) => {

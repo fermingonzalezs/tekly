@@ -135,10 +135,15 @@ export async function createCompra(data: {
     if (cajaError) throw cajaError;
 
     let monto: number;
+    // Dólar del momento, para el snapshot del movimiento. Si solo vino el
+    // monto en pesos, se deriva (monto / total USD) -- mismo valor que usó
+    // la compra al calcularlo.
+    let cotizacion: number | null = data.cotizacion ?? null;
     if (caja.moneda !== "ars") {
       monto = data.totalUsd;
     } else if (data.montoArs != null) {
       monto = data.montoArs;
+      if (cotizacion == null && data.totalUsd > 0) cotizacion = data.montoArs / data.totalUsd;
     } else if (data.cotizacion != null) {
       monto = Math.round(data.totalUsd * data.cotizacion);
     } else {
@@ -153,6 +158,7 @@ export async function createCompra(data: {
       medio_pago: data.medioPago,
       tipo: "egreso",
       monto,
+      cotizacion,
       usuario_nombre: data.usuarioNombre,
       compra_id: row.id,
     });

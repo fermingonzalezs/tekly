@@ -14,7 +14,7 @@ export default async function CajasPage() {
   ]);
 
   return (
-    <Section title="Cajas">
+    <Section title="Cajas" ayuda="cajas">
       <CajasClient
         initialCajas={cajas}
         initialMovimientosSinConciliar={movimientosSinConciliar}

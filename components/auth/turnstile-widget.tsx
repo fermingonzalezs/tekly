@@ -14,7 +14,13 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
  * tiene prendido). El input oculto que mete el script
  * (`cf-turnstile-response`) viaja solo con el resto del FormData porque
  * este componente se monta dentro del `<form>` que lo usa. */
-export function TurnstileWidget() {
+export function TurnstileWidget({
+  size = "normal",
+  className,
+}: {
+  size?: "normal" | "compact" | "flexible";
+  className?: string;
+}) {
   if (!TURNSTILE_SITE_KEY) return null;
   return (
     <>
@@ -25,8 +31,9 @@ export function TurnstileWidget() {
         defer
       />
       <div
-        className="cf-turnstile"
+        className={className ? `cf-turnstile ${className}` : "cf-turnstile"}
         data-sitekey={TURNSTILE_SITE_KEY}
+        data-size={size}
         data-refresh-expired="auto"
       />
     </>

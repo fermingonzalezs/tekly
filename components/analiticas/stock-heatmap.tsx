@@ -82,7 +82,7 @@ export function StockHeatmap({
         Capital por antigüedad
       </ChartTitle>
       {maxValor === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin stock con registro de ingreso -- no hay antigüedad que cruzar.
         </p>
       ) : (
@@ -92,12 +92,12 @@ export function StockHeatmap({
             {STOCK_CATS.map((c) => (
               <span
                 key={c}
-                className="text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400"
+                className="text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-500"
               >
                 {CAT_STOCK_LABEL[c].slice(0, 4)}
               </span>
             ))}
-            <span className="text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+            <span className="text-center text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
               Total
             </span>
 

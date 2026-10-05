@@ -49,7 +49,7 @@ export function ProcedenciaRanking({
         Clientes por canal
       </ChartTitle>
       {ranking.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin clientes todavía.
         </p>
       ) : (
@@ -96,7 +96,7 @@ export function ProcedenciaRanking({
                       style={{ transform: `scaleX(${w / 100})`, background: colorDe(f.label === SIN_PROCEDENCIA ? null : f.label) }}
                     />
                   </div>
-                  <p className="mt-1 text-[10px] text-neutral-400">
+                  <p className="mt-1 text-[10px] text-neutral-500">
                     {Math.round(f.pct)}% de los clientes
                     {vista === "clientes"
                       ? ` · generó ${fmtUsd(f.valorUsd)}`
@@ -106,7 +106,7 @@ export function ProcedenciaRanking({
               );
             })}
           </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-neutral-400">
+          <p className="mt-3 text-[11px] leading-relaxed text-neutral-500">
             El canal con más clientes no es necesariamente el que más genera --
             compará las dos vistas. Click filtra el mapa de valor.
           </p>

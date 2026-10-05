@@ -115,7 +115,7 @@ function Grupo({
   return (
     <div>
       <div className="flex items-baseline gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
           {titulo}
         </p>
         <span className="rounded-full bg-neutral-100 px-1.5 text-[10px] font-semibold tabular-nums text-neutral-500">
@@ -150,11 +150,11 @@ function Fila({
         <p className="truncate text-xs font-medium text-neutral-800">
           {cliente.nombre}
         </p>
-        <p className="truncate text-[10px] text-neutral-400">{sub}</p>
+        <p className="truncate text-[10px] text-neutral-500">{sub}</p>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-2">
         {extra && (
-          <span className={cn("text-[10px] tabular-nums text-neutral-400", extraClassName)}>
+          <span className={cn("text-[10px] tabular-nums text-neutral-500", extraClassName)}>
             {extra}
           </span>
         )}
@@ -167,7 +167,7 @@ function Fila({
 }
 
 function Vacio({ texto }: { texto: string }) {
-  return <p className="px-2 py-1.5 text-[11px] text-neutral-400">{texto}</p>;
+  return <p className="px-2 py-1.5 text-[11px] text-neutral-500">{texto}</p>;
 }
 
 function fmtNumDias(n: number | null) {

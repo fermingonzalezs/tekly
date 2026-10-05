@@ -19,7 +19,7 @@ export default async function TurnosPage() {
   ]);
 
   return (
-    <Section title="Turnos">
+    <Section title="Turnos" ayuda="turnos">
       <TurnosClient
         initialTurnos={turnos}
         initialEquipos={equipos}

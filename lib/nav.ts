@@ -43,7 +43,7 @@ export const NAV: NavItem[] = [
   },
   { href: "/difusion", label: "Difusión", icon: Megaphone },
   { href: "/cajas", label: "Cajas", icon: Wallet, roles: ["admin", "tecnico"] },
-  { href: "/analiticas", label: "Analíticas", icon: BarChart3, roles: ["admin", "tecnico"] },
+  { href: "/analiticas", label: "Analíticas", icon: BarChart3, roles: ["admin"] },
   { href: "/configuracion", label: "Configuración", icon: Settings, roles: ["admin"] },
 ];
 

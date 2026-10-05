@@ -1,0 +1,658 @@
+<!--
+  TEKLY — LANDING (referencia de diseño para implementar)
+  ---------------------------------------------------------
+  HTML estático autocontenido. Es la referencia visual y de copy: portalo a los
+  componentes del proyecto (no hace falta copiar los estilos inline tal cual).
+
+  Tokens
+    --accent:        #4f49bd   (hover #3d3896, texto sobre claro #3d3896)
+    --ink:           #16151f   texto principal
+    --ink-2:         #4a495e / #55546a   texto secundario
+    --muted:         #6a6980   captions
+    --bg:            #f7f7fa + trama de puntos rgba(79,73,189,.09) cada 22px
+    --tint:          #efeefb / #dcd9f6 / #c9c6f2   lilas de apoyo
+    Gráficos (categórico, validado para daltonismo): #4f49bd, #d97a2b, #1a9a8a
+
+  Tipografía
+    Display: Bricolage Grotesque 700/800, MAYÚSCULA, tracking -0.03em, line-height .92–.95
+    Cuerpo:  Geist 400/500/600
+
+  Tarjeta "liquid glass"
+    background rgba(255,255,255,.58–.62); backdrop-filter blur(18–24px) saturate(150%)
+    (+ -webkit-); borde 1px rgba(255,255,255,.95); sombra
+    inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(79,73,189,.06),
+    0 20–40px 50–80px -30px rgba(30,27,75,.25). Detrás siempre hay una forma
+    sólida (silueta de equipo / cuadrado índigo) para que el blur se note.
+    Sin gradientes decorativos ni dark mode.
+
+  Comportamiento
+    - Hero: el feed entra escalonado (CSS). En producción conviene rotarlo en loop
+      (setInterval: sacar el último, sumar uno nuevo arriba) con datos de ejemplo.
+    - Gráfico "Ventas por día": tooltip en hover por barra.
+    - Toggle Semana/Mes/Año del dashboard: visual, sin lógica.
+    - Todos los números son DATOS DE EJEMPLO. Precios y features de planes: confirmar.
+-->
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tekly — Gestión para tu local</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&amp;family=Geist:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f7f7fa}
+a{color:#4f49bd}a:hover{color:#3d3896}
+.feed-item{opacity:0;animation:feedIn .6s cubic-bezier(.2,.8,.2,1) forwards}
+.feed-item:nth-child(1){animation-delay:.9s}
+.feed-item:nth-child(2){animation-delay:.6s}
+.feed-item:nth-child(3){animation-delay:.35s}
+.feed-item:nth-child(4){animation-delay:.1s}
+@keyframes feedIn{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:none}}
+.live-dot{animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(79,73,189,.45)}50%{box-shadow:0 0 0 6px rgba(79,73,189,0)}}
+.btn-primary:hover{background:#3d3896 !important}
+.btn-ghost:hover{background:#ffffff !important}
+.nav-link:hover{color:#16151f !important}
+.bar{position:relative}
+.bar .tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .15s;white-space:nowrap;background:#16151f;color:#fff;font-size:12px;font-weight:500;padding:5px 8px;border-radius:8px}
+.bar:hover .tip{opacity:1}
+.bar:hover .fill{filter:brightness(.9)}
+.mod-card{transition:transform .2s ease, box-shadow .2s ease}
+.mod-card:hover{transform:translateY(-3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 0 1px rgba(79,73,189,.12),0 30px 60px -28px rgba(30,27,75,.32) !important}
+@media (max-width:760px){.nav-links{display:none !important}.hide-sm{display:none !important}}
+</style>
+</head>
+<body>
+
+<div style="font-family: 'Geist', system-ui, sans-serif; color: #16151f; background-color: #f7f7fa; background-image: radial-gradient(rgba(79,73,189,.09) 1px, transparent 1px); background-size: 22px 22px; box-sizing: border-box; overflow: hidden">
+
+  <!-- ============ NAV ============ -->
+  <header style="position: sticky; top: 0; z-index: 10; background: rgba(247,247,250,.72); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(22,21,31,.05)">
+    <div style="max-width: 1280px; margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-sizing: border-box">
+      <a href="#" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #16151f">
+        <span style="width: 34px; height: 34px; border-radius: 10px; background: #4f49bd; color: #ffffff; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 17px">T</span>
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: 21px; letter-spacing: -0.02em">Tekly</span>
+      </a>
+      <nav class="nav-links" style="display: flex; gap: 32px; font-size: 14px; font-weight: 500">
+        <a class="nav-link" href="#modulos" style="color: #55546a; text-decoration: none">Módulos</a>
+        <a class="nav-link" href="#analiticas" style="color: #55546a; text-decoration: none">Analíticas</a>
+        <a class="nav-link" href="#como" style="color: #55546a; text-decoration: none">Cómo funciona</a>
+        <a class="nav-link" href="#precios" style="color: #55546a; text-decoration: none">Precios</a>
+      </nav>
+      <div style="display: flex; gap: 10px; align-items: center">
+        <a class="btn-ghost" href="#" style="padding: 11px 18px; border-radius: 999px; font-size: 14px; font-weight: 500; color: #16151f; text-decoration: none; background: rgba(255,255,255,.6); border: 1px solid rgba(22,21,31,.08)">Ingresar</a>
+        <a class="btn-primary" href="#precios" style="padding: 11px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; color: #ffffff; text-decoration: none; background: #4f49bd">Probar gratis</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ HERO ============ -->
+  <section style="max-width: 1280px; margin: 0 auto; padding: 72px 24px 104px; display: flex; flex-wrap: wrap; align-items: center; gap: 56px; box-sizing: border-box">
+    <div style="flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 28px">
+      <span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 8px; border-radius: 999px; background: rgba(255,255,255,.7); border: 1px solid rgba(79,73,189,.18); font-size: 13px; font-weight: 500; color: #3d3896">
+        <span style="padding: 3px 8px; border-radius: 999px; background: #4f49bd; color: #ffffff; font-size: 11px; font-weight: 600; letter-spacing: .04em">NUEVO</span>
+        Gestión para locales de venta y servicio técnico
+      </span>
+      <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(48px, 6.4vw, 92px); line-height: .92; letter-spacing: -0.035em; text-transform: uppercase">
+        <span style="display: block">Mejor organización,</span>
+        <span style="display: block; color: #4f49bd">menos problemas.</span>
+      </h1>
+      <p style="margin: 0; max-width: 520px; font-size: 19px; line-height: 1.55; color: #4a495e">
+        Mantené tu negocio organizado: cargá cada venta, reparación y movimiento de caja una sola vez, y <strong style="color: #16151f; font-weight: 600">todo el equipo lo ve al instante.</strong>
+      </p>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+        <a class="btn-primary" href="#precios" style="display: inline-flex; align-items: center; gap: 10px; padding: 16px 16px 16px 26px; border-radius: 999px; background: #4f49bd; color: #ffffff; font-size: 16px; font-weight: 600; text-decoration: none; box-shadow: 0 10px 24px -10px rgba(79,73,189,.6)">
+          Probar gratis
+          <span style="width: 28px; height: 28px; border-radius: 999px; background: rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+          </span>
+        </a>
+        <a class="btn-ghost" href="#como" style="display: inline-flex; align-items: center; gap: 8px; padding: 16px 24px; border-radius: 999px; background: rgba(255,255,255,.65); border: 1px solid rgba(22,21,31,.1); color: #16151f; font-size: 16px; font-weight: 500; text-decoration: none">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M10 9l5 3-5 3z"></path></svg>
+          Ver cómo funciona
+        </a>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid rgba(22,21,31,.08); max-width: 520px">
+        <span style="font-size: 13px; color: #6a6980; margin-right: 4px">Un acceso para cada rol</span>
+        <span style="padding: 6px 12px; border-radius: 999px; background: #ffffff; border: 1px solid rgba(22,21,31,.08); font-size: 13px; font-weight: 500">Admin</span>
+        <span style="padding: 6px 12px; border-radius: 999px; background: #ffffff; border: 1px solid rgba(22,21,31,.08); font-size: 13px; font-weight: 500">Vendedor</span>
+        <span style="padding: 6px 12px; border-radius: 999px; background: #ffffff; border: 1px solid rgba(22,21,31,.08); font-size: 13px; font-weight: 500">Técnico</span>
+      </div>
+    </div>
+
+    <!-- Feed en vivo -->
+    <div style="flex: 1 1 440px; min-width: 0; position: relative; display: flex; justify-content: center; padding: 24px 0">
+      <div aria-hidden="true" style="position: absolute; top: -10px; right: 6%; width: 250px; height: 500px; border-radius: 52px; background: #dcd9f6; border: 10px solid #c9c5f0; transform: rotate(8deg); box-sizing: border-box"></div>
+      <div aria-hidden="true" style="position: absolute; bottom: -6px; left: 4%; width: 120px; height: 120px; border-radius: 32px; background: #4f49bd; opacity: .9; transform: rotate(-10deg)"></div>
+
+      <div style="position: relative; width: 100%; max-width: 480px; border-radius: 28px; padding: 22px; box-sizing: border-box; background: rgba(255,255,255,.58); backdrop-filter: blur(22px) saturate(150%); -webkit-backdrop-filter: blur(22px) saturate(150%); border: 1px solid rgba(255,255,255,.95); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(79,73,189,.07), 0 30px 60px -24px rgba(30,27,75,.28)">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 16px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 12px; font-weight: 500; color: #6a6980; text-transform: uppercase; letter-spacing: .08em">Actividad · Hoy</span>
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: -0.01em">Sucursal Centro</span>
+          </div>
+          <span style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: #ffffff; font-size: 12px; font-weight: 600; color: #3d3896; border: 1px solid rgba(79,73,189,.15)">
+            <span class="live-dot" style="width: 8px; height: 8px; border-radius: 999px; background: #4f49bd"></span>
+            En vivo
+          </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <div class="feed-item" style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 18px; background: #ffffff; border: 1px solid rgba(79,73,189,.28); box-shadow: 0 8px 20px -12px rgba(79,73,189,.45)">
+            <span style="flex: none; width: 42px; height: 42px; border-radius: 13px; background: #4f49bd; color: #ffffff; display: flex; align-items: center; justify-content: center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"></circle><circle cx="18" cy="20" r="1.4"></circle><path d="M3 4h2l2.4 11h11l2-8H6.2"></path></svg>
+            </span>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 15px; font-weight: 600">Venta V-4821 · U$ 735</span>
+              <span style="font-size: 13px; color: #6a6980">Canje + efectivo + transferencia</span>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+              <span style="width: 26px; height: 26px; border-radius: 999px; background: #efeefb; color: #3d3896; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center">CA</span>
+              <span style="font-size: 11px; color: #6a6980">ahora</span>
+            </div>
+          </div>
+          <div class="feed-item" style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.75); border: 1px solid rgba(22,21,31,.06)">
+            <span style="flex: none; width: 42px; height: 42px; border-radius: 13px; background: #efeefb; color: #4f49bd; display: flex; align-items: center; justify-content: center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"></path></svg>
+            </span>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 15px; font-weight: 600">Ticket #128 listo para retirar</span>
+              <span style="font-size: 13px; color: #6a6980">Cambio de batería · checklist de egreso OK</span>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+              <span style="width: 26px; height: 26px; border-radius: 999px; background: #e6f0fb; color: #1f4f8a; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center">ME</span>
+              <span style="font-size: 11px; color: #6a6980">2 min</span>
+            </div>
+          </div>
+          <div class="feed-item" style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.75); border: 1px solid rgba(22,21,31,.06)">
+            <span style="flex: none; width: 42px; height: 42px; border-radius: 13px; background: #efeefb; color: #4f49bd; display: flex; align-items: center; justify-content: center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5z"></path><path d="M3 8v8l9 5 9-5V8"></path><path d="M12 13v8"></path></svg>
+            </span>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 15px; font-weight: 600">Ingreso a stock · 3 equipos</span>
+              <span style="font-size: 13px; color: #6a6980">N° de serie cargados · lote 12</span>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+              <span style="width: 26px; height: 26px; border-radius: 999px; background: #efeefb; color: #3d3896; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center">CA</span>
+              <span style="font-size: 11px; color: #6a6980">6 min</span>
+            </div>
+          </div>
+          <div class="feed-item" style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 18px; background: rgba(255,255,255,.75); border: 1px solid rgba(22,21,31,.06)">
+            <span style="flex: none; width: 42px; height: 42px; border-radius: 13px; background: #efeefb; color: #4f49bd; display: flex; align-items: center; justify-content: center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"></rect><path d="M8 3v4M16 3v4M3.5 10h17"></path></svg>
+            </span>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 15px; font-weight: 600">Nuevo turno · Diego Sánchez</span>
+              <span style="font-size: 13px; color: #6a6980">Hoy 15:00 · deja equipo para reparación</span>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px">
+              <span style="width: 26px; height: 26px; border-radius: 999px; background: #e6f0fb; color: #1f4f8a; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center">ME</span>
+              <span style="font-size: 11px; color: #6a6980">12 min</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mini gráfico: ventas de la semana -->
+        <div style="margin-top: 14px; padding: 14px 14px 12px; border-radius: 18px; background: rgba(255,255,255,.75); border: 1px solid rgba(22,21,31,.06); display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 12px; color: #6a6980">Ventas de la semana</span>
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.02em">U$ 8.240</span>
+            <span style="font-size: 12px; font-weight: 600; color: #3d3896">↑ 12% vs. semana pasada</span>
+          </div>
+          <div style="display: flex; align-items: flex-end; gap: 5px; height: 56px" aria-label="Ventas diarias de la semana">
+            <span style="width: 12px; height: 27px; border-radius: 4px 4px 2px 2px; background: #c9c6f2"></span>
+<span style="width: 12px; height: 35px; border-radius: 4px 4px 2px 2px; background: #c9c6f2"></span>
+<span style="width: 12px; height: 22px; border-radius: 4px 4px 2px 2px; background: #c9c6f2"></span>
+<span style="width: 12px; height: 42px; border-radius: 4px 4px 2px 2px; background: #c9c6f2"></span>
+<span style="width: 12px; height: 32px; border-radius: 4px 4px 2px 2px; background: #c9c6f2"></span>
+<span style="width: 12px; height: 50px; border-radius: 4px 4px 2px 2px; background: #c9c6f2"></span>
+<span style="width: 12px; height: 56px; border-radius: 4px 4px 2px 2px; background: #4f49bd"></span>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PILARES ============ -->
+  <section style="max-width: 1280px; margin: 0 auto; padding: 0 24px 120px; box-sizing: border-box">
+    <div style="display: flex; flex-wrap: wrap; border-radius: 24px; background: rgba(255,255,255,.6); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25)">
+      <div style="flex: 1 1 250px; padding: 28px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4f49bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><circle cx="17.5" cy="9" r="2.5"></circle><path d="M17 14.5a5 5 0 0 1 4.5 5"></path></svg>
+        <span style="font-size: 16px; font-weight: 600">Multi-rol</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #55546a">Admin, vendedor y técnico: cada uno ve solo lo que necesita.</span>
+      </div>
+      <div style="flex: 1 1 250px; padding: 28px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; border-left: 1px solid rgba(22,21,31,.06)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4f49bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"></path></svg>
+        <span style="font-size: 16px; font-weight: 600">Tiempo real</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #55546a">Una venta en el mostrador se refleja en el stock y la caja al instante.</span>
+      </div>
+      <div style="flex: 1 1 250px; padding: 28px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; border-left: 1px solid rgba(22,21,31,.06)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4f49bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3.5-3.5a4 4 0 0 0-5.7-5.7L12 6.3"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3.5 3.5a4 4 0 0 0 5.7 5.7L12 17.7"></path></svg>
+        <span style="font-size: 16px; font-weight: 600">Todo conectado</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #55546a">Un canje entra al inventario y una reparación cobrada, a la caja.</span>
+      </div>
+      <div style="flex: 1 1 250px; padding: 28px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; border-left: 1px solid rgba(22,21,31,.06)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4f49bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.5-9 6 6 0 0 1 11.5 1.5A4 4 0 0 1 17.5 18z"></path></svg>
+        <span style="font-size: 16px; font-weight: 600">Sin instalación</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #55546a">Funciona en el navegador, desde la PC del local o el celular.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MÓDULOS ============ -->
+  <section id="modulos" style="max-width: 1280px; margin: 0 auto; padding: 0 24px 140px; box-sizing: border-box; display: flex; flex-direction: column; gap: 56px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 18px; max-width: 720px">
+        <span style="font-size: 13px; font-weight: 600; letter-spacing: .1em; color: #3d3896; text-transform: uppercase">Módulos</span>
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(40px, 5vw, 68px); line-height: .95; letter-spacing: -0.03em; text-transform: uppercase">Un módulo para cada área. Un solo sistema.</h2>
+      </div>
+      <p style="margin: 0; max-width: 380px; font-size: 17px; line-height: 1.55; color: #4a495e">Seis módulos que se hablan entre sí. Cada área trabaja en lo suyo y nadie pisa la información de otro.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px">
+
+      <!-- Inventario -->
+      <article class="mod-card" style="border-radius: 24px; padding: 26px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: #6a6980">01</span>
+          <h3 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase">Inventario</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #55546a">Equipos por N° de serie, repuestos y accesorios. Sabés qué hay, dónde y en qué estado.</p>
+        </div>
+        <div style="border-radius: 16px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 6px 14px">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(22,21,31,.06)">
+            <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600">Equipo 256GB · grafito</span><span style="font-size: 11px; color: #6a6980; font-family: ui-monospace, monospace">SN ···7730</span></div>
+            <span style="padding: 4px 9px; border-radius: 999px; background: #efeefb; color: #3d3896; font-size: 11px; font-weight: 600">Disponible</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(22,21,31,.06)">
+            <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600">Equipo 128GB · azul</span><span style="font-size: 11px; color: #6a6980; font-family: ui-monospace, monospace">SN ···1042</span></div>
+            <span style="padding: 4px 9px; border-radius: 999px; background: #fdf0e4; color: #8a4310; font-size: 11px; font-weight: 600">Reservado</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0">
+            <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600">Batería · repuesto</span><span style="font-size: 11px; color: #6a6980">Quedan 2 · mínimo 5</span></div>
+            <span style="padding: 4px 9px; border-radius: 999px; background: #f1f1f4; color: #3c3b4d; font-size: 11px; font-weight: 600">Reponer</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Ventas -->
+      <article class="mod-card" style="border-radius: 24px; padding: 26px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: #6a6980">02</span>
+          <h3 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase">Ventas</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #55546a">Pago dividido, canje como parte de pago y cuentas corrientes para tus clientes de siempre.</p>
+        </div>
+        <div style="border-radius: 16px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 16px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="color: #6a6980">Total V-4821</span><span style="font-weight: 600">U$ 735</span></div>
+          <div style="display: flex; gap: 2px; height: 14px" aria-label="Pago dividido: canje 340, efectivo 250, transferencia 145">
+            <span style="flex: 340; border-radius: 4px 0 0 4px; background: #4f49bd"></span>
+            <span style="flex: 250; background: #d97a2b"></span>
+            <span style="flex: 145; border-radius: 0 4px 4px 0; background: #1a9a8a"></span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #3c3b4d">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #4f49bd"></span>Canje U$ 340</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #d97a2b"></span>Efectivo U$ 250</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #1a9a8a"></span>Transf. U$ 145</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Reparaciones -->
+      <article class="mod-card" style="border-radius: 24px; padding: 26px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: #6a6980">03</span>
+          <h3 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase">Reparaciones</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #55546a">Tickets con checklist de ingreso y egreso. Se terminan los "así me lo trajeron".</p>
+        </div>
+        <div style="border-radius: 16px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-weight: 600">Ticket #128 · ingreso</span><span style="color: #3d3896; font-weight: 600">3/4</span></div>
+          <span style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 18px; height: 18px; border-radius: 6px; background: #4f49bd; color: #fff; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Pantalla sin marcas</span>
+          <span style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 18px; height: 18px; border-radius: 6px; background: #4f49bd; color: #fff; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Cámaras y sensores funcionan</span>
+          <span style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 18px; height: 18px; border-radius: 6px; background: #4f49bd; color: #fff; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Fotos del equipo cargadas</span>
+          <span style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #6a6980"><span style="width: 18px; height: 18px; border-radius: 6px; border: 1.5px solid #c9c6f2; box-sizing: border-box"></span>Firma del cliente</span>
+        </div>
+      </article>
+
+      <!-- Turnos -->
+      <article class="mod-card" style="border-radius: 24px; padding: 26px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: #6a6980">04</span>
+          <h3 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase">Turnos</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #55546a">Agenda semanal compartida: quién viene, a qué y quién lo atiende.</p>
+        </div>
+        <div style="border-radius: 16px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 14px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+          <span style="font-size: 11px; color: #6a6980; text-align: center">Lun</span><span style="font-size: 11px; color: #6a6980; text-align: center">Mar</span><span style="font-size: 11px; color: #6a6980; text-align: center">Mié</span><span style="font-size: 11px; color: #6a6980; text-align: center">Jue</span><span style="font-size: 11px; color: #6a6980; text-align: center">Vie</span>
+          <span style="height: 26px; border-radius: 7px; background: #4f49bd"></span><span style="height: 26px; border-radius: 7px; background: #f1f1f4"></span><span style="height: 26px; border-radius: 7px; background: #e3e1f8"></span><span style="height: 26px; border-radius: 7px; background: #f1f1f4"></span><span style="height: 26px; border-radius: 7px; background: #4f49bd"></span>
+          <span style="height: 26px; border-radius: 7px; background: #e3e1f8"></span><span style="height: 26px; border-radius: 7px; background: #4f49bd"></span><span style="height: 26px; border-radius: 7px; background: #f1f1f4"></span><span style="height: 26px; border-radius: 7px; background: #4f49bd"></span><span style="height: 26px; border-radius: 7px; background: #e3e1f8"></span>
+          <span style="height: 26px; border-radius: 7px; background: #f1f1f4"></span><span style="height: 26px; border-radius: 7px; background: #e3e1f8"></span><span style="height: 26px; border-radius: 7px; background: #4f49bd"></span><span style="height: 26px; border-radius: 7px; background: #f1f1f4"></span><span style="height: 26px; border-radius: 7px; background: #f1f1f4"></span>
+          <span style="grid-column: 1 / -1; display: flex; gap: 14px; font-size: 11px; color: #3c3b4d; padding-top: 4px">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #4f49bd"></span>Reparación</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #e3e1f8; border: 1px solid #c9c6f2"></span>Retiro / consulta</span>
+          </span>
+        </div>
+      </article>
+
+      <!-- Cajas -->
+      <article class="mod-card" style="border-radius: 24px; padding: 26px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: #6a6980">05</span>
+          <h3 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase">Cajas</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #55546a">Conciliación por medio de pago. Al cerrar, sabés exactamente si falta o sobra algo.</p>
+        </div>
+        <div style="border-radius: 16px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 6px 14px">
+          <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 8px 0; font-size: 11px; color: #6a6980; border-bottom: 1px solid rgba(22,21,31,.06)"><span>Medio</span><span>Esperado</span><span>Contado</span></div>
+          <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 9px 0; font-size: 13px; border-bottom: 1px solid rgba(22,21,31,.06)"><span style="display: inline-flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #4f49bd"></span>Efectivo</span><span>U$ 1.250</span><span style="font-weight: 600">U$ 1.250</span></div>
+          <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 9px 0; font-size: 13px; border-bottom: 1px solid rgba(22,21,31,.06)"><span style="display: inline-flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #d97a2b"></span>Tarjeta</span><span>U$ 980</span><span style="font-weight: 600">U$ 980</span></div>
+          <div style="display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 9px 0; font-size: 13px"><span style="display: inline-flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #1a9a8a"></span>Transferencia</span><span>U$ 640</span><span style="font-weight: 600">U$ 640</span></div>
+        </div>
+      </article>
+
+      <!-- Analíticas -->
+      <article class="mod-card" style="border-radius: 24px; padding: 26px; background: #4f49bd; color: #ffffff; box-shadow: 0 20px 50px -24px rgba(79,73,189,.55); display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,.75)">06</span>
+          <h3 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase">Analíticas</h3>
+          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: rgba(255,255,255,.85)">Márgenes, rotación de stock y rendimiento del equipo, sin armar una sola planilla.</p>
+        </div>
+        <div style="border-radius: 16px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); padding: 16px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 12px; color: rgba(255,255,255,.8)">Margen bruto · 6 meses</span><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700">31%</span></div>
+          <div style="display: flex; align-items: flex-end; gap: 6px; height: 64px" aria-label="Margen bruto mensual">
+            <span style="flex: 1; height: 52%; border-radius: 4px 4px 2px 2px; background: rgba(255,255,255,.45)"></span>
+            <span style="flex: 1; height: 60%; border-radius: 4px 4px 2px 2px; background: rgba(255,255,255,.45)"></span>
+            <span style="flex: 1; height: 56%; border-radius: 4px 4px 2px 2px; background: rgba(255,255,255,.45)"></span>
+            <span style="flex: 1; height: 70%; border-radius: 4px 4px 2px 2px; background: rgba(255,255,255,.45)"></span>
+            <span style="flex: 1; height: 78%; border-radius: 4px 4px 2px 2px; background: rgba(255,255,255,.45)"></span>
+            <span style="flex: 1; height: 92%; border-radius: 4px 4px 2px 2px; background: #ffffff"></span>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ ANALÍTICAS (gráficos) ============ -->
+  <section id="analiticas" style="max-width: 1280px; margin: 0 auto; padding: 0 24px 140px; box-sizing: border-box; display: flex; flex-direction: column; gap: 48px">
+    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 18px">
+      <span style="font-size: 13px; font-weight: 600; letter-spacing: .1em; color: #3d3896; text-transform: uppercase">Analíticas</span>
+      <h2 style="margin: 0; max-width: 900px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(40px, 5vw, 68px); line-height: .95; letter-spacing: -0.03em; text-transform: uppercase">Tus números, sin pedirle nada a nadie</h2>
+      <p style="margin: 0; max-width: 560px; font-size: 17px; line-height: 1.55; color: #4a495e">Como todo se carga en un solo lugar, los reportes se arman solos. Abrís el panel y ya está.</p>
+    </div>
+
+    <div style="position: relative">
+      <div aria-hidden="true" style="position: absolute; top: 40px; left: -40px; width: 220px; height: 220px; border-radius: 48px; background: #dcd9f6; transform: rotate(-8deg)"></div>
+      <div aria-hidden="true" style="position: absolute; bottom: -30px; right: -30px; width: 180px; height: 180px; border-radius: 40px; background: #4f49bd; opacity: .85; transform: rotate(12deg)"></div>
+
+      <div style="position: relative; border-radius: 30px; padding: 28px; box-sizing: border-box; background: rgba(255,255,255,.62); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); border: 1px solid rgba(255,255,255,.95); box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(79,73,189,.07), 0 40px 80px -36px rgba(30,27,75,.32); display: flex; flex-direction: column; gap: 20px">
+
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px">
+          <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: -0.01em">Resumen · Octubre</span>
+          <div style="display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: #ffffff; border: 1px solid rgba(22,21,31,.07)">
+            <button type="button" style="border: 0; padding: 7px 14px; border-radius: 999px; background: transparent; font: inherit; font-size: 13px; color: #55546a; cursor: pointer">Semana</button>
+            <button type="button" style="border: 0; padding: 7px 14px; border-radius: 999px; background: #16151f; font: inherit; font-size: 13px; font-weight: 600; color: #ffffff; cursor: pointer">Mes</button>
+            <button type="button" style="border: 0; padding: 7px 14px; border-radius: 999px; background: transparent; font: inherit; font-size: 13px; color: #55546a; cursor: pointer">Año</button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px">
+          <div style="border-radius: 18px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 18px; display: flex; flex-direction: column; gap: 6px">
+            <span style="font-size: 13px; color: #6a6980">Ventas del mes</span>
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em">U$ 34.120</span>
+            <span style="font-size: 12px; font-weight: 600; color: #3d3896">↑ 18% vs. septiembre</span>
+          </div>
+          <div style="border-radius: 18px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 18px; display: flex; flex-direction: column; gap: 6px">
+            <span style="font-size: 13px; color: #6a6980">Ticket promedio</span>
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em">U$ 512</span>
+            <span style="font-size: 12px; font-weight: 600; color: #3d3896">↑ 4% vs. septiembre</span>
+          </div>
+          <div style="border-radius: 18px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 18px; display: flex; flex-direction: column; gap: 6px">
+            <span style="font-size: 13px; color: #6a6980">Reparaciones entregadas</span>
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em">87</span>
+            <span style="font-size: 12px; color: #6a6980">Demora promedio 2,4 días</span>
+          </div>
+          <div style="border-radius: 18px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 18px; display: flex; flex-direction: column; gap: 6px">
+            <span style="font-size: 13px; color: #6a6980">Margen bruto</span>
+            <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em">31%</span>
+            <span style="font-size: 12px; font-weight: 600; color: #3d3896">↑ 2 pts vs. septiembre</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 14px">
+          <!-- Barras: ventas por semana -->
+          <div style="flex: 999 1 560px; min-width: 0; border-radius: 18px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 20px; display: flex; flex-direction: column; gap: 18px">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px">
+              <span style="font-size: 15px; font-weight: 600">Ventas por día (U$)</span>
+              <span style="font-size: 12px; color: #6a6980">Pasá el mouse por las barras</span>
+            </div>
+            <div style="display: flex; gap: 10px">
+              <div style="display: flex; flex-direction: column; justify-content: space-between; height: 200px; font-size: 11px; color: #6a6980; text-align: right; padding-bottom: 20px; box-sizing: border-box">
+                <span>2k</span><span>1k</span><span>0</span>
+              </div>
+              <div style="flex: 1; position: relative; height: 200px">
+                <div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 6px; border-top: 1px dashed rgba(22,21,31,.08)"></div>
+                <div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 93px; border-top: 1px dashed rgba(22,21,31,.08)"></div>
+                <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 20px; border-top: 1px solid rgba(22,21,31,.14)"></div>
+                <div style="position: absolute; inset: 0 0 20px 0; display: flex; align-items: flex-end; gap: 6px">
+                  <div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Lun 1 · U$ 820</span>
+  <span class="fill" style="width: 100%; height: 41%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Mar 2 · U$ 1.140</span>
+  <span class="fill" style="width: 100%; height: 57%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Mié 3 · U$ 960</span>
+  <span class="fill" style="width: 100%; height: 48%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Jue 4 · U$ 1.380</span>
+  <span class="fill" style="width: 100%; height: 69%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Vie 5 · U$ 1.210</span>
+  <span class="fill" style="width: 100%; height: 60%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Sáb 6 · U$ 1.720</span>
+  <span class="fill" style="width: 100%; height: 86%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Dom 7 · U$ 640</span>
+  <span class="fill" style="width: 100%; height: 32%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Lun 8 · U$ 980</span>
+  <span class="fill" style="width: 100%; height: 49%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Mar 9 · U$ 1.290</span>
+  <span class="fill" style="width: 100%; height: 64%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Mié 10 · U$ 1.050</span>
+  <span class="fill" style="width: 100%; height: 52%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Jue 11 · U$ 1.560</span>
+  <span class="fill" style="width: 100%; height: 78%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Vie 12 · U$ 1.440</span>
+  <span class="fill" style="width: 100%; height: 72%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Sáb 13 · U$ 1.890</span>
+  <span class="fill" style="width: 100%; height: 94%; border-radius: 4px 4px 0 0; background: #4f49bd"></span>
+</div>
+<div class="bar" style="flex: 1; height: 100%; display: flex; align-items: flex-end">
+  <span class="tip">Hoy · U$ 1.180</span>
+  <span class="fill" style="width: 100%; height: 59%; border-radius: 4px 4px 0 0; background: #8f8ae0"></span>
+</div>
+
+                </div>
+                <div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 6px; font-size: 10px; color: #6a6980">
+                  <span style="flex: 1; text-align: center">1</span>
+<span style="flex: 1; text-align: center">2</span>
+<span style="flex: 1; text-align: center">3</span>
+<span style="flex: 1; text-align: center">4</span>
+<span style="flex: 1; text-align: center">5</span>
+<span style="flex: 1; text-align: center">6</span>
+<span style="flex: 1; text-align: center">7</span>
+<span style="flex: 1; text-align: center">8</span>
+<span style="flex: 1; text-align: center">9</span>
+<span style="flex: 1; text-align: center">10</span>
+<span style="flex: 1; text-align: center">11</span>
+<span style="flex: 1; text-align: center">12</span>
+<span style="flex: 1; text-align: center">13</span>
+<span style="flex: 1; text-align: center">Hoy</span>
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Medios de pago + reparaciones por estado -->
+          <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+            <div style="border-radius: 18px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 20px; display: flex; flex-direction: column; gap: 14px">
+              <span style="font-size: 15px; font-weight: 600">Cobros por medio de pago</span>
+              <div style="display: flex; gap: 2px; height: 16px" aria-label="Efectivo 44%, tarjeta 34%, transferencia 22%">
+                <span style="flex: 44; border-radius: 4px 0 0 4px; background: #4f49bd"></span>
+                <span style="flex: 34; background: #d97a2b"></span>
+                <span style="flex: 22; border-radius: 0 4px 4px 0; background: #1a9a8a"></span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+                <span style="display: flex; justify-content: space-between"><span style="display: inline-flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #4f49bd"></span>Efectivo</span><span style="font-weight: 600">44%</span></span>
+                <span style="display: flex; justify-content: space-between"><span style="display: inline-flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #d97a2b"></span>Tarjeta</span><span style="font-weight: 600">34%</span></span>
+                <span style="display: flex; justify-content: space-between"><span style="display: inline-flex; align-items: center; gap: 8px"><span style="width: 8px; height: 8px; border-radius: 2px; background: #1a9a8a"></span>Transferencia</span><span style="font-weight: 600">22%</span></span>
+              </div>
+            </div>
+            <div style="border-radius: 18px; background: #ffffff; border: 1px solid rgba(22,21,31,.06); padding: 20px; display: flex; flex-direction: column; gap: 12px">
+              <span style="font-size: 15px; font-weight: 600">Reparaciones por estado</span>
+              <div style="display: flex; flex-direction: column; gap: 4px"><span style="display: flex; justify-content: space-between; font-size: 13px"><span>En diagnóstico</span><span style="font-weight: 600">6</span></span><span style="height: 8px; border-radius: 4px; background: #f1f1f4"><span style="display: block; width: 40%; height: 100%; border-radius: 4px; background: #4f49bd"></span></span></div>
+              <div style="display: flex; flex-direction: column; gap: 4px"><span style="display: flex; justify-content: space-between; font-size: 13px"><span>En reparación</span><span style="font-weight: 600">9</span></span><span style="height: 8px; border-radius: 4px; background: #f1f1f4"><span style="display: block; width: 60%; height: 100%; border-radius: 4px; background: #4f49bd"></span></span></div>
+              <div style="display: flex; flex-direction: column; gap: 4px"><span style="display: flex; justify-content: space-between; font-size: 13px"><span>Listas para retirar</span><span style="font-weight: 600">15</span></span><span style="height: 8px; border-radius: 4px; background: #f1f1f4"><span style="display: block; width: 100%; height: 100%; border-radius: 4px; background: #4f49bd"></span></span></div>
+            </div>
+          </div>
+        </div>
+        <span style="font-size: 12px; color: #6a6980">Datos de ejemplo.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CÓMO FUNCIONA ============ -->
+  <section id="como" style="max-width: 1280px; margin: 0 auto; padding: 0 24px 140px; box-sizing: border-box; display: flex; flex-direction: column; gap: 48px">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 18px; max-width: 720px">
+        <span style="font-size: 13px; font-weight: 600; letter-spacing: .1em; color: #3d3896; text-transform: uppercase">Cómo funciona</span>
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(40px, 5vw, 68px); line-height: .95; letter-spacing: -0.03em; text-transform: uppercase">De la planilla al sistema, hoy</h2>
+      </div>
+      <p style="margin: 0; max-width: 380px; font-size: 17px; line-height: 1.55; color: #4a495e">Sin instalaciones ni capacitaciones largas. El mismo día que te registrás, ya estás vendiendo.</p>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 16px">
+      <div style="flex: 1 1 260px; border-radius: 22px; padding: 24px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 12px">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 56px; font-weight: 800; line-height: 1; color: #4f49bd">01</span>
+        <span style="font-size: 17px; font-weight: 600">Creá tu organización</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #55546a">Registrate con tu email y creá tu negocio. Quedás como admin.</span>
+      </div>
+      <div style="flex: 1 1 260px; border-radius: 22px; padding: 24px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 12px">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 56px; font-weight: 800; line-height: 1; color: #4f49bd">02</span>
+        <span style="font-size: 17px; font-weight: 600">Invitá a tu equipo</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #55546a">Sumá vendedores y técnicos, cada uno con su usuario y su rol.</span>
+      </div>
+      <div style="flex: 1 1 260px; border-radius: 22px; padding: 24px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 12px">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 56px; font-weight: 800; line-height: 1; color: #4f49bd">03</span>
+        <span style="font-size: 17px; font-weight: 600">Cargá tu stock</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #55546a">Importalo desde tu planilla en CSV o cargalo de cero, lo que te resulte más cómodo.</span>
+      </div>
+      <div style="flex: 1 1 260px; border-radius: 22px; padding: 24px; background: #16151f; color: #ffffff; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 56px; font-weight: 800; line-height: 1; color: #b9b5f0">04</span>
+        <span style="font-size: 17px; font-weight: 600">Empezá a registrar</span>
+        <span style="font-size: 14px; line-height: 1.5; color: rgba(255,255,255,.75)">Vendé, repará y controlá tu negocio desde el primer registro.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRECIOS ============ -->
+  <section id="precios" style="max-width: 1280px; margin: 0 auto; padding: 0 24px 140px; box-sizing: border-box; display: flex; flex-direction: column; gap: 48px">
+    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 18px">
+      <span style="font-size: 13px; font-weight: 600; letter-spacing: .1em; color: #3d3896; text-transform: uppercase">Precios</span>
+      <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(40px, 5vw, 68px); line-height: .95; letter-spacing: -0.03em; text-transform: uppercase">Un plan para cada tamaño</h2>
+      <p style="margin: 0; max-width: 520px; font-size: 17px; line-height: 1.55; color: #4a495e">Los seis módulos en todos los planes. Cambiás de plan cuando tu negocio crece.</p>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: stretch; gap: 18px">
+      <div style="flex: 1 1 300px; border-radius: 26px; padding: 30px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 22px">
+        <div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 18px; font-weight: 600">Starter</span><span style="font-size: 14px; color: #55546a">Para quien arranca solo y quiere ordenarse.</span></div>
+        <div style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 14px; color: #6a6980">ARS</span><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 48px; font-weight: 800; letter-spacing: -0.03em">14.990</span><span style="font-size: 14px; color: #6a6980">/mes</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+          <span style="display: flex; gap: 10px"><span style="color: #4f49bd">✓</span>1 usuario</span>
+          <span style="display: flex; gap: 10px"><span style="color: #4f49bd">✓</span>Los 6 módulos</span>
+          <span style="display: flex; gap: 10px"><span style="color: #4f49bd">✓</span>Soporte por email</span>
+        </div>
+        <a class="btn-ghost" href="#" style="margin-top: auto; text-align: center; padding: 14px; border-radius: 999px; background: rgba(255,255,255,.8); border: 1px solid rgba(22,21,31,.1); color: #16151f; font-size: 15px; font-weight: 600; text-decoration: none">Probar gratis</a>
+      </div>
+      <div style="flex: 1 1 300px; border-radius: 26px; padding: 30px; background: #16151f; color: #ffffff; box-shadow: 0 30px 60px -28px rgba(22,21,31,.55); display: flex; flex-direction: column; gap: 22px; position: relative">
+        <span style="position: absolute; top: 26px; right: 26px; padding: 5px 10px; border-radius: 999px; background: #4f49bd; font-size: 11px; font-weight: 600; letter-spacing: .04em">MÁS ELEGIDO</span>
+        <div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 18px; font-weight: 600">Business</span><span style="font-size: 14px; color: rgba(255,255,255,.72)">Para equipos que trabajan todo el día en el local.</span></div>
+        <div style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 14px; color: rgba(255,255,255,.6)">ARS</span><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 48px; font-weight: 800; letter-spacing: -0.03em">24.990</span><span style="font-size: 14px; color: rgba(255,255,255,.6)">/mes</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+          <span style="display: flex; gap: 10px"><span style="color: #b9b5f0">✓</span>Usuarios ilimitados</span>
+          <span style="display: flex; gap: 10px"><span style="color: #b9b5f0">✓</span>Los 6 módulos</span>
+          <span style="display: flex; gap: 10px"><span style="color: #b9b5f0">✓</span>Soporte prioritario por WhatsApp</span>
+          <span style="display: flex; gap: 10px"><span style="color: #b9b5f0">✓</span>Capacitación inicial para tu equipo</span>
+        </div>
+        <a class="btn-primary" href="#" style="margin-top: auto; text-align: center; padding: 14px; border-radius: 999px; background: #4f49bd; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none">Probar gratis</a>
+      </div>
+      <div style="flex: 1 1 300px; border-radius: 26px; padding: 30px; background: rgba(255,255,255,.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.95); box-shadow: 0 0 0 1px rgba(79,73,189,.06), 0 20px 50px -30px rgba(30,27,75,.25); display: flex; flex-direction: column; gap: 22px">
+        <div style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 18px; font-weight: 600">Business+</span><span style="font-size: 14px; color: #55546a">Para negocios con más de un local.</span></div>
+        <div style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 14px; color: #6a6980">ARS</span><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 48px; font-weight: 800; letter-spacing: -0.03em">39.990</span><span style="font-size: 14px; color: #6a6980">/mes</span></div>
+        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px">
+          <span style="display: flex; gap: 10px"><span style="color: #4f49bd">✓</span>Usuarios ilimitados</span>
+          <span style="display: flex; gap: 10px"><span style="color: #4f49bd">✓</span>Los 6 módulos</span>
+          <span style="display: flex; gap: 10px"><span style="color: #4f49bd">✓</span>Onboarding 1 a 1</span>
+          <span style="display: flex; gap: 10px"><span style="color: #4f49bd">✓</span>Soporte dedicado</span>
+        </div>
+        <a class="btn-ghost" href="#" style="margin-top: auto; text-align: center; padding: 14px; border-radius: 999px; background: rgba(255,255,255,.8); border: 1px solid rgba(22,21,31,.1); color: #16151f; font-size: 15px; font-weight: 600; text-decoration: none">Hablar con ventas</a>
+      </div>
+    </div>
+    <span style="text-align: center; font-size: 13px; color: #6a6980">Precios de referencia, se confirman antes del lanzamiento.</span>
+  </section>
+
+  <!-- ============ CTA FINAL ============ -->
+  <section style="max-width: 1280px; margin: 0 auto; padding: 0 24px 96px; box-sizing: border-box">
+    <div style="position: relative; overflow: hidden; border-radius: 36px; background: #4f49bd; color: #ffffff; padding: clamp(40px, 7vw, 88px) clamp(24px, 6vw, 80px); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 40px">
+      <div aria-hidden="true" style="position: absolute; right: -60px; top: -80px; width: 340px; height: 340px; border-radius: 72px; background: rgba(255,255,255,.08); transform: rotate(18deg)"></div>
+      <div aria-hidden="true" style="position: absolute; right: 140px; bottom: -120px; width: 240px; height: 240px; border-radius: 56px; background: rgba(255,255,255,.06); transform: rotate(-12deg)"></div>
+      <div style="position: relative; flex: 1 1 520px; display: flex; flex-direction: column; gap: 20px">
+        <h2 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: clamp(40px, 5.6vw, 76px); line-height: .93; letter-spacing: -0.03em; text-transform: uppercase">Todo tu negocio. Un sistema.</h2>
+        <p style="margin: 0; max-width: 520px; font-size: 18px; line-height: 1.55; color: rgba(255,255,255,.85)">Cada venta, cada reparación y cada movimiento de caja, en un solo lugar y siempre al día.</p>
+      </div>
+      <div style="position: relative; display: flex; flex-direction: column; gap: 12px; align-items: flex-start">
+        <a href="#precios" style="display: inline-flex; align-items: center; gap: 10px; padding: 18px 18px 18px 28px; border-radius: 999px; background: #ffffff; color: #16151f; font-size: 17px; font-weight: 600; text-decoration: none">
+          Empezar gratis
+          <span style="width: 30px; height: 30px; border-radius: 999px; background: #4f49bd; color: #ffffff; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></span>
+        </a>
+        <span style="font-size: 13px; color: rgba(255,255,255,.75)">Los datos de tu organización son solo tuyos.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer style="max-width: 1280px; margin: 0 auto; padding: 0 24px 48px; box-sizing: border-box">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding-top: 28px; border-top: 1px solid rgba(22,21,31,.08)">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span style="width: 28px; height: 28px; border-radius: 8px; background: #4f49bd; color: #ffffff; display: flex; align-items: center; justify-content: center; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 14px">T</span>
+        <span style="font-size: 14px; color: #55546a">Tekly · Gestión para tu local, en tiempo real</span>
+      </div>
+      <div style="display: flex; gap: 24px; font-size: 14px">
+        <a class="nav-link" href="#modulos" style="color: #55546a; text-decoration: none">Módulos</a>
+        <a class="nav-link" href="#precios" style="color: #55546a; text-decoration: none">Precios</a>
+        <a class="nav-link" href="#" style="color: #55546a; text-decoration: none">Ingresar</a>
+      </div>
+      <span style="font-size: 13px; color: #6a6980">© 2026 Tekly</span>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

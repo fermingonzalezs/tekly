@@ -84,6 +84,24 @@ export async function listTurnosSemana(): Promise<Turno[]> {
   return (data as unknown as TurnoRow[]).map(toTurno);
 }
 
+/** Turnos de un rango de fechas (`YYYY-MM-DD`, ambos extremos incluidos; un
+ * lado vacío es abierto). Es lo que usa Analíticas > Turnos para medir el
+ * historial del período -- `listTurnosSemana` solo mira los próximos 7 días,
+ * que todavía no pasaron. Ojo: `dayOffset` sale negativo para turnos
+ * pasados (el contrato original de 0..6 es solo de la grilla semanal), así
+ * que quien consuma este listado no debe indexar nada por `dayOffset`.
+ * Las fechas del rango las calcula quien llama, en hora argentina (ver
+ * `presetRange` en lib/date-presets.ts). */
+export async function listTurnosRango(desde: string, hasta: string): Promise<Turno[]> {
+  const supabase = createServerClient();
+  let query = supabase.from("turnos").select(TURNO_COLS).order("fecha").order("hora");
+  if (desde) query = query.gte("fecha", desde);
+  if (hasta) query = query.lte("fecha", hasta);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data as unknown as TurnoRow[]).map(toTurno);
+}
+
 export async function createTurno(data: {
   dayOffset: number;
   hora: string;

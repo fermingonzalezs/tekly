@@ -1,5 +1,6 @@
 import { AppPreviewBackdrop } from "@/components/auth/app-preview-backdrop";
 import { AuthModal } from "@/components/auth/auth-modal";
+import { AvisoCookies } from "@/components/legal/aviso-cookies";
 import { SignupForm } from "./signup-form";
 
 export default function SignupPage() {
@@ -12,6 +13,7 @@ export default function SignupPage() {
           <SignupForm />
         </AuthModal>
       </div>
+      <AvisoCookies />
     </main>
   );
 }

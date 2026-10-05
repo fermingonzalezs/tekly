@@ -44,7 +44,7 @@ export function RevenueTimeline({ ingresos }: { ingresos: IngresoMes[] }) {
         Ingresos: nuevos vs existentes
       </ChartTitle>
       {ingresos.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin ventas ni tickets todavía.
         </p>
       ) : (
@@ -171,7 +171,7 @@ export function RevenueTimeline({ ingresos }: { ingresos: IngresoMes[] }) {
                     return (
                       <span
                         key={ingresos[i].key}
-                        className="absolute top-[96%] -translate-x-1/2 text-[10px] tabular-nums text-neutral-400"
+                        className="absolute top-[96%] -translate-x-1/2 text-[10px] tabular-nums text-neutral-500"
                         style={{ left: `${xPct(i)}%` }}
                       >
                         {ingresos[i].label}
@@ -183,7 +183,7 @@ export function RevenueTimeline({ ingresos }: { ingresos: IngresoMes[] }) {
             })()}
           </div>
 
-          <p className="mt-4 text-[11px] leading-relaxed text-neutral-400">
+          <p className="mt-4 text-[11px] leading-relaxed text-neutral-500">
             {sumTotal > 0
               ? `${Math.round(pctNuevos)}% de los ingresos del rango vino de clientes nuevos -- el resto, de que los existentes volvieran.`
               : "Sin ingresos en el rango."}

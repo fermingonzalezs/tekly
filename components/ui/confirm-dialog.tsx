@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 
 /** Confirmación de una acción destructiva como modal propio -- el
@@ -30,19 +31,12 @@ export function ConfirmDialog({
       title={title}
       footer={
         <>
-          <button
-            onClick={onClose}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-          >
+          <Button variant="outline" onClick={onClose}>
             Cancelar
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={pending}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-red-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:pointer-events-none disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="danger" loading={pending} onClick={onConfirm}>
             {pending ? "Eliminando…" : confirmLabel}
-          </button>
+          </Button>
         </>
       }
     >

@@ -1,9 +1,11 @@
 "use client";
 
+import { IconButton } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Menu, Smartphone } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
+import { TeklyLogo } from "@/components/brand/tekly-logo";
 import { navForRole, navCategoriesForRole } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
@@ -36,12 +38,7 @@ export function TopNav({
   return (
     <>
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-neutral-200 bg-white/90 px-5 backdrop-blur">
-        <button
-          onClick={() => setDrawerOpen(true)}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 md:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+        <IconButton aria-label="Abrir menú" icon={Menu} variant="ghost" size="lg" onClick={() => setDrawerOpen(true)} className="md:hidden" />
 
         <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
           {logoUrl ? (
@@ -51,9 +48,7 @@ export function TopNav({
               className="h-9 w-9 rounded-xl object-contain"
             />
           ) : (
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-white">
-              <Smartphone className="h-5 w-5" />
-            </div>
+            <TeklyLogo variante="icono-invertido" altura={36} alt="" />
           )}
           <span className="hidden flex-col leading-tight md:flex">
             <span className="font-grotesk text-sm font-semibold uppercase tracking-wide">

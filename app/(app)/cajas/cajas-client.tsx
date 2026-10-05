@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { useEffect, useState, useTransition } from "react";
 import {
   ArrowDownLeft,
@@ -12,9 +13,15 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { ChartTitle } from "@/components/ui/chart-title";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
+import { SeccionTabla } from "@/components/ui/seccion-tabla";
+import { BarraFiltros } from "@/components/ui/barra-filtros";
+import {
+  GraficoBarrasAgrupadas,
+  GraficoBarrasVerticales,
+  GraficoRanking,
+} from "@/components/seccion/graficos";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -27,7 +34,16 @@ import {
 } from "@/lib/status";
 import { fmtUsd, fmtArs } from "@/lib/format";
 import { useDolar } from "@/lib/dolar";
-import { enArs, netoMovimientos } from "@/lib/cajas";
+import {
+  enArs,
+  netoMovimientos,
+  ingresosEgresosPorDia,
+  saldoPorCaja,
+  totalPorMoneda,
+  resumenConciliaciones,
+  diferenciaPorConciliacion,
+  diferenciaPorCaja,
+} from "@/lib/cajas";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
@@ -191,11 +207,6 @@ export function CajasClient({
     total: totalPorMedio(medio),
   }));
 
-  const porMedio = MEDIOS.map((medio) => ({
-    medio,
-    total: totalPorMedio(medio),
-  })).filter((p) => p.total !== 0);
-
   const query = q.trim().toLowerCase();
   const movs = (vista === "dia" ? movimientosHoy : movimientosTodos).filter(
     (m) =>
@@ -209,22 +220,91 @@ export function CajasClient({
   );
   const hayFiltros = !!medioFiltro || !!cajaFiltro;
 
+  // ── Datos de gráficos (lógica pura de lib/cajas.ts) ──
+  const movsBase = vista === "dia" ? movimientosHoy : movimientosTodos;
+  const dias = ingresosEgresosPorDia(movsBase, cajas);
+  const saldosMovimiento = saldoPorCaja(movsBase, cajas);
+  const saldosCaja = saldoPorCaja(movimientosTodos, cajas);
+  const totales = totalPorMoneda(movimientosTodos, cajas);
+  const resumenConc = resumenConciliaciones(conciliaciones, cajas);
+  const difConc = diferenciaPorConciliacion(conciliaciones, cajas);
+  const difCaja = diferenciaPorCaja(conciliaciones, cajas);
+  const movimientosPorCaja = cajas.map((c) => ({
+    label: c.nombre,
+    value: movimientosTodos.filter((m) => m.cajaId === c.id).length,
+  }));
+
+  // "2026-09-07" -> "07/09" (slice, nunca `new Date`).
+  const diaLabel = (iso: string) => {
+    const [, mes, dia] = iso.split("-");
+    return `${dia}/${mes}`;
+  };
+  // Ranking: el ancho usa el valor absoluto; el monto con signo y la moneda
+  // de cada caja van en el `suffix`.
+  const sufijoSaldo = (saldos: { nombre: string; moneda: "usd" | "ars"; saldo: number }[]) => {
+    const meta = new Map(saldos.map((s) => [s.nombre, s]));
+    return (r: { label: string }) => {
+      const s = meta.get(r.label);
+      return s ? money(s.moneda, s.saldo) : null;
+    };
+  };
+  const difMeta = new Map(difCaja.map((d) => [d.nombre, d]));
+  const sufijoDif = (r: { label: string }) => {
+    const d = difMeta.get(r.label);
+    if (!d) return null;
+    return `${d.diff > 0 ? "+" : d.diff < 0 ? "−" : ""}${money(d.moneda, Math.abs(d.diff))}`;
+  };
+
+  const tabsEntidad = (
+    <Tabs
+      value={tab}
+      onChange={setTab}
+      className="w-full justify-between md:w-auto md:justify-start"
+      options={[
+        { value: "movimientos", label: "Movimientos" },
+        { value: "conciliaciones", label: "Conciliaciones" },
+        { value: "cajas", label: "Cajas" },
+      ]}
+    />
+  );
+
   return (
     <div className="space-y-6">
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: "movimientos", label: "Movimientos" },
-          { value: "conciliaciones", label: "Conciliaciones" },
-          { value: "cajas", label: "Cajas" },
-        ]}
-      />
-
       {tab === "movimientos" && (
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-          {statMedios.map(({ medio, total }) => (
+        <SeccionTabla
+          id="cajas-movimientos"
+          columnasTarjetas={5}
+          graficos={
+            <>
+              <GraficoBarrasAgrupadas
+                title="Ingresos vs egresos por día"
+                sub={
+                  vista === "dia"
+                    ? "Desde la última conciliación · en USD"
+                    : "Historial · en USD"
+                }
+                labels={dias.map((d) => diaLabel(d.fecha))}
+                series={[
+                  { name: "Ingresos", values: dias.map((d) => d.ingresos) },
+                  { name: "Egresos", values: dias.map((d) => d.egresos) },
+                ]}
+                fmt={fmtUsd}
+                vacio="Sin movimientos convertibles en el período."
+              />
+              <GraficoRanking
+                title="Saldo por caja"
+                sub="Neto en la moneda de cada caja"
+                rows={saldosMovimiento.map((s) => ({
+                  label: s.nombre,
+                  value: s.saldo,
+                }))}
+                fmt={() => ""}
+                suffix={sufijoSaldo(saldosMovimiento)}
+                vacio="Sin movimientos."
+              />
+            </>
+          }
+          tarjetas={statMedios.map(({ medio, total }) => (
             <StatCard
               key={medio}
               align="left"
@@ -236,51 +316,61 @@ export function CajasClient({
               onClick={() => setMedioFiltro(medioFiltro === medio ? null : medio)}
             />
           ))}
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <Tabs
-            value={vista}
-            onChange={setVista}
-            className="w-full justify-between sm:w-auto sm:justify-start"
-            options={[
-              { value: "dia", label: "Desde conciliación" },
-              { value: "historial", label: "Historial" },
-            ]}
-          />
-          <div className="relative w-full sm:w-52">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar movimientos…"
-              className={cn("w-full pl-9", filterPill)}
+          filtros={
+            <BarraFiltros
+              tabs={tabsEntidad}
+              contadorFiltros={
+                (medioFiltro ? 1 : 0) + (cajaFiltro ? 1 : 0) + (q ? 1 : 0)
+              }
+              busqueda={
+                <div className="relative w-full sm:w-52">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <Input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Buscar movimientos…"
+                    className={cn("w-full pl-9", filterPill)}
+                    aria-label="Buscar movimientos"
+                  />
+                </div>
+              }
+              filtros={
+                <>
+                  <Tabs
+                    value={vista}
+                    onChange={setVista}
+                    className="w-full justify-between sm:w-auto sm:justify-start"
+                    options={[
+                      { value: "dia", label: "Desde conciliación" },
+                      { value: "historial", label: "Historial" },
+                    ]}
+                  />
+                  <Select
+                    value={cajaFiltro ?? ""}
+                    onChange={(e) => setCajaFiltro(e.target.value || null)}
+                    className={cn("w-full sm:w-44", filterPill)}
+                    aria-label="Filtrar por caja"
+                  >
+                    <option value="">Todas las cajas</option>
+                    {cajas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                </>
+              }
+              accion={
+                <Button icon={Plus}
+                  onClick={() => setNuevoOpen(true)}
+                  variant="tonal" fullOnMobile
+                >
+                  Nuevo movimiento
+                </Button>
+              }
             />
-          </div>
-          <Select
-            value={cajaFiltro ?? ""}
-            onChange={(e) => setCajaFiltro(e.target.value || null)}
-            className={cn("w-full sm:w-44", filterPill)}
-          >
-            <option value="">Todas las cajas</option>
-            {cajas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </Select>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 md:ml-auto">
-          <button
-            onClick={() => setNuevoOpen(true)}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo movimiento
-          </button>
-        </div>
-      </div>
-
-        <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_320px]">
+          }
+        >
           <Card className="overflow-hidden">
             <div className="space-y-2 p-3 md:hidden">
               {movs.map((m) => (
@@ -436,67 +526,139 @@ export function CajasClient({
               </tbody>
             </table>
           </Card>
-
-          <div className="space-y-6">
-            <Card className="p-5">
-              <ChartTitle align="left" divider>
-                Por medio de pago (ARS)
-              </ChartTitle>
-              <ul className="space-y-2 text-sm">
-                {porMedio.length === 0 && <li className="text-neutral-400">Sin movimientos hoy.</li>}
-                {porMedio.map((p) => (
-                  <li key={p.medio} className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                      <span
-                        className={cn("h-1.5 w-1.5 rounded-full", dotClass[medioPagoCfg[p.medio].tone])}
-                      />
-                      {medioPagoCfg[p.medio].label}
-                    </span>
-                    <span className="text-end tabular-nums">
-                      <span className="block">{fmtArs(p.total)}</span>
-                      <span className="block text-[11px] font-normal text-neutral-400">
-                        ≈ {fmtUsd(p.total / RATE)}
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </div>
-        </div>
-      </div>
+        </SeccionTabla>
       )}
 
       {tab === "conciliaciones" && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              onClick={() => setConciliarOpen(true)}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              Conciliar cajas
-            </button>
-          </div>
+        <SeccionTabla
+          id="cajas-conciliaciones"
+          graficos={
+            <>
+              <GraficoBarrasAgrupadas
+                title="Diferencia por conciliación"
+                sub="Cajas que sobraron vs. faltaron"
+                labels={difConc.map((c) => c.label)}
+                series={[
+                  { name: "Sobrantes", values: difConc.map((c) => c.sobrantes) },
+                  { name: "Faltantes", values: difConc.map((c) => c.faltantes) },
+                ]}
+                vacio="Sin conciliaciones registradas."
+              />
+              <GraficoRanking
+                title="Diferencia por caja"
+                sub="Acumulada, en la moneda de cada caja"
+                rows={difCaja.map((d) => ({ label: d.nombre, value: d.diff }))}
+                fmt={() => ""}
+                suffix={sufijoDif}
+                vacio="Ninguna caja con diferencias."
+              />
+            </>
+          }
+          tarjetas={
+            <>
+              <StatCard
+                align="left"
+                label="Conciliaciones"
+                value={resumenConc.total}
+              />
+              <StatCard
+                align="left"
+                label="Con diferencia"
+                value={resumenConc.conDiferencia}
+                hint="alguna caja descuadrada"
+              />
+              <StatCard
+                align="left"
+                label="Diferencia acumulada"
+                value={fmtArs(resumenConc.diferenciaArs)}
+                hint={`USD ${fmtUsd(resumenConc.diferenciaUsd)}`}
+              />
+              <StatCard
+                align="left"
+                label="Última"
+                value={resumenConc.ultima ? resumenConc.ultima.split(" · ")[0] : "—"}
+                hint={resumenConc.ultima ?? "sin registrar"}
+              />
+            </>
+          }
+          filtros={
+            <BarraFiltros
+              tabs={tabsEntidad}
+              accion={
+                <Button icon={ClipboardCheck}
+                  onClick={() => setConciliarOpen(true)}
+                  variant="tonal" fullOnMobile
+                >
+                  Conciliar cajas
+                </Button>
+              }
+            />
+          }
+        >
           <ConciliacionesTab conciliaciones={conciliaciones} cajas={cajas} />
-        </div>
+        </SeccionTabla>
       )}
 
       {tab === "cajas" && (
-      <div>
-        <Card className="overflow-hidden">
-          <div className="flex flex-col gap-2 border-b border-neutral-100 px-5 pt-5 pb-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className={HEAD}>
-              {cajas.filter((c) => c.activa).length} de {cajas.length} activas
-            </p>
-            <button
-              onClick={() => setEditingCaja({ id: null, data: blankCaja })}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft sm:w-auto"
-            >
-              <Plus className="h-4 w-4" />
-              Nueva caja
-            </button>
-          </div>
+        <SeccionTabla
+          id="cajas-cajas"
+          graficos={
+            <>
+              <GraficoRanking
+                title="Saldo por caja"
+                sub="Histórico, en la moneda de cada caja"
+                rows={saldosCaja.map((s) => ({ label: s.nombre, value: s.saldo }))}
+                fmt={() => ""}
+                suffix={sufijoSaldo(saldosCaja)}
+                vacio="Sin movimientos."
+              />
+              <GraficoBarrasVerticales
+                title="Movimientos por caja"
+                sub="Histórico"
+                rows={movimientosPorCaja}
+                vacio="Sin movimientos."
+              />
+            </>
+          }
+          tarjetas={
+            <>
+              <StatCard
+                align="left"
+                label="Cajas activas"
+                value={cajas.filter((c) => c.activa).length}
+                hint={`de ${cajas.length}`}
+              />
+              <StatCard align="left" label="Total ARS" value={fmtArs(totales.ars)} />
+              <StatCard align="left" label="Total USD" value={fmtUsd(totales.usd)} />
+              <StatCard
+                align="left"
+                label="Sin conciliar"
+                value={movimientosHoy.length}
+                hint="movimientos"
+              />
+            </>
+          }
+          filtros={
+            <BarraFiltros
+              tabs={tabsEntidad}
+              accion={
+                <Button icon={Plus}
+                  onClick={() => setEditingCaja({ id: null, data: blankCaja })}
+                  variant="tonal"
+                  fullOnMobile
+                >
+                  Nueva caja
+                </Button>
+              }
+            />
+          }
+        >
+          <Card className="overflow-hidden">
+            <div className="border-b border-neutral-100 px-5 py-3">
+              <p className={HEAD}>
+                {cajas.filter((c) => c.activa).length} de {cajas.length} activas
+              </p>
+            </div>
 
           <div className="space-y-2 p-3 md:hidden">
             {cajas.map((c) => (
@@ -528,7 +690,7 @@ export function CajasClient({
                     />
                     {medioPagoCfg[c.medioPago].label}
                   </span>
-                  <button
+                  <Button icon={Pencil}
                     onClick={() =>
                       setEditingCaja({
                         id: c.id,
@@ -541,10 +703,10 @@ export function CajasClient({
                         },
                       })
                     }
-                    className="flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                    variant="tonal" size="sm"
                   >
-                    <Pencil className="h-3.5 w-3.5" /> Editar
-                  </button>
+                    Editar
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -601,7 +763,7 @@ export function CajasClient({
                   </td>
                   <td className="px-5 py-2.5">
                     <div className="flex items-center justify-center">
-                      <button
+                      <Button icon={Pencil}
                         onClick={() =>
                           setEditingCaja({
                             id: c.id,
@@ -614,25 +776,24 @@ export function CajasClient({
                             },
                           })
                         }
-                        className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                        variant="tonal" size="sm"
                       >
-                        <Pencil className="h-3.5 w-3.5" /> Editar
-                      </button>
+                        Editar
+                      </Button>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </Card>
-      </div>
+          </Card>
+        </SeccionTabla>
       )}
 
       <Dialog
         open={!!openMov}
         onClose={() => setOpenMov(null)}
-        size="lg"
-        accent
+        size="2xl"
         title={openMov?.concepto ?? ""}
         description={openMov ? `${openMov.fecha} · ${openMov.hora}` : ""}
         footer={
@@ -644,19 +805,19 @@ export function CajasClient({
                 </span>
               )}
               {esAdmin && !openMov.conciliacionId && (
-                <button
+                <Button icon={Trash2}
                   onClick={() => setConfirmDelete(true)}
-                  className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 sm:mr-auto sm:w-auto"
+                  variant="danger-outline" fullOnMobile className="sm:mr-auto"
                 >
-                  <Trash2 className="h-4 w-4" /> Eliminar movimiento
-                </button>
+                  Eliminar movimiento
+                </Button>
               )}
-              <button
+              <Button
                 onClick={() => setOpenMov(null)}
-                className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+                variant="outline" fullOnMobile
               >
                 Cerrar
-              </button>
+              </Button>
             </>
           )
         }
@@ -809,6 +970,8 @@ function NuevoMovimientoDialog({
         medioPago: caja.medioPago,
         categoria: tipo === "egreso" ? categoria : null,
         monto,
+        // Operación nueva: se guarda el dólar vigente AHORA (snapshot).
+        cotizacion: rate,
       });
       onCreate(mov);
       onClose();
@@ -819,34 +982,47 @@ function NuevoMovimientoDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      accent
       title="Nuevo movimiento"
+      description="Se registra en la caja elegida y queda en el historial."
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Registrando…" : "Registrar movimiento"}
-          </button>
+          </Button>
         </>
       }
     >
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
         <Field label="Tipo">
           <Select value={tipo} onChange={(e) => setTipo(e.target.value as "ingreso" | "egreso")}>
             <option value="ingreso">Ingreso</option>
             <option value="egreso">Egreso</option>
           </Select>
         </Field>
-        <Field label="Concepto">
+        <Field label="Caja">
+          <Select
+            value={cajaId}
+            onChange={(e) => setCajaId(e.target.value)}
+            disabled={cajas.length === 0}
+          >
+            {cajas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} · {c.moneda.toUpperCase()}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Concepto" className="sm:col-span-2">
           <Input
             value={concepto}
             onChange={(e) => setConcepto(e.target.value)}
@@ -867,31 +1043,10 @@ function NuevoMovimientoDialog({
             </Select>
           </Field>
         )}
-        <Field label="Caja">
-          <Select
-            value={cajaId}
-            onChange={(e) => setCajaId(e.target.value)}
-            disabled={cajas.length === 0}
-          >
-            {cajas.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre} · {c.moneda.toUpperCase()}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        {cajas.length === 0 && (
-          <p className="text-xs text-red-600">
-            Todavía no hay ninguna caja creada. Abrí «Cajas» al final de la página
-            y creá una con «Nueva caja» antes de registrar un movimiento.
-          </p>
-        )}
-        {caja && (
-          <p className="text-xs text-neutral-400">
-            Medio de pago: <span className="text-neutral-600">{medioPagoCfg[caja.medioPago].label}</span>
-          </p>
-        )}
-        <Field label={`Monto${caja ? ` (${caja.moneda.toUpperCase()})` : ""}`}>
+        <Field
+          label={`Monto${caja ? ` (${caja.moneda.toUpperCase()})` : ""}`}
+          className={tipo === "egreso" ? undefined : "sm:col-span-2"}
+        >
           <Input
             type="number"
             min={0}
@@ -900,11 +1055,30 @@ function NuevoMovimientoDialog({
             placeholder="0"
           />
         </Field>
-        {caja?.moneda === "ars" && monto > 0 && (
-          <p className="text-xs text-neutral-400">≈ {fmtUsd(monto / rate)}</p>
+        {cajas.length === 0 && (
+          <p className="text-xs text-red-600 sm:col-span-2">
+            Todavía no hay ninguna caja creada. Abrí «Cajas» al final de la página
+            y creá una con «Nueva caja» antes de registrar un movimiento.
+          </p>
         )}
-        <p className="text-[11px] text-neutral-400">
-          Se registra como <span className="text-neutral-600">{usuarioNombre}</span>.
+        {/* Datos derivados de la caja y del monto, en una tira de vidrio */}
+        {caja && (
+          <div className="flex items-center justify-between gap-3 rounded-[14px] border border-white/80 bg-white/50 px-3.5 py-2.5 text-xs text-neutral-600 sm:col-span-2">
+            <span>
+              Medio de pago ·{" "}
+              <strong className="font-semibold text-neutral-900">
+                {medioPagoCfg[caja.medioPago].label}
+              </strong>
+            </span>
+            {caja.moneda === "ars" && monto > 0 && (
+              <span className="font-semibold tabular-nums text-accent">
+                ≈ {fmtUsd(monto / rate)}
+              </span>
+            )}
+          </div>
+        )}
+        <p className="text-[11px] text-neutral-500 sm:col-span-2">
+          Se registra como <span className="font-medium text-neutral-700">{usuarioNombre}</span>.
         </p>
       </div>
     </Dialog>
@@ -934,23 +1108,22 @@ function CajaDialog({
     <Dialog
       open={!!entry}
       onClose={onClose}
-      accent
       title={entry?.id ? "Editar caja" : "Nueva caja"}
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={!draft.nombre.trim() || pending}
             onClick={submit}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Guardando…" : "Guardar"}
-          </button>
+          </Button>
         </>
       }
     >
@@ -962,7 +1135,7 @@ function CajaDialog({
             placeholder="Mostrador"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <Field label="Moneda">
             <Select
               value={draft.moneda}
@@ -1049,25 +1222,24 @@ function ConciliarDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      accent
       size="2xl"
       title="Conciliar cajas"
       description="Contá cada caja y anotá el monto real — la diferencia con el sistema queda guardada."
       footer={
         <>
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cancelar
-          </button>
-          <button
+          </Button>
+          <Button
             disabled={!valid || pending}
             onClick={submit}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+            variant="primary" fullOnMobile
           >
             {pending ? "Confirmando…" : "Confirmar conciliación"}
-          </button>
+          </Button>
         </>
       }
     >

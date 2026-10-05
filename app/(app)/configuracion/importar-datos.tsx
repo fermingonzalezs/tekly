@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Papa from "papaparse";
 import { CheckCircle2, Download, Smartphone, Upload, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { dotClass, type Tone } from "@/lib/status";
 import {
   CLIENTE_CSV_HEADERS,
@@ -28,11 +29,6 @@ type PreviewRow = {
   status: "ok" | "error" | "duplicate";
   detail?: string;
 };
-
-const pillOutline =
-  "flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50";
-const pillAccent =
-  "flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50";
 
 function descargar(contenido: string, filename: string) {
   const blob = new Blob([contenido], { type: "text/csv;charset=utf-8" });
@@ -174,13 +170,14 @@ function ImportCard<T>({
               <p className="text-[13px] text-neutral-500">{descripcion}</p>
             </div>
           </div>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Download}
             onClick={() => descargar(templateCsv(), templateFilename)}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
           >
-            <Download className="h-3.5 w-3.5" />
             Plantilla
-          </button>
+          </Button>
         </div>
 
         {estado === "idle" && (
@@ -208,12 +205,12 @@ function ImportCard<T>({
             </div>
             <ResultadoLista rows={preview} />
             <div className="flex gap-2">
-              <button onClick={reiniciar} className={pillOutline}>
+              <Button variant="outline" onClick={reiniciar}>
                 Cancelar
-              </button>
-              <button onClick={confirmar} disabled={validas === 0 || pending} className={pillAccent}>
+              </Button>
+              <Button onClick={confirmar} disabled={validas === 0} loading={pending}>
                 {pending ? "Importando…" : `Confirmar importación (${validas})`}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -230,9 +227,9 @@ function ImportCard<T>({
               {resultado.errors > 0 && <Chip tone="red" label={`${resultado.errors} con error`} />}
             </div>
             <ResultadoLista rows={resultado.rows} />
-            <button onClick={reiniciar} className={pillOutline}>
+            <Button variant="outline" onClick={reiniciar}>
               Importar otro archivo
-            </button>
+            </Button>
           </div>
         )}
       </div>

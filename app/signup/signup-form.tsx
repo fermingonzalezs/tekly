@@ -7,6 +7,7 @@ import { Field, Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { AuthError } from "@/components/auth/auth-error";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import { LEGAL_BORRADOR } from "@/lib/legal";
 import { signupAction, type SignupState } from "./actions";
 
 const initialState: SignupState = { error: null };
@@ -14,7 +15,7 @@ const initialState: SignupState = { error: null };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" shape="pill" disabled={pending} className="w-full justify-center">
+    <Button type="submit" disabled={pending} className="w-full justify-center">
       {pending ? "Creando…" : "Crear organización"}
     </Button>
   );
@@ -70,6 +71,27 @@ export function SignupForm() {
           autoComplete="new-password"
         />
       </Field>
+      {!LEGAL_BORRADOR && (
+        <label className="flex items-start gap-2 text-[13px] leading-snug text-neutral-600">
+          <input
+            type="checkbox"
+            name="acepta"
+            required
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[rgb(var(--accent-rgb))]"
+          />
+          <span>
+            Acepto los{" "}
+            <Link href="/terminos" target="_blank" className="font-medium text-accent underline">
+              Términos y condiciones
+            </Link>{" "}
+            y la{" "}
+            <Link href="/privacidad" target="_blank" className="font-medium text-accent underline">
+              Política de privacidad
+            </Link>
+            .
+          </span>
+        </label>
+      )}
       <AuthError message={state.error} />
       <SubmitButton />
       <p className="text-center text-sm text-neutral-500">

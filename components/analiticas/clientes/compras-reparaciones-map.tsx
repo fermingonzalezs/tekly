@@ -59,7 +59,7 @@ export function ComprasReparacionesMap({
         Compras vs reparaciones
       </ChartTitle>
       {visibles.length === 0 ? (
-        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+        <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
           Sin clientes con operaciones todavía.
         </p>
       ) : (
@@ -71,7 +71,7 @@ export function ComprasReparacionesMap({
               style={{ left: `${xToPct(medCompras)}%` }}
             />
             <span
-              className="absolute -translate-x-1/2 whitespace-nowrap bg-white px-1 text-[10px] tabular-nums text-neutral-400"
+              className="absolute -translate-x-1/2 whitespace-nowrap bg-white px-1 text-[10px] tabular-nums text-neutral-500"
               style={{ left: `${xToPct(medCompras)}%`, top: -2 }}
             >
               mediana {medCompras}
@@ -81,7 +81,7 @@ export function ComprasReparacionesMap({
               style={{ bottom: `${yToPct(medReparaciones)}%` }}
             />
             <span
-              className="absolute -translate-y-1/2 whitespace-nowrap bg-white px-1 text-[10px] tabular-nums text-neutral-400"
+              className="absolute -translate-y-1/2 whitespace-nowrap bg-white px-1 text-[10px] tabular-nums text-neutral-500"
               style={{ bottom: `${yToPct(medReparaciones)}%`, left: 2 }}
             >
               mediana {medReparaciones}
@@ -154,11 +154,11 @@ export function ComprasReparacionesMap({
             )}
           </div>
 
-          <div className="relative mt-1 border-t border-neutral-200 pt-1 text-[10px] tabular-nums text-neutral-400">
+          <div className="relative mt-1 border-t border-neutral-200 pt-1 text-[10px] tabular-nums text-neutral-500">
             <span className="absolute left-1">0 compras</span>
             <span className="absolute right-1">{maxX} compras</span>
           </div>
-          <p className="mt-1.5 text-[11px] text-neutral-400">
+          <p className="mt-1.5 text-[11px] text-neutral-500">
             Arriba = más reparaciones{ocultos > 0 && ` · +${ocultos} de menor gasto no mostrados`}
           </p>
         </div>

@@ -13,6 +13,11 @@ export const signupSchema = z
     email: z.string().trim().email("Email inválido"),
     password: z.string().min(12, "Mínimo 12 caracteres"),
     confirmPassword: z.string(),
+    // Checkbox "Acepto los Términos y la Política de Privacidad": el form manda
+    // "on" tildado y nada destildado (plan 012).
+    acepta: z.literal("on", {
+      message: "Tenés que aceptar los Términos y la Política de Privacidad",
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Las contraseñas no coinciden",

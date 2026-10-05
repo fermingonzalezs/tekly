@@ -11,6 +11,8 @@ export type SessionUser = {
   rol: Rol;
   nombre: string;
   alias: string | null;
+  /** Versión de Términos/Privacidad aceptada (`lib/legal.ts`), o `null`. */
+  terminosVersion: string | null;
 };
 
 export type AuthResult = { error: string | null };

@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { PASOS_ONBOARDING, onboardingCompleto, type OnboardingPasoId } from "@/lib/onboarding";
 import { setOnboardingPasosAction } from "@/app/(app)/dashboard/actions";
 import { cn } from "@/lib/utils";
@@ -64,19 +63,20 @@ export function Bienvenida({ negocio }: { negocio: Negocio }) {
                   <p
                     className={cn(
                       "text-sm font-medium",
-                      hecho ? "text-neutral-400 line-through" : "text-neutral-900",
+                      hecho ? "text-neutral-500 line-through" : "text-neutral-900",
                     )}
                   >
                     {paso.titulo}
                   </p>
                   <p className="text-[13px] text-neutral-500">{paso.descripcion}</p>
                 </div>
-                <Link
+                <ButtonLink
                   href={paso.href}
-                  className="flex h-8 shrink-0 items-center rounded-full border border-accent/40 px-4 text-sm font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+                  variant="tonal"
+                  size="sm"
                 >
                   Ir
-                </Link>
+                </ButtonLink>
               </div>
             );
           })}
@@ -89,7 +89,7 @@ export function Bienvenida({ negocio }: { negocio: Negocio }) {
               Cargá tu primera venta -- el Dashboard se activa solo apenas hay una.
             </p>
           </div>
-          <Button shape="pill" className="w-full sm:w-auto" onClick={() => router.push("/ventas")}>
+          <Button className="w-full sm:w-auto" onClick={() => router.push("/ventas")}>
             Ir a Ventas
           </Button>
         </div>

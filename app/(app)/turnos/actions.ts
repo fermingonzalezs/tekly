@@ -46,6 +46,7 @@ export async function createTurnoAction(data: {
   });
   revalidatePath("/turnos");
   revalidatePath("/inventario");
+  revalidatePath("/dashboard");
   return turno;
 }
 
@@ -53,6 +54,7 @@ export async function setTurnoEstadoAction(id: string, estado: TurnoEstado) {
   await requireUser();
   const turno = await setTurnoEstado(id, estado);
   revalidatePath("/turnos");
+  revalidatePath("/dashboard");
   return turno;
 }
 
@@ -60,4 +62,5 @@ export async function deleteTurnoAction(id: string) {
   await requireRole("admin");
   await deleteTurno(id);
   revalidatePath("/turnos");
+  revalidatePath("/dashboard");
 }

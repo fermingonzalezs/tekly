@@ -15,8 +15,22 @@ import {
   agingBuckets,
   diasInventarioEquipos,
   unidadesDeMovimiento,
+  movimientoEnUsd,
+  sinCotizacion,
+  cobradoReparaciones,
 } from "@/lib/analiticas";
-import type { Venta, VentaItem, Ticket, Equipo, Repuesto, OtroItem } from "@/lib/types";
+import { margenPonderado } from "@/lib/ventas";
+import type {
+  Venta,
+  VentaItem,
+  Ticket,
+  Equipo,
+  Repuesto,
+  OtroItem,
+  Caja,
+  MovimientoCaja,
+  MovimientoCC,
+} from "@/lib/types";
 import type { MovimientoStockBulk } from "@/lib/db/inventario";
 
 function venta(fechaISO: string, totalUsd: number, items: VentaItem[] = []): Venta {
@@ -129,16 +143,45 @@ describe("ventasPorRubroMes", () => {
 });
 
 describe("ventasPorDiaSemana", () => {
+  // Septiembre 2026: el lunes 14 y el sábado 19 caen dentro del rango.
+  const HOY = new Date("2026-09-30T15:00:00Z");
+
   it("suma facturación y operaciones por día, Lun a Dom", () => {
     const ventas = [
       venta("2026-09-14", 100), // lunes
       venta("2026-09-14", 50), // lunes
       venta("2026-09-19", 30), // sábado
     ];
-    const out = ventasPorDiaSemana(ventas);
-    expect(out[0]).toEqual({ dia: "Lun", usd: 150, operaciones: 2 });
-    expect(out[5]).toEqual({ dia: "Sáb", usd: 30, operaciones: 1 });
-    expect(out[6]).toEqual({ dia: "Dom", usd: 0, operaciones: 0 });
+    const out = ventasPorDiaSemana(ventas, { desde: "2026-09-14", hasta: "2026-09-20" }, HOY);
+    expect(out[0]).toMatchObject({ dia: "Lun", usd: 150, operaciones: 2 });
+    expect(out[5]).toMatchObject({ dia: "Sáb", usd: 30, operaciones: 1 });
+    expect(out[6]).toMatchObject({ dia: "Dom", usd: 0, operaciones: 0 });
+  });
+
+  it("el promedio divide por las veces que cae ese día en el rango (no por los días con ventas)", () => {
+    // Rango 1–30 sep 2026: 5 martes (1,8,15,22,29) y 4 sábados (5,12,19,26).
+    const ventas = [venta("2026-09-01", 500), venta("2026-09-05", 400)];
+    const out = ventasPorDiaSemana(ventas, { desde: "2026-09-01", hasta: "2026-09-30" }, HOY);
+    expect(out[1].promedioUsd).toBe(100); // martes: 500 / 5
+    expect(out[5].promedioUsd).toBe(100); // sábado: 400 / 4
+    expect(out[2].promedioUsd).toBe(0); // miércoles sin ventas
+  });
+
+  it("un día que cae más veces no gana solo por calendario", () => {
+    // Mismo total en un martes (5 en el mes) y en un sábado (4 en el mes).
+    const ventas = [venta("2026-09-01", 500), venta("2026-09-05", 500)];
+    const out = ventasPorDiaSemana(ventas, { desde: "2026-09-01", hasta: "2026-09-30" }, HOY);
+    expect(out[1].usd).toBe(out[5].usd);
+    expect(out[5].promedioUsd).toBeGreaterThan(out[1].promedioUsd);
+  });
+
+  it("sin rango arranca en la primera venta y termina hoy; un hasta futuro se recorta a hoy", () => {
+    const ventas = [venta("2026-09-28", 70)]; // lunes
+    const abierto = ventasPorDiaSemana(ventas, { desde: "", hasta: "" }, HOY);
+    // 28, 29 y 30 sep = lun, mar, mié: un solo lunes en el rango.
+    expect(abierto[0].promedioUsd).toBe(70);
+    const futuro = ventasPorDiaSemana(ventas, { desde: "2026-09-28", hasta: "2026-12-31" }, HOY);
+    expect(futuro[0].promedioUsd).toBe(70);
   });
 });
 
@@ -436,5 +479,169 @@ describe("unidadesDeMovimiento", () => {
   it("null si el detalle no trae cantidad (ej. equipos, unidad única)", () => {
     expect(unidadesDeMovimiento("Ingreso a inventario")).toBeNull();
     expect(unidadesDeMovimiento("Baja de inventario")).toBeNull();
+  });
+});
+
+
+const CAJA_ARS: Caja = {
+  id: "ars-1",
+  nombre: "Mostrador",
+  moneda: "ars",
+  activa: true,
+  descripcion: "",
+  creadaEl: "",
+  medioPago: "pesos",
+};
+const CAJA_USD: Caja = { ...CAJA_ARS, id: "usd-1", nombre: "Caja USD", moneda: "usd", medioPago: "dolares" };
+
+function movCaja(over: Partial<MovimientoCaja>): MovimientoCaja {
+  return {
+    id: "m1",
+    fecha: "",
+    fechaISO: "2026-10-03",
+    hora: "",
+    concepto: "",
+    medioPago: "pesos",
+    tipo: "ingreso",
+    categoria: null,
+    cajaId: CAJA_ARS.id,
+    monto: 0,
+    cotizacion: null,
+    ticketId: null,
+    usuario: "",
+    conciliacionId: null,
+    ...over,
+  };
+}
+
+function movCC(over: Partial<MovimientoCC>): MovimientoCC {
+  return {
+    id: "c1",
+    clienteId: "cl",
+    fecha: "",
+    fechaISO: "2026-10-03",
+    hora: "",
+    concepto: "",
+    tipo: "cargo",
+    montoUsd: 0,
+    ticketId: null,
+    usuario: "",
+    ...over,
+  };
+}
+
+describe("movimientoEnUsd", () => {
+  it("caja en USD: el monto tal cual", () => {
+    expect(movimientoEnUsd(movCaja({ cajaId: CAJA_USD.id, monto: 250 }), CAJA_USD)).toBe(250);
+  });
+
+  it("caja en pesos: usa la cotización GUARDADA en el movimiento", () => {
+    expect(movimientoEnUsd(movCaja({ monto: 1_400_000, cotizacion: 1400 }), CAJA_ARS)).toBe(1000);
+    // la misma plata en pesos con otra cotización guardada = otros dólares
+    expect(movimientoEnUsd(movCaja({ monto: 1_400_000, cotizacion: 1000 }), CAJA_ARS)).toBe(1400);
+  });
+
+  it("caja en pesos sin cotización: null (no se adivina con el blue de hoy)", () => {
+    expect(movimientoEnUsd(movCaja({ monto: 1_400_000, cotizacion: null }), CAJA_ARS)).toBeNull();
+    expect(movimientoEnUsd(movCaja({ monto: 1_400_000, cotizacion: 0 }), CAJA_ARS)).toBeNull();
+  });
+});
+
+describe("sinCotizacion", () => {
+  it("cuenta y suma en pesos solo lo que no se puede pasar a USD", () => {
+    const movs = [
+      movCaja({ id: "a", monto: 100_000, cotizacion: null }), // ingreso sin cotización
+      movCaja({ id: "b", monto: 40_000, cotizacion: null, tipo: "egreso" }),
+      movCaja({ id: "c", monto: 1_400_000, cotizacion: 1400 }), // con cotización: no cuenta
+      movCaja({ id: "d", cajaId: CAJA_USD.id, monto: 500 }), // caja USD: no cuenta
+    ];
+    expect(sinCotizacion(movs, [CAJA_ARS, CAJA_USD])).toEqual({
+      cantidad: 2,
+      ingresosArs: 100_000,
+      egresosArs: 40_000,
+    });
+  });
+
+  it("sin movimientos viejos no hay nada que informar", () => {
+    expect(sinCotizacion([movCaja({ monto: 1, cotizacion: 1400 })], [CAJA_ARS]).cantidad).toBe(0);
+  });
+});
+
+describe("cobradoReparaciones", () => {
+  const rango = { desde: "2026-10-01", hasta: "2026-10-31" };
+  const cajas = [CAJA_ARS, CAJA_USD];
+
+  it("suma lo cobrado en cajas (pago dividido ARS + USD) y los cargos a cuenta corriente", () => {
+    const out = cobradoReparaciones(
+      [
+        movCaja({ id: "1", ticketId: 7, monto: 700_000, cotizacion: 1400 }), // U$ 500
+        movCaja({ id: "2", ticketId: 7, cajaId: CAJA_USD.id, monto: 100 }), // U$ 100
+        movCaja({ id: "3", ticketId: 8, cajaId: CAJA_USD.id, monto: 60 }),
+      ],
+      [movCC({ ticketId: 9, montoUsd: 80 })],
+      cajas,
+      rango,
+    );
+    expect(out.cajaUsd).toBe(660);
+    expect(out.ccUsd).toBe(80);
+    expect(out.totalUsd).toBe(740);
+    expect([...out.ticketIds].sort()).toEqual([7, 8, 9]);
+  });
+
+  it("un ticket sin entregar (sin cobro) no aporta nada", () => {
+    const out = cobradoReparaciones([], [], cajas, rango);
+    expect(out.totalUsd).toBe(0);
+    expect(out.ticketIds.size).toBe(0);
+  });
+
+  it("ignora movimientos sin ticket, egresos, pagos de CC y cobros fuera del rango", () => {
+    const out = cobradoReparaciones(
+      [
+        movCaja({ id: "1", ticketId: null, cajaId: CAJA_USD.id, monto: 999 }), // manual/venta
+        movCaja({ id: "2", ticketId: 5, tipo: "egreso", cajaId: CAJA_USD.id, monto: 999 }),
+        movCaja({ id: "3", ticketId: 6, cajaId: CAJA_USD.id, monto: 999, fechaISO: "2026-09-30" }),
+      ],
+      [movCC({ ticketId: 5, tipo: "pago", montoUsd: 999 }), movCC({ ticketId: 6, montoUsd: 999, fechaISO: "2026-11-01" })],
+      cajas,
+      rango,
+    );
+    expect(out.totalUsd).toBe(0);
+  });
+
+  it("un cobro en pesos sin cotización no se suma: se informa aparte", () => {
+    const out = cobradoReparaciones(
+      [movCaja({ ticketId: 7, monto: 300_000, cotizacion: null })],
+      [],
+      cajas,
+      rango,
+    );
+    expect(out.totalUsd).toBe(0);
+    expect(out.ticketIds.size).toBe(0);
+    expect(out.sinCotizacion).toEqual({ cantidad: 1, ars: 300_000 });
+  });
+});
+
+describe("margen: un solo criterio en toda la app", () => {
+  it("margenPonderado coincide con el margen que sale de sumar margenPorTipo", () => {
+    const ventas = [
+      venta("2026-09-01", 1000, [
+        { detalle: "iPhone", cantidad: 1, precioUsd: 800, costoUsd: 600, categoria: "equipo" },
+        { detalle: "Funda sin costo", cantidad: 1, precioUsd: 200, categoria: "otro" },
+      ]),
+      venta("2026-09-02", 100, [
+        { detalle: "Cambio pantalla", cantidad: 1, precioUsd: 100, costoUsd: 40, categoria: "servicio" },
+      ]),
+    ];
+    const tipos = margenPorTipo(ventas);
+    const ganancia = tipos.reduce((a, t) => a + t.gananciaUsd, 0);
+    const base = tipos.reduce((a, t) => a + t.facturacionUsd, 0);
+    // El ítem sin costo no entra en ninguno de los dos.
+    expect(margenPonderado(ventas)).toBeCloseTo((ganancia / base) * 100, 6);
+    expect(margenPonderado(ventas)).toBeCloseTo(((200 + 60) / 900) * 100, 6);
+  });
+
+  it("sin ningún costo cargado no hay margen (null), no 100 %", () => {
+    const ventas = [venta("2026-09-01", 50, [{ detalle: "x", cantidad: 1, precioUsd: 50, categoria: "otro" }])];
+    expect(margenPonderado(ventas)).toBeNull();
   });
 });

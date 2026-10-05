@@ -1,15 +1,32 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { useMemo, useState, useTransition } from "react";
 import { Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
+import { SeccionTabla } from "@/components/ui/seccion-tabla";
+import { BarraFiltros } from "@/components/ui/barra-filtros";
+import {
+  GraficoBarrasAgrupadas,
+  GraficoBarrasVerticales,
+  GraficoDona,
+  GraficoRanking,
+} from "@/components/seccion/graficos";
 import { dotClass, movimientoTipo } from "@/lib/status";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
+import {
+  conteoMovimientos,
+  conteoRecuentos,
+  movimientosPorDia,
+  movimientosPorTipo,
+  recuentosPorMes,
+  unidadesAjustadasPorTipo,
+} from "@/lib/recuentos";
 import type {
   MovimientoItem,
   MovimientoTipo,
@@ -42,7 +59,6 @@ export function RecuentosClient({
   const [recuentos, setRecuentos] = useState<Recuento[]>(initialRecuentos);
   const [revisandoRecuentoId, setRevisandoRecuentoId] = useState<string | null>(null);
   const [viendoRecuentoId, setViendoRecuentoId] = useState<string | null>(null);
-  const pendientes = recuentos.filter((r) => r.estado === "pendiente").length;
 
   const [movimientos] = useState<MovimientoItem[]>(initialMovimientos);
   const [tipoFiltro, setTipoFiltro] = useState<"todos" | MovimientoTipo>("todos");
@@ -61,31 +77,159 @@ export function RecuentosClient({
         m.detalle.toLowerCase().includes(needle)),
   );
 
-  return (
-    <div className="space-y-5">
-      <Tabs
-        value={vista}
-        onChange={setVista}
-        options={[
-          { value: "recuentos", label: "Recuentos", count: recuentos.length },
-          { value: "movimientos", label: "Movimientos", count: movimientos.length },
-        ]}
-      />
+  // Agrupaciones de los gráficos y conteos de las tarjetas -- sobre el total
+  // de la pestaña (los filtros aplican solo a la tabla, mismo criterio que
+  // Clientes). Lógica pura en `lib/recuentos.ts`, con test.
+  const recuentosMes = useMemo(() => recuentosPorMes(recuentos), [recuentos]);
+  const recuentosTipo = useMemo(() => unidadesAjustadasPorTipo(recuentos), [recuentos]);
+  const kpisRecuentos = useMemo(() => conteoRecuentos(recuentos), [recuentos]);
 
-      {vista === "recuentos" ? (
-        <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <StatCard align="left" label="Recuentos" value={recuentos.length} />
+  const movimientosDia = useMemo(() => movimientosPorDia(movimientos), [movimientos]);
+  const movimientosTipo = useMemo(() => movimientosPorTipo(movimientos), [movimientos]);
+  const kpisMovimientos = useMemo(() => conteoMovimientos(movimientos), [movimientos]);
+
+  const contadorFiltrosMov =
+    (tipoFiltro !== "todos" ? 1 : 0) + (itemTipoFiltro !== "todos" ? 1 : 0) + (q ? 1 : 0);
+
+  return (
+    <SeccionTabla
+      id="recuentos"
+      graficos={
+        vista === "recuentos" ? (
+          <>
+            <GraficoBarrasAgrupadas
+              title="Recuentos por mes"
+              sub="Revisados vs pendientes"
+              labels={recuentosMes.map((p) => p.label)}
+              series={[
+                { name: "Revisados", values: recuentosMes.map((p) => p.revisados) },
+                { name: "Pendientes", values: recuentosMes.map((p) => p.pendientes) },
+              ]}
+              vacio="Sin recuentos registrados."
+            />
+            <GraficoRanking
+              title="Unidades ajustadas por tipo"
+              sub="Diferencias aplicadas al stock"
+              rows={recuentosTipo}
+              vacio="Sin ajustes aplicados todavía."
+            />
+          </>
+        ) : (
+          <>
+            <GraficoBarrasVerticales
+              title="Movimientos por día"
+              sub="Historial completo"
+              rows={movimientosDia}
+              vacio="Sin movimientos registrados."
+            />
+            <GraficoDona
+              title="Por tipo"
+              sub="Historial completo"
+              data={movimientosTipo}
+              legend="list"
+              vacio="Sin movimientos registrados."
+            />
+          </>
+        )
+      }
+      tarjetas={
+        vista === "recuentos" ? (
+          <>
+            <StatCard align="left" label="Recuentos" value={kpisRecuentos.total} />
             <StatCard
               align="left"
               label="Pendientes"
-              value={pendientes}
-              valueClassName={pendientes ? "text-amber-600" : undefined}
+              value={kpisRecuentos.pendientes}
               hint="de revisar"
+              valueClassName={kpisRecuentos.pendientes ? "text-amber-600" : undefined}
             />
-            <StatCard align="left" label="Revisados" value={recuentos.length - pendientes} />
-          </div>
-
+            <StatCard align="left" label="Revisados" value={kpisRecuentos.revisados} />
+            <StatCard
+              align="left"
+              label="Con diferencias"
+              value={kpisRecuentos.conDiferencias}
+              hint="requirieron revisión"
+            />
+          </>
+        ) : (
+          <>
+            <StatCard align="left" label="Movimientos" value={kpisMovimientos.total} />
+            <StatCard align="left" label="Ingresos" value={kpisMovimientos.ingresos} />
+            <StatCard align="left" label="Egresos" value={kpisMovimientos.egresos} />
+            <StatCard
+              align="left"
+              label="Ajustes"
+              value={kpisMovimientos.ajustes}
+              hint="incluye recuentos"
+            />
+          </>
+        )
+      }
+      filtros={
+        <BarraFiltros
+          contadorFiltros={vista === "movimientos" ? contadorFiltrosMov : 0}
+          tabs={
+            <Tabs
+              value={vista}
+              onChange={setVista}
+              className="w-full justify-between md:w-auto md:justify-start"
+              options={[
+                { value: "recuentos", label: "Recuentos", count: recuentos.length },
+                { value: "movimientos", label: "Movimientos", count: movimientos.length },
+              ]}
+            />
+          }
+          busqueda={
+            vista === "movimientos" ? (
+              <div className="relative w-full sm:w-64">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Buscar por ítem, usuario o detalle…"
+                  className={cn("w-full pl-9", filterPill)}
+                  aria-label="Buscar movimientos"
+                />
+              </div>
+            ) : undefined
+          }
+          filtros={
+            vista === "movimientos" ? (
+              <>
+                <Select
+                  value={tipoFiltro}
+                  onChange={(e) => setTipoFiltro(e.target.value as typeof tipoFiltro)}
+                  className="sm:w-44"
+                  aria-label="Filtrar por tipo de movimiento"
+                >
+                  <option value="todos">Todos los tipos</option>
+                  {(Object.keys(movimientoTipo) as MovimientoTipo[]).map((t) => (
+                    <option key={t} value={t}>
+                      {movimientoTipo[t].label}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  value={itemTipoFiltro}
+                  onChange={(e) => setItemTipoFiltro(e.target.value as typeof itemTipoFiltro)}
+                  className="sm:w-52"
+                  aria-label="Filtrar por tipo de ítem"
+                >
+                  <option value="todos">Equipos, repuestos y otros</option>
+                  {(Object.keys(ITEM_TIPO_LABEL) as MovimientoItem["itemTipo"][]).map((t) => (
+                    <option key={t} value={t}>
+                      {ITEM_TIPO_LABEL[t]}
+                    </option>
+                  ))}
+                </Select>
+              </>
+            ) : undefined
+          }
+        />
+      }
+    >
+      {vista === "recuentos" ? (
+        <>
           <div className="space-y-2 md:hidden">
             {recuentos.map((r) => (
               <RecuentoCard
@@ -97,7 +241,7 @@ export function RecuentosClient({
               />
             ))}
             {recuentos.length === 0 && (
-              <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+              <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
                 Sin recuentos todavía. Se cargan desde Inventario → «Recuento»,
                 en cada pestaña (Equipos/Repuestos/Otros).
               </p>
@@ -106,7 +250,7 @@ export function RecuentosClient({
           <Card className="hidden overflow-hidden md:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-neutral-100 text-xs text-neutral-400">
+                <tr className="border-b border-neutral-100 text-xs text-neutral-500">
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Fecha</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Tipo</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Responsable</th>
@@ -127,7 +271,7 @@ export function RecuentosClient({
                 ))}
                 {recuentos.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-10 text-center text-sm text-neutral-400">
+                    <td colSpan={6} className="px-5 py-10 text-center text-sm text-neutral-500">
                       Sin recuentos todavía. Se cargan desde Inventario → «Recuento», en
                       cada pestaña (Equipos/Repuestos/Otros).
                     </td>
@@ -138,7 +282,7 @@ export function RecuentosClient({
           </Card>
 
           <RevisarRecuentoDialog
-            key={revisandoRecuentoId ?? "none"}
+            key={revisandoRecuentoId ?? "revisar-none"}
             recuento={recuentos.find((r) => r.id === revisandoRecuentoId) ?? null}
             onClose={() => setRevisandoRecuentoId(null)}
             onResuelto={(resuelto) => {
@@ -156,48 +300,12 @@ export function RecuentosClient({
         </>
       ) : (
         <>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:w-64">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-              <Input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar por ítem, usuario o detalle…"
-                className={cn("w-full pl-9", filterPill)}
-              />
-            </div>
-            <Select
-              value={tipoFiltro}
-              onChange={(e) => setTipoFiltro(e.target.value as typeof tipoFiltro)}
-              className="sm:w-44"
-            >
-              <option value="todos">Todos los tipos</option>
-              {(Object.keys(movimientoTipo) as MovimientoTipo[]).map((t) => (
-                <option key={t} value={t}>
-                  {movimientoTipo[t].label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              value={itemTipoFiltro}
-              onChange={(e) => setItemTipoFiltro(e.target.value as typeof itemTipoFiltro)}
-              className="sm:w-40"
-            >
-              <option value="todos">Equipos, repuestos y otros</option>
-              {(Object.keys(ITEM_TIPO_LABEL) as MovimientoItem["itemTipo"][]).map((t) => (
-                <option key={t} value={t}>
-                  {ITEM_TIPO_LABEL[t]}
-                </option>
-              ))}
-            </Select>
-          </div>
-
           <div className="space-y-2 md:hidden">
             {movimientosFiltrados.map((m, i) => (
               <MovimientoCard key={i} movimiento={m} />
             ))}
             {movimientosFiltrados.length === 0 && (
-              <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+              <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
                 Sin movimientos para estos filtros.
               </p>
             )}
@@ -205,7 +313,7 @@ export function RecuentosClient({
           <Card className="hidden overflow-hidden md:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-neutral-100 text-xs text-neutral-400">
+                <tr className="border-b border-neutral-100 text-xs text-neutral-500">
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Fecha</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Tipo</th>
                   <th className={cn("px-5 py-3 text-center", thDivider)}>Ítem</th>
@@ -219,7 +327,7 @@ export function RecuentosClient({
                 ))}
                 {movimientosFiltrados.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-10 text-center text-sm text-neutral-400">
+                    <td colSpan={5} className="px-5 py-10 text-center text-sm text-neutral-500">
                       Sin movimientos para estos filtros.
                     </td>
                   </tr>
@@ -229,7 +337,7 @@ export function RecuentosClient({
           </Card>
         </>
       )}
-    </div>
+    </SeccionTabla>
   );
 }
 
@@ -262,7 +370,7 @@ function MovimientoRow({ movimiento: m }: { movimiento: MovimientoItem }) {
     <tr className="border-t border-neutral-100 first:border-t-0">
       <td className="px-5 py-2 text-center text-neutral-500">
         {m.fecha}
-        <span className="block text-xs text-neutral-400">{m.hora}</span>
+        <span className="block text-xs text-neutral-500">{m.hora}</span>
       </td>
       <td className="px-5 py-2 text-center">
         <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
@@ -271,7 +379,7 @@ function MovimientoRow({ movimiento: m }: { movimiento: MovimientoItem }) {
         </span>
       </td>
       <td className="max-w-[180px] truncate px-5 py-2 text-center">
-        <span className="text-neutral-400">{ITEM_TIPO_LABEL[m.itemTipo]}</span> {m.itemNombre}
+        <span className="text-neutral-500">{ITEM_TIPO_LABEL[m.itemTipo]}</span> {m.itemNombre}
       </td>
       <td className="px-5 py-2 text-center">{m.usuario}</td>
       <td className="max-w-[320px] truncate px-5 py-2 text-start">{m.detalle}</td>
@@ -320,20 +428,20 @@ function RecuentoCard({
         </span>
       </div>
       {puedeRevisar ? (
-        <button
+        <Button
           onClick={onRevisar}
-          className="mt-2.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-accent/40 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+          variant="tonal" size="sm" fullOnMobile
         >
           Revisar
-        </button>
+        </Button>
       ) : (
         r.estado === "revisado" && (
-          <button
+          <Button
             onClick={onVer}
-            className="mt-2.5 flex h-8 w-full items-center justify-center gap-1.5 rounded-full border border-neutral-200 text-xs font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            variant="outline" size="sm" fullOnMobile
           >
             Ver detalle
-          </button>
+          </Button>
         )
       )}
     </Card>
@@ -357,7 +465,7 @@ function RecuentoRow({
     <tr className="border-t border-neutral-100 first:border-t-0">
       <td className="px-5 py-2 text-center text-neutral-500">
         {r.fecha}
-        <span className="block text-xs text-neutral-400">{r.hora}</span>
+        <span className="block text-xs text-neutral-500">{r.hora}</span>
       </td>
       <td className="px-5 py-2 text-center">{RECUENTO_TIPO_LABEL[r.tipo]}</td>
       <td className="px-5 py-2 text-center">{r.responsable}</td>
@@ -370,19 +478,19 @@ function RecuentoRow({
       </td>
       <td className="px-5 py-2 text-center">
         {puedeRevisar ? (
-          <button
+          <Button
             onClick={onRevisar}
-            className="mx-auto flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-accent/40 px-3 text-xs font-semibold text-accent transition-colors hover:border-accent/70 hover:bg-accent-soft"
+            variant="tonal" size="sm"
           >
             Revisar
-          </button>
+          </Button>
         ) : r.estado === "revisado" ? (
-          <button
+          <Button
             onClick={onVer}
-            className="mx-auto flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-neutral-200 px-3 text-xs font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            variant="outline" size="sm"
           >
             Ver detalle
-          </button>
+          </Button>
         ) : (
           <span className="text-xs text-neutral-300">—</span>
         )}
@@ -471,7 +579,6 @@ function RevisarRecuentoDialog({
     <Dialog
       open={!!recuento}
       onClose={onClose}
-      accent
       size="lg"
       title={
         recuento
@@ -487,27 +594,27 @@ function RevisarRecuentoDialog({
       }
       footer={
         readOnly ? (
-          <button
+          <Button
             onClick={onClose}
-            className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:ml-auto sm:w-auto"
+            variant="outline" fullOnMobile
           >
             Cerrar
-          </button>
+          </Button>
         ) : (
           <>
-            <button
+            <Button
               onClick={onClose}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full border border-neutral-200 px-4 text-sm font-semibold text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 sm:w-auto"
+              variant="outline" fullOnMobile
             >
               Cancelar
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={guardar}
               disabled={!todasResueltas || pending}
-              className="flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent/90 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+              variant="primary" fullOnMobile
             >
               {pending ? "Guardando…" : "Guardar revisión"}
-            </button>
+            </Button>
           </>
         )
       }
@@ -520,7 +627,7 @@ function RevisarRecuentoDialog({
             </p>
           )}
           {recuento.lineas.length === 0 && (
-            <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+            <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
               Sin diferencias -- lo contado coincidió con el sistema en todo.
             </p>
           )}

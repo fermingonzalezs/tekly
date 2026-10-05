@@ -11,20 +11,23 @@ type MovimientoCCRow = {
   concepto: string;
   tipo: "cargo" | "pago";
   monto_usd: number;
+  ticket_id: number | null;
   usuario_nombre: string;
 };
 
-const COLS = "id, cliente_id, fecha, concepto, tipo, monto_usd, usuario_nombre";
+const COLS = "id, cliente_id, fecha, concepto, tipo, monto_usd, ticket_id, usuario_nombre";
 
 function toMovimiento(row: MovimientoCCRow): MovimientoCC {
   return {
     id: row.id,
     clienteId: row.cliente_id,
     fecha: fmtDayMonth(row.fecha),
+    fechaISO: row.fecha.slice(0, 10),
     hora: fmtTime(row.fecha),
     concepto: row.concepto,
     tipo: row.tipo,
     montoUsd: row.monto_usd,
+    ticketId: row.ticket_id ?? null,
     usuario: row.usuario_nombre,
   };
 }

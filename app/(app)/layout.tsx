@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
+import { requiereAceptarTerminos } from "@/lib/legal";
 import { getNegocio } from "@/lib/db/configuracion";
 import { TopNav } from "@/components/topnav";
 import { Toaster } from "@/components/notifications/toaster";
@@ -12,6 +14,9 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const [user, negocio] = await Promise.all([requireUser(), getNegocio()]);
+  // Invitados y usuarios previos aceptan la versión vigente de Términos y
+  // Privacidad al primer ingreso (solo cuando los textos ya no son borrador).
+  if (requiereAceptarTerminos(user.terminosVersion)) redirect("/aceptar-terminos");
 
   return (
     <RealtimeProvider organizationId={user.organizationId}>

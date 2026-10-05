@@ -5,12 +5,28 @@ const config: Config = {
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./lib/**/*.{ts,tsx}",
+    "./mdx-components.tsx",
+    "./content/**/*.mdx",
   ],
   theme: {
     extend: {
       fontFamily: {
+        // Texto de toda la app (Sora, cargada en app/layout.tsx). Pisa el
+        // stack por defecto de `font-sans`.
+        sans: [
+          "var(--font-sora)",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "Roboto",
+          "sans-serif",
+        ],
+        // PRUEBA: `font-grotesk` (números hero, etiquetas chicas, marca) usa
+        // Sora en vez de Space Grotesk. Para volver: restaurar
+        // "var(--font-space-grotesk)" acá.
         grotesk: [
-          "var(--font-space-grotesk)",
+          "var(--font-sora)",
           "ui-sans-serif",
           "system-ui",
           "sans-serif",

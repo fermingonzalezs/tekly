@@ -70,7 +70,7 @@ export function TurnosHeatmap({
         Turnos agendados
       </ChartTitle>
 
-      <div className="mt-3 flex flex-col gap-5 border-t border-neutral-100 pt-3 sm:flex-row">
+      <div className="mt-3 flex flex-1 flex-col gap-5 border-t border-neutral-100 pt-3 sm:flex-row">
         {/* IZQUIERDA: próximos turnos */}
         <div className="flex w-full flex-col justify-center gap-2 sm:w-48 sm:shrink-0">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
@@ -82,12 +82,12 @@ export function TurnosHeatmap({
                 key={t.id}
                 className="flex items-baseline justify-between gap-3 py-1.5"
               >
-                <span className="shrink-0 tabular-nums text-neutral-400">
+                <span className="shrink-0 tabular-nums text-neutral-500">
                   {whenLabel(t.dayOffset)} {t.hora}
                 </span>
                 <span className="min-w-0 truncate">
                   {t.cliente}{" "}
-                  <span className="text-neutral-400">
+                  <span className="text-neutral-500">
                     ({turnoTipo[t.tipo].label})
                   </span>
                 </span>
@@ -96,8 +96,11 @@ export function TurnosHeatmap({
           </ul>
         </div>
 
-        {/* DERECHA: calendario -- no entra en mobile, solo tablet+ */}
-        <div className="hidden min-w-0 flex-1 border-l border-neutral-200 pl-5 sm:block">
+        {/* DERECHA: calendario -- no entra en mobile, solo tablet+. Columna
+            flex: las filas de la grilla se estiran para ocupar todo el alto
+            que da la card (la lista "Próximos" de la izquierda suele ser más
+            alta que 3 filas de celdas cuadradas y dejaba un hueco abajo). */}
+        <div className="hidden min-w-0 flex-1 flex-col border-l border-neutral-200 pl-5 sm:flex">
           {/* encabezado de días */}
           <div className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] gap-1">
             <span />
@@ -113,15 +116,15 @@ export function TurnosHeatmap({
 
           {/* filas: franja + celdas */}
           <div
-            className="mt-1.5 space-y-1.5"
+            className="mt-1.5 grid flex-1 grid-rows-3 gap-1.5"
             onMouseLeave={() => setHover(null)}
           >
             {FRANJAS.map((f, fi) => (
               <div
                 key={f.label}
-                className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] items-center gap-1"
+                className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] gap-1"
               >
-                <span className="text-start text-[11px] text-neutral-400">
+                <span className="self-center text-start text-[11px] text-neutral-500">
                   {f.label}
                 </span>
                 {grid[fi].map((count, di) => {
@@ -131,7 +134,7 @@ export function TurnosHeatmap({
                   return (
                     <div
                       key={di}
-                      className="relative flex aspect-square cursor-pointer items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-white"
+                      className="relative flex h-full min-h-8 cursor-pointer items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-white"
                       style={{ background: bg }}
                       onMouseEnter={() => setHover({ fi, di })}
                       onClick={() => router.push("/turnos")}

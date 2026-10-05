@@ -11,7 +11,7 @@ export default async function RecuentosPage() {
   ]);
 
   return (
-    <Section title="Recuentos">
+    <Section title="Recuentos" ayuda="recuentos">
       <RecuentosClient initialRecuentos={recuentos} initialMovimientos={movimientos} user={user} />
     </Section>
   );
