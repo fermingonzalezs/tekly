@@ -6,3 +6,6 @@ next-env.d.ts
 # build info
 tsconfig.tsbuildinfo
 graphify-out
+
+# opencode (contiene tokens de auth)
+.opencode
