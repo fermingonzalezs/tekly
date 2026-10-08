@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 const base =
-  "h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm outline-none transition-colors focus:border-accent disabled:bg-neutral-50 disabled:text-neutral-400";
+  "h-9 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-900 outline-none transition-colors focus:border-accent disabled:bg-neutral-50 disabled:text-neutral-400";
 
 export function Label({
   children,

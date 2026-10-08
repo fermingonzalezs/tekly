@@ -1,16 +1,26 @@
+// `useGrouping: "always"`: el locale es-AR por default NO agrupa los números
+// de 4 dígitos ("1465" en vez de "1.465"); así el punto de miles aparece siempre.
 const ars = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",
   maximumFractionDigits: 0,
+  useGrouping: "always",
+});
+const num = new Intl.NumberFormat("es-AR", { useGrouping: "always" });
+const num1 = new Intl.NumberFormat("es-AR", {
+  maximumFractionDigits: 1,
+  useGrouping: "always",
 });
 
 /** Montos en dólares: "U$ 48.250" (separador de miles con punto, es-AR). */
 export const fmtUsd = (n: number) =>
-  `U$ ${Math.round(n).toLocaleString("es-AR")}`;
+  `U$ ${num.format(Math.round(n))}`;
 
 export const fmtArs = (n: number) => ars.format(n);
 export const fmtPct = (n: number) => `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
-export const fmtNum = (n: number) => n.toLocaleString("es-AR");
+export const fmtNum = (n: number) => num.format(n);
+/** Un decimal máximo, con miles agrupados ("12.345,6"). */
+export const fmtNum1 = (n: number) => num1.format(n);
 
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",

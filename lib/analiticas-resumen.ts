@@ -52,6 +52,7 @@ import {
 import { enRango, hoyISO, sumarDias, type Rango } from "@/lib/date-presets";
 import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, margenPonderado, type Rubro } from "@/lib/ventas";
 import { chartColor } from "@/lib/chart";
+import { fmtNum } from "@/lib/format";
 import { medioPago as medioPagoCfg, categoriaGasto as categoriaGastoCfg } from "@/lib/status";
 import {
   SIN_PROCEDENCIA,
@@ -422,7 +423,7 @@ export function resumenFinanzas(
     label: r.label,
     pct: Math.round((r.value / totalMedio) * 100),
     color: chartColor(i),
-    valueLabel: `U$ ${Math.round(r.value).toLocaleString("es-AR")}`,
+    valueLabel: `U$ ${fmtNum(Math.round(r.value))}`,
   }));
 
   const porId = new Map(cajas.map((c) => [c.id, c]));

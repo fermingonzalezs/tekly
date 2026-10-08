@@ -1,3 +1,4 @@
+import { fmtNum, fmtNum1 } from "@/lib/format";
 // Paleta única de todos los gráficos de la app (dashboard, analíticas, …).
 // Monocromática: mayor valor = tono más oscuro. Mismo índice ⇒ mismo color
 // en cualquier card. Los valores son CSS vars (--chart-*, --accent-soft) que
@@ -87,6 +88,6 @@ export function ticksEje(max: number): number[] {
 /** Monto para ejes/etiquetas compactas: "U$ 500" / "U$ 1,5k" / "0". */
 export function fmtUsdCompact(n: number): string {
   if (n === 0) return "0";
-  if (Math.abs(n) < 1000) return `U$ ${n.toLocaleString("es-AR")}`;
-  return `U$ ${(n / 1000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}k`;
+  if (Math.abs(n) < 1000) return `U$ ${fmtNum(n)}`;
+  return `U$ ${fmtNum1(n / 1000)}k`;
 }

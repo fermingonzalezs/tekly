@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2, FileText } from "lucide-react";
@@ -653,64 +653,72 @@ function NuevaCompraDialog({
         </>
       }
     >
-      <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5 lg:space-y-0">
-        <div
-          className={cn(
-            "grid gap-3",
-            cajasDelMedio.length > 0 ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-2",
-          )}
-        >
-          <Field label="Proveedor">
-            <Input
-              value={proveedor}
-              onChange={(e) => setProveedor(e.target.value)}
-              placeholder="Ej. Tecno Import"
-            />
-          </Field>
-          <Field label="Medio de pago">
-            <Select
-              value={medioPago}
-              onChange={(e) => {
-                const medio = e.target.value as MedioPago;
-                setMedioPago(medio);
-                setCajaId(cajas.find((c) => c.activa && c.medioPago === medio)?.id ?? null);
-              }}
-            >
-              {MEDIOS.map((m) => (
-                <option key={m} value={m}>
-                  {medioPagoCfg[m].label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          {cajasDelMedio.length > 0 && (
-            <Field label="Caja">
-              <Select value={cajaId ?? ""} onChange={(e) => setCajaId(e.target.value)}>
-                {cajasDelMedio.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
+      <div className="space-y-5">
+        <section>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+            Datos de la compra
+          </p>
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-3.5",
+              cajasDelMedio.length > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2",
+            )}
+          >
+            <Field label="Proveedor">
+              <Input
+                value={proveedor}
+                onChange={(e) => setProveedor(e.target.value)}
+                placeholder="Ej. Tecno Import"
+              />
+            </Field>
+            <Field label="Medio de pago">
+              <Select
+                value={medioPago}
+                onChange={(e) => {
+                  const medio = e.target.value as MedioPago;
+                  setMedioPago(medio);
+                  setCajaId(cajas.find((c) => c.activa && c.medioPago === medio)?.id ?? null);
+                }}
+              >
+                {MEDIOS.map((m) => (
+                  <option key={m} value={m}>
+                    {medioPagoCfg[m].label}
                   </option>
                 ))}
               </Select>
             </Field>
-          )}
-        </div>
+            {cajasDelMedio.length > 0 && (
+              <Field label="Caja">
+                <Select value={cajaId ?? ""} onChange={(e) => setCajaId(e.target.value)}>
+                  {cajasDelMedio.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+          </div>
+        </section>
 
-        <div className="lg:row-span-2">
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+        <section className="border-t border-neutral-200 pt-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Ítems
           </p>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {items.map((item, idx) => (
-              <div key={idx} className="flex items-end gap-2">
-                <Field label="Detalle" className="flex-1">
+              <div
+                key={idx}
+                className="grid grid-cols-[minmax(0,1fr)_5rem_minmax(0,8rem)_auto] items-end gap-2.5 max-sm:grid-cols-[5rem_minmax(0,1fr)_auto] max-sm:rounded-lg max-sm:border max-sm:border-neutral-200 max-sm:p-2.5"
+              >
+                <Field label="Detalle" className="max-sm:col-span-3">
                   <Input
                     value={item.detalle}
                     onChange={(e) => updateItem(idx, { detalle: e.target.value })}
                     placeholder="Ej. Pantalla OLED iPhone 13"
                   />
                 </Field>
-                <Field label="Cant." className="w-20">
+                <Field label="Cant.">
                   <Input
                     type="number"
                     min={1}
@@ -718,7 +726,7 @@ function NuevaCompraDialog({
                     onChange={(e) => updateItem(idx, { cantidad: Number(e.target.value) })}
                   />
                 </Field>
-                <Field label="Costo unit. (USD)" className="w-32">
+                <Field label="Costo unit. (USD)">
                   <Input
                     type="number"
                     min={0}
@@ -726,35 +734,39 @@ function NuevaCompraDialog({
                     onChange={(e) => updateItem(idx, { costoUsd: Number(e.target.value) })}
                   />
                 </Field>
-                <button
+                <IconButton
+                  aria-label="Quitar ítem"
+                  icon={Trash2}
+                  variant="danger-ghost"
                   onClick={() => removeItem(idx)}
                   disabled={items.length === 1}
-                  className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:pointer-events-none disabled:opacity-30"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                />
               </div>
             ))}
           </div>
-          <Button icon={Plus}
-            onClick={() => setItems((prev) => [...prev, { detalle: "", cantidad: 1, costoUsd: 0 }])}
-            variant="tonal"
-          >
-            Agregar ítem
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
-          <span className="font-medium text-neutral-500">Total</span>
-          <span className="text-end">
-            <span className="block font-semibold tabular-nums">{fmtUsd(total)}</span>
-            {(medioPago === "pesos" || pagaEnArs) && (
-              <span className="block text-[11px] font-normal text-neutral-400">
-                {fmtArs(Math.round(total * dolarVenta))} · cotización {fmtArs(dolarVenta)}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <Button
+              icon={Plus}
+              onClick={() => setItems((prev) => [...prev, { detalle: "", cantidad: 1, costoUsd: 0 }])}
+              variant="tonal"
+            >
+              Agregar ítem
+            </Button>
+            <div className="ml-auto flex items-baseline gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                Total
               </span>
-            )}
-          </span>
-        </div>
+              <span className="text-end">
+                <span className="block text-base font-semibold tabular-nums">{fmtUsd(total)}</span>
+                {(medioPago === "pesos" || pagaEnArs) && (
+                  <span className="block text-[11px] font-normal tabular-nums text-neutral-500">
+                    {fmtArs(Math.round(total * dolarVenta))} · cotización {fmtArs(dolarVenta)}
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+        </section>
       </div>
     </Dialog>
   );

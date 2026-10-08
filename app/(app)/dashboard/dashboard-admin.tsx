@@ -79,44 +79,43 @@ export function DashboardAdmin({
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         <MetricCards metrics={metrics} />
 
-        <div className="grid min-h-0 flex-1 items-stretch gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          {/* Columna izquierda: tendencia (se estira) + rubros/objetivo */}
-          <div className="flex min-h-0 min-w-0 flex-col gap-3">
-            <TrendChart
-              className="min-h-0 flex-1"
-              venta={trend.venta}
-              ganancia={trend.ganancia}
-              fechas={trend.fechas}
-              rubroMix={rubrosPorPeriodo[periodo]}
-              sub={meta.trendSub}
-            />
-            <div className="grid min-w-0 shrink-0 gap-3 sm:grid-cols-2">
-              <Card className="flex min-w-0 flex-col p-4">
-                <RubrosPie
-                  data={rubrosPorPeriodo[periodo]}
-                  totalFacturado={objetivo.current}
-                />
-              </Card>
-              <ObjetivoPanel
-                current={objetivo.current}
-                dayOfMonth={objetivo.dayOfMonth}
-                daysInMonth={objetivo.daysInMonth}
-                prevMes={objetivo.prevMes}
-                prevTotal={objetivo.prevTotal}
-                target={objetivoTarget}
+        {/* Grilla 2×2 en xl: fila de arriba a su alto natural (rubros/objetivo |
+            turnos), fila de abajo reparte el resto -- así tendencia y ventas
+            recientes miden siempre lo mismo. */}
+        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:col-start-1 xl:row-start-1">
+            <Card className="flex min-w-0 flex-col p-4">
+              <RubrosPie
+                data={rubrosPorPeriodo[periodo]}
+                totalFacturado={objetivo.current}
               />
-            </div>
-          </div>
-
-          {/* Columna derecha: turnos arriba, ventas recientes ocupan el resto */}
-          <div className="flex min-h-0 min-w-0 flex-col gap-3">
-            <TurnosHeatmap className="shrink-0" turnos={turnos} />
-            <RecentSales
-              className="min-h-[150px] flex-1 xl:min-h-0"
-              sales={recentSales}
-              ventasHref={ventasHref}
+            </Card>
+            <ObjetivoPanel
+              current={objetivo.current}
+              dayOfMonth={objetivo.dayOfMonth}
+              daysInMonth={objetivo.daysInMonth}
+              prevMes={objetivo.prevMes}
+              prevTotal={objetivo.prevTotal}
+              target={objetivoTarget}
             />
           </div>
+          <TrendChart
+            className="min-h-[260px] min-w-0 xl:col-start-1 xl:row-start-2 xl:min-h-0"
+            venta={trend.venta}
+            ganancia={trend.ganancia}
+            fechas={trend.fechas}
+            rubroMix={rubrosPorPeriodo[periodo]}
+            sub={meta.trendSub}
+          />
+          <TurnosHeatmap
+            className="min-w-0 xl:col-start-2 xl:row-start-1"
+            turnos={turnos}
+          />
+          <RecentSales
+            className="min-h-[150px] min-w-0 xl:col-start-2 xl:row-start-2 xl:min-h-0"
+            sales={recentSales}
+            ventasHref={ventasHref}
+          />
         </div>
       </div>
     </Section>

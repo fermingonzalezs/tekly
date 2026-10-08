@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import { fmtUsd, fmtDateSlash } from "@/lib/format";
+import { fmtUsd, fmtDateSlash, fmtNum } from "@/lib/format";
 import {
   DIAS_NUEVO,
   DIAS_RIESGO,
@@ -171,5 +171,5 @@ function Vacio({ texto }: { texto: string }) {
 }
 
 function fmtNumDias(n: number | null) {
-  return n == null ? "—" : n.toLocaleString("es-AR");
+  return n == null ? "—" : fmtNum(n);
 }

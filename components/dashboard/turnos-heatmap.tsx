@@ -116,7 +116,7 @@ export function TurnosHeatmap({
 
           {/* filas: franja + celdas */}
           <div
-            className="mt-1.5 grid flex-1 grid-rows-3 gap-1.5"
+            className="mt-1.5 grid grid-rows-3 gap-1.5"
             onMouseLeave={() => setHover(null)}
           >
             {FRANJAS.map((f, fi) => (
@@ -134,7 +134,7 @@ export function TurnosHeatmap({
                   return (
                     <div
                       key={di}
-                      className="relative flex h-full min-h-8 cursor-pointer items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-white"
+                      className="relative flex aspect-square cursor-pointer items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-white"
                       style={{ background: bg }}
                       onMouseEnter={() => setHover({ fi, di })}
                       onClick={() => router.push("/turnos")}

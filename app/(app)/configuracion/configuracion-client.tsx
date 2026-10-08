@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { fmtNum } from "@/lib/format";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { dotClass, rolLabel, rolTone, medioPago as medioPagoCfg, MEDIOS_VENTA } from "@/lib/status";
 import { thDivider } from "@/lib/ui-styles";
@@ -623,12 +624,17 @@ function PreferenciasForm({ negocio }: { negocio: Negocio }) {
                 Objetivo del mes
               </p>
               <Field label="Objetivo del mes (USD)">
+                {/* type="text": un number no puede mostrar el punto de miles */}
                 <Input
-                  type="number"
-                  min={0}
-                  value={form.objetivoMesUsd}
+                  type="text"
+                  inputMode="numeric"
+                  value={form.objetivoMesUsd ? fmtNum(form.objetivoMesUsd) : ""}
+                  placeholder="0"
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, objetivoMesUsd: Number(e.target.value) }))
+                    setForm((f) => ({
+                      ...f,
+                      objetivoMesUsd: Number(e.target.value.replace(/\D/g, "")),
+                    }))
                   }
                 />
               </Field>
