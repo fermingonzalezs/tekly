@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/tekly-logo-kit/tekly-favicon-32.svg", type: "image/svg+xml" },
+      { url: "/tekly-logo-kit/tekly-favicon.svg", type: "image/svg+xml" },
     ],
     apple: "/tekly-logo-kit/png/tekly-icono-180.png",
   },

@@ -5,6 +5,7 @@ import { ChartTitle } from "@/components/ui/chart-title";
 import { listOrganizacionesRaw } from "@/lib/db/admin";
 import { metricasPorOrganizacion } from "@/lib/admin-metrics";
 import { fmtDayMonth, fmtMonthYear, fmtUsd } from "@/lib/format";
+import { PLANES, type PlanId } from "@/lib/planes";
 import { cn } from "@/lib/utils";
 import { thDivider } from "@/lib/ui-styles";
 
@@ -44,7 +45,7 @@ export default async function AdminOverviewPage() {
         </ChartTitle>
         <Card className="mt-3 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm [&_td]:text-center [&_th]:text-center">
               <thead>
                 <tr className="text-xs">
                   <th className={cn("px-5 py-3", thDivider)}>Organización</th>
@@ -76,7 +77,7 @@ export default async function AdminOverviewPage() {
                       >
                         {m.nombre}
                       </Link>
-                      <p className="text-xs text-neutral-500">{m.plan}</p>
+                      <p className="text-xs text-neutral-500">{PLANES[m.plan as PlanId]?.label ?? m.plan}</p>
                     </td>
                     <td className="px-5 py-2.5 text-neutral-500">
                       {fmtMonthYear(m.creadaEl)}

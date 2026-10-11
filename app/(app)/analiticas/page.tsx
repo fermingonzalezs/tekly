@@ -43,11 +43,12 @@ import { AnaliticasClient } from "./analiticas-client";
 /** Analíticas = solo admin (márgenes, costos, ganancia). El cálculo va por
  * pestaña acá en el server: al cliente solo le llegan agregados
  * serializables, nunca arrays crudos de la historia (ver plan 008). */
-export default async function AnaliticasPage({
-  searchParams,
-}: {
-  searchParams: SearchParamsInput;
-}) {
+export default async function AnaliticasPage(
+  props: {
+    searchParams: Promise<SearchParamsInput>;
+  }
+) {
+  const searchParams = await props.searchParams;
   await requireRole("admin");
   const filtros = parseFiltrosAnaliticas(searchParams);
   const ahora = new Date();

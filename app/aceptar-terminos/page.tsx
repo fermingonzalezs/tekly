@@ -10,11 +10,12 @@ import { aceptarTerminosAction } from "./actions";
 /** Pantalla bloqueante: invitados y usuarios que todavía no aceptaron la
  * versión vigente de los Términos/Privacidad (plan 012). `(app)/layout.tsx`
  * redirige acá; si ya aceptó, vuelve al dashboard. */
-export default async function AceptarTerminosPage({
-  searchParams,
-}: {
-  searchParams: { error?: string };
-}) {
+export default async function AceptarTerminosPage(
+  props: {
+    searchParams: Promise<{ error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const user = await requireUser();
   if (!requiereAceptarTerminos(user.terminosVersion)) redirect("/dashboard");
 

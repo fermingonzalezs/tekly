@@ -42,7 +42,7 @@ no a mano por el dashboard.
 
 ## Stack
 
-Next.js 14 (App Router) · React 18 · TypeScript · Tailwind 3 · `lucide-react`.
+Next.js 15 (App Router; `cookies()`/`headers()`/`params`/`searchParams` son async) · React 18 · TypeScript · Tailwind 3 · `lucide-react`.
 Sin shadcn/ui instalado — los componentes son propios, en `components/ui/`.
 Alias de import: `@/*` → raíz del repo.
 
@@ -274,6 +274,21 @@ Errores reales que ya nos mordieron una vez — no repetirlos:
   se puede reasignar `organization_id` a otra fila). Nunca `auth.role() =
   'authenticated'` (deprecado, rompe con anon sign-ins) — el rol va en `to`.
 
+**Plan y rol también en la base (plan 016,
+`20261011200000_rls_plan_y_rol.sql`)**: la anon key es pública, así que las
+server actions no alcanzan — un usuario autenticado puede escribir directo
+contra la API REST. Las policies de `insert`/`update`/`delete` de las tablas
+de negocio exigen `org_puede_escribir()` (espejo de `estadoDeAcceso`,
+`lib/planes.ts`: si cambia una regla de plan, cambiar **las dos**) y el
+`delete` de las tablas cuyo borrado es admin-only exige
+`current_user_rol() = 'admin'`. Excepción deliberada: `ventas`, `venta_items`,
+`venta_item_repuestos`, `movimientos_caja`, `movimientos_cc` y `compras` no
+piden rol admin al borrar, porque `createVenta` compensa una falla borrando
+lo que alcanzó a crear con la sesión de un vendedor. **Una tabla nueva** lleva
+`org_puede_escribir()` en sus 3 policies de escritura. Pendiente: la lectura
+de `costo_usd`/margen por un vendedor sigue siendo solo de UI (haría falta
+privacidad por columna o una vista).
+
 Antes de dar una migración por terminada: `get_advisors` tipo `security` — no
 debería aparecer nada nuevo más allá de los 2 `WARN` esperados (RPC
 `security definer` llamables por `authenticated`, es intencional) y "leaked
@@ -447,10 +462,33 @@ compartidos vía `lib/ventas.ts`), agregando `costoUsd`/`precioUsd` por ítem;
 un ítem sin `costoUsd` cargado cuenta como operación pero no entra en el
 cálculo de margen.
 
+### Seguridad (revisión integral, plan 016)
+
+- `safeNextPath` (`lib/auth/next-path.ts`, con test) rechaza `\` y
+  caracteres de control (open redirect `/\evil.com`).
+- `middleware.ts`: el host de marketing ya **no** saltea la auth — solo pasan
+  sin sesión las rutas públicas; las rutas públicas coinciden por segmento
+  (`/demo`, `/demo/x`, no `/demoX`).
+- Logo (`uploadLogo`): solo PNG/JPG/WebP, ≤ 2 MB, extensión derivada del MIME.
+- Reportes de bug: tope de largo y 3 por minuto por usuario (cada uno manda
+  un mensaje a Telegram); `reportarBugAction` devuelve `{ error }`.
+- Actions de Cajas/Compras/Cuentas corrientes exigen `admin`/`tecnico` (antes
+  solo sesión; la nav las ocultaba al vendedor pero la action no).
+- `next.config.mjs`: headers de seguridad (nosniff, X-Frame-Options
+  SAMEORIGIN, Referrer-Policy, Permissions-Policy, HSTS) e
+  `images.unoptimized` (la app usa `<img>`, no `next/image`). **Falta CSP**:
+  requiere inventariar scripts (Turnstile, Sora, JSON-LD) y probarla en
+  report-only primero.
+- Pendiente: canales de Realtime **privados** (hoy `crm-events:<orgId>` es un
+  Broadcast público: quien conozca el UUID de la org escucha), Turnstile
+  obligatorio en producción, y `next@16` (el único advisory que queda en
+  `next` es el `postcss` que trae adentro, solo build-time).
+
 ### Qué falta antes de producción
 
-- **SMTP propio para Auth** (Resend/Postmark) — el email service default de
-  Supabase no es apto para volumen real de usuarios (rate limit muy bajo).
+- ~~**SMTP propio para Auth**~~ — **hecho** (Resend). Con eso los mails
+  llegan a cualquier usuario y el editor de Email Templates queda disponible
+  (los templates de `supabase/email-templates/` ya apuntan al kit v2).
 - **SMTP propio también es lo que destraba los templates**: con el email
   service default, Supabase solo entrega mails a direcciones que son miembros
   de la organización del proyecto (nadie más los recibe) y el editor de Email
@@ -470,6 +508,40 @@ cálculo de margen.
 - **Leaked password protection** (Authentication → Policies): desactivada
   por default, activar antes de producción.
 
+### Planes y prueba gratis (plan 015)
+
+Cada organización nueva arranca en **`trial` por 14 días sin tarjeta**
+(defaults de las columnas de `organizations`, el signup no pasa nada). Vencida
+la prueba, la cuenta pasa a **solo lectura**: se ve todo, no se escribe, y no se
+borra nada. Cobro hoy **por transferencia, a mano**: el admin de plataforma
+asigna plan/estado/fin de período desde `/admin/organizaciones/<id>`
+(`PlanOrgCard`, botón "+30 días"). Cuando haya proveedor de pagos (Mercado
+Pago), su webhook escribe esas mismas columnas.
+
+- **Columnas** (`20261011100000_planes_trial.sql`): `plan`
+  (`trial | starter | business | business_plus`), `plan_estado`
+  (`trial | activo | vencido | cancelado`), `trial_termina_at`,
+  `periodo_termina_at`. Las orgs previas al plan quedaron en `business_plus`
+  / `activo` sin vencimiento. Solo service role las escribe.
+- **Reglas puras** en `lib/planes.ts` (con test): `PLANES` (límites y precios
+  de referencia), `estadoDeAcceso` (`ok | trial | solo_lectura`, 3 días de
+  gracia sobre `periodo_termina_at`), `puedeEscribir`, `cupoUsuarios`. Límites:
+  **Starter 1, Business 3, Business+ 10 usuarios**; la prueba permite 3.
+- **Gating**: `SessionUser.suscripcion` viene de `getSession`.
+  `requireEscritura()` / `requireRoleEscritura(...)` (`lib/auth`) reemplazan a
+  `requireUser`/`requireRole` en **toda server action que muta** (redirigen a
+  `/plan` si la cuenta está en solo lectura). Una action nueva que escribe usa
+  esas; las de solo lectura (`getClienteHistorialAction`, buscador,
+  `updateOwnProfile`, `signOut`) siguen con `requireUser`. `inviteMember`
+  rechaza si el cupo del plan está lleno (cuenta perfiles activos, invitaciones
+  incluidas).
+- **UI**: `PlanBanner` (layout `(app)`: últimos 7 días de prueba o solo
+  lectura), `/plan` (plan actual, uso, planes; link "Plan y facturación" en
+  `UserMenu` para admin). `NEXT_PUBLIC_CONTACTO_EMAIL` (opcional) arma el
+  mailto de "escribinos para activar".
+- Los montos de `PLANES` y de `components/marketing/pricing.tsx` son
+  provisorios: mantenerlos alineados.
+
 ## Sistema de diseño
 
 Referencia visual: "Cocos CRM" — limpio, mucho whitespace, esquinas
@@ -477,11 +549,13 @@ redondeadas, paleta neutra + un acento **índigo**.
 
 ### Marca: logos de Tekly (`public/tekly-logo-kit/`)
 
-Kit de logo de la **plataforma** (ícono = T blanca sobre un globo de líneas,
-fondo índigo `#4f49bd`; nombre "Tekly" en Bricolage Grotesque 700, ya
-convertido a trazos: no hace falta la fuente). El detalle del paquete está
-en `public/tekly-logo-kit/LEEME.md`; `public/tekly-logo-kit.zip` es solo el
-paquete original (no se referencia desde la app).
+Kit de logo de la **plataforma** (v2: una **T índigo `#4f49bd` con un punto
+verde `#12a383`** que representa "en vivo"; sobre fondos índigo u oscuros, T
+blanca con punto menta `#7fe3c9`; nombre "tekly" en minúscula, Bricolage
+Grotesque 700, ya convertido a trazos). El detalle del paquete está en
+`public/tekly-logo-kit/LEEME.md`; `public/tekly-logo-kit.zip` es solo el
+paquete original (no se referencia desde la app). El verde también es el
+color de los indicadores "en vivo" del producto.
 
 **Siempre se usa vía `<TeklyLogo variante="…" altura={px} />`**
 (`components/brand/tekly-logo.tsx`): un solo lugar con las rutas y las
@@ -490,18 +564,19 @@ cuando el link/botón que lo contiene ya tiene `aria-label`.
 
 | Archivo (SVG en `public/tekly-logo-kit/`) | Variante | Dónde va |
 |---|---|---|
-| `tekly-isologo-horizontal.svg` | `horizontal` | Header y footer de la landing (`components/marketing/nav.tsx`, `footer.tsx`); header del drawer móvil del sistema (`components/mobile-nav-drawer.tsx`). Solo sobre fondo claro. |
-| `tekly-icono.svg` | `icono` | Marca chica: panel de plataforma (`app/admin/layout.tsx`); maqueta borrosa del login (`components/auth/app-preview-backdrop.tsx`). También avatar/redes. |
-| `tekly-icono-invertido.svg` | `icono-invertido` | Encabezado índigo de las pantallas de auth (`components/auth/auth-modal.tsx`: login, signup, olvidé/restablecer contraseña) y header del sistema (`components/topnav.tsx`) cuando la organización no cargó su propio logo (**prueba**: sobre el header blanco el tile desaparece y queda la T índigo con el globo en línea fina; si se prefiere el tile sólido, volver a `icono`). Para cualquier fondo índigo u oscuro. |
-| `tekly-isologo-horizontal-blanco.svg` | `horizontal-blanco` | **Sin uso todavía.** Isologo con texto blanco y fondo transparente, para fondos índigo/oscuros (ej. el banner de cierre de la landing si se quiere marca ahí). |
-| `tekly-isologo-horizontal-sobre-indigo.svg` | `horizontal-sobre-indigo` | **Sin uso todavía.** Isologo con el fondo índigo incluido. |
-| `tekly-isologo-vertical.svg` | `vertical` | **Sin uso todavía.** Pensado para login/splash; hoy el login ya lleva el ícono en el header de la card, así que no se agregó un segundo logo. |
+| `tekly-isologo.svg` | `horizontal` | Header y footer de la landing (`components/marketing/nav.tsx`, `footer.tsx`); drawer móvil del sistema, legales y demo. Solo sobre fondo claro. |
+| `tekly-icono-indigo.svg` | `icono` | Marca chica sobre cuadrado índigo: panel de plataforma (`app/admin/layout.tsx`); maqueta borrosa del login. También avatar/redes. |
+| `tekly-icono.svg` | `icono-invertido` | Cuadrado blanco con la T índigo: encabezado índigo de las pantallas de auth (`components/auth/auth-modal.tsx`) y header del sistema (`components/topnav.tsx`) cuando la organización no cargó su propio logo (sobre el header blanco el cuadrado desaparece y queda la T con el punto). |
+| `tekly-marca.svg` | `marca` | **Sin uso todavía.** La T con el punto sola, sin cuadrado. Hay `tekly-marca-blanca.svg` y `tekly-marca-mono.svg` (sellos/impresión) sin variante. |
+| `tekly-isologo-blanco.svg` | `horizontal-blanco` | **Sin uso todavía.** Blanco y menta, fondo transparente, para fondos índigo/oscuros. |
+| `tekly-isologo-sobre-indigo.svg` | `horizontal-sobre-indigo` | **Sin uso todavía.** Isologo con el fondo índigo incluido. |
 | `tekly-wordmark.svg` | `wordmark` | **Sin uso todavía.** Solo el nombre. |
-| `tekly-favicon-32.svg` / `-16.svg` | — | Favicon SVG (`icons.icon` en `app/layout.tsx`). |
-| `favicon.ico` (16 y 32 px) | — | Copiado a `public/favicon.ico`; es el favicon de respaldo. |
+| `tekly-favicon.svg` | — | Favicon SVG (`icons.icon` en `app/layout.tsx`): la marca más grande dentro del cuadrado. |
+| `favicon.ico` (16, 32 y 48 px) | — | Copiado a `public/favicon.ico`; es el favicon de respaldo. |
 | `png/tekly-icono-180.png` | — | `apple-touch-icon` (`icons.apple` en `app/layout.tsx`). |
-| `png/tekly-icono-192.png`, `-512.png` | — | **Sin uso todavía:** reservados para un `manifest` PWA (no hay). |
-| `png/tekly-favicon-16/32.png`, `png/tekly-isologo-*.png` | — | PNG de respaldo (isologos a 3x) para donde no sirva SVG (mails, redes, documentos). |
+| `png/tekly-icono-512.png` | — | Logo del JSON-LD (`lib/marketing/seo.ts`). |
+| `png/tekly-isologo-sobre-indigo.png` | — | Logo de los templates de mail de Auth (`supabase/email-templates/`). |
+| `png/tekly-icono-192.png`, `-1024`, `-indigo-512`, `tekly-favicon-16/32/48.png`, `tekly-isologo.png`, `tekly-marca.png` | — | **Sin uso todavía:** 192/512 reservados para un `manifest` PWA (no hay); el resto, PNG de respaldo para redes, mails y documentos. |
 
 El logo de la **plataforma** no es el de cada **negocio**: el header del
 sistema muestra primero el logo y el nombre que la organización cargó en

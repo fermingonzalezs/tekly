@@ -6,6 +6,7 @@ import { TopNav } from "@/components/topnav";
 import { Toaster } from "@/components/notifications/toaster";
 import { RealtimeProvider } from "@/components/notifications/realtime-provider";
 import { ReportarBugFab } from "@/components/reportar-bug-fab";
+import { PlanBanner } from "@/components/plan-banner";
 import { CommandPalette } from "@/components/command-palette/command-palette";
 
 export default async function AppLayout({
@@ -21,6 +22,7 @@ export default async function AppLayout({
   return (
     <RealtimeProvider organizationId={user.organizationId}>
       <TopNav user={user} logoUrl={negocio.logoUrl} nombre={negocio.nombre} />
+      <PlanBanner suscripcion={user.suscripcion} esAdmin={user.rol === "admin"} />
       {children}
       <Toaster esAdmin={user.rol === "admin"} />
       <ReportarBugFab />

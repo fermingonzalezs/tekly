@@ -42,15 +42,18 @@ async function fetchWithClockSkewRetry(
 /** Cliente para Server Components / Server Actions / Route Handlers --
  * respeta RLS (corre como el usuario autenticado, o como anon sin sesión). */
 export function createServerClient() {
-  const cookieStore = cookies();
   return createSSRClient(url, anonKey, {
     global: { fetch: fetchWithClockSkewRetry },
     cookies: {
-      getAll() {
-        return cookieStore.getAll();
+      // `cookies()` es async desde Next 15: el store se resuelve recién
+      // cuando el cliente de Supabase lo necesita (el cliente en sí se sigue
+      // creando de forma síncrona, ver los cientos de usos en lib/db).
+      async getAll() {
+        return (await cookies()).getAll();
       },
-      setAll(cookiesToSet) {
+      async setAll(cookiesToSet) {
         try {
+          const cookieStore = await cookies();
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options),
           );

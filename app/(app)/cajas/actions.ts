@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser, requireRole } from "@/lib/auth";
+import { requireRoleEscritura } from "@/lib/auth";
 import {
   saveCaja,
   type CajaInput,
@@ -12,7 +12,7 @@ import {
 import type { CategoriaGasto, ConciliacionLinea, MedioPago } from "@/lib/types";
 
 export async function saveCajaAction(id: string | null, data: CajaInput) {
-  await requireUser();
+  await requireRoleEscritura("admin", "tecnico");
   const caja = await saveCaja(id, data);
   revalidatePath("/cajas");
   return caja;
@@ -27,20 +27,20 @@ export async function createMovimientoAction(data: {
   monto: number;
   cotizacion?: number | null;
 }) {
-  await requireUser();
+  await requireRoleEscritura("admin", "tecnico");
   const mov = await createMovimiento(data);
   revalidatePath("/cajas");
   return mov;
 }
 
 export async function deleteMovimientoAction(id: string) {
-  await requireRole("admin");
+  await requireRoleEscritura("admin");
   await deleteMovimiento(id);
   revalidatePath("/cajas");
 }
 
 export async function crearConciliacionAction(lineas: ConciliacionLinea[], comentario?: string) {
-  await requireUser();
+  await requireRoleEscritura("admin", "tecnico");
   const conciliacion = await crearConciliacion(lineas, comentario);
   revalidatePath("/cajas");
   return conciliacion;

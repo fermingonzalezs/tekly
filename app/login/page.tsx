@@ -3,11 +3,12 @@ import { AuthModal } from "@/components/auth/auth-modal";
 import { AvisoCookies } from "@/components/legal/aviso-cookies";
 import { LoginForm } from "./login-form";
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams: { error?: string };
-}) {
+export default async function LoginPage(
+  props: {
+    searchParams: Promise<{ error?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-neutral-50 p-4">
       <AppPreviewBackdrop />

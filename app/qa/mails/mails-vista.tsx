@@ -1,11 +1,53 @@
 "use client";
 
 import { useState } from "react";
+import { Check, Copy } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { MailFrame } from "./mail-frame";
 
 const ANCHOS = { desktop: 640, movil: 375 } as const;
 
-export function MailsVista({ mails }: { mails: { file: string; label: string; html: string }[] }) {
+type Mail = { file: string; label: string; subject: string; html: string; source: string };
+
+/** Copia al portapapeles; si el navegador lo rechaza, cae a seleccionar un
+ * <textarea> temporal. */
+async function copiar(texto: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = texto;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  }
+}
+
+function BotonCopiar({ texto, label }: { texto: string; label: string }) {
+  const [ok, setOk] = useState(false);
+  return (
+    <Button
+      variant="tonal"
+      size="sm"
+      icon={ok ? Check : Copy}
+      onClick={async () => {
+        if (await copiar(texto)) {
+          setOk(true);
+          setTimeout(() => setOk(false), 1800);
+        }
+      }}
+    >
+      {ok ? "Copiado" : label}
+    </Button>
+  );
+}
+
+export function MailsVista({ mails }: { mails: Mail[] }) {
   const [vista, setVista] = useState<keyof typeof ANCHOS>("desktop");
   return (
     <>
@@ -30,6 +72,13 @@ export function MailsVista({ mails }: { mails: { file: string; label: string; ht
         {mails.map((m) => (
           <section key={m.file} className="space-y-2">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{m.label}</h2>
+            <div className="flex flex-wrap items-center gap-2" style={{ maxWidth: ANCHOS[vista] }}>
+              <BotonCopiar texto={m.source} label="Copiar HTML" />
+              <BotonCopiar texto={m.subject} label="Copiar asunto" />
+            </div>
+            <p className="text-xs text-neutral-500" style={{ maxWidth: ANCHOS[vista] }}>
+              Asunto: <span className="font-medium text-neutral-700">{m.subject}</span>
+            </p>
             <MailFrame key={vista} title={m.label} html={m.html} width={ANCHOS[vista]} />
           </section>
         ))}

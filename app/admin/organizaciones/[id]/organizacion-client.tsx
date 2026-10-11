@@ -150,7 +150,7 @@ export function OrganizacionClient({
         </ChartTitle>
         <Card className="mt-3 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm [&_td]:text-center [&_th]:text-center">
               <thead>
                 <tr className="text-xs">
                   <th className={cn("px-5 py-3", thDivider)}>Nombre</th>
@@ -183,7 +183,7 @@ export function OrganizacionClient({
                           onChange={(e) =>
                             cambiarRol(u, e.target.value as Rol)
                           }
-                          className="h-8 w-40 text-[13px]"
+                          className="mx-auto h-8 w-40 text-[13px]"
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>
@@ -196,7 +196,7 @@ export function OrganizacionClient({
                         {u.ultimoLoginLabel}
                       </td>
                       <td className="px-5 py-2.5">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                             <span
                               className={cn(

@@ -8,9 +8,9 @@ export const metadata = { title: "QA · Mails de Auth" };
 export const dynamic = "force-dynamic";
 
 const TEMPLATES = [
-  { file: "confirm-signup.html", label: "Confirm signup" },
-  { file: "invite.html", label: "Invite user" },
-  { file: "recovery.html", label: "Reset Password" },
+  { file: "confirm-signup.html", label: "Confirm signup", subject: "Confirmá tu cuenta en Tekly" },
+  { file: "invite.html", label: "Invite user", subject: "Te invitaron a sumarte a tu equipo en Tekly" },
+  { file: "recovery.html", label: "Reset Password", subject: "Restablecé tu contraseña de Tekly" },
 ] as const;
 
 const DATA: Record<string, string> = { nombre: "Fermín", organizacion: "iPhone Center" };
@@ -35,16 +35,16 @@ function render(html: string, siteUrl: string): string {
  * recargás. */
 export default async function QaMailsPage() {
   if (process.env.NODE_ENV === "production") notFound();
-  const h = headers();
+  const h = await headers();
   const siteUrl = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
   const mails = await Promise.all(
-    TEMPLATES.map(async (t) => ({
-      ...t,
-      html: render(
-        await readFile(path.join(process.cwd(), "supabase/email-templates", t.file), "utf8"),
-        siteUrl,
-      ),
-    })),
+    TEMPLATES.map(async (t) => {
+      const source = await readFile(
+        path.join(process.cwd(), "supabase/email-templates", t.file),
+        "utf8",
+      );
+      return { ...t, source, html: render(source, siteUrl) };
+    }),
   );
 
   return (
@@ -53,6 +53,21 @@ export default async function QaMailsPage() {
       <p className="text-sm text-neutral-500">
         Fuente: <code>supabase/email-templates/*.html</code> · datos de ejemplo: {DATA.nombre} / {DATA.organizacion} / fermin@iphonecenter.com.ar
       </p>
+      <ol className="max-w-3xl list-decimal space-y-1 pl-5 text-sm text-neutral-600">
+        <li>
+          Supabase Dashboard → proyecto <code>tekly</code> → <strong>Authentication</strong> →{" "}
+          <strong>Emails</strong> → <strong>Templates</strong>.
+        </li>
+        <li>
+          Elegí el template con el mismo nombre que cada columna de abajo (Confirm signup, Invite
+          user, Reset Password).
+        </li>
+        <li>
+          <strong>Copiar HTML</strong> y pegarlo en <em>Message body</em> (modo código/source),
+          reemplazando lo que haya. <strong>Copiar asunto</strong> y pegarlo en <em>Subject</em>.
+        </li>
+        <li>Guardar. Las variables <code>{"{{ .SiteURL }}"}</code> etc. las completa Supabase al enviar.</li>
+      </ol>
       <MailsVista mails={mails} />
     </main>
   );

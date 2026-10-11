@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Settings, UserPen, LogOut } from "lucide-react";
+import { Settings, UserPen, LogOut, CreditCard } from "lucide-react";
 import { dotClass, rolLabel, rolTone } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/(app)/actions";
@@ -77,6 +77,16 @@ export function UserMenu({ user }: { user: SessionUser }) {
               >
                 <Settings className="h-4 w-4" />
                 Ajustes
+              </Link>
+            )}
+            {user.rol === "admin" && (
+              <Link
+                href="/plan"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
+              >
+                <CreditCard className="h-4 w-4" />
+                Plan y facturación
               </Link>
             )}
             <Link

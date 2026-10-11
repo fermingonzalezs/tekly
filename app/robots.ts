@@ -6,8 +6,8 @@ const MARKETING_HOSTS = new Set(["tekly.tech", "www.tekly.tech", "tekly.localhos
 
 /** `robots.txt` según el host: tekly.tech (landing) se indexa; la app de
  * gestión (sistema.tekly.tech) y cualquier otro host, no. */
-export default function robots(): MetadataRoute.Robots {
-  const host = headers().get("host")?.split(":")[0] ?? "";
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const host = (await headers()).get("host")?.split(":")[0] ?? "";
   if (!MARKETING_HOSTS.has(host)) {
     return { rules: { userAgent: "*", disallow: "/" } };
   }

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser, requireRole } from "@/lib/auth";
+import { requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import { createTurno, setTurnoEstado, deleteTurno } from "@/lib/db/turnos";
 import type {
@@ -26,7 +26,7 @@ export async function createTurnoAction(data: {
   reservarStock: boolean;
   nota: string;
 }) {
-  await requireUser();
+  await requireEscritura();
   const cliente =
     data.cliente.tipo === "libre"
       ? { id: null, nombre: data.cliente.nombre }
@@ -51,7 +51,7 @@ export async function createTurnoAction(data: {
 }
 
 export async function setTurnoEstadoAction(id: string, estado: TurnoEstado) {
-  await requireUser();
+  await requireEscritura();
   const turno = await setTurnoEstado(id, estado);
   revalidatePath("/turnos");
   revalidatePath("/dashboard");
@@ -59,7 +59,7 @@ export async function setTurnoEstadoAction(id: string, estado: TurnoEstado) {
 }
 
 export async function deleteTurnoAction(id: string) {
-  await requireRole("admin");
+  await requireRoleEscritura("admin");
   await deleteTurno(id);
   revalidatePath("/turnos");
   revalidatePath("/dashboard");

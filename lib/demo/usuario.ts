@@ -13,6 +13,12 @@ type UsuarioDemo = {
   nombre: string;
   alias: string | null;
   terminosVersion: string | null;
+  suscripcion: {
+    plan: "business_plus";
+    estado: "activo";
+    trialTerminaAt: null;
+    periodoTerminaAt: null;
+  };
 };
 
 export const USUARIO_DEMO: UsuarioDemo = {
@@ -24,4 +30,5 @@ export const USUARIO_DEMO: UsuarioDemo = {
   nombre: "Visitante demo",
   alias: null,
   terminosVersion: null,
+  suscripcion: { plan: "business_plus", estado: "activo", trialTerminaAt: null, periodoTerminaAt: null },
 };

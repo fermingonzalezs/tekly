@@ -5,7 +5,7 @@ import { signOutAction } from "@/app/(app)/actions";
 import { TeklyLogo } from "@/components/brand/tekly-logo";
 
 export const metadata: Metadata = {
-  title: "Panel de plataforma · Tekly",
+  title: "Tekly",
 };
 
 /** Layout de `/admin` -- FUERA del grupo `(app)` a propósito: ese layout
@@ -28,7 +28,7 @@ export default async function AdminLayout({
         <div className="mx-auto flex h-16 max-w-[100rem] items-center gap-3 px-4 sm:px-8">
           <TeklyLogo variante="icono" altura={32} alt="" className="shrink-0" />
           <span className="font-grotesk text-lg font-semibold text-neutral-900">
-            Tekly · Panel de plataforma
+            Tekly
           </span>
           <div className="ml-auto flex items-center gap-2">
             <Link

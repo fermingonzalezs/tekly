@@ -34,8 +34,14 @@ const MARKETING_HOSTNAMES = new Set([
   "tekly.localhost",
 ]);
 
+/** Coincidencia por segmento: `/demo` y `/demo/ventas`, pero no `/demoX`. */
+function coincide(pathname: string, base: string): boolean {
+  return pathname === base || pathname.startsWith(`${base}/`);
+}
+
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get("host")?.split(":")[0] ?? "";
+  const pathname = request.nextUrl.pathname;
   if (MARKETING_HOSTNAMES.has(hostname)) {
     // www → apex (301): una sola URL canónica para la landing.
     if (hostname === "www.tekly.tech") {
@@ -45,12 +51,20 @@ export async function middleware(request: NextRequest) {
       url.protocol = "https:";
       return NextResponse.redirect(url, 308);
     }
-    if (request.nextUrl.pathname === "/") {
+    if (pathname === "/") {
       const url = request.nextUrl.clone();
       url.pathname = "/marketing";
       return NextResponse.rewrite(url);
     }
-    return NextResponse.next();
+    // El host es controlable por quien hace el request: en dominios de
+    // marketing solo pasan sin sesión las rutas públicas; cualquier otra
+    // sigue por la lógica de auth de abajo (no es un atajo para saltearla).
+    if (
+      pathname === "/marketing" ||
+      ALWAYS_PUBLIC_PATHS.some((p) => coincide(pathname, p))
+    ) {
+      return NextResponse.next();
+    }
   }
 
   const response = NextResponse.next({ request });
@@ -74,16 +88,15 @@ export async function middleware(request: NextRequest) {
     sessionUser = null;
   }
 
-  const pathname = request.nextUrl.pathname;
-  if (ALWAYS_PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  if (ALWAYS_PUBLIC_PATHS.some((p) => coincide(pathname, p))) {
     return response;
   }
   // Galería de QA: pública solo en dev, para revisar sin sesión.
-  if (process.env.NODE_ENV !== "production" && pathname.startsWith("/qa")) {
+  if (process.env.NODE_ENV !== "production" && coincide(pathname, "/qa")) {
     return response;
   }
 
-  const isGuestOnlyPath = GUEST_ONLY_PATHS.some((p) => pathname.startsWith(p));
+  const isGuestOnlyPath = GUEST_ONLY_PATHS.some((p) => coincide(pathname, p));
 
   if (!sessionUser && !isGuestOnlyPath) {
     const url = request.nextUrl.clone();

@@ -12,7 +12,8 @@ export function generateStaticParams() {
   return indicePorSeccion().map((g) => ({ seccion: g.seccion }));
 }
 
-export function generateMetadata({ params }: { params: { seccion: string } }) {
+export async function generateMetadata(props: { params: Promise<{ seccion: string }> }) {
+  const params = await props.params;
   const grupo = indicePorSeccion().find((g) => g.seccion === params.seccion);
   if (!grupo) return { title: "Sección no encontrada" };
   const label = SECCION_LABEL[grupo.seccion];
@@ -23,7 +24,8 @@ export function generateMetadata({ params }: { params: { seccion: string } }) {
   };
 }
 
-export default function SeccionAyudaPage({ params }: { params: { seccion: string } }) {
+export default async function SeccionAyudaPage(props: { params: Promise<{ seccion: string }> }) {
+  const params = await props.params;
   if (!(SECCIONES_AYUDA as readonly string[]).includes(params.seccion)) notFound();
   const grupo = indicePorSeccion().find((g) => g.seccion === params.seccion);
   if (!grupo) notFound();

@@ -21,11 +21,12 @@ export function generateStaticParams() {
   return listArticulos().map((a) => ({ seccion: a.seccion, slug: a.slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { seccion: string; slug: string };
-}) {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ seccion: string; slug: string }>;
+  }
+) {
+  const params = await props.params;
   const art = getArticulo(params.seccion, params.slug);
   if (!art) return { title: "Artículo no encontrado" };
   const title = art.titulo.length > 60 ? art.titulo.slice(0, 57) + "…" : art.titulo;
@@ -74,11 +75,12 @@ function JsonLd({ art, headings: hs }: { art: ReturnType<typeof getArticulo>; he
   );
 }
 
-export default async function ArticuloPage({
-  params,
-}: {
-  params: { seccion: string; slug: string };
-}) {
+export default async function ArticuloPage(
+  props: {
+    params: Promise<{ seccion: string; slug: string }>;
+  }
+) {
+  const params = await props.params;
   const art = getArticulo(params.seccion, params.slug);
   if (!art) notFound();
 

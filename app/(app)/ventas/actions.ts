@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser, requireRole } from "@/lib/auth";
+import { requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import { createVenta, deleteVenta, type DeleteVentaOpts } from "@/lib/db/ventas";
 import type { CanjeEquipo, ClienteSeleccion, ModalidadVenta, Pago, VentaItem } from "@/lib/types";
@@ -19,7 +19,7 @@ export async function createVentaAction(input: {
   tipo: "venta" | "reparacion";
   dolarVenta: number;
 }) {
-  const user = await requireUser();
+  const user = await requireEscritura();
 
   // Un vendedor/técnico solo registra ventas a su propio nombre; el admin
   // puede elegir a cualquiera. Se ignora lo que venga del cliente -- la
@@ -52,7 +52,7 @@ export async function createVentaAction(input: {
 }
 
 export async function deleteVentaAction(id: string, opts: DeleteVentaOpts) {
-  await requireRole("admin");
+  await requireRoleEscritura("admin");
   await deleteVenta(id, opts);
   revalidatePath("/ventas");
   revalidatePath("/inventario");

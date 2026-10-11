@@ -13,10 +13,13 @@ import {
   type SessionUser,
   type SignUpResult,
 } from "@/lib/auth/types";
+import { safeNextPath } from "@/lib/auth/next-path";
 import { authErrorMessage } from "@/lib/auth/error-messages";
 import { TERMINOS_VERSION } from "@/lib/legal";
+import { PLANES, cupoUsuarios, esPlanEstado, esPlanId, puedeEscribir } from "@/lib/planes";
 
 export type { Rol, SessionUser, AuthResult, SignUpResult } from "@/lib/auth/types";
+export { safeNextPath };
 
 /** Prende/renueva la cookie que decide si la sesión sobrevive a cerrar el
  * navegador -- ver `REMEMBER_COOKIE_NAME`. Toda vía que deja a alguien
@@ -25,8 +28,8 @@ export type { Rol, SessionUser, AuthResult, SignUpResult } from "@/lib/auth/type
  * próxima request la encuentra ausente y `middleware.ts` cierra la sesión
  * sola, pensando que el navegador se cerró.
  */
-export function setRememberCookie(remember: boolean) {
-  cookies().set({
+export async function setRememberCookie(remember: boolean) {
+  (await cookies()).set({
     name: REMEMBER_COOKIE_NAME,
     value: remember ? "1" : "0",
     path: "/",
@@ -41,11 +44,11 @@ export function setRememberCookie(remember: boolean) {
  * en los links de mail. `NEXT_PUBLIC_SITE_URL` manda si está seteada (en
  * producción la request puede venir por un proxy); si no, se deduce de los
  * headers de la request actual. */
-function siteOrigin(): string {
+async function siteOrigin(): Promise<string> {
   const configured = process.env.NEXT_PUBLIC_SITE_URL;
   if (configured) return configured.replace(/\/+$/, "");
 
-  const h = headers();
+  const h = await headers();
   const origin = h.get("origin");
   if (origin) return origin;
 
@@ -60,18 +63,8 @@ function siteOrigin(): string {
  * `{{ .ConfirmationURL }}` del template **default** ya vuelve a nuestro
  * `/auth/confirm`, sin necesidad de editar el template. La URL tiene que
  * estar permitida en Authentication -> URL Configuration -> Redirect URLs. */
-function authCallbackUrl(next: string): string {
-  return `${siteOrigin()}/auth/confirm?next=${encodeURIComponent(next)}`;
-}
-
-/** El `next` de un link de mail es querystring: solo se acepta una ruta
- * interna. Sin esto, `?next=https://otro-sitio` sería un open redirect. */
-export function safeNextPath(
-  next: string | null | undefined,
-  fallback: string,
-): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return fallback;
-  return next;
+async function authCallbackUrl(next: string): Promise<string> {
+  return `${await siteOrigin()}/auth/confirm?next=${encodeURIComponent(next)}`;
 }
 
 /** Sesión actual, o `null` si no hay usuario logueado o el usuario no tiene
@@ -85,7 +78,7 @@ export async function getSession(): Promise<SessionUser | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("organization_id, rol, nombre, alias, terminos_version, organizations(nombre)")
+    .select("organization_id, rol, nombre, alias, terminos_version, organizations(nombre, plan, plan_estado, trial_termina_at, periodo_termina_at)")
     .eq("id", user.id)
     .maybeSingle<{
       organization_id: string;
@@ -93,19 +86,32 @@ export async function getSession(): Promise<SessionUser | null> {
       nombre: string;
       alias: string | null;
       terminos_version: string | null;
-      organizations: { nombre: string } | null;
+      organizations: {
+        nombre: string;
+        plan: string;
+        plan_estado: string;
+        trial_termina_at: string | null;
+        periodo_termina_at: string | null;
+      } | null;
     }>();
   if (!profile) return null;
 
+  const org = profile.organizations;
   return {
     id: user.id,
     email: user.email ?? "",
     organizationId: profile.organization_id,
-    organizationNombre: profile.organizations?.nombre ?? "",
+    organizationNombre: org?.nombre ?? "",
     rol: profile.rol,
     nombre: profile.nombre,
     alias: profile.alias,
     terminosVersion: profile.terminos_version,
+    suscripcion: {
+      plan: org && esPlanId(org.plan) ? org.plan : "trial",
+      estado: org && esPlanEstado(org.plan_estado) ? org.plan_estado : "trial",
+      trialTerminaAt: org?.trial_termina_at ?? null,
+      periodoTerminaAt: org?.periodo_termina_at ?? null,
+    },
   };
 }
 
@@ -138,6 +144,23 @@ export async function requireUser(): Promise<SessionUser> {
 export async function requireRole(...roles: Rol[]): Promise<SessionUser> {
   const session = await requireUser();
   if (!roles.includes(session.rol)) redirect("/");
+  return session;
+}
+
+/** Como `requireUser`, pero además exige que la organización pueda escribir
+ * (prueba en curso o plan al día, ver `lib/planes.ts`). Va en toda server
+ * action que muta datos de negocio; si la cuenta está en solo lectura manda
+ * a `/plan`, que explica qué pasó y cómo seguir. */
+export async function requireEscritura(): Promise<SessionUser> {
+  const session = await requireUser();
+  if (!puedeEscribir(session.suscripcion)) redirect("/plan");
+  return session;
+}
+
+/** `requireRole` + `requireEscritura`. */
+export async function requireRoleEscritura(...roles: Rol[]): Promise<SessionUser> {
+  const session = await requireRole(...roles);
+  if (!puedeEscribir(session.suscripcion)) redirect("/plan");
   return session;
 }
 
@@ -186,14 +209,14 @@ export async function signIn(
   });
   if (error) return { error: authErrorMessage(error.message) };
 
-  setRememberCookie(rememberMe);
+  await setRememberCookie(rememberMe);
   return { error: null };
 }
 
 export async function signOut(): Promise<void> {
   const supabase = createServerClient();
   await supabase.auth.signOut();
-  cookies().delete(REMEMBER_COOKIE_NAME);
+  (await cookies()).delete(REMEMBER_COOKIE_NAME);
 }
 
 /** Signup self-serve: crea el usuario de auth, su organización nueva y su
@@ -222,7 +245,7 @@ export async function signUp(params: {
     email: params.email,
     password: params.password,
     options: {
-      emailRedirectTo: authCallbackUrl("/dashboard"),
+      emailRedirectTo: await authCallbackUrl("/dashboard"),
       // Queda en el user_metadata -- disponible como `{{ .Data.nombre }}`
       // en el mail de "Confirm signup" (y, después, en el de "Reset
       // Password" de este mismo usuario), mismo mecanismo que ya usa
@@ -282,7 +305,7 @@ export async function signUp(params: {
   // sesión ya: se la recuerda igual que un login (ver `setRememberCookie`)
   // para que la próxima request no la encuentre "sin recordar" y la cierre.
   if (data.session) {
-    setRememberCookie(true);
+    await setRememberCookie(true);
     return { error: null, needsEmailConfirmation: false };
   }
   return { error: null, needsEmailConfirmation: true };
@@ -296,16 +319,34 @@ export async function inviteMember(params: {
   nombre: string;
   rol: Rol;
 }): Promise<AuthResult> {
-  const caller = await requireRole("admin");
+  const caller = await requireRoleEscritura("admin");
 
   const service = createServiceRoleClient();
+
+  // Cupo de usuarios del plan (`lib/planes.ts`): cuenta los perfiles activos,
+  // incluidas las invitaciones todavía sin aceptar.
+  const { count: usados, error: cupoError } = await service
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", caller.organizationId)
+    .eq("activo", true);
+  if (cupoError) return { error: cupoError.message };
+  const cupo = cupoUsuarios(caller.suscripcion.plan, usados ?? 0);
+  if (cupo.lleno) {
+    return {
+      error: `Tu plan ${PLANES[caller.suscripcion.plan].label} permite hasta ${cupo.max} ${
+        cupo.max === 1 ? "usuario" : "usuarios"
+      }. Cambiá de plan para sumar más.`,
+    };
+  }
+
   const { data, error } = await service.auth.admin.inviteUserByEmail(
     params.email,
     // `data` queda disponible como `{{ .Data.organizacion }}`/`{{ .Data.nombre }}`
     // en el template de mail "Invite user" del dashboard de Supabase.
     {
       data: { organizacion: caller.organizationNombre, nombre: params.nombre },
-      redirectTo: authCallbackUrl("/dashboard"),
+      redirectTo: await authCallbackUrl("/dashboard"),
     },
   );
   if (error) return { error: error.message };
@@ -335,7 +376,7 @@ export async function requestPasswordReset(
 ): Promise<AuthResult> {
   const supabase = createServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: authCallbackUrl("/reset-password"),
+    redirectTo: await authCallbackUrl("/reset-password"),
     captchaToken,
   });
   return { error: error ? authErrorMessage(error.message) : null };
@@ -357,7 +398,7 @@ export async function verifyEmailLink(
   });
   if (error) return { error: authErrorMessage(error.message) };
 
-  setRememberCookie(true);
+  await setRememberCookie(true);
   return { error: null };
 }
 
@@ -374,7 +415,7 @@ export async function exchangeEmailCode(code: string): Promise<AuthResult> {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) return { error: authErrorMessage(error.message) };
 
-  setRememberCookie(true);
+  await setRememberCookie(true);
   return { error: null };
 }
 
@@ -393,7 +434,7 @@ export async function setSessionFromTokens(
   });
   if (error) return { error: authErrorMessage(error.message) };
 
-  setRememberCookie(true);
+  await setRememberCookie(true);
   return { error: null };
 }
 
@@ -468,7 +509,7 @@ async function requireMemberOfCallerOrg(
  * reactivar todavía (no se pidió); si hace falta, es levantar el ban con
  * `ban_duration: "none"` + `activo = true`. */
 export async function deactivateMember(targetProfileId: string): Promise<AuthResult> {
-  const caller = await requireRole("admin");
+  const caller = await requireRoleEscritura("admin");
   if (targetProfileId === caller.id) {
     return { error: "No podés eliminar tu propio usuario." };
   }
@@ -502,7 +543,7 @@ export async function setMemberEmail(
   targetProfileId: string,
   nuevoEmail: string,
 ): Promise<AuthResult> {
-  const caller = await requireRole("admin");
+  const caller = await requireRoleEscritura("admin");
 
   const service = createServiceRoleClient();
   const orgError = await requireMemberOfCallerOrg(service, caller.organizationId, targetProfileId);

@@ -44,7 +44,7 @@ export async function updateOwnProfileAction(
  * página desde la que se mandó el form) -- no de un campo que arme el
  * cliente a mano. */
 export async function reportarBugAction(descripcion: string, accion: string) {
-  const referer = headers().get("referer");
+  const referer = (await headers()).get("referer");
   const ruta = referer ? new URL(referer).pathname : "desconocida";
-  await crearReporteBug(descripcion, ruta, accion);
+  return crearReporteBug(descripcion, ruta, accion);
 }

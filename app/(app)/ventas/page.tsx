@@ -24,11 +24,12 @@ import {
 } from "@/lib/ventas-filtros";
 import { VentasClient } from "./ventas-client";
 
-export default async function VentasPage({
-  searchParams,
-}: {
-  searchParams: SearchParamsInput;
-}) {
+export default async function VentasPage(
+  props: {
+    searchParams: Promise<SearchParamsInput>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const user = await requireUser();
   const puedeVerCosto = user.rol !== "vendedor";
   const filtros = parseFiltrosVentas(searchParams, { puedeVerCosto });

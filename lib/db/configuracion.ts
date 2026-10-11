@@ -163,17 +163,29 @@ export async function setOnboardingPasos(
  * de storage, las escrituras pasan por acá y las lecturas son públicas
  * (bucket público, sirve por CDN sin chequear policy). El logo NO va por
  * `updateNegocio`: es un upload, no un campo de texto. */
+const LOGO_TIPOS: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
 export async function uploadLogo(
   organizationId: string,
   file: File,
 ): Promise<string> {
   await requireRole("admin");
+  // El bucket es público: se valida tipo y tamaño, y la extensión sale del
+  // MIME (nunca del nombre del archivo). Sin SVG: puede llevar scripts y se
+  // serviría desde el dominio de Supabase.
+  const ext = LOGO_TIPOS[file.type];
+  if (!ext) throw new Error("El logo tiene que ser PNG, JPG o WebP.");
+  if (file.size > LOGO_MAX_BYTES) throw new Error("El logo no puede pesar más de 2 MB.");
   const service = createServiceRoleClient();
-  const ext = file.name.split(".").pop() || "png";
   const path = `${organizationId}/logo.${ext}`;
   const { error } = await service.storage
     .from("logos")
-    .upload(path, file, { upsert: true });
+    .upload(path, file, { upsert: true, contentType: file.type });
   if (error) throw error;
   const { data } = service.storage.from("logos").getPublicUrl(path);
   const { error: updateError } = await service

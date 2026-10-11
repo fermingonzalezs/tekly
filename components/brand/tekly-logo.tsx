@@ -9,20 +9,20 @@
  */
 
 const VARIANTES = {
-  /** Ícono + nombre, texto oscuro. Fondos claros (header/footer de la landing, drawer). */
-  horizontal: { src: "tekly-isologo-horizontal.svg", w: 427, h: 119 },
-  /** Ícono + nombre en blanco, fondo transparente. Fondos índigo u oscuros. */
-  "horizontal-blanco": { src: "tekly-isologo-horizontal-blanco.svg", w: 427, h: 119 },
+  /** Marca + nombre, texto oscuro. Fondos claros (header/footer de la landing, drawer). */
+  horizontal: { src: "tekly-isologo.svg", w: 368, h: 108 },
+  /** Marca + nombre en blanco y menta, fondo transparente. Fondos índigo u oscuros. */
+  "horizontal-blanco": { src: "tekly-isologo-blanco.svg", w: 368, h: 108 },
   /** Con el fondo índigo incluido. */
-  "horizontal-sobre-indigo": { src: "tekly-isologo-horizontal-sobre-indigo.svg", w: 507, h: 199 },
-  /** Ícono sobre nombre. Login, splash. */
-  vertical: { src: "tekly-isologo-vertical.svg", w: 187, h: 224 },
-  /** Solo el ícono (T blanca sobre globo, fondo índigo). Avatar, marca chica. */
-  icono: { src: "tekly-icono.svg", w: 200, h: 200 },
-  /** Ícono blanco con la T índigo. Sobre fondos índigo u oscuros. */
-  "icono-invertido": { src: "tekly-icono-invertido.svg", w: 200, h: 200 },
+  "horizontal-sobre-indigo": { src: "tekly-isologo-sobre-indigo.svg", w: 488, h: 228 },
+  /** Ícono con la T sobre cuadrado índigo. Avatar, marca chica. */
+  icono: { src: "tekly-icono-indigo.svg", w: 200, h: 200 },
+  /** Ícono con la T índigo sobre cuadrado blanco. Encabezados índigo / header del sistema. */
+  "icono-invertido": { src: "tekly-icono.svg", w: 200, h: 200 },
+  /** Solo la T con el punto verde, sin cuadrado. */
+  marca: { src: "tekly-marca.svg", w: 120, h: 130 },
   /** Solo el nombre. */
-  wordmark: { src: "tekly-wordmark.svg", w: 246, h: 109 },
+  wordmark: { src: "tekly-wordmark.svg", w: 272, h: 108 },
 } as const;
 
 export type TeklyLogoVariante = keyof typeof VARIANTES;

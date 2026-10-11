@@ -1,3 +1,5 @@
+import type { Suscripcion } from "@/lib/planes";
+
 export type Rol = "admin" | "vendedor" | "tecnico";
 
 /** Usuario autenticado + su perfil de negocio (organización, rol). Es el
@@ -13,6 +15,8 @@ export type SessionUser = {
   alias: string | null;
   /** Versión de Términos/Privacidad aceptada (`lib/legal.ts`), o `null`. */
   terminosVersion: string | null;
+  /** Plan y estado de la organización (`lib/planes.ts`). */
+  suscripcion: Suscripcion;
 };
 
 export type AuthResult = { error: string | null };

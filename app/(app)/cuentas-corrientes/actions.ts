@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser, requireRole } from "@/lib/auth";
+import { requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import { createMovimientoCC, deleteMovimientoCC } from "@/lib/db/cuentas-corrientes";
 import type { ClienteSeleccion } from "@/lib/types";
@@ -12,7 +12,7 @@ export async function createMovimientoCCAction(data: {
   concepto: string;
   montoUsd: number;
 }) {
-  await requireUser();
+  await requireRoleEscritura("admin", "tecnico");
   const cliente = await resolveCliente(data.cliente);
   const mov = await createMovimientoCC({
     clienteId: cliente.id,
@@ -25,7 +25,7 @@ export async function createMovimientoCCAction(data: {
 }
 
 export async function deleteMovimientoCCAction(id: string) {
-  await requireRole("admin");
+  await requireRoleEscritura("admin");
   await deleteMovimientoCC(id);
   revalidatePath("/cuentas-corrientes");
 }

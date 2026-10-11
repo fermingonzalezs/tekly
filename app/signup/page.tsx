@@ -9,7 +9,7 @@ export default function SignupPage() {
       <AppPreviewBackdrop />
       <div className="absolute inset-0 bg-white/55" />
       <div className="relative">
-        <AuthModal title="Crear organización" description="Empezá a usar Tekly con tu equipo">
+        <AuthModal title="Crear organización" description="14 días gratis, sin tarjeta. Empezá a usar Tekly con tu equipo">
           <SignupForm />
         </AuthModal>
       </div>

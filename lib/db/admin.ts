@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/auth/supabase";
 import type { Rol } from "@/lib/auth/types";
+import { esPlanEstado, esPlanId, type PlanEstado, type PlanId, type Suscripcion } from "@/lib/planes";
 import type {
   AdminClienteRow,
   AdminLoginRow,
@@ -252,4 +253,82 @@ export async function setUserActivoPlatform(
     .update({ activo })
     .eq("id", targetProfileId);
   if (profileError) throw profileError;
+}
+
+/** Plan y estado de una organización (para el editor de `/admin`). */
+export async function getSuscripcionPlatform(orgId: string): Promise<Suscripcion | null> {
+  const service = createServiceRoleClient();
+  const { data, error } = await service
+    .from("organizations")
+    .select("plan, plan_estado, trial_termina_at, periodo_termina_at")
+    .eq("id", orgId)
+    .maybeSingle<{
+      plan: string;
+      plan_estado: string;
+      trial_termina_at: string | null;
+      periodo_termina_at: string | null;
+    }>();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    plan: esPlanId(data.plan) ? data.plan : "trial",
+    estado: esPlanEstado(data.plan_estado) ? data.plan_estado : "trial",
+    trialTerminaAt: data.trial_termina_at,
+    periodoTerminaAt: data.periodo_termina_at,
+  };
+}
+
+/** Asigna plan/estado/vencimientos a una organización (cobro manual por
+ * transferencia hasta que haya proveedor de pagos). Sin gate propio: ver el
+ * comentario de arriba, lo corre `requirePlatformAdmin()` en la action. */
+export async function setPlanPlatform(
+  orgId: string,
+  data: {
+    plan: PlanId;
+    estado: PlanEstado;
+    trialTerminaAt: string | null;
+    periodoTerminaAt: string | null;
+  },
+): Promise<void> {
+  const service = createServiceRoleClient();
+  const { error } = await service
+    .from("organizations")
+    .update({
+      plan: data.plan,
+      plan_estado: data.estado,
+      trial_termina_at: data.trialTerminaAt,
+      periodo_termina_at: data.periodoTerminaAt,
+    })
+    .eq("id", orgId);
+  if (error) throw error;
+}
+
+/** Elimina una organización completa: usuarios de auth, todos sus datos
+ * (las FK `organization_id` son `on delete cascade`) y su logo del bucket.
+ * Irreversible. Los usuarios de auth van PRIMERO: si uno falla, la
+ * organización sigue existiendo y se puede reintentar; al revés quedarían
+ * cuentas de auth huérfanas que bloquean volver a registrar ese email. */
+export async function deleteOrganizacionPlatform(orgId: string): Promise<void> {
+  const service = createServiceRoleClient();
+
+  const { data: perfiles, error: perfilesError } = await service
+    .from("profiles")
+    .select("id")
+    .eq("organization_id", orgId)
+    .returns<{ id: string }[]>();
+  if (perfilesError) throw perfilesError;
+
+  for (const p of perfiles) {
+    const { error } = await service.auth.admin.deleteUser(p.id);
+    if (error) throw error;
+  }
+
+  const { error: orgError } = await service.from("organizations").delete().eq("id", orgId);
+  if (orgError) throw orgError;
+
+  // Best-effort: un logo huérfano no rompe nada.
+  const { data: archivos } = await service.storage.from("logos").list(orgId);
+  if (archivos?.length) {
+    await service.storage.from("logos").remove(archivos.map((a) => `${orgId}/${a.name}`));
+  }
 }

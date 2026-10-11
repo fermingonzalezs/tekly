@@ -14,18 +14,24 @@ export function ReportarBugFab() {
   const [accion, setAccion] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [enviado, setEnviado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function abrir() {
     setAccion("");
     setDescripcion("");
     setEnviado(false);
+    setError(null);
     setOpen(true);
   }
 
   function enviar() {
     startTransition(async () => {
-      await reportarBugAction(descripcion, accion);
+      const r = await reportarBugAction(descripcion, accion);
+      if (r.error) {
+        setError(r.error);
+        return;
+      }
       setEnviado(true);
     });
   }
@@ -113,6 +119,7 @@ export function ReportarBugFab() {
                 placeholder="¿Qué esperabas que pasara y qué pasó en cambio?"
               />
             </Field>
+            {error && <p className="text-xs text-red-600">{error}</p>}
           </div>
         )}
       </Dialog>

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  requireRole,
+  requireEscritura,
+  requireRoleEscritura,
   inviteMember,
   setMemberRole,
   deactivateMember,
@@ -55,6 +56,7 @@ export async function deactivateMemberAction(targetProfileId: string): Promise<A
 }
 
 export async function updateNegocioAction(data: Negocio): Promise<void> {
+  await requireEscritura();
   await updateNegocio(data);
   revalidatePath("/configuracion");
 }
@@ -62,7 +64,7 @@ export async function updateNegocioAction(data: Negocio): Promise<void> {
 /** Upload del logo (FormData con `file`) -- flujo propio, no va con el
  * form de `updateNegocioAction`. */
 export async function uploadLogoAction(formData: FormData): Promise<void> {
-  const caller = await requireRole("admin");
+  const caller = await requireRoleEscritura("admin");
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     throw new Error("Elegí un archivo de imagen para el logo.");
@@ -72,7 +74,7 @@ export async function uploadLogoAction(formData: FormData): Promise<void> {
 }
 
 export async function removeLogoAction(): Promise<void> {
-  const caller = await requireRole("admin");
+  const caller = await requireRoleEscritura("admin");
   await removeLogo(caller.organizationId);
   revalidatePath("/configuracion");
 }
@@ -112,7 +114,7 @@ function ordenarResultado(
 export async function importEquiposAction(
   rawRows: { rowNum: number; raw: Record<string, string> }[],
 ): Promise<ImportResult> {
-  await requireRole("admin");
+  await requireRoleEscritura("admin");
 
   const results: ImportRowResult[] = [];
   const validos: { rowNum: number; data: EquipoInput }[] = [];
@@ -159,7 +161,7 @@ export async function importEquiposAction(
 export async function importClientesAction(
   rawRows: { rowNum: number; raw: Record<string, string> }[],
 ): Promise<ImportResult> {
-  await requireRole("admin");
+  await requireRoleEscritura("admin");
 
   const results: ImportRowResult[] = [];
   const validos: { rowNum: number; data: ClienteImportInput }[] = [];
