@@ -1,14 +1,14 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { fmtDayMonth } from "@/lib/format";
-import { addMovimiento } from "@/lib/db/inventario";
+import { addMovimiento, createCelular, deleteCelular } from "@/lib/db/inventario";
 import { createMovimientoCC } from "@/lib/db/cuentas-corrientes";
 import { createCompra } from "@/lib/db/compras";
-import { montoConRecargo, resumenDeVentas, graficosDeVentas, type ResumenVentas, type Rubro, type GraficosVentas } from "@/lib/ventas";
+import { montoConRecargo, resumenDeVentas, graficosDeVentas, pagoGeneraMovimientoCaja, celularCanjeBorrable, type ResumenVentas, type Rubro, type GraficosVentas } from "@/lib/ventas";
 import { rangoDe, type FiltrosVentas } from "@/lib/ventas-filtros";
 import { sumarDias, type Rango } from "@/lib/date-presets";
 import { PAGE_SIZE } from "@/lib/pagination";
-import type { CanjeEquipo, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
+import type { CanjeEquipo, Celular, CelularStatus, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
 
 /** Cantidad de ventas por procedencia (canal) -- usado por
  * `FuenteClientes` en Clientes. */
@@ -41,7 +41,8 @@ type VentaItemRow = {
   cantidad: number;
   precio_usd: number;
   costo_usd: number | null;
-  equipo_id: string | null;
+  celular_id: string | null;
+  notebook_id: string | null;
   categoria: VentaItem["categoria"] | null;
   venta_item_repuestos: VentaItemRepuestoRow[] | null;
 };
@@ -64,7 +65,7 @@ type VentaRow = {
 };
 
 const VENTA_COLS =
-  "id, numero, fecha, cliente_id, cliente, vendedor_id, profiles(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, costo_usd, equipo_id, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, pagos, margen_pct, tipo";
+  "id, numero, fecha, cliente_id, cliente, vendedor_id, profiles(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, costo_usd, celular_id, notebook_id, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, pagos, margen_pct, tipo";
 
 function toVentaItem(row: VentaItemRow): VentaItem {
   return {
@@ -72,7 +73,8 @@ function toVentaItem(row: VentaItemRow): VentaItem {
     cantidad: row.cantidad,
     precioUsd: row.precio_usd,
     costoUsd: row.costo_usd ?? undefined,
-    equipoId: row.equipo_id ?? undefined,
+    celularId: row.celular_id ?? undefined,
+    notebookId: row.notebook_id ?? undefined,
     categoria: row.categoria ?? undefined,
     repuestos: (row.venta_item_repuestos ?? []).map((r) => ({
       repuestoId: r.repuesto_id,
@@ -164,19 +166,30 @@ async function ventaIdsPorClienteNumero(q: string): Promise<string[]> {
 async function ventaIdsPorItems(q: string): Promise<string[]> {
   const supabase = createServerClient();
   const like = `%${q}%`;
-  const [{ data: porDetalle }, { data: equipos }] = await Promise.all([
-    supabase.from("venta_items").select("venta_id").ilike("detalle", like).limit(500),
-    supabase.from("equipos").select("id").ilike("imei", like).limit(500),
-  ]);
+  const [{ data: porDetalle }, { data: celulares }, { data: notebooks }] =
+    await Promise.all([
+      supabase.from("venta_items").select("venta_id").ilike("detalle", like).limit(500),
+      supabase.from("celulares").select("id").ilike("imei", like).limit(500),
+      supabase.from("notebooks").select("id").ilike("numero_serie", like).limit(500),
+    ]);
   const ids = new Set((porDetalle ?? []).map((r) => r.venta_id as string));
-  const equipoIds = (equipos ?? []).map((e) => e.id as string);
-  if (equipoIds.length > 0) {
-    const { data: porEquipo } = await supabase
+  const celularIds = (celulares ?? []).map((e) => e.id as string);
+  if (celularIds.length > 0) {
+    const { data: porCelular } = await supabase
       .from("venta_items")
       .select("venta_id")
-      .in("equipo_id", equipoIds)
+      .in("celular_id", celularIds)
       .limit(500);
-    for (const r of porEquipo ?? []) ids.add(r.venta_id as string);
+    for (const r of porCelular ?? []) ids.add(r.venta_id as string);
+  }
+  const notebookIds = (notebooks ?? []).map((n) => n.id as string);
+  if (notebookIds.length > 0) {
+    const { data: porNotebook } = await supabase
+      .from("venta_items")
+      .select("venta_id")
+      .in("notebook_id", notebookIds)
+      .limit(500);
+    for (const r of porNotebook ?? []) ids.add(r.venta_id as string);
   }
   return [...ids];
 }
@@ -195,10 +208,10 @@ async function ventaIdsPorQuery(q: string): Promise<string[]> {
 async function ventaIdsPorRubro(rubro: Rubro): Promise<string[]> {
   const supabase = createServerClient();
   let query = supabase.from("venta_items").select("venta_id");
-  if (rubro === "equipo") {
-    query = query.or("categoria.eq.equipo,and(categoria.is.null,equipo_id.not.is.null)");
+  if (rubro === "celular") {
+    query = query.or("categoria.eq.celular,and(categoria.is.null,celular_id.not.is.null)");
   } else if (rubro === "libre") {
-    query = query.or("categoria.eq.libre,and(categoria.is.null,equipo_id.is.null)");
+    query = query.or("categoria.eq.libre,and(categoria.is.null,celular_id.is.null)");
   } else {
     query = query.eq("categoria", rubro);
   }
@@ -338,7 +351,7 @@ export async function graficosVentas(f: FiltrosVentas): Promise<GraficosVentas> 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = supabase
     .from("ventas")
-    .select("fecha, total_usd, venta_items(cantidad, precio_usd, categoria, equipo_id)");
+    .select("fecha, total_usd, venta_items(cantidad, precio_usd, categoria, celular_id)");
   query = aplicarFiltrosVentas(query, f, rango, await resolverIdsVentas(f));
 
   const { data, error } = await query;
@@ -353,14 +366,14 @@ export async function graficosVentas(f: FiltrosVentas): Promise<GraficosVentas> 
               cantidad: number;
               precio_usd: number;
               categoria: Rubro | null;
-              equipo_id: string | null;
+              celular_id: string | null;
             }[]
           | null;
       }) => ({
         fechaISO: r.fecha,
         totalUsd: r.total_usd,
         rubros: (r.venta_items ?? []).map((i) => ({
-          rubro: i.categoria ?? (i.equipo_id ? "equipo" : "libre"),
+          rubro: i.categoria ?? (i.celular_id ? "celular" : "libre"),
           monto: i.cantidad * i.precio_usd,
         })),
       }),
@@ -372,18 +385,24 @@ export async function graficosVentas(f: FiltrosVentas): Promise<GraficosVentas> 
  * (para el filtro `q` de la vista "Ítems vendidos", a nivel ítem). */async function itemIdsPorQuery(q: string): Promise<string[]> {
   const supabase = createServerClient();
   const like = `%${q}%`;
-  const [detalle, ventaIds, equipoIds] = await Promise.all([
+  const [detalle, ventaIds, celularIds] = await Promise.all([
     supabase.from("venta_items").select("id").ilike("detalle", like).limit(500),
     ventaIdsPorClienteNumero(q),
     (async () => {
-      const { data: equipos } = await supabase
-        .from("equipos")
+      const { data: celulares } = await supabase
+        .from("celulares")
         .select("id")
         .ilike("imei", like)
         .limit(500);
-      return (equipos ?? []).map((e) => e.id as string);
+      return (celulares ?? []).map((e) => e.id as string);
     })(),
   ]);
+  const { data: notebooks } = await supabase
+    .from("notebooks")
+    .select("id")
+    .ilike("numero_serie", like)
+    .limit(500);
+  const notebookIds = (notebooks ?? []).map((n) => n.id as string);
   const ids = new Set((detalle.data ?? []).map((r) => r.id as string));
   if (ventaIds.length > 0) {
     const { data } = await supabase
@@ -393,11 +412,19 @@ export async function graficosVentas(f: FiltrosVentas): Promise<GraficosVentas> 
       .limit(500);
     for (const r of data ?? []) ids.add(r.id as string);
   }
-  if (equipoIds.length > 0) {
+  if (celularIds.length > 0) {
     const { data } = await supabase
       .from("venta_items")
       .select("id")
-      .in("equipo_id", equipoIds)
+      .in("celular_id", celularIds)
+      .limit(500);
+    for (const r of data ?? []) ids.add(r.id as string);
+  }
+  if (notebookIds.length > 0) {
+    const { data } = await supabase
+      .from("venta_items")
+      .select("id")
+      .in("notebook_id", notebookIds)
       .limit(500);
     for (const r of data ?? []) ids.add(r.id as string);
   }
@@ -420,10 +447,10 @@ function aplicarFiltrosItems(
   if (rango.hasta) query = query.lt("ventas.fecha", finExclusivoART(rango.hasta));
   if (f.vendedor) query = query.eq("ventas.vendedor_id", f.vendedor);
   if (f.tipo) {
-    if (f.tipo === "equipo") {
-      query = query.or("categoria.eq.equipo,and(categoria.is.null,equipo_id.not.is.null)");
+    if (f.tipo === "celular") {
+      query = query.or("categoria.eq.celular,and(categoria.is.null,celular_id.not.is.null)");
     } else if (f.tipo === "libre") {
-      query = query.or("categoria.eq.libre,and(categoria.is.null,equipo_id.is.null)");
+      query = query.or("categoria.eq.libre,and(categoria.is.null,celular_id.is.null)");
     } else {
       query = query.eq("categoria", f.tipo);
     }
@@ -442,14 +469,16 @@ type ItemRow = {
   cantidad: number;
   precio_usd: number;
   costo_usd: number | null;
-  equipo_id: string | null;
+  celular_id: string | null;
+  notebook_id: string | null;
   categoria: VentaItem["categoria"] | null;
-  equipos: { imei: string } | null;
+  celulares: { imei: string } | null;
+  notebooks: { numero_serie: string | null } | null;
   ventas: { id: string };
 };
 
 const ITEM_COLS =
-  "detalle, cantidad, precio_usd, costo_usd, equipo_id, categoria, equipos(imei), ventas!inner(id, fecha, numero, total_usd, margen_pct)";
+  "detalle, cantidad, precio_usd, costo_usd, celular_id, notebook_id, categoria, celulares(imei), notebooks(numero_serie), ventas!inner(id, fecha, numero, total_usd, margen_pct)";
 
 /** Una página de ítems vendidos (vista "Ítems vendidos"), con las mismas
  * reglas de filtro/orden que la tabla de ventas. Cada fila trae su `Venta`
@@ -485,10 +514,11 @@ export async function listItemsVendidosPagina(
         cantidad: r.cantidad,
         precioUsd: r.precio_usd,
         costoUsd: r.costo_usd ?? undefined,
-        equipoId: r.equipo_id ?? undefined,
+        celularId: r.celular_id ?? undefined,
+        notebookId: r.notebook_id ?? undefined,
         categoria: r.categoria ?? undefined,
       },
-      serial: r.equipos?.imei,
+      serial: r.celulares?.imei ?? r.notebooks?.numero_serie ?? undefined,
     });
   }
   return { items, total: count ?? 0 };
@@ -548,8 +578,8 @@ export type CreateVentaInput = {
 
 /** Crea la venta, sus ítems (tabla propia `venta_items`, ver
  * "Backend y multi-tenancy" en CLAUDE.md) y:
- * - si algún ítem viene del stock de equipos (`equipoId`), marca esos
- *   equipos como vendidos;
+ * - si algún ítem viene del stock de celulares (`celularId`), marca esos
+ *   celulares como vendidos;
  * - si algún ítem consumió repuestos (`VentaItem.repuestos`, solo tiene
  *   sentido en ítems de servicio), descuenta ese stock;
  * - por cada `Pago`, genera el movimiento correspondiente: un cargo en
@@ -571,7 +601,19 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   // (`cotizacion`/`montoArs`): el mismo monto en pesos que va al
   // movimiento de caja, calculado acá para que la UI nunca tenga que
   // recalcularlo con el blue de hoy (ver `montoPagoLabel` en lib/ventas.ts).
+  let avisoCanje: string | undefined;
   const pagosSinCanje: Pago[] = data.pagos.map(({ canje, ...p }) => {
+    // El canje no es una caja: no lleva `cajaId` ni snapshot en pesos
+    // (siempre se carga en USD). Plan 020.
+    if (p.medio === "canje") {
+      return {
+        ...p,
+        caja: "usd",
+        cajaId: undefined,
+        cotizacion: undefined,
+        montoArs: undefined,
+      };
+    }
     if (p.caja !== "ars" || !p.cajaId) return p;
     const montoArs = Math.round(montoConRecargo(p.montoUsd, p.recargoPct) * data.dolarVenta);
     return { ...p, cotizacion: data.dolarVenta, montoArs };
@@ -594,7 +636,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   if (error) throw error;
 
   // Todo lo que viene después del insert se compensa si algo falla a
-  // mitad: `deleteVenta` deshace cada efecto (equipos, repuestos,
+  // mitad: `deleteVenta` deshace cada efecto (celulares, repuestos,
   // movimientos, compra de canje) y es no-op con lo que no llegó a
   // existir, así que sirve para una venta "incompleta".
   try {
@@ -607,21 +649,33 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
           cantidad: item.cantidad,
           precio_usd: item.precioUsd,
           costo_usd: item.costoUsd ?? null,
-          equipo_id: item.equipoId ?? null,
+          celular_id: item.celularId ?? null,
+          notebook_id: item.notebookId ?? null,
           categoria: item.categoria ?? null,
         })),
       )
       .select("id");
     if (itemsError) throw itemsError;
 
-    const equipoIds = data.items
-      .map((i) => i.equipoId)
+    const celularIds = data.items
+      .map((i) => i.celularId)
       .filter((x): x is string => !!x);
-    if (equipoIds.length > 0) {
+    if (celularIds.length > 0) {
       const { error: updError } = await supabase
-        .from("equipos")
+        .from("celulares")
         .update({ estado: "vendido" })
-        .in("id", equipoIds);
+        .in("id", celularIds);
+      if (updError) throw updError;
+    }
+
+    const notebookIds = data.items
+      .map((i) => i.notebookId)
+      .filter((x): x is string => !!x);
+    if (notebookIds.length > 0) {
+      const { error: updError } = await supabase
+        .from("notebooks")
+        .update({ estado: "vendido" })
+        .in("id", notebookIds);
       if (updError) throw updError;
     }
 
@@ -665,6 +719,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     // recibido (checklist + PDF firmable, ver "Ventas" en CLAUDE.md).
     const concepto = `Venta V-${ventaRow.numero} · ${data.cliente}`;
     const compraIdPorIndice = new Map<number, string>();
+    const celularIdPorIndice = new Map<number, string>();
     for (let i = 0; i < data.pagos.length; i++) {
       const pago = data.pagos[i];
       const montoReal = montoConRecargo(pago.montoUsd, pago.recargoPct);
@@ -677,7 +732,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
           montoUsd: montoReal,
           ventaId: ventaRow.id,
         });
-      } else if (pago.cajaId) {
+      } else if (pagoGeneraMovimientoCaja(pago) && pago.cajaId) {
         // El monto en pesos del snapshot ya está calculado arriba -- se
         // reusa acá para que el movimiento de caja y `montoArs` siempre
         // coincidan exacto.
@@ -700,6 +755,43 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       }
 
       if (pago.medio === "canje" && pago.canje) {
+        // El equipo recibido entra al inventario como celular `en_revision`
+        // (costo = valor acordado, precio 0) y la `Compra` documenta el
+        // recibo. Si el IMEI ya existe, se carga sin IMEI y se avisa
+        // (plan 020).
+        const imei = (pago.canje.imei ?? "").trim();
+        const crear = (imeiACargar: string) =>
+          createCelular({
+            modelo: pago.canje!.equipo,
+            almacenamiento: "",
+            color: pago.canje!.checklist.color ?? "",
+            imei: imeiACargar,
+            bateria: 0,
+            condicion: "",
+            costoUsd: pago.montoUsd,
+            precioUsd: 0,
+            estado: "en_revision",
+          });
+
+        let celular: Celular;
+        let aclaracionImei: string | undefined;
+        try {
+          celular = await crear(imei);
+        } catch (err) {
+          const code = (err as { code?: string }).code;
+          if (code === "23505" && imei) {
+            celular = await crear("");
+            aclaracionImei = `IMEI repetido: ${imei}, revisar`;
+            avisoCanje = `El IMEI ${imei} ya existía: el celular recibido se cargó sin IMEI, revisalo en Inventario.`;
+          } else {
+            throw err;
+          }
+        }
+
+        const aclaraciones = [pago.canje.aclaraciones, aclaracionImei]
+          .filter(Boolean)
+          .join("\n");
+
         const compra = await createCompra({
           origen: "canje",
           clienteId: data.clienteId,
@@ -712,16 +804,20 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
           marca: pago.canje.marca,
           imei: pago.canje.imei,
           checklist: pago.canje.checklist,
-          aclaraciones: pago.canje.aclaraciones,
+          aclaraciones: aclaraciones || undefined,
           usuarioNombre: data.vendedorNombre,
         });
         compraIdPorIndice.set(i, compra.id);
+        celularIdPorIndice.set(i, celular.id);
       }
     }
 
-    if (compraIdPorIndice.size > 0) {
+    if (compraIdPorIndice.size > 0 || celularIdPorIndice.size > 0) {
       for (const [i, compraId] of compraIdPorIndice) {
         pagosSinCanje[i] = { ...pagosSinCanje[i], compraId };
+      }
+      for (const [i, celularId] of celularIdPorIndice) {
+        pagosSinCanje[i] = { ...pagosSinCanje[i], celularId };
       }
       const { error: pagosUpdateError } = await supabase
         .from("ventas")
@@ -732,7 +828,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   } catch (err) {
     try {
       await deleteVenta(`V-${ventaRow.numero}`, {
-        restituirEquipos: true,
+        restituirCelulares: true,
         restituirRepuestos: true,
         eliminarMovimientosCaja: true,
         eliminarMovimientoCC: true,
@@ -756,13 +852,18 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     .single();
   if (selectError) throw selectError;
 
-  const tieneMovimientoCaja = data.pagos.some((p) => p.medio !== "cuenta_corriente" && p.cajaId);
+  const tieneMovimientoCaja = data.pagos.some(
+    (p) => pagoGeneraMovimientoCaja(p) && !!p.cajaId,
+  );
   const tieneMovimientoCC = data.pagos.some((p) => p.medio === "cuenta_corriente");
-  return toVenta(row as unknown as VentaRow, tieneMovimientoCaja, tieneMovimientoCC);
+  return {
+    ...toVenta(row as unknown as VentaRow, tieneMovimientoCaja, tieneMovimientoCC),
+    avisoCanje,
+  };
 }
 
 export type DeleteVentaOpts = {
-  restituirEquipos: boolean;
+  restituirCelulares: boolean;
   restituirRepuestos: boolean;
   eliminarMovimientosCaja: boolean;
   eliminarMovimientoCC: boolean;
@@ -772,7 +873,8 @@ export type DeleteVentaOpts = {
 /** Borra la venta (sus `venta_items` caen solos por `on delete cascade`,
  * y con ellos `venta_item_repuestos`). Cinco reversiones independientes,
  * elegidas en el checkbox del modal de confirmación (`ventas-client.tsx`):
- * - `restituirEquipos`: los equipos vendidos vuelven a `disponible`.
+ * - `restituirCelulares`: los celulares y notebooks vendidos vuelven a
+ *   `disponible`.
  * - `restituirRepuestos`: los repuestos consumidos vuelven al stock.
  * - `eliminarMovimientosCaja` / `eliminarMovimientoCC`: borra también el
  *   movimiento generado por los pagos de esta venta -- si se deja en
@@ -784,31 +886,49 @@ export type DeleteVentaOpts = {
  * `id` es el `Venta.id` de la app (`"V-1042"`) -- no el uuid real de la
  * fila, que `toVenta` nunca expone hacia afuera. Se resuelve acá contra
  * `numero` antes de tocar nada. */
-export async function deleteVenta(id: string, opts: DeleteVentaOpts): Promise<void> {
+export async function deleteVenta(
+  id: string,
+  opts: DeleteVentaOpts,
+): Promise<string | null> {
   const supabase = createServerClient();
   const numero = Number(id.replace(/^V-/, ""));
 
   const { data: ventaRow, error: ventaError } = await supabase
     .from("ventas")
-    .select("id")
+    .select("id, pagos")
     .eq("numero", numero)
     .single();
   if (ventaError) throw ventaError;
 
-  if (opts.restituirEquipos) {
+  if (opts.restituirCelulares) {
     const { data: items, error: itemsError } = await supabase
       .from("venta_items")
-      .select("equipo_id")
+      .select("celular_id")
       .eq("venta_id", ventaRow.id)
-      .not("equipo_id", "is", null);
+      .not("celular_id", "is", null);
     if (itemsError) throw itemsError;
 
-    const equipoIds = (items ?? []).map((i) => i.equipo_id as string);
-    if (equipoIds.length > 0) {
+    const celularIds = (items ?? []).map((i) => i.celular_id as string);
+    if (celularIds.length > 0) {
       const { error: updError } = await supabase
-        .from("equipos")
+        .from("celulares")
         .update({ estado: "disponible" })
-        .in("id", equipoIds);
+        .in("id", celularIds);
+      if (updError) throw updError;
+    }
+
+    const { data: nbItems, error: nbError } = await supabase
+      .from("venta_items")
+      .select("notebook_id")
+      .eq("venta_id", ventaRow.id)
+      .not("notebook_id", "is", null);
+    if (nbError) throw nbError;
+    const notebookIds = (nbItems ?? []).map((i) => i.notebook_id as string);
+    if (notebookIds.length > 0) {
+      const { error: updError } = await supabase
+        .from("notebooks")
+        .update({ estado: "disponible" })
+        .in("id", notebookIds);
       if (updError) throw updError;
     }
   }
@@ -870,16 +990,41 @@ export async function deleteVenta(id: string, opts: DeleteVentaOpts): Promise<vo
     if (ccError) throw ccError;
   }
 
+  let aviso: string | null = null;
   if (opts.eliminarCompraCanje) {
     const { error: compraError } = await supabase
       .from("compras")
       .delete()
       .eq("venta_id", ventaRow.id);
     if (compraError) throw compraError;
+
+    // El celular recibido en canje se dio de alta junto con la venta (plan
+    // 020). Solo se da de baja si todavía no se movió; si ya se vendió,
+    // reservó o extravió, se conserva y se avisa.
+    const pagos = (ventaRow.pagos ?? []) as Pago[];
+    const celularIds = pagos
+      .filter((p) => p.medio === "canje" && p.celularId)
+      .map((p) => p.celularId as string);
+    for (const celularId of celularIds) {
+      const { data: celular, error: celError } = await supabase
+        .from("celulares")
+        .select("id, estado")
+        .eq("id", celularId)
+        .maybeSingle();
+      if (celError) throw celError;
+      if (!celular) continue;
+      if (celularCanjeBorrable(celular.estado as CelularStatus)) {
+        await deleteCelular(celularId);
+      } else {
+        aviso =
+          "El celular recibido en canje ya se movió: se conservó en inventario.";
+      }
+    }
   }
 
   const { error } = await supabase.from("ventas").delete().eq("id", ventaRow.id);
   if (error) throw error;
+  return aviso;
 }
 
 /** Vendedores posibles para el selector de "Nueva venta" -- admin y

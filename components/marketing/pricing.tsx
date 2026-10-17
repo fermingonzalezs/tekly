@@ -26,7 +26,7 @@ const PLANES = [
   {
     nombre: "Business",
     precio: "49.990",
-    resumen: "Para equipos que trabajan todo el día en el local.",
+    resumen: "Para celulares que trabajan todo el día en el local.",
     features: [
       "Hasta 3 usuarios",
       "Los 6 módulos",
@@ -39,7 +39,7 @@ const PLANES = [
   {
     nombre: "Business+",
     precio: "99.990",
-    resumen: "Para equipos grandes que necesitan acompañamiento cercano.",
+    resumen: "Para celulares grandes que necesitan acompañamiento cercano.",
     features: [
       "Hasta 10 usuarios",
       "Los 6 módulos",

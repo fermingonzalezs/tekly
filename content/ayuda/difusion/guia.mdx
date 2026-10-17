@@ -4,23 +4,66 @@ resumen: "Armá catálogos de productos para copiar y pegar en WhatsApp, con reg
 seccion: difusion
 roles: []
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
 Difusión arma el **texto del catálogo** que pegás en WhatsApp (u otro medio). No es una lista de contactos: es la plantilla del mensaje.
 
+## Operaciones
+
+- [Armar un catálogo](/ayuda/difusion/armar-lista)
+
+## Cómo funciona
+
 <Paso n={1} titulo="Nueva lista">
-Escribí el **mensaje inicial** y el **mensaje final**, y armá las secciones (ej. «IPHONE USADOS»).
+Escribí el **mensaje inicial** y el **mensaje final**, y armá las **secciones** (ej. «IPHONE USADOS»).
 </Paso>
 
-<Paso n={2} titulo="Agregá entradas por regla">
-Cada sección lleva entradas que son **reglas**: «todos los equipos A+», «todas las tablets», o una línea manual. La regla se evalúa **en el momento** contra el stock real: agregás una vez y el catálogo se actualiza solo.
+<Paso n={2} titulo="Entradas por regla">
+Cada sección lleva entradas que son **reglas** («todos los celulares A+», «todas las notebooks usadas», «todas las tablets») o una línea manual. La regla se evalúa **en el momento** contra el stock real: agregás una vez y el catálogo se actualiza solo.
 </Paso>
 
 <Paso n={3} titulo="Copiar y pegar">
-Tekly genera el texto listo para copiar y enviar.
+Vista previa con el mensaje armado y el botón **«Copiar mensaje»**.
 </Paso>
 
-## Ver también
+<Aviso titulo="No envía mensajes" tono="info">
+Difusión **no** manda nada: genera el texto y vos lo pegás en WhatsApp. No necesita ningún permiso ni conexión con tu cuenta.
+</Aviso>
+
+## Qué no se puede
+
+- **No envía mensajes** ni administra contactos.
+- **No borra listas**: sólo se crean y se editan.
+- Los ítems publicados son una **regla sobre el stock actual**, no una selección fija: si el stock cambia, el mensaje cambia.
+- El descuento se aplica sobre la ganancia o como monto fijo; no hay otras reglas de precio.
+
+## Preguntas frecuentes
+
+**¿Esto envía mensajes por WhatsApp?**
+No. Arma el texto y vos lo copiás y pegás.
+
+**¿Por qué cambió el catálogo sin que yo lo toque?**
+Porque las entradas son reglas evaluadas contra el stock del momento.
+
+**¿Puedo usar un descuento?**
+Sí: monto fijo (USD) o porcentaje sobre la ganancia. Ver [Armar un catálogo](/ayuda/difusion/armar-lista).
+
+**¿Puedo armar líneas a mano?**
+Sí: el tipo «Ítem manual» deja escribir texto y precio libres.
+
+**¿Puedo borrar una lista?**
+No: se puede dejar de usar, pero no borrar.
+
+**¿Sirve para publicar en Instagram?**
+Sí: el texto sirve para cualquier medio; el nombre «WhatsApp» es orientativo.
+
+**¿Incluye los vendidos?**
+No: las reglas de celulares y notebooks toman sólo lo «Disponible».
+
+**¿Puedo filtrar por color o almacenamiento?**
+Las reglas de celulares y notebooks filtran por **condición**; los «Otros» por categoría.
+
+## Relacionados
 
 - [Módulo Inventario](/ayuda/inventario/guia)

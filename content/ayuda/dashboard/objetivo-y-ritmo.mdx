@@ -1,0 +1,41 @@
+---
+titulo: "Objetivo y ritmo del mes"
+resumen: "Cómo se lee el gráfico «Ritmo del mes» y el panel «Objetivo del mes», y dónde se edita la meta."
+seccion: dashboard
+roles: [admin]
+orden: 4
+actualizado: 2026-10-17
+---
+
+El admin define una **meta mensual** y el Dashboard la convierte en dos lecturas: el ritmo día a día y el avance sobre el objetivo.
+
+## Ritmo del mes
+
+El gráfico muestra tres series sobre los días del mes:
+
+- **Acumulado** — lo facturado en el mes hasta hoy.
+- **Mes anterior** — el acumulado del mes pasado en los mismos días.
+- **Ritmo ideal** — la línea recta para llegar a la meta (sólo si hay objetivo cargado).
+
+Si estás viendo el mes en curso, hay una línea punteada marcada **«Hoy»**. Al pasar el mouse por un día ves los tres valores.
+
+## Objetivo del mes
+
+- Una barra de avance con el porcentaje cumplido.
+- Cuánto falta y el total (`facturado / meta`).
+- **Proyección** (a dónde llegarías con el ritmo actual), **Ritmo necesario** (por día, con los días restantes) y la comparación con el mes anterior.
+
+<Paso n={1} titulo="Editar la meta">
+Andá a **Configuración → Preferencias → Objetivo del mes (USD)** y guardá. Es un valor único, sin historial.
+</Paso>
+
+## Qué no se puede
+
+- Sin meta cargada, no aparece la línea de «Ritmo ideal» ni el panel de objetivo.
+- La meta no tiene historial por mes: es un único valor vigente.
+- La edición es **sólo del admin**.
+
+## Relacionados
+
+- [Dashboard del admin](/ayuda/dashboard/metricas-admin)
+- [Datos del negocio y preferencias](/ayuda/configuracion/datos-del-negocio)

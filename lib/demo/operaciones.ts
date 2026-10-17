@@ -1,7 +1,7 @@
 /** Operaciones puras sobre el `DemoState` (plan 014, paso 2): alta y baja de
  * venta sin React y sin Supabase. Replican el efecto de `createVenta`/
  * `deleteVenta` de `lib/db/ventas.ts` (contrato, no implementación): numerar
- * `V-<n>`, marcar equipos vendidos, descontar repuestos, snapshot ARS y
+ * `V-<n>`, marcar celulares vendidos, descontar repuestos, snapshot ARS y
  * coherencia de los flags de movimiento. **No** generan movimientos de caja
  * ni de cuenta corriente reales (decisión 5 del plan). */
 
@@ -92,12 +92,19 @@ export function crearVentaDemo(
     return base;
   });
 
-  // ── Equipos vendidos y repuestos consumidos ──
-  const equipoIds = new Set(
-    input.items.map((i) => i.equipoId).filter((x): x is string => !!x),
+  // ── Celulares vendidos y repuestos consumidos ──
+  const celularIds = new Set(
+    input.items.map((i) => i.celularId).filter((x): x is string => !!x),
   );
-  const equipos = state.equipos.map((e): typeof e =>
-    equipoIds.has(e.id) ? { ...e, estado: "vendido" } : e,
+  const celulares = state.celulares.map((e): typeof e =>
+    celularIds.has(e.id) ? { ...e, estado: "vendido" } : e,
+  );
+
+  const notebookIds = new Set(
+    input.items.map((i) => i.notebookId).filter((x): x is string => !!x),
+  );
+  const notebooks = state.notebooks.map((n): typeof n =>
+    notebookIds.has(n.id) ? { ...n, estado: "vendido" } : n,
   );
 
   const stockUsado = new Map<string, number>();
@@ -137,7 +144,8 @@ export function crearVentaDemo(
     state: {
       ...state,
       ventas: [venta, ...state.ventas],
-      equipos,
+      celulares,
+      notebooks,
       clientes,
       repuestos,
       contadorVentas: numero,
@@ -149,18 +157,28 @@ export function crearVentaDemo(
 export function eliminarVentaDemo(
   state: DemoState,
   id: string,
-  opts: { restituirEquipos: boolean; restituirRepuestos: boolean },
+  opts: { restituirCelulares: boolean; restituirRepuestos: boolean },
 ): DemoState {
   const venta = state.ventas.find((v) => v.id === id);
   if (!venta) return state;
 
-  let equipos = state.equipos;
-  if (opts.restituirEquipos) {
+  let celulares = state.celulares;
+  if (opts.restituirCelulares) {
     const ids = new Set(
-      venta.items.map((i) => i.equipoId).filter((x): x is string => !!x),
+      venta.items.map((i) => i.celularId).filter((x): x is string => !!x),
     );
-    equipos = state.equipos.map((e): typeof e =>
+    celulares = state.celulares.map((e): typeof e =>
       ids.has(e.id) ? { ...e, estado: "disponible" } : e,
+    );
+  }
+
+  let notebooks = state.notebooks;
+  if (opts.restituirCelulares) {
+    const ids = new Set(
+      venta.items.map((i) => i.notebookId).filter((x): x is string => !!x),
+    );
+    notebooks = state.notebooks.map((n): typeof n =>
+      ids.has(n.id) ? { ...n, estado: "disponible" } : n,
     );
   }
 
@@ -182,7 +200,8 @@ export function eliminarVentaDemo(
   return {
     ...state,
     ventas: state.ventas.filter((v) => v.id !== id),
-    equipos,
+    celulares,
+    notebooks,
     repuestos,
   };
 }

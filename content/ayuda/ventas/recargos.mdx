@@ -3,24 +3,30 @@ titulo: "Recargos por medio de pago"
 resumen: "Cómo configurar un porcentaje extra por tarjeta u otro medio, y dónde se ve al cobrar."
 seccion: ventas
 roles: [admin]
-orden: 4
-actualizado: 2026-10-04
+orden: 5
+actualizado: 2026-10-17
 ---
 
 Si tu local cobra un recargo por pagar con tarjeta (o cualquier otro medio), Tekly lo aplica solo.
 
 <Paso n={1} titulo="Configurá el % por medio">
-En **Configuración → Datos del negocio** hay un recargo opcional por cada medio (tarjeta, transferencia, etc.).
+En **Configuración → Preferencias** hay un recargo opcional por cada medio (pesos, dólares, transferencia, cripto, tarjeta, mercadería y cuenta corriente). Dejalo vacío para no cobrar recargo.
 </Paso>
 
 <Paso n={2} titulo="Se aplica en cada venta">
-Al elegir ese medio en «Nueva venta», el recargo infla lo que **se cobra de verdad** (y lo que entra a la caja), sin tocar el total de la venta ni la conciliación. En el detalle de la venta aparece «+10 % recargo».
+Al elegir ese medio en «Nueva venta», el recargo infla lo que **se cobra de verdad** (y lo que entra a la caja). En el detalle de la venta aparece «+ N % recargo».
 </Paso>
 
 <Aviso titulo="El total de la venta no cambia" tono="info">
-El recargo es lo que el medio hace pagar **de más** por arriba del total. La venta sigue valiendo lo mismo; el recargo es transparente para el cálculo de margen.
+El recargo es lo que el medio hace pagar **de más** por arriba del total. La venta sigue valiendo lo mismo; el recargo no afecta el cálculo de margen.
 </Aviso>
 
-## Ver también
+## Qué no se puede
 
+- El recargo **no** cambia el total de la venta ni la conciliación: sólo lo que se cobra/mueve por ese medio.
+- Configurarlo es **solo del admin** (vive en Configuración).
+
+## Relacionados
+
+- [Datos del negocio y preferencias](/ayuda/configuracion/datos-del-negocio)
 - [Módulo Ventas](/ayuda/ventas/guia)

@@ -1,0 +1,53 @@
+---
+titulo: "Los documentos del ticket"
+resumen: "Ticket de ingreso, Presupuesto y Ticket de egreso: cuándo aparece cada uno y qué incluye, con firma de cliente y empresa."
+seccion: reparaciones
+roles: []
+orden: 7
+actualizado: 2026-10-17
+---
+
+Del detalle de un ticket salen tres documentos, todos con el membrete del negocio, los datos del cliente y las firmas (cliente y empresa). Cada uno se imprime directo desde el navegador (o se guarda como PDF).
+
+## Ticket de ingreso
+
+Siempre disponible. Es lo que el cliente firma al dejar el equipo.
+
+- «Información del equipo» (marca, modelo, serial/IMEI, color, reparación solicitada, falla, clave, observaciones).
+- «Checklist de ingreso».
+- «Términos y condiciones» y «Aclaraciones» (textos editables del negocio).
+- «Servicios presupuestados» si ya hay ítems cargados.
+
+## Presupuesto
+
+Aparece sólo si el ticket tiene **servicios cargados**. Es para mandarle al cliente.
+
+- «Información del equipo» (sin color).
+- Los ítems separados en hasta tres tablas: **Servicios**, **Repuestos** e **Ítems extra** (cada una se oculta si no tiene ítems).
+- Total general.
+- «Términos y condiciones» del presupuesto.
+
+## Ticket de egreso
+
+Aparece con el ticket **«Listo»** o **«Entregado»**, y **queda deshabilitado hasta que cargues el checklist de egreso**.
+
+- «Información del equipo».
+- «Servicios realizados» y «Forma de pago».
+- «Checklist de egreso» (puede ir en una segunda hoja).
+- «Términos y condiciones» y «Aclaraciones» del egreso.
+
+<Aviso titulo="No hay vista previa" tono="info">
+Cada botón abre directo el diálogo de impresión del navegador. Los textos se editan en **Configuración → Recibos**.
+</Aviso>
+
+## Qué no se puede
+
+- El **Presupuesto no cobra**: es un documento de cotización.
+- El **Ticket de egreso** no se imprime sin el checklist de egreso.
+- Los textos son del negocio (Configuración), no se editan por ticket.
+- Ninguno de estos documentos es una factura: llevan la leyenda «Documento no válido como factura».
+
+## Relacionados
+
+- [Recibos y textos](/ayuda/configuracion/recibos)
+- [Módulo Reparaciones](/ayuda/reparaciones/guia)

@@ -1,32 +1,42 @@
 ---
 titulo: "Eliminar una venta (y sus 5 reversiones)"
-resumen: "Solo el admin puede borrar una venta. Podés elegir qué se revierte: equipos, repuestos, caja, cuenta corriente y canje."
+resumen: "Solo el admin puede borrar una venta. Podés elegir qué se revierte: celulares/notebooks, repuestos, caja, cuenta corriente y canje."
 seccion: ventas
 roles: [admin]
-orden: 5
-actualizado: 2026-10-04
+orden: 8
+actualizado: 2026-10-17
 ---
 
-Borrar una venta no revierte nada solo: Tekly te muestra **hasta 5 opciones** y vos elegís qué devolver.
+Borrar una venta no revierte nada solo: Tekly te muestra **hasta 5 opciones** y vos elegís qué devolver. Todas vienen marcadas por defecto.
 
 <Paso n={1} titulo="Abrí la venta y tocá «Eliminar venta»">
 Solo el **admin** ve ese botón, en rojo, abajo a la izquierda del detalle.
 </Paso>
 
 <Paso n={2} titulo="Marcá qué reversar">
-- **Devolver los equipos** vendidos al inventario (vuelven a «disponible»).
-- **Devolver los repuestos** usados al stock.
-- **Borrar los movimientos de caja** que generó.
-- **Borrar el movimiento de cuenta corriente** que generó.
-- **Borrar la compra de canje** generada.
+- **«Devolver los celulares/notebooks vendidos al inventario (quedan “disponibles” de nuevo)»** — aparece si la venta incluyó celulares o notebooks.
+- **«Devolver los repuestos usados al stock»** — aparece si algún servicio usó repuestos.
+- **«Eliminar también los movimientos de caja generados por esta venta»** — aparece si generó movimientos de caja.
+- **«Eliminar también el movimiento de cuenta corriente generado por esta venta»** — aparece si fue fiada.
+- **«Eliminar también la compra de canje y el celular recibido»** — aparece si hubo canje. Si ese celular ya se vendió, reservó o extravió, **se conserva** en inventario (no se puede deshacer una operación posterior).
 
-Cada opción aparece solo si aplica a esa venta.
+Cada opción se muestra **solo si aplica** a esa venta.
+</Paso>
+
+<Paso n={3} titulo="Confirmá">
+Se elimina la venta (y sus ítems). La fila sale de la lista recién cuando la acción confirma. Si algo falla, el error se muestra dentro del diálogo y la venta **no** desaparece.
 </Paso>
 
 <Aviso titulo="Si no marcás una opción" tono="warning">
 El movimiento queda «huérfano» como si fuera manual. Por ejemplo, si no borrás el movimiento de caja, la plata sigue registrada en la caja aunque la venta ya no exista.
 </Aviso>
 
-## Ver también
+## Qué no se puede
+
+- **Nadie más que el admin** puede eliminar una venta (ni con la cuenta en solo lectura).
+- Es **definitivo**: no se puede recuperar una venta borrada.
+- No se puede deshacer una reversión hecha por error desde acá: habría que corregir a mano (ej. volver a cargar el stock).
+
+## Relacionados
 
 - [Módulo Ventas](/ayuda/ventas/guia)

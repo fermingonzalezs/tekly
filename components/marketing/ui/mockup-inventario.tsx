@@ -1,17 +1,17 @@
 import { MockupChrome } from "./mockup-chrome";
 
 /**
- * Ilustración de /inventario (tab Equipos) para el carousel de módulos:
+ * Ilustración de /inventario (tab Celulares) para el carousel de módulos:
  * mismas convenciones de escala que el resto de los mockups "ventana
  * completa" (5-6.5px de texto, header de tabla en banda índigo, zebra cada
- * fila impar). Estados con el tono real de `equipoStatus` (`lib/status.ts`):
+ * fila impar). Estados con el tono real de `celularStatus` (`lib/status.ts`):
  * disponible=emerald, reservado=blue, en_revision=amber, vendido=gris. Sin
  * "extraviado" a propósito -- es el caso raro, no lo que se quiere mostrar
  * primero. Inventario vive dentro de "Stock" en el topnav real, por eso esa
  * es la pill activa.
  */
 
-const EQUIPOS = [
+const CELULARES = [
   { modelo: "iPhone 13 Pro", gb: "256GB", imei: "35824012345671", estado: "Disponible", dot: "bg-emerald-500" },
   { modelo: "iPhone 12", gb: "128GB", imei: "35824012345672", estado: "Vendido", dot: "bg-neutral-400" },
   { modelo: "iPhone 14", gb: "128GB", imei: "35824012345673", estado: "Reservado", dot: "bg-blue-500" },
@@ -42,7 +42,10 @@ export function MockupInventario({ className }: { className?: string }) {
 
       <div className="flex items-center gap-1 border-b border-neutral-100 px-3 py-1.5">
         <span className="rounded-full border border-accent bg-white px-1.5 py-[3px] text-[5px] font-medium text-accent">
-          Equipos
+          Celulares
+        </span>
+        <span className="rounded-full border border-transparent px-1.5 py-[3px] text-[5px] font-medium text-neutral-500">
+          Notebooks
         </span>
         <span className="rounded-full border border-transparent px-1.5 py-[3px] text-[5px] font-medium text-neutral-500">
           Repuestos
@@ -51,7 +54,7 @@ export function MockupInventario({ className }: { className?: string }) {
           Otros
         </span>
         <span className="ml-auto flex items-center gap-0.5 rounded-full border border-accent/40 px-1.5 py-[3px] text-[5px] font-semibold text-accent">
-          + Agregar equipo
+          + Agregar celular
         </span>
       </div>
 
@@ -70,7 +73,7 @@ export function MockupInventario({ className }: { className?: string }) {
             Estado
           </div>
 
-          {EQUIPOS.map((e, i) => (
+          {CELULARES.map((e, i) => (
             <div key={e.imei} className="contents">
               <div
                 className={`truncate border-t border-neutral-100 px-1.5 py-1 text-[5.5px] font-medium text-neutral-900 ${i % 2 === 1 ? "bg-accent-soft/40" : ""}`}

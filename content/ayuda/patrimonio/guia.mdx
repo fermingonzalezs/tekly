@@ -1,0 +1,100 @@
+---
+titulo: "Módulo Patrimonio"
+resumen: "El estado de situación del negocio a hoy: caja, cuentas por cobrar, inventario y anticipos → patrimonio neto. Solo admin."
+seccion: patrimonio
+roles: [admin]
+orden: 1
+actualizado: 2026-10-17
+---
+
+Patrimonio muestra, **a hoy**, qué tiene y qué debe el negocio: cuánto vale y de qué está hecho. Es **solo para el admin** (hay costos y saldos) y es un **balance gerencial**, no contable: no reemplaza al de tu contador.
+
+<Captura
+  alt="Patrimonio con las tarjetas de neto, activo, pasivo y liquidez, la composición del activo y el detalle."
+  caption="Estado de situación patrimonial (datos demo)."
+/>
+
+## Qué mide cada línea
+
+**Activo**
+
+- **Disponibilidades** — el saldo de cada caja. Una caja en dólares va tal cual; una caja en pesos se convierte con la **cotización blue de hoy**.
+- **Créditos** — lo que los clientes te deben (cuentas corrientes con saldo a favor tuyo).
+- **Bienes de cambio (inventario)** — el stock **a costo**: celulares + notebooks + repuestos + «Otros». Excluye lo vendido y lo extraviado.
+- **Anticipos a proveedores** — compras a proveedor en estado «Pendiente» **que salieron de una caja** (ya pagadas, la mercadería todavía no llegó). Una compra pendiente vieja sin pago registrado no cuenta: aparece aparte en «Qué no incluye».
+
+**Pasivo**
+
+- **Saldos a favor de clientes** — clientes con saldo negativo (les debemos plata o mercadería).
+
+**Patrimonio neto = Activo − Pasivo.** Es el número grande de arriba.
+
+## Evolución mes a mes
+
+Cada vez que entrás a **Patrimonio**, Tekly guarda una **foto del día** (si entrás varias veces, queda la última). Con esas fotos se arma el gráfico **«Evolución del patrimonio neto»**: un punto por mes, con el valor del último día que tiene foto (el mes en curso muestra el de hoy). Al pasar el mouse ves el neto, el activo y el pasivo de ese mes.
+
+Las tarjetas **Patrimonio neto** y **Activo total** muestran la variación contra el **cierre del mes anterior**. Mientras no haya una foto del mes anterior, muestran la nota de siempre en lugar del porcentaje.
+
+- **Empieza el día que se activó la función.** No se puede reconstruir el pasado (el inventario y los saldos de otros días no se guardaron), así que el gráfico dice «Historial desde dd/mm».
+- **Si un mes nadie abre la pantalla, ese mes no tiene punto.** Tekly no inventa valores: entrá aunque sea una vez por mes (mejor, cerca de fin de mes) para que el cierre quede registrado.
+- **Cuenta en solo lectura:** la pantalla se ve, pero no se guardan fotos nuevas.
+- El pasivo no muestra variación porque un pasivo que sube no es una buena noticia y el color verde de «subió» confundiría.
+
+## Qué NO incluye
+
+<Aviso titulo="No es el balance de tu contador" tono="warning">
+No incluye impuestos/IVA, sueldos, amortizaciones ni **cuentas a pagar a proveedores** (Tekly no las modela: las compras se pagan al cargarlas, el egreso sale de la caja en ese momento). Tampoco activos fijos.
+</Aviso>
+
+En el pie de la pantalla, «Qué no incluye» lista además:
+
+- **Trabajos en curso**: tickets abiertos por su presupuesto (se cobran al entregar, no son un derecho todavía).
+- **Extraviados a costo**: pérdida potencial (no cuentan en el activo).
+- **Movimientos en pesos sin cotización**: no se pueden convertir ni con la de hoy.
+- **Ítems sin costo cargado**: el total de inventario es un piso, no un valor exacto.
+
+## Cómo se convierte lo que está en pesos
+
+La valuación es **a hoy**: la caja en pesos se pasa a dólares con el **blue del momento**. Es distinto de los montos ya guardados (un pago viejo en pesos nunca se recalcula). Si la cotización no está disponible, las cajas en pesos se muestran **sin convertir** y se avisa.
+
+## Qué no se puede
+
+- No la ve un **vendedor** ni un **técnico**: la sección es solo del admin y no aparece en su menú.
+- No hay **evolución histórica** todavía: es una foto de hoy (los snapshots diarios son una fase posterior).
+- No incluye cuentas a pagar a proveedores, impuestos, sueldos ni amortización.
+- No se puede exportar a PDF/Excel ni filtrar por sucursal.
+
+## Preguntas frecuentes
+
+**¿Esto es un balance contable?**
+No: es un balance **gerencial** para saber cuánto vale el negocio hoy. No reemplaza al de tu contador.
+
+**¿Por qué el inventario aparece a costo y no a precio de venta?**
+Por criterio conservador. El valor **a precio de venta** y el margen potencial aparecen como memo en la tabla de Inventario.
+
+**¿De dónde sale la cotización?**
+Del **dólar blue** del día (misma fuente que Ventas), traída en el servidor. En la cabecera se muestra cuál se usó.
+
+**¿Por qué un ítem sin costo no suma?**
+Porque no se sabe cuánto costó. Cuenta como «sin costo» y el total de inventario es un piso.
+
+**¿Los equipos extraviados cuentan?**
+No: se excluyen del activo y se informan aparte a costo.
+
+**¿Las cuentas a pagar a proveedores no están?**
+Correcto. Tekly no modela compras a crédito; las compras se pagan al cargarlas.
+
+**¿Qué son los «anticipos a proveedores»?**
+Compras marcadas como pendientes: ya las pagaste pero la mercadería todavía no llegó.
+
+**¿Por qué el gráfico tiene un solo punto?**
+Porque el historial recién empieza: se suma un punto por cada mes en el que abriste esta pantalla.
+
+**¿Puedo ver el patrimonio de un mes anterior que no abrí?**
+No. Las fotos se toman al entrar; un mes sin visitas queda sin punto.
+
+## Relacionados
+
+- [Módulo Cajas](/ayuda/cajas/guia)
+- [Módulo Cuentas corrientes](/ayuda/cuentas-corrientes/guia)
+- [Módulo Inventario](/ayuda/inventario/guia)

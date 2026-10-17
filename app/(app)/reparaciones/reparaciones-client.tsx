@@ -638,7 +638,7 @@ export function ReparacionesClient({
                       {t.ingreso}
                     </span>
                   </td>
-                  <td className="max-w-[140px] truncate px-5 py-2 text-center">
+                  <td className="max-w-[140px] truncate px-5 py-2 text-start">
                     {t.cliente}
                   </td>
                   <td className="max-w-[220px] truncate px-5 py-2 text-start">

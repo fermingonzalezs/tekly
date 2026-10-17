@@ -13,7 +13,7 @@ import {
   tasaAceptacion,
   stockItems,
   agingBuckets,
-  diasInventarioEquipos,
+  diasInventarioCelulares,
   unidadesDeMovimiento,
   movimientoEnUsd,
   sinCotizacion,
@@ -24,7 +24,7 @@ import type {
   Venta,
   VentaItem,
   Ticket,
-  Equipo,
+  Celular,
   Repuesto,
   OtroItem,
   Caja,
@@ -88,16 +88,17 @@ describe("margenPorTipo", () => {
   it("calcula operaciones, ganancia y margen por rubro", () => {
     const ventas = [
       venta("2026-09-01", 900, [
-        { detalle: "iPhone 13", cantidad: 1, precioUsd: 450, costoUsd: 300, categoria: "equipo" },
+        { detalle: "iPhone 13", cantidad: 1, precioUsd: 450, costoUsd: 300, categoria: "celular" },
         { detalle: "Cambio pantalla", cantidad: 1, precioUsd: 100, costoUsd: 40, categoria: "servicio" },
       ]),
       venta("2026-09-02", 450, [
-        { detalle: "iPhone 12", cantidad: 1, precioUsd: 450, costoUsd: 350, categoria: "equipo" },
+        { detalle: "iPhone 12", cantidad: 1, precioUsd: 450, costoUsd: 350, categoria: "celular" },
       ]),
     ];
     const out = margenPorTipo(ventas);
     expect(out).toEqual([
-      { tipo: "Equipos", operaciones: 2, margenPct: 27.8, gananciaUsd: 250, facturacionUsd: 900 },
+      { tipo: "Celulares", operaciones: 2, margenPct: 27.8, gananciaUsd: 250, facturacionUsd: 900 },
+      { tipo: "Notebooks", operaciones: 0, margenPct: 0, gananciaUsd: 0, facturacionUsd: 0 },
       { tipo: "Reparaciones", operaciones: 1, margenPct: 60, gananciaUsd: 60, facturacionUsd: 100 },
       { tipo: "Accesorios", operaciones: 0, margenPct: 0, gananciaUsd: 0, facturacionUsd: 0 },
       { tipo: "Otros", operaciones: 0, margenPct: 0, gananciaUsd: 0, facturacionUsd: 0 },
@@ -126,7 +127,7 @@ describe("ventasPorRubroMes", () => {
     const hoy = new Date(2026, 8, 14); // 14 sep 2026
     const ventas = [
       venta("2026-09-05", 550, [
-        { detalle: "iPhone 13", cantidad: 1, precioUsd: 450, categoria: "equipo" },
+        { detalle: "iPhone 13", cantidad: 1, precioUsd: 450, categoria: "celular" },
         { detalle: "Cambio pantalla", cantidad: 1, precioUsd: 100, categoria: "servicio" },
       ]),
       venta("2026-08-01", 20, [
@@ -135,9 +136,9 @@ describe("ventasPorRubroMes", () => {
     ];
     const out = ventasPorRubroMes(ventas, 3, hoy);
     expect(out).toEqual([
-      { mes: "jul", equipo: 0, servicio: 0, otro: 0, libre: 0 },
-      { mes: "ago", equipo: 0, servicio: 0, otro: 20, libre: 0 },
-      { mes: "sep", equipo: 450, servicio: 100, otro: 0, libre: 0 },
+      { mes: "jul", celular: 0, notebook: 0, servicio: 0, otro: 0, libre: 0 },
+      { mes: "ago", celular: 0, notebook: 0, servicio: 0, otro: 20, libre: 0 },
+      { mes: "sep", celular: 450, notebook: 0, servicio: 100, otro: 0, libre: 0 },
     ]);
   });
 });
@@ -319,7 +320,7 @@ describe("rentabilidadPorMes", () => {
     const hoy = new Date(2026, 8, 14); // 14 sep 2026
     const ventas = [
       venta("2026-09-05", 100, [
-        { detalle: "iPhone 13", cantidad: 1, precioUsd: 100, costoUsd: 60, categoria: "equipo" },
+        { detalle: "iPhone 13", cantidad: 1, precioUsd: 100, costoUsd: 60, categoria: "celular" },
       ]),
       venta("2026-09-20", 30, []), // sin ítems con costo: facturación sí, ganancia no
       venta("2026-08-01", 50, [
@@ -344,7 +345,7 @@ describe("rentabilidadPorMes", () => {
 
 const hoyStock = new Date(2026, 8, 14); // 14 sep 2026
 
-function equipo(parcial: Partial<Equipo> & Pick<Equipo, "id" | "costoUsd" | "precioUsd">): Equipo {
+function celular(parcial: Partial<Celular> & Pick<Celular, "id" | "costoUsd" | "precioUsd">): Celular {
   return {
     modelo: "iPhone 13",
     almacenamiento: "128GB",
@@ -381,7 +382,7 @@ function otro(parcial: Partial<OtroItem> & Pick<OtroItem, "id" | "precioUsd">): 
 }
 
 function mov(
-  itemTipo: "equipo" | "repuesto" | "otro",
+  itemTipo: "celular" | "repuesto" | "otro",
   itemId: string,
   tipo: MovimientoStockBulk["tipo"],
   fechaISO: string,
@@ -391,25 +392,25 @@ function mov(
 }
 
 describe("stockItems", () => {
-  it("arma el stock vivo: equipos no vendidos, repuestos/otros con stock, con antigüedad por ingreso", () => {
-    const equipos = [
-      equipo({ id: "e1", costoUsd: 100, precioUsd: 200 }), // ingresó hace 40 días
-      equipo({ id: "e2", costoUsd: 300, precioUsd: 0, estado: "vendido" }), // vendido: afuera
+  it("arma el stock vivo: celulares no vendidos, repuestos/otros con stock, con antigüedad por ingreso", () => {
+    const celulares = [
+      celular({ id: "e1", costoUsd: 100, precioUsd: 200 }), // ingresó hace 40 días
+      celular({ id: "e2", costoUsd: 300, precioUsd: 0, estado: "vendido" }), // vendido: afuera
     ];
     const repuestos = [repuesto({ id: "r1", stock: 5, costoUsd: 10 })]; // último ingreso hace 10 días
     const otros = [otro({ id: "o1", precioUsd: 100 })]; // sin movimientos: dias null
     const movs = [
-      mov("equipo", "e1", "ingreso", "2026-08-05", "Ingreso a inventario"),
-      mov("equipo", "e2", "ingreso", "2026-07-01", "Ingreso a inventario"),
+      mov("celular", "e1", "ingreso", "2026-08-05", "Ingreso a inventario"),
+      mov("celular", "e2", "ingreso", "2026-07-01", "Ingreso a inventario"),
       mov("repuesto", "r1", "ingreso", "2026-06-01", "Ingreso: +2 unidades"),
       mov("repuesto", "r1", "ingreso", "2026-09-04", "Ingreso: +3 unidades"),
     ];
-    const out = stockItems(equipos, repuestos, otros, movs, hoyStock);
+    const out = stockItems(celulares, repuestos, otros, movs, hoyStock);
     // e1: 40 días desde el PRIMER ingreso (unidad única)
     // r1: 10 días desde el ÚLTIMO ingreso (el stock mezcla tandas)
     // o1: sin registro, margen calculable pero dias null
     expect(out).toEqual([
-      { categoria: "equipo", id: "e1", nombre: "iPhone 13 128GB", unidades: 1, valorUsd: 100, margenPct: 50, dias: 40 },
+      { categoria: "celular", id: "e1", nombre: "iPhone 13 128GB", unidades: 1, valorUsd: 100, margenPct: 50, dias: 40 },
       { categoria: "repuesto", id: "r1", nombre: "Pantalla · 13", unidades: 5, valorUsd: 50, margenPct: null, dias: 10 },
       { categoria: "otro", id: "o1", nombre: "AirPods", unidades: 1, valorUsd: 50, margenPct: 50, dias: null },
     ]);
@@ -424,11 +425,11 @@ describe("stockItems", () => {
 describe("agingBuckets", () => {
   it("cuenta unidades, valor y productos por rango, y excluye los sin registro", () => {
     const items = stockItems(
-      [equipo({ id: "e1", costoUsd: 100, precioUsd: 150 })],
+      [celular({ id: "e1", costoUsd: 100, precioUsd: 150 })],
       [repuesto({ id: "r1", stock: 4, costoUsd: 10 })],
       [otro({ id: "o1", precioUsd: 100 })], // dias null: afuera
       [
-        mov("equipo", "e1", "ingreso", "2026-09-01", "Ingreso a inventario"), // 13 días
+        mov("celular", "e1", "ingreso", "2026-09-01", "Ingreso a inventario"), // 13 días
         mov("repuesto", "r1", "ingreso", "2026-03-01", "Ingreso: +4 unidades"), // ~197 días
       ],
       hoyStock,
@@ -443,29 +444,29 @@ describe("agingBuckets", () => {
   });
 });
 
-describe("diasInventarioEquipos", () => {
-  it("promedia el recorrido ingreso → venta de los equipos", () => {
+describe("diasInventarioCelulares", () => {
+  it("promedia el recorrido ingreso → venta de los celulares", () => {
     // el egreso real de un equipo es su venta, no un movimiento "egreso"
     const movs = [
-      mov("equipo", "e1", "ingreso", "2026-07-15"),
-      mov("equipo", "e2", "ingreso", "2026-08-01"),
-      mov("equipo", "e2", "egreso", "2026-08-10"), // egreso de equipo: no cuenta para la rotación
+      mov("celular", "e1", "ingreso", "2026-07-15"),
+      mov("celular", "e2", "ingreso", "2026-08-01"),
+      mov("celular", "e2", "egreso", "2026-08-10"), // egreso de equipo: no cuenta para la rotación
     ];
     const ventas = [
       venta("2026-08-14", 150, [
-        { detalle: "iPhone 13", cantidad: 1, precioUsd: 150, costoUsd: 100, equipoId: "e1", categoria: "equipo" },
+        { detalle: "iPhone 13", cantidad: 1, precioUsd: 150, costoUsd: 100, celularId: "e1", categoria: "celular" },
       ]),
       venta("2026-08-31", 200, [
-        { detalle: "iPhone 14", cantidad: 1, precioUsd: 200, costoUsd: 150, equipoId: "e2", categoria: "equipo" },
+        { detalle: "iPhone 14", cantidad: 1, precioUsd: 200, costoUsd: 150, celularId: "e2", categoria: "celular" },
       ]),
     ];
     // e1: 15 jul → 14 ago = 30 días; e2: 1 ago → 31 ago = 30 días
-    expect(diasInventarioEquipos(movs, ventas)).toBe(30);
+    expect(diasInventarioCelulares(movs, ventas)).toBe(30);
   });
 
   it("null sin ningún recorrido completo (o sin movimientos)", () => {
-    expect(diasInventarioEquipos([], [])).toBeNull();
-    expect(diasInventarioEquipos([mov("equipo", "e1", "ingreso", "2026-08-01")], [])).toBeNull();
+    expect(diasInventarioCelulares([], [])).toBeNull();
+    expect(diasInventarioCelulares([mov("celular", "e1", "ingreso", "2026-08-01")], [])).toBeNull();
   });
 });
 
@@ -476,7 +477,7 @@ describe("unidadesDeMovimiento", () => {
     expect(unidadesDeMovimiento("Devuelto al borrar venta V-3: +5 unidades")).toBe(5);
   });
 
-  it("null si el detalle no trae cantidad (ej. equipos, unidad única)", () => {
+  it("null si el detalle no trae cantidad (ej. celulares, unidad única)", () => {
     expect(unidadesDeMovimiento("Ingreso a inventario")).toBeNull();
     expect(unidadesDeMovimiento("Baja de inventario")).toBeNull();
   });
@@ -625,7 +626,7 @@ describe("margen: un solo criterio en toda la app", () => {
   it("margenPonderado coincide con el margen que sale de sumar margenPorTipo", () => {
     const ventas = [
       venta("2026-09-01", 1000, [
-        { detalle: "iPhone", cantidad: 1, precioUsd: 800, costoUsd: 600, categoria: "equipo" },
+        { detalle: "iPhone", cantidad: 1, precioUsd: 800, costoUsd: 600, categoria: "celular" },
         { detalle: "Funda sin costo", cantidad: 1, precioUsd: 200, categoria: "otro" },
       ]),
       venta("2026-09-02", 100, [

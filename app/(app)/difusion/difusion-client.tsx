@@ -7,16 +7,22 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
-import { otroCostoPromedio } from "@/lib/otros";
 import { otroCategoria as otroCategoriaCfg } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
+import {
+  buildMensaje,
+  expandirEntrada,
+  totalItems,
+} from "@/lib/difusion";
 import type {
   DifusionEntrada,
   DifusionSeccion,
-  Equipo,
+  Celular,
   ListaDifusion,
+  Notebook,
+  NotebookCondicion,
   OtroCategoria,
   OtroItem,
 } from "@/lib/types";
@@ -26,76 +32,10 @@ const rid = () => Math.random().toString(36).slice(2);
 
 const CATEGORIAS: OtroCategoria[] = ["ipad", "airpods", "tablet", "accesorio", "otro"];
 
-type Linea = { texto: string; precioUsd: number; costoUsd?: number };
-
-/** Convierte una regla/ítem manual en las líneas de mensaje que aporta —
- * las reglas de equipo/otro se evalúan contra el stock actual. */
-function expandirEntrada(entrada: DifusionEntrada, equipos: Equipo[], otros: OtroItem[]): Linea[] {
-  if (entrada.tipo === "manual") {
-    return [{ texto: entrada.texto, precioUsd: entrada.precioUsd, costoUsd: entrada.costoUsd }];
-  }
-  if (entrada.tipo === "equipo") {
-    return equipos
-      .filter((e) => e.estado === "disponible")
-      .filter(
-        (e) => entrada.condiciones.length === 0 || entrada.condiciones.includes(e.condicion),
-      )
-      .map((e) => ({
-        texto: `${e.modelo} ${e.almacenamiento} ${e.color}`,
-        precioUsd: e.precioUsd,
-        costoUsd: e.costoUsd,
-      }));
-  }
-  return otros
-    .filter((o) => o.categoria === entrada.categoria)
-    .map((o) => ({ texto: o.nombre, precioUsd: o.precioUsd, costoUsd: otroCostoPromedio(o) }));
-}
-
-/** El descuento por monto fijo se resta del precio. El de porcentaje se
- * calcula sobre la ganancia (precioUsd - costoUsd), no sobre el precio —
- * un 10% de descuento no puede significar perder el 10% del precio de
- * venta si el margen es menor a eso. Sin costo, se asume que todo el
- * precio es ganancia (ítems manuales sin dato de costo). */
-function precioConDescuento(linea: Linea, lista: ListaDifusion) {
-  if (lista.descuentoTipo === "monto") return Math.max(0, linea.precioUsd - lista.descuentoValor);
-  if (lista.descuentoTipo === "porcentaje") {
-    const ganancia = linea.precioUsd - (linea.costoUsd ?? 0);
-    return Math.max(0, Math.round(linea.precioUsd - ganancia * (lista.descuentoValor / 100)));
-  }
-  return linea.precioUsd;
-}
-
-function totalItems(l: ListaDifusion, equipos: Equipo[], otros: OtroItem[]) {
-  return l.secciones.reduce(
-    (a, s) => a + s.entradas.flatMap((e) => expandirEntrada(e, equipos, otros)).length,
-    0,
-  );
-}
-
 function descuentoLabel(l: ListaDifusion) {
   if (l.descuentoTipo === "monto") return `-${fmtUsd(l.descuentoValor)}`;
   if (l.descuentoTipo === "porcentaje") return `-${l.descuentoValor}%`;
   return "—";
-}
-
-function buildMensaje(lista: ListaDifusion, equipos: Equipo[], otros: OtroItem[]) {
-  const partes: string[] = [];
-  if (lista.mensajeInicial.trim()) partes.push(lista.mensajeInicial.trim());
-  for (const sec of lista.secciones) {
-    const lineas = sec.entradas.flatMap((e) => expandirEntrada(e, equipos, otros));
-    if (lineas.length === 0) continue;
-    partes.push("");
-    partes.push(sec.nombre.trim().toUpperCase() || "SIN NOMBRE");
-    partes.push("");
-    for (const linea of lineas) {
-      partes.push(`${sec.emoji} ${linea.texto} - ${fmtUsd(precioConDescuento(linea, lista))}`);
-    }
-  }
-  if (lista.mensajeFinal.trim()) {
-    partes.push("");
-    partes.push(lista.mensajeFinal.trim());
-  }
-  return partes.join("\n");
 }
 
 function blankLista(): ListaDifusion {
@@ -113,11 +53,13 @@ function blankLista(): ListaDifusion {
 
 export function DifusionClient({
   initialListas,
-  equipos,
+  celulares,
+  notebooks,
   otros,
 }: {
   initialListas: ListaDifusion[];
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks: Notebook[];
   otros: OtroItem[];
 }) {
   const [listas, setListas] = useState<ListaDifusion[]>(initialListas);
@@ -127,14 +69,14 @@ export function DifusionClient({
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const condiciones = Array.from(new Set(equipos.map((e) => e.condicion))).sort();
+  const condiciones = Array.from(new Set(celulares.map((e) => e.condicion))).sort();
 
   const filtered = listas.filter((l) =>
     l.nombre.toLowerCase().includes(q.trim().toLowerCase()),
   );
   const viewing = listas.find((l) => l.id === viewingId) ?? null;
 
-  const totalItemsAll = listas.reduce((a, l) => a + totalItems(l, equipos, otros), 0);
+  const totalItemsAll = listas.reduce((a, l) => a + totalItems(l, celulares, otros, notebooks), 0);
   const conDescuento = listas.filter((l) => l.descuentoTipo !== "ninguno").length;
 
   const save = (l: ListaDifusion) => {
@@ -147,7 +89,7 @@ export function DifusionClient({
 
   const copiar = async (l: ListaDifusion) => {
     try {
-      await navigator.clipboard.writeText(buildMensaje(l, equipos, otros));
+      await navigator.clipboard.writeText(buildMensaje(l, celulares, otros, notebooks));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -203,7 +145,7 @@ export function DifusionClient({
                 </p>
                 <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
                   <span>{l.secciones.length} secciones</span>
-                  <span>{totalItems(l, equipos, otros)} ítems</span>
+                  <span>{totalItems(l, celulares, otros, notebooks)} ítems</span>
                 </div>
               </div>
               <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
@@ -237,15 +179,15 @@ export function DifusionClient({
                 onClick={() => setViewingId(l.id)}
                 className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
               >
-                <td className="max-w-[180px] truncate px-5 py-2 text-center font-medium">
+                <td className="max-w-[180px] truncate px-5 py-2 text-start font-medium">
                   {l.nombre}
                 </td>
-                <td className="max-w-[240px] truncate px-5 py-2 text-center text-neutral-500">
+                <td className="max-w-[240px] truncate px-5 py-2 text-start text-neutral-500">
                   {l.mensajeInicial || "—"}
                 </td>
                 <td className="px-5 py-2 text-center tabular-nums">{l.secciones.length}</td>
                 <td className="px-5 py-2 text-center tabular-nums">
-                  {totalItems(l, equipos, otros)}
+                  {totalItems(l, celulares, otros, notebooks)}
                 </td>
                 <td className="px-5 py-2 text-center font-semibold tabular-nums">
                   {descuentoLabel(l)}
@@ -269,7 +211,7 @@ export function DifusionClient({
         size="lg"
         title={viewing?.nombre ?? ""}
         description={
-          viewing ? `${viewing.secciones.length} secciones · ${totalItems(viewing, equipos, otros)} ítems` : ""
+          viewing ? `${viewing.secciones.length} secciones · ${totalItems(viewing, celulares, otros, notebooks)} ítems` : ""
         }
         footer={
           viewing && (
@@ -301,7 +243,7 @@ export function DifusionClient({
       >
         {viewing && (
           <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg bg-neutral-50 p-4 text-[13px] leading-relaxed text-neutral-700">
-            {buildMensaje(viewing, equipos, otros)}
+            {buildMensaje(viewing, celulares, otros, notebooks)}
           </pre>
         )}
       </Dialog>
@@ -309,7 +251,8 @@ export function DifusionClient({
       <ListaEditorDialog
         key={editing ? editing.id : creatingNew ? "new" : "closed"}
         lista={editing}
-        equipos={equipos}
+        celulares={celulares}
+        notebooks={notebooks}
         otros={otros}
         condiciones={condiciones}
         open={creatingNew || !!editing}
@@ -325,7 +268,8 @@ export function DifusionClient({
 
 function ListaEditorDialog({
   lista,
-  equipos,
+  celulares,
+  notebooks,
   otros,
   condiciones,
   open,
@@ -333,7 +277,8 @@ function ListaEditorDialog({
   onSave,
 }: {
   lista: ListaDifusion | null;
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks: Notebook[];
   otros: OtroItem[];
   condiciones: string[];
   open: boolean;
@@ -465,7 +410,8 @@ function ListaEditorDialog({
               <SeccionEditor
                 key={s.id}
                 seccion={s}
-                equipos={equipos}
+                celulares={celulares}
+                notebooks={notebooks}
                 otros={otros}
                 condiciones={condiciones}
                 onChange={(ns) => updateSeccion(idx, ns)}
@@ -489,7 +435,7 @@ function ListaEditorDialog({
             Vista previa
           </p>
           <pre className="max-h-52 overflow-y-auto whitespace-pre-wrap rounded-lg bg-neutral-50 p-3 text-[13px] leading-relaxed text-neutral-700">
-            {buildMensaje(draft, equipos, otros) || "El mensaje va a aparecer acá a medida que lo completes."}
+            {buildMensaje(draft, celulares, otros, notebooks) || "El mensaje va a aparecer acá a medida que lo completes."}
           </pre>
         </div>
       </div>
@@ -499,14 +445,16 @@ function ListaEditorDialog({
 
 function SeccionEditor({
   seccion,
-  equipos,
+  celulares,
+  notebooks,
   otros,
   condiciones,
   onChange,
   onRemove,
 }: {
   seccion: DifusionSeccion;
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks: Notebook[];
   otros: OtroItem[];
   condiciones: string[];
   onChange: (s: DifusionSeccion) => void;
@@ -547,7 +495,8 @@ function SeccionEditor({
           <EntradaRow
             key={entrada.id}
             entrada={entrada}
-            equipos={equipos}
+            celulares={celulares}
+            notebooks={notebooks}
             otros={otros}
             onRemove={() => removeEntrada(entrada.id)}
           />
@@ -566,21 +515,31 @@ function SeccionEditor({
 
 function EntradaRow({
   entrada,
-  equipos,
+  celulares,
+  notebooks,
   otros,
   onRemove,
 }: {
   entrada: DifusionEntrada;
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks: Notebook[];
   otros: OtroItem[];
   onRemove: () => void;
 }) {
-  const lineas = expandirEntrada(entrada, equipos, otros);
+  const lineas = expandirEntrada(entrada, celulares, otros, notebooks);
   const detalle =
-    entrada.tipo === "equipo" ? (
+    entrada.tipo === "celular" ? (
       <span className="text-neutral-700">
-        <span className="font-medium">Equipos</span> · condición{" "}
+        <span className="font-medium">Celulares</span> · condición{" "}
         {entrada.condiciones.length === 0 ? "todas" : entrada.condiciones.join(", ")}
+        <span className="text-neutral-400"> — {lineas.length} coincidencia{lineas.length === 1 ? "" : "s"} actual{lineas.length === 1 ? "" : "es"}</span>
+      </span>
+    ) : entrada.tipo === "notebook" ? (
+      <span className="text-neutral-700">
+        <span className="font-medium">Notebooks</span> ·{" "}
+        {entrada.condiciones.length === 0
+          ? "nuevas y usadas"
+          : entrada.condiciones.map((c) => (c === "usado" ? "usadas" : "nuevas")).join(", ")}
         <span className="text-neutral-400"> — {lineas.length} coincidencia{lineas.length === 1 ? "" : "s"} actual{lineas.length === 1 ? "" : "es"}</span>
       </span>
     ) : entrada.tipo === "otro" ? (
@@ -615,8 +574,9 @@ function AgregarEntrada({
   condiciones: string[];
   onAdd: (entrada: DifusionEntrada) => void;
 }) {
-  const [tipo, setTipo] = useState<DifusionEntrada["tipo"]>("equipo");
+  const [tipo, setTipo] = useState<DifusionEntrada["tipo"]>("celular");
   const [seleccionadas, setSeleccionadas] = useState<string[]>([]);
+  const [condicionesNb, setCondicionesNb] = useState<NotebookCondicion[]>([]);
   const [categoria, setCategoria] = useState<OtroCategoria>("ipad");
   const [manualTexto, setManualTexto] = useState("");
   const [manualPrecio, setManualPrecio] = useState(0);
@@ -626,9 +586,18 @@ function AgregarEntrada({
     setSeleccionadas((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
   };
 
+  const toggleCondicionNb = (c: NotebookCondicion) => {
+    setCondicionesNb((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+  };
+
   const add = () => {
-    if (tipo === "equipo") {
-      onAdd({ id: `r-${rid()}`, tipo: "equipo", condiciones: seleccionadas });
+    if (tipo === "notebook") {
+      onAdd({ id: `r-${rid()}`, tipo: "notebook", condiciones: condicionesNb });
+      setCondicionesNb([]);
+      return;
+    }
+    if (tipo === "celular") {
+      onAdd({ id: `r-${rid()}`, tipo: "celular", condiciones: seleccionadas });
       setSeleccionadas([]);
       return;
     }
@@ -652,12 +621,13 @@ function AgregarEntrada({
   return (
     <div className="space-y-2">
       <Select value={tipo} onChange={(e) => setTipo(e.target.value as DifusionEntrada["tipo"])}>
-        <option value="equipo">Equipos por condición</option>
+        <option value="celular">Celulares por condición</option>
+        <option value="notebook">Notebooks por condición</option>
         <option value="otro">Otros por categoría</option>
         <option value="manual">Ítem manual</option>
       </Select>
 
-      {tipo === "equipo" && (
+      {tipo === "celular" && (
         <div className="flex flex-wrap gap-1.5">
           {condiciones.map((c) => {
             const sel = seleccionadas.includes(c);
@@ -679,6 +649,32 @@ function AgregarEntrada({
           })}
           <span className="self-center text-[11px] text-neutral-400">
             {seleccionadas.length === 0 ? "Sin seleccionar = todas" : ""}
+          </span>
+        </div>
+      )}
+
+      {tipo === "notebook" && (
+        <div className="flex flex-wrap gap-1.5">
+          {(["nuevo", "usado"] as NotebookCondicion[]).map((c) => {
+            const sel = condicionesNb.includes(c);
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => toggleCondicionNb(c)}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                  sel
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-neutral-200 text-neutral-500 hover:border-neutral-300",
+                )}
+              >
+                {c === "usado" ? "Usadas" : "Nuevas"}
+              </button>
+            );
+          })}
+          <span className="self-center text-[11px] text-neutral-400">
+            {condicionesNb.length === 0 ? "Sin seleccionar = nuevas y usadas" : ""}
           </span>
         </div>
       )}

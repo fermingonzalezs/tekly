@@ -4,39 +4,53 @@ resumen: "El tablero de análisis (solo admin): ventas, reparaciones, finanzas, 
 seccion: analiticas
 roles: [admin]
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
 Analíticas es **solo para el admin**. Tiene 6 pestañas y un selector de período. El **tab y el período viven en la URL**: podés compartir un link exacto como `/analiticas?tab=finanzas&preset=mes_anterior`.
 
-## Qué hay en cada pestaña
+## Operaciones
 
-- **Ventas**: facturación, ticket promedio, operaciones, **margen promedio**, acumulada del período, ranking por vendedor, mix de rubros y venta promedio por día de la semana.
-- **Reparaciones**: **Cobrado** (la plata que entró, no el presupuesto), gasto en repuestos y ganancia final, embudo, aceptación, fallas y actividad.
-- **Finanzas**: ingresos/egresos/neto de cajas, ganancia de ventas, flujo de caja, gastos por categoría y compras vs ventas.
-- **Inventario**: foto del stock (valor, antigüedad, capital inmovilizado) y flujo del período.
-- **Clientes**: activos, en riesgo, recurrencia, cohortes, canales y listas de atención.
-- **Turnos**: estado de los turnos del período, por tipo y ocupación por franja.
+- [Qué hay en cada pestaña](/ayuda/analiticas/pestanas)
+- [Definiciones de los indicadores](/ayuda/analiticas/definiciones)
 
-## Definiciones (importante)
+## El período
 
-<Aviso titulo="Margen promedio" tono="info">
-Es el margen **ponderado por facturación** y solo cuenta los ítems con costo cargado (mismo criterio que «Ganancia por categoría»). Si no hay costos, muestra «—».
-</Aviso>
+Las opciones son «Todas las fechas», «Este mes», «Mes anterior», «Últimos 15 días» y «Rango personalizado». Debajo del selector ves el rango exacto y contra qué período se compara. En la pestaña **Inventario** el selector está deshabilitado (el stock es una foto del estado actual).
 
-<Aviso titulo="Cliente activo / en riesgo (Clientes)" tono="info">
-**Activo** = al menos una operación en los últimos 90 días. **En riesgo** = tiene historial y nada en los últimos 180 días. Los **turnos no cuentan** como operación.
-</Aviso>
+## Qué no se puede
 
-<Aviso titulo="Finanzas en pesos" tono="warning">
-Los movimientos en pesos se convierten con la **cotización guardada** en cada movimiento, nunca con la de hoy. Los movimientos viejos sin cotización se informan aparte y no se suman.
-</Aviso>
+- Un **no-admin** no entra: aunque escriba la URL, se lo redirige.
+- Al Inventario no se le aplica período (salvo el gráfico de flujo).
+- Los gráficos marcados con el chip **«Estado actual»** no dependen del período.
 
-<Aviso titulo="Turnos: no hay «asistió»" tono="info">
-Solo existen **pendiente, confirmado y cancelado**. «Sin confirmar (ya pasaron)» son los turnos que quedaron pendientes con la fecha ya pasada.
-</Aviso>
+## Preguntas frecuentes
 
-## Ver también
+**¿Quién puede ver Analíticas?**
+Solo el admin.
+
+**¿Puedo filtrar por un rango de fechas?**
+Sí, con «Rango personalizado».
+
+**¿Por qué un dato muestra «—»?**
+Suele ser porque no hay costos cargados (margen) o porque no hay datos suficientes. Ver [Definiciones](/ayuda/analiticas/definiciones).
+
+**¿Por qué un monto en pesos no se suma?**
+Porque es un movimiento viejo sin cotización guardada. Ver [Definiciones](/ayuda/analiticas/definiciones).
+
+**¿Los gráficos de clientes cambian con el período?**
+No: la pestaña Clientes trabaja con ventanas fijas de 90/180 días.
+
+**¿Qué diferencia hay con el Dashboard?**
+El Dashboard es una foto del mes; Analíticas profundiza cada área. Ver [Módulo Dashboard](/ayuda/dashboard/guia).
+
+**¿Qué significa «Estado actual»?**
+Que ese gráfico no respeta el filtro de período.
+
+**¿Puedo compartir un análisis?**
+Sí: copiá la URL, que incluye el tab y el período.
+
+## Relacionados
 
 - [Guía del admin](/ayuda/roles/guia-admin)
 - [Glosario](/ayuda/glosario/terminos)

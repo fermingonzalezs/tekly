@@ -53,11 +53,12 @@ export async function createVentaAction(input: {
 
 export async function deleteVentaAction(id: string, opts: DeleteVentaOpts) {
   await requireRoleEscritura("admin");
-  await deleteVenta(id, opts);
+  const aviso = await deleteVenta(id, opts);
   revalidatePath("/ventas");
   revalidatePath("/inventario");
   revalidatePath("/cajas");
   revalidatePath("/cuentas-corrientes");
   revalidatePath("/compras");
   revalidatePath("/dashboard");
+  return aviso;
 }

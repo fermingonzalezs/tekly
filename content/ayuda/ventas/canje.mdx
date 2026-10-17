@@ -1,31 +1,49 @@
 ---
 titulo: "Canje: recibir un equipo como pago"
-resumen: "Cuando el cliente paga con un equipo en parte de pago, Tekly genera una compra con el detalle y el PDF firmable."
+resumen: "Cuando el cliente paga con un equipo en parte de pago, Tekly lo suma al pago, lo ingresa al inventario como «En revisión» y genera una compra con el PDF firmable."
 seccion: ventas
 roles: []
-orden: 3
-actualizado: 2026-10-04
+orden: 4
+actualizado: 2026-10-17
 ---
 
-Un **canje** es cuando el cliente entrega un equipo (por ejemplo su iPhone viejo) como parte del pago. No es sólo un medio de pago: Tekly **registra el equipo recibido** como una compra.
+Un **canje** es cuando el cliente entrega un equipo (por ejemplo su iPhone viejo) como parte del pago. No es sólo un medio de pago: Tekly **registra el equipo recibido** como una compra y **lo ingresa al inventario**.
 
 <Paso n={1} titulo="Elegí el medio «Mercadería» (canje)">
-En el pago, elegí la caja de canje. Se abre el modal **«Equipo recibido en canje»**.
+En el pago, elegí **Mercadería**. A diferencia del resto de los medios, **no pide caja** (el canje no es dinero) y se carga siempre en dólares. Se abre el modal **«Equipo recibido en canje»**.
 </Paso>
 
 <Paso n={2} titulo="Cargá el equipo y el checklist">
-Completá **marca, equipo, IMEI, color**, el **checklist de ingreso** (22 ítems bien/mal/n-a) y las **aclaraciones** libres.
+Completá **marca, equipo, serial/IMEI, color**, el **checklist de ingreso** (22 ítems bien/mal/no aplica) y las **aclaraciones** libres. Sólo el campo «Equipo» es obligatorio.
 </Paso>
 
 <Paso n={3} titulo="Confirmá la venta">
-Al confirmar, Tekly crea una **Compra** con `origen: canje`, vinculada a esa venta. El detalle completo vive ahí, no en la venta.
+Al confirmar, Tekly crea una **Compra** con origen **canje** (vinculada a la venta) **y un celular** en **Inventario → Celulares** con estado **«En revisión»**.
 </Paso>
 
 <Aviso titulo="Imprimí el recibo de canje" tono="info">
 En **Compras**, abrí la compra del canje y usá **«Imprimir recibo de canje»**: sale con el checklist y las firmas del cliente y de la empresa. En Ventas sólo hay un link «Ver compra de canje» que te lleva a ese registro.
 </Aviso>
 
-## Ver también
+## Qué pasa después
+
+- Se crea la compra de canje en estado **«Recibida»** (el equipo ya está en mano).
+- El equipo aparece en **Inventario → Celulares** como **«En revisión»**, con el **costo igual al valor del canje** y **precio 0**: lo completás al revisarlo (modelo, batería, condición, precio) y lo pasás a «Disponible» para venderlo.
+- El valor reconocido es el monto de ese pago.
+- La venta guarda los vínculos (`compraId` y `celularId`) para llegar a la compra y al celular desde el detalle.
+
+## Si el IMEI ya existe
+
+Si el IMEI que cargaste **ya está en tu inventario**, el celular igual entra, pero **sin IMEI** (no se duplica): se avisa al confirmar la venta y queda la aclaración «IMEI repetido: …, revisar» en la compra. Corregilo desde Inventario.
+
+## Qué no se puede
+
+- No se puede confirmar la venta si elegiste **Mercadería** y **no cargaste el equipo** («Falta cargar el equipo del canje»).
+- El recibo de canje **no se emite desde Ventas**: se imprime desde Compras.
+- El canje **no genera movimiento de caja**: no entró dinero, entró mercadería. Por eso no aparece en Cajas, Conciliación ni Finanzas.
+- Al eliminar la venta podés borrar la compra y el celular recibido, pero **si ese celular ya se movió** (se vendió, reservó o extravió) **se conserva** en inventario y se avisa.
+
+## Relacionados
 
 - [Módulo Compras](/ayuda/compras/guia)
 - [Módulo Ventas](/ayuda/ventas/guia)

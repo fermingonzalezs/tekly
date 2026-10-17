@@ -8,7 +8,7 @@ import type {
   Caja,
   Cliente,
   Compra,
-  Equipo,
+  Celular,
   MovimientoCaja,
   MovimientoCC,
   OtroItem,
@@ -25,7 +25,7 @@ import {
   actividadTickets,
   agingBuckets,
   cobradoReparaciones,
-  diasInventarioEquipos,
+  diasInventarioCelulares,
   funnelTickets,
   margenPorTipo,
   movimientoEnUsd,
@@ -518,7 +518,7 @@ export function resumenFinanzas(
 export type ResumenInventario = {
   stockTodos: StockItem[];
   /** Foto cruda -- acotada al stock actual, la necesita `InventarioValor`. */
-  equipos: Equipo[];
+  celulares: Celular[];
   repuestos: Repuesto[];
   otros: OtroItem[];
   valorInventario: number;
@@ -535,7 +535,7 @@ export type ResumenInventario = {
 };
 
 export function resumenInventario(
-  equipos: Equipo[],
+  celulares: Celular[],
   repuestos: Repuesto[],
   otros: OtroItem[],
   movs: MovimientoStockBulk[],
@@ -543,29 +543,30 @@ export function resumenInventario(
   tickets: Ticket[],
   ctx: ContextoAnaliticas,
 ): ResumenInventario {
-  const stockTodos = stockItems(equipos, repuestos, otros, movs, ctx.hoy);
+  const stockTodos = stockItems(celulares, repuestos, otros, movs, ctx.hoy);
   const aging = agingBuckets(stockTodos);
   const valorInventario = stockTodos.reduce((a, i) => a + i.valorUsd, 0);
   const unidadesStock = stockTodos.reduce((a, i) => a + i.unidades, 0);
-  const diasInventario = diasInventarioEquipos(movs, ventas);
+  const diasInventario = diasInventarioCelulares(movs, ventas);
   const inmovilizado = stockTodos
     .filter((i) => i.dias != null && i.dias > 90)
     .reduce((a, i) => a + i.valorUsd, 0);
   const pctInmovilizado = valorInventario > 0 ? (inmovilizado / valorInventario) * 100 : 0;
 
   const movsRango = movs.filter((m) => enRango(m.fechaISO, ctx.rango));
-  const entradas: Record<StockCategoria, number> = { equipo: 0, repuesto: 0, otro: 0 };
+  const entradas: Record<StockCategoria, number> = { celular: 0, repuesto: 0, otro: 0 };
   for (const m of movsRango) {
     if (m.tipo !== "ingreso") continue;
-    if (m.itemTipo === "equipo") entradas.equipo += 1;
+    if (m.itemTipo === "notebook") continue;
+    if (m.itemTipo === "celular") entradas.celular += 1;
     else entradas[m.itemTipo] += unidadesDeMovimiento(m.detalle) ?? 0;
   }
   const ventasFiltradas = ventas.filter((v) => enRango(v.fechaISO, ctx.rango));
   const ticketsFiltrados = tickets.filter((t) => enRango(t.fechaISO, ctx.rango));
-  const salidas: Record<StockCategoria, number> = { equipo: 0, repuesto: 0, otro: 0 };
+  const salidas: Record<StockCategoria, number> = { celular: 0, repuesto: 0, otro: 0 };
   for (const v of ventasFiltradas) {
     for (const i of v.items) {
-      if (i.categoria === "equipo") salidas.equipo += i.cantidad;
+      if (i.categoria === "celular") salidas.celular += i.cantidad;
       if (i.categoria === "otro") salidas.otro += i.cantidad;
       for (const r of i.repuestos ?? []) salidas.repuesto += r.cantidad;
     }
@@ -598,7 +599,7 @@ export function resumenInventario(
 
   return {
     stockTodos,
-    equipos,
+    celulares,
     repuestos,
     otros,
     valorInventario,

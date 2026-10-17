@@ -1,5 +1,5 @@
 import { fmtUsd } from "@/lib/format";
-import type { Equipo, OtroItem, Repuesto } from "@/lib/types";
+import type { Celular, OtroItem, Repuesto } from "@/lib/types";
 
 type CampoDiff<T> = {
   key: keyof T;
@@ -24,7 +24,7 @@ function diffCampos<T extends Record<string, unknown>>(
   return cambios.length ? cambios.join(", ") : "Editado (sin cambios)";
 }
 
-const CAMPOS_EQUIPO: CampoDiff<Equipo>[] = [
+const CAMPOS_CELULAR: CampoDiff<Celular>[] = [
   { key: "modelo", label: "modelo" },
   { key: "almacenamiento", label: "almacenamiento" },
   { key: "color", label: "color" },
@@ -36,8 +36,8 @@ const CAMPOS_EQUIPO: CampoDiff<Equipo>[] = [
   { key: "estado", label: "estado" },
 ];
 
-export function diffEquipo(antes: Equipo, despues: Equipo): string {
-  return diffCampos(antes, despues, CAMPOS_EQUIPO);
+export function diffCelular(antes: Celular, despues: Celular): string {
+  return diffCampos(antes, despues, CAMPOS_CELULAR);
 }
 
 const CAMPOS_REPUESTO: CampoDiff<Repuesto>[] = [

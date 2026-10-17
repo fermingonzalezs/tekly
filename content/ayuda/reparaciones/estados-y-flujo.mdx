@@ -1,0 +1,51 @@
+---
+titulo: "Estados y cómo avanzar un ticket"
+resumen: "El pipeline de Reparaciones: Recibido, Diagnosticado, Presupuestado, Aprobado, En reparación, Listo y Entregado."
+seccion: reparaciones
+roles: []
+orden: 3
+actualizado: 2026-10-17
+---
+
+Un ticket recorre un flujo fijo. Desde el detalle, un botón te lleva **al siguiente estado**.
+
+## El flujo
+
+Recibido → Diagnosticado → Presupuestado → Aprobado → En reparación → Listo → Entregado.
+
+- **Recibido** — el equipo acaba de ingresar.
+- **Diagnosticado** — ya se revisó y se sabe qué tiene.
+- **Presupuestado** — hay un presupuesto para el cliente.
+- **Aprobado** — el cliente aceptó el presupuesto.
+- **En reparación** — se está trabajando.
+- **Esperando repuesto** — existe como estado, pero la UI no lo ofrece al avanzar (se salta de «En reparación» a «Listo»).
+- **Listo** — el equipo está para retirar.
+- **Entregado** — se entregó y se cobró (o era sin costo).
+
+<Paso n={1} titulo="Avanzar">
+En el detalle, el botón dice **«Avanzar a …»** con el próximo estado. Desde «En reparación» cambia a **«Marcar listo»**.
+</Paso>
+
+<Paso n={2} titulo="Listo → entregar">
+En «Listo», el botón pasa a **«Entregar equipo»** (ver [Entregar el equipo](/ayuda/reparaciones/entregar-equipo)).
+</Paso>
+
+<Aviso titulo="No se salta el orden" tono="warning">
+El estado no se elige de una lista: sólo podés avanzar al siguiente. No podés volver atrás ni saltar etapas desde la UI.
+</Aviso>
+
+## Qué pasa después
+
+- Al pasar a **«Aprobado»**, se avisa al equipo («Presupuesto aprobado»).
+- Al pasar a **«Listo»**, se avisa al equipo («Reparación lista»).
+
+## Qué no se puede
+
+- No se puede retroceder de estado desde la interfaz.
+- «Esperando repuesto» es un estado válido que hoy la UI no permite alcanzar avanzando.
+- Un ticket «Entregado» no tiene botón de avance.
+
+## Relacionados
+
+- [Entregar el equipo y cobrar](/ayuda/reparaciones/entregar-equipo)
+- [Módulo Reparaciones](/ayuda/reparaciones/guia)

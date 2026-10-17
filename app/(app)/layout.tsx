@@ -5,9 +5,8 @@ import { getNegocio } from "@/lib/db/configuracion";
 import { TopNav } from "@/components/topnav";
 import { Toaster } from "@/components/notifications/toaster";
 import { RealtimeProvider } from "@/components/notifications/realtime-provider";
-import { ReportarBugFab } from "@/components/reportar-bug-fab";
+import { FabDock } from "@/components/fab-dock";
 import { PlanBanner } from "@/components/plan-banner";
-import { CommandPalette } from "@/components/command-palette/command-palette";
 
 export default async function AppLayout({
   children,
@@ -25,8 +24,7 @@ export default async function AppLayout({
       <PlanBanner suscripcion={user.suscripcion} esAdmin={user.rol === "admin"} />
       {children}
       <Toaster esAdmin={user.rol === "admin"} />
-      <ReportarBugFab />
-      <CommandPalette rol={user.rol} />
+      <FabDock rol={user.rol} />
     </RealtimeProvider>
   );
 }

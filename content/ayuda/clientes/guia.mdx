@@ -4,24 +4,57 @@ resumen: "La ficha de cada cliente con su historial cruzado de ventas, reparacio
 seccion: clientes
 roles: []
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-Clientes es la lista de tu gente, con la ficha de cada uno.
+Clientes es la lista de tu gente, con la ficha de cada uno. Es la sección a la que llegan los deep links de Analíticas (mapa de valor, cohortes, listas de atención).
 
-<Paso n={1} titulo="Nuevo cliente">
-Cargá **nombre** y, opcionalmente, **teléfono, email y fecha de nacimiento**. La fecha de nacimiento alimenta el widget de demografía por edad en Analíticas.
-</Paso>
+## Operaciones
 
-<Paso n={2} titulo="La ficha">
-Abrí una fila para ver el **historial real** del cliente: sus ventas, sus tickets de reparación y sus turnos, todo cruzado.
-</Paso>
+- [Cargar un cliente](/ayuda/clientes/nuevo-cliente)
+- [Ver la ficha de un cliente](/ayuda/clientes/ficha-cliente)
 
-<Aviso titulo="Contadores en vivo" tono="info">
-Las columnas **Compras, Reparaciones y Gastado** no se guardan: se calculan en el momento contra las ventas y tickets del cliente, así nunca se desincronizan.
-</Aviso>
+## La pantalla
 
-## Ver también
+- **Tarjetas**: Clientes, Activos, Valor por activo y En riesgo.
+- **Gráfico**: demografía por edad (usa la fecha de nacimiento).
+- **Buscador**: por nombre.
+- **Tabla**: cada fila abre la ficha. El toolbar tiene «Nuevo cliente».
+
+## Qué no se puede
+
+- El buscador de la lista es **sólo por nombre** (no por teléfono ni email).
+- Un cliente se da de baja (lógica), **no** se borra de verdad: conserva su historial.
+- Sólo el **admin** puede eliminar un cliente.
+- La fecha de nacimiento es opcional: un cliente sin ella no aparece en el gráfico de edad.
+
+## Preguntas frecuentes
+
+**¿Cómo agrego un cliente?**
+Botón «Nuevo cliente»: nombre y, opcionalmente, teléfono, email y fecha de nacimiento. Ver [Cargar un cliente](/ayuda/clientes/nuevo-cliente).
+
+**¿Para qué sirve la fecha de nacimiento?**
+Alimenta el gráfico de demografía por edad. Ver [Cargar un cliente](/ayuda/clientes/nuevo-cliente).
+
+**¿Qué veo en la ficha?**
+El historial cruzado: ventas, reparaciones y turnos. Ver [Ficha del cliente](/ayuda/clientes/ficha-cliente).
+
+**¿Los contadores Compras/Reparaciones/Gastado se cargan a mano?**
+No: se calculan en el momento contra las ventas y tickets. Nunca se desincronizan.
+
+**¿Puedo buscar por teléfono?**
+En la lista, no; en el buscador global (Cmd/Ctrl+K), sí.
+
+**¿Puedo eliminar un cliente?**
+Sólo el admin, y es una baja lógica que conserva el historial.
+
+**¿Cómo llego a la ficha desde Analíticas?**
+Con el deep link `/clientes?open=<id>` de los gráficos de clientes.
+
+**¿Puedo editar un cliente?**
+Sí, desde la ficha, con «Editar».
+
+## Relacionados
 
 - [Módulo Cuentas corrientes](/ayuda/cuentas-corrientes/guia)
-- [Módulo Analíticas · Clientes](/ayuda/analiticas/guia)
+- [Módulo Analíticas](/ayuda/analiticas/guia)

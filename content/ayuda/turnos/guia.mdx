@@ -4,27 +4,52 @@ resumen: "Calendario de los próximos 7 días para agendar entregas, retiros, co
 seccion: turnos
 roles: []
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-El calendario muestra los **próximos 7 días** (columnas) por franjas de **9 a 20 h**.
+El calendario muestra los **próximos 7 días** (columnas) por franjas de **9 a 20 h** (cada media hora). Es una agenda: lo que pasó antes de hoy no se muestra.
 
-<Paso n={1} titulo="Agendar">
-Tocá un hueco libre para agendar, o el botón de acción. Elegí **cliente** (podés usar alguien «sin registrar», que no queda como cliente), **tipo**, **fecha y hora**.
-</Paso>
+<Captura alt="Calendario semanal de turnos con bloques de colores por tipo." caption="Turnos · semana (datos demo)." />
 
-<Paso n={2} titulo="Tipos de turno">
-El color del bloque indica qué viene a hacer el cliente: **compra**, **deja** una reparación, **retira** o **cotizar**.
-</Paso>
+## Operaciones
 
-<Paso n={3} titulo="Gestionar">
-Tocá un bloque para ver el detalle. El botón **«Cliente llegó»** avisa a todo el equipo al instante.
-</Paso>
+- [Agendar un turno](/ayuda/turnos/agendar-turno)
+- [Tipos de turno](/ayuda/turnos/tipos-de-turno)
+- [Gestionar un turno](/ayuda/turnos/gestionar-turnos)
 
-<Aviso titulo="Turnos de compra con equipos" tono="info">
-Si agendás una compra y vinculás equipos del stock, esos equipos pasan a **reservado** para que no se vendan.
-</Aviso>
+## Qué no se puede
 
-## Ver también
+- Sólo se ven los **próximos 7 días**: no hay vista de meses anteriores ni futuros más lejanos.
+- No existe **reprogramar** un turno: se cancela y se agenda de nuevo.
+- Al cancelar un turno que había reservado stock, la reserva **no se revierte** automáticamente.
+- Sólo el **admin** puede eliminar un turno.
+
+## Preguntas frecuentes
+
+**¿Hasta dónde puedo agendar?**
+Sólo dentro de los próximos 7 días y entre las 9 y las 20 h.
+
+**¿Puedo agendar a alguien que no es cliente?**
+Sí, con «usar sin registrar». Ese turno no queda asociado a un cliente.
+
+**¿Qué pasa con el stock si agendo una compra?**
+Si marcás «Reservar estos ítems en el stock», pasan a «Reservado». Ver [Tipos de turno](/ayuda/turnos/tipos-de-turno).
+
+**¿Cómo aviso que el cliente llegó?**
+No hay un botón de «llegó»: el turno se gestiona cancelándolo o dejándolo pasar.
+
+**¿Puedo mover un turno de día?**
+Hoy no: hay que cancelarlo y agendar uno nuevo.
+
+**¿Qué significa cada color?**
+Compra (verde), Deja reparación (azul), Retira reparación (violeta) y Cotizar (ámbar).
+
+**¿Un vendedor puede agendar?**
+Sí: Turnos lo ven y lo usan los tres roles.
+
+**¿Se puede reservar un repuesto en un turno?**
+La reserva de stock del turno aplica a equipos y «Otros», no a repuestos.
+
+## Relacionados
 
 - [Módulo Reparaciones](/ayuda/reparaciones/guia)

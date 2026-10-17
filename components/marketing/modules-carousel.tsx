@@ -64,7 +64,7 @@ const MODULOS: Modulo[] = [
     icon: Boxes,
     title: "Inventario",
     detail:
-      "Equipos únicos por IMEI, repuestos por modelo y accesorios por cantidad — cada tipo de stock con su propio control.",
+      "Celulares únicos por IMEI, repuestos por modelo y accesorios por cantidad — cada tipo de stock con su propio control.",
     Mockup: MockupInventario,
   },
   {
@@ -72,7 +72,7 @@ const MODULOS: Modulo[] = [
     icon: ShoppingCart,
     title: "Ventas",
     detail:
-      "Métodos de pago y cajas personalizables, pago en canje de equipos, cuentas corrientes y comprobantes en PDF para el cliente.",
+      "Métodos de pago y cajas personalizables, pago en canje de celulares, cuentas corrientes y comprobantes en PDF para el cliente.",
     Mockup: MockupBuscador,
   },
   {

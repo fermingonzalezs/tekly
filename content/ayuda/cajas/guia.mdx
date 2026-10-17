@@ -1,44 +1,62 @@
 ---
 titulo: "Módulo Cajas y conciliación"
-resumen: "Una fila por medio de pago, movimientos, y conciliación con ventana flexible (no hay \"cerrar el día\")."
+resumen: "Una caja por medio de pago, movimientos, y conciliación con ventana flexible: no hay «cerrar el día»."
 seccion: cajas
-roles: []
+roles: [admin, tecnico]
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-Cajas controla la plata que entra y sale. Cada caja tiene **una moneda** (USD o ARS) y **un medio de pago fijo** (efectivo, transferencia, tarjeta…). Podés tener varias cajas del mismo medio (Mostrador y Taller, ambas en pesos).
+Cajas controla la plata que entra y sale. La sección es **solo para admin y técnico** (un vendedor no la ve). Cada caja tiene **una moneda** (ARS o USD) y **un medio de pago fijo**; podés tener varias cajas del mismo medio (Mostrador y Taller, ambas en pesos).
 
-## Movimientos
+<Captura alt="Tarjetas por medio de pago y tabla de movimientos de cajas." caption="Cajas · Movimientos (datos demo)." />
 
-<Paso n={1} titulo="Nuevo movimiento">
-Elegí la **caja** (el medio se completa solo), el tipo (ingreso/egreso), el concepto y el monto. Si la caja es en pesos, Tekly guarda la **cotización del momento** para que los totales no cambien después.
-</Paso>
+## Pestañas
 
-<Paso n={2} titulo="Contralor">
-El toggle **«Desde conciliación»** muestra el neto contra lo esperado desde la última vez que conciliaste; **«Historial»** muestra todo.
-</Paso>
+- **Movimientos** — la plata del día/sin conciliar o el historial completo.
+- **Conciliaciones** — el historial de cierres.
+- **Cajas** — el CRUD de las cajas.
 
-## Conciliar
+## Operaciones
 
-<Paso n={1} titulo="«Conciliar cajas»">
-Por cada caja activa anotás el **monto real contado** (obligatorio) y un comentario opcional. Tekly calcula la **diferencia** contra lo que el sistema esperaba.
-</Paso>
+- [Registrar un movimiento](/ayuda/cajas/nuevo-movimiento)
+- [Conciliar las cajas](/ayuda/cajas/conciliar)
+- [Crear y editar cajas](/ayuda/cajas/administrar-cajas)
 
-<Paso n={2} titulo="Se archiva sola">
-Al confirmar, todos los movimientos sin conciliar quedan archivados bajo esa conciliación. Queda el registro en **«Conciliaciones anteriores»**.
-</Paso>
+## Qué no se puede
 
-<Captura
-  alt="Diálogo «Conciliar cajas» con el monto contado por caja y la diferencia calculada."
-  caption="La conciliación compara lo contado con lo que esperaba el sistema."
-/>
+- No existe **«cerrar la caja del día»**: el modelo es de conciliación con ventana flexible.
+- No se elige un medio de pago al cargar un movimiento: lo hereda de la caja.
+- Un movimiento ya **conciliado** no se puede eliminar ni editar.
+- Solo el **admin** puede eliminar movimientos; un técnico puede cargar y conciliar pero no borrar.
 
-<Aviso titulo="No hay «cerrar la caja del día»" tono="info">
-El modelo es de **conciliación con ventana flexible**: si un día no conciliás, los movimientos simplemente se acumulan. Nada se bloquea.
-</Aviso>
+## Preguntas frecuentes
 
-## Ver también
+**¿Tengo que «cerrar la caja» todos los días?**
+No. Conciliás cuando quieras y los movimientos se acumulan. Nada se bloquea.
+
+**¿Por qué no me deja elegir medio de pago?**
+Porque la caja ya tiene un medio fijo; se completa al elegir la caja.
+
+**¿Qué pasa con pagos en pesos viejos?**
+Cada movimiento en pesos guarda la **cotización del momento** para que los totales no cambien después.
+
+**¿Puedo tener dos cajas en el mismo medio?**
+Sí (por ejemplo Mostrador y Taller). En Ventas elegís a cuál fue la plata.
+
+**¿Un vendedor puede ver las cajas?**
+No: Cajas es solo admin/técnico.
+
+**¿Qué es «Desde conciliación»?**
+Muestra el neto de los movimientos que todavía no archivaste en una conciliación. Ver [Conciliar](/ayuda/cajas/conciliar).
+
+**¿Puedo eliminar un movimiento?**
+Solo el admin, y solo si todavía no fue conciliado.
+
+**¿Cuándo entra plata a la caja?**
+Desde una venta, una entrega de ticket, una compra o un movimiento manual. Ver [Registrar un movimiento](/ayuda/cajas/nuevo-movimiento).
+
+## Relacionados
 
 - [Módulo Ventas](/ayuda/ventas/guia)
 - [Módulo Compras](/ayuda/compras/guia)

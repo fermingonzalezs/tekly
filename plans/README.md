@@ -11,3 +11,7 @@ Verificación).
 | [012](012-legales-cookies.md) | Legales: términos, privacidad y cookies | HECHO como borrador — falta completar datos de la empresa y revisión de un abogado |
 | [013](013-centro-de-ayuda.md) | Manual de usuario y tutoriales (centro de ayuda) | HECHO en código — falta contenido/capturas del dueño |
 | [014](014-demo-sin-cuenta.md) | Demo sin cuenta: Dashboard + Ventas en el navegador (sin BD) | HECHO y verificado en local — falta desplegar a producción |
+| [017](017-manual-de-usuario-completo.md) | Manual de usuario completo: operaciones, límites y FAQ por sección | PENDIENTE — prompt listo para otro agente |
+| [018](018-celulares-y-notebooks.md) | «Equipos» → «Celulares» + categoría Notebooks (rename completo y ventas) | HECHO en código — falta verificación manual con datos |
+| [019](019-patrimonio.md) | Estado de situación patrimonial (caja + créditos + inventario − saldos a favor) | HECHO (fases 1 y 2) — falta verificación manual con sesión admin |
+| [020](020-canje-sin-caja.md) | Canje sin caja: medio de pago que ingresa el equipo al inventario | HECHO en código — falta verificación manual y limpieza de datos (Parte D) al desplegar |

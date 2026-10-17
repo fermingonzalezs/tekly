@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireUser, requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import {
-  createEquipo,
-  updateEquipo,
-  deleteEquipo,
-  crearRecuentoEquipos,
-  type EquipoInput,
+  createCelular,
+  updateCelular,
+  deleteCelular,
+  crearRecuentoCelulares,
+  type CelularInput,
   updateRepuesto,
   type RepuestoInput,
   crearRepuesto,
@@ -21,35 +21,41 @@ import {
   deleteOtro,
   listMovimientos,
 } from "@/lib/db/inventario";
-import type { OtroCategoria, OtroItem, OtroUnidad } from "@/lib/types";
+import {
+  createNotebook,
+  updateNotebook,
+  deleteNotebook,
+  type NotebookInput,
+} from "@/lib/db/notebooks";
+import type { Notebook, OtroCategoria, OtroItem, OtroUnidad } from "@/lib/types";
 
-export async function createEquipoAction(data: EquipoInput) {
+export async function createCelularAction(data: CelularInput) {
   await requireEscritura();
-  const equipo = await createEquipo(data);
+  const celular = await createCelular(data);
   revalidatePath("/inventario");
-  return equipo;
+  return celular;
 }
 
-export async function updateEquipoAction(id: string, data: EquipoInput) {
+export async function updateCelularAction(id: string, data: CelularInput) {
   await requireEscritura();
-  const equipo = await updateEquipo(id, data);
+  const celular = await updateCelular(id, data);
   revalidatePath("/inventario");
-  return equipo;
+  return celular;
 }
 
-export async function deleteEquipoAction(id: string) {
+export async function deleteCelularAction(id: string) {
   await requireRoleEscritura("admin");
-  await deleteEquipo(id);
+  await deleteCelular(id);
   revalidatePath("/inventario");
 }
 
-export async function crearRecuentoEquiposAction(
+export async function crearRecuentoCelularesAction(
   draft: Record<string, boolean>,
   comentarios: Record<string, string>,
   comentarioGeneral?: string,
 ) {
   await requireEscritura();
-  const recuento = await crearRecuentoEquipos(draft, comentarios, comentarioGeneral);
+  const recuento = await crearRecuentoCelulares(draft, comentarios, comentarioGeneral);
   revalidatePath("/recuentos");
   return recuento;
 }
@@ -156,9 +162,52 @@ export async function deleteOtroAction(id: string) {
 }
 
 export async function getMovimientosAction(
-  itemType: "equipo" | "repuesto" | "otro",
+  itemType: "celular" | "notebook" | "repuesto" | "otro",
   itemId: string,
 ) {
   await requireUser();
   return listMovimientos(itemType, itemId);
+}
+
+export type NotebookActionResult =
+  | { ok: true; notebook: Notebook }
+  | { ok: false; error: string };
+
+export async function createNotebookAction(
+  data: NotebookInput,
+): Promise<NotebookActionResult> {
+  await requireEscritura();
+  try {
+    const notebook = await createNotebook(data);
+    revalidatePath("/inventario");
+    return { ok: true, notebook };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "No se pudo crear la notebook.",
+    };
+  }
+}
+
+export async function updateNotebookAction(
+  id: string,
+  data: NotebookInput,
+): Promise<NotebookActionResult> {
+  await requireEscritura();
+  try {
+    const notebook = await updateNotebook(id, data);
+    revalidatePath("/inventario");
+    return { ok: true, notebook };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "No se pudo guardar la notebook.",
+    };
+  }
+}
+
+export async function deleteNotebookAction(id: string) {
+  await requireRoleEscritura("admin");
+  await deleteNotebook(id);
+  revalidatePath("/inventario");
 }

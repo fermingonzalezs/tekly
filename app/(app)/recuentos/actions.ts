@@ -11,7 +11,7 @@ export async function resolverRecuentoAction(
 ) {
   await requireEscritura();
   const recuento = await resolverRecuento(id, resoluciones);
-  // Resolver un recuento toca equipos/repuestos/otros_items -- revalida
+  // Resolver un recuento toca celulares/repuestos/otros_items -- revalida
   // Inventario también, no solo esta página.
   revalidatePath("/recuentos");
   revalidatePath("/inventario");

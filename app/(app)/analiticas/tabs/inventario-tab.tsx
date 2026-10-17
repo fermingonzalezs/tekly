@@ -34,12 +34,12 @@ export function InventarioTab({ resumen }: { resumen: ResumenInventario }) {
         <StatCard
           label="Unidades"
           value={resumen.unidadesStock}
-          hint="equipos + repuestos + accesorios"
+          hint="celulares + repuestos + accesorios"
         />
         <StatCard
           label="Días de inventario"
           value={resumen.diasInventario ?? "—"}
-          hint="promedio ingreso → venta, equipos"
+          hint="promedio ingreso → venta, celulares"
         />
         <StatCard
           label="Capital inmovilizado"
@@ -52,7 +52,7 @@ export function InventarioTab({ resumen }: { resumen: ResumenInventario }) {
       <div className="grid min-w-0 gap-6 xl:grid-cols-2">
         <AgingRing buckets={resumen.aging} />
         <InventarioValor
-          equipos={resumen.equipos}
+          celulares={resumen.celulares}
           repuestos={resumen.repuestos}
           otros={resumen.otros}
         />

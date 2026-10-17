@@ -2,7 +2,7 @@ import type {
   CategoriaGasto,
   ChecklistItemId,
   CompraEstado,
-  EquipoStatus,
+  CelularStatus,
   EstadoChecklistItem,
   MedioPago,
   MedioPagoVenta,
@@ -138,10 +138,10 @@ export const estadoChecklistItem: Record<EstadoChecklistItem, { label: string; t
   na: { label: "No aplica", tone: "gray" },
 };
 
-// ── Equipos de inventario ──────────────────────────────────────
+// ── Celulares de inventario ──────────────────────────────────────
 
-export const equipoStatus: Record<
-  EquipoStatus,
+export const celularStatus: Record<
+  CelularStatus,
   { label: string; tone: Tone }
 > = {
   en_revision: { label: "En revisión", tone: "amber" },
@@ -171,7 +171,7 @@ export const turnoTipo: Record<TurnoTipo, { label: string; tone: Tone }> = {
 };
 
 /** Categoría de un `movimientos_stock` (ingreso/edición/baja/recuento) --
- * usado en la tabla "Movimientos" de /recuentos, que mezcla equipos,
+ * usado en la tabla "Movimientos" de /recuentos, que mezcla celulares,
  * repuestos y otros en una sola vista. */
 export const movimientoTipo: Record<MovimientoTipo, { label: string; tone: Tone }> = {
   ingreso: { label: "Ingreso", tone: "green" },
@@ -233,19 +233,26 @@ export const medioPago: Record<MedioPagoVenta, { label: string; tone: Tone; emoj
 /** Medios válidos para una `Caja`/`MovimientoCaja`/`Compra` -- fuente
  * única para los selectores de esas tres secciones + Turnos (antes cada
  * uno tenía su propio array `MEDIOS` duplicado). "Cuenta corriente" queda
- * afuera a propósito: nunca es el medio de una caja real. */
+ * afuera a propósito: nunca es el medio de una caja real. Y "Mercadería"
+ * (`canje`) tampoco: es un medio de venta (plan 020), no una caja -- no
+ * entra plata, entra un equipo al inventario. */
 export const MEDIOS_CAJA: MedioPago[] = [
   "pesos",
   "dolares",
   "transferencia",
   "cripto",
   "tarjeta",
-  "canje",
 ];
 
-/** `MEDIOS_CAJA` + "cuenta corriente" -- para los lugares que necesitan
- * los 7 medios (ej. el form de recargo por medio en Configuración). */
-export const MEDIOS_VENTA: MedioPagoVenta[] = [...MEDIOS_CAJA, "cuenta_corriente"];
+/** `MEDIOS_CAJA` + "cuenta corriente" + "canje" -- para los lugares que
+ * necesitan todos los medios de una venta (ej. el form de recargo por
+ * medio en Configuración). `canje` («Mercadería») se suma explícito porque
+ * ya no vive en `MEDIOS_CAJA`. */
+export const MEDIOS_VENTA: MedioPagoVenta[] = [
+  ...MEDIOS_CAJA,
+  "cuenta_corriente",
+  "canje",
+];
 
 /** Categorías de gasto de un `MovimientoCaja` egreso -- selector de "Nuevo
  * movimiento" en Cajas y agrupación de "Gastos por categoría" en

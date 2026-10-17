@@ -19,7 +19,7 @@ export const PASOS_ONBOARDING: {
   {
     id: "importar",
     titulo: "Importá tu inventario o clientes",
-    descripcion: "Cargá de una los equipos y clientes que ya tenías antes de usar Tekly.",
+    descripcion: "Cargá de una los celulares y clientes que ya tenías antes de usar Tekly.",
     href: "/configuracion?tab=importar",
     icon: Upload,
   },

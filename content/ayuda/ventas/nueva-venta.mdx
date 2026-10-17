@@ -1,0 +1,61 @@
+---
+titulo: "Cómo cargar una venta"
+resumen: "Paso a paso del modal «Nueva venta»: cliente, vendedor, ítems desde el stock o libres, servicios con repuestos usados y el pago."
+seccion: ventas
+roles: []
+orden: 2
+actualizado: 2026-10-17
+---
+
+El modal **«Nueva venta»** tiene cuatro bloques marcados con eyebrows: **Cliente**, **Datos de la venta**, **Ítems** y **Pago**. El número de venta (`V-…`) se asigna recién al confirmar.
+
+<Paso n={1} titulo="Cliente">
+Elegí uno existente o creá uno nuevo. La creación es **diferida**: recién se guarda cuando confirmás la venta; si cancelás, no queda un cliente fantasma.
+</Paso>
+
+<Paso n={2} titulo="Datos de la venta">
+- **Vendedor**: si sos admin, elegís entre los admin y vendedores de la organización. Si sos vendedor o técnico, el campo queda fijo con **tu** nombre y no lo podés cambiar.
+- **Procedencia**: de dónde vino el cliente (Local, WhatsApp, Instagram, MercadoLibre, Referido, Otro).
+- **Modalidad**: Minorista o Mayorista.
+</Paso>
+
+<Paso n={3} titulo="Ítems">
+Buscá en el catálogo por **nombre, color o IMEI/serial**: trae celulares y notebooks disponibles, productos de «Otros» y servicios activos. También podés cargar un **ítem libre** escribiendo el nombre. Cada ítem tiene cantidad y precio (editable).
+- Un ítem de categoría **servicio** admite **repuestos usados** (con el selector «+ Repuesto usado…»): al confirmar, se descuenta ese stock.
+- Un celular o notebook ya agregado no vuelve a aparecer en el buscador.
+</Paso>
+
+<Paso n={4} titulo="Pago">
+Cada pago elige **medio** y **caja**. Si la caja es en pesos, escribís los **pesos cobrados** y Tekly muestra el equivalente en dólares a la cotización vigente. Ver [Pago dividido y cuenta corriente](/ayuda/ventas/pago-dividido).
+</Paso>
+
+<Aviso titulo="El botón no confirma: ¿por qué?" tono="warning">
+El footer te dice el motivo exacto, en este orden: «Elegí un cliente», «Agregá al menos un ítem», «Hay un ítem sin nombre», «Hay un ítem sin precio», «Faltan U$ … por cobrar», «Sobran U$ …», «Falta cargar el equipo del canje», «Completá el monto de cada pago».
+</Aviso>
+
+## Qué pasa después
+
+Al confirmar, Tekly:
+
+- Inserta la venta y una fila por ítem.
+- Marca los celulares y notebooks vendidos como **«Vendido»**.
+- Descuenta los repuestos usados del stock (y deja el movimiento en el historial).
+- Genera un **ingreso en la caja** elegida por cada pago (con el recargo y la cotización guardados), o un **cargo en cuenta corriente** si el medio es «Cuenta corriente».
+- Si hay un pago de canje, crea una **Compra** vinculada **y un celular en Inventario** («En revisión», con el costo del canje) — ver [Canje](/ayuda/ventas/canje).
+- Avisa al resto del equipo con una notificación («Venta confirmada»).
+
+## Qué no se puede
+
+- No se eligen **celulares o notebooks no disponibles**: sólo aparece en el buscador lo que está en stock/disponible.
+- No podés dejar la venta con un monto que no cierre: o cubre el total exacto o el sistema te frena.
+- No se puede **editar** después. Si te equivocaste, hay que eliminarla (admin) y recargarla.
+- Un vendedor/técnico no puede asignar la venta a otra persona.
+- Si no hay ninguna caja activa para un medio, ese medio no aparece en el pago (salvo «Cuenta corriente»).
+
+<Captura alt="Modal «Nueva venta» con los bloques Cliente, Datos de la venta, Ítems y Pago." />
+
+## Relacionados
+
+- [Pago dividido y cuenta corriente](/ayuda/ventas/pago-dividido)
+- [Canje](/ayuda/ventas/canje)
+- [Módulo Ventas](/ayuda/ventas/guia)

@@ -67,6 +67,7 @@
 [data-tema="naranja"] {
   --chart-0: #744216;
   --chart-1: #98561d;
+  --table-header: #d77c2d; /* naranja primario: el marrón de chart-1 se ve apagado en el header */
   --chart-2: #d77c2d;
   --chart-3: #e09a5c;
   --chart-4: #e8b385;
@@ -99,7 +100,7 @@ body {
    izquierda salvo opt-out. */
 
 th {
-  background-color: var(--chart-1); /* tono medio-oscuro de la paleta activa */
+  background-color: var(--table-header, var(--chart-1)); /* tono medio-oscuro de la paleta activa */
   color: #ffffff;
   font-weight: 700;
   text-transform: uppercase;
@@ -108,7 +109,7 @@ th {
 
 th,
 td {
-  text-align: left;
+  text-align: center;
 }
 
 /* Cebra: fila par con las mismas rayitas diagonales de GHOST_STRIPES

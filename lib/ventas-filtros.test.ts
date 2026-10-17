@@ -50,11 +50,16 @@ describe("parseFiltrosVentas", () => {
 
   it("toma el primer valor de un param repetido y trimea q", () => {
     const f = parseFiltrosVentas(
-      { tipo: ["equipo", "servicio"], q: ["  hola  "] },
+      { tipo: ["celular", "servicio"], q: ["  hola  "] },
       ver,
     );
-    expect(f.tipo).toBe("equipo");
+    expect(f.tipo).toBe("celular");
     expect(f.q).toBe("hola");
+  });
+
+  it("acepta el rubro notebook y el valor legacy 'equipo'", () => {
+    expect(parseFiltrosVentas({ tipo: "notebook" }, ver).tipo).toBe("notebook");
+    expect(parseFiltrosVentas({ tipo: "equipo" }, ver).tipo).toBe("celular");
   });
 
   it("fechas inválidas de un rango personalizado se descartan", () => {
@@ -112,7 +117,7 @@ describe("hayFiltrosActivos", () => {
   it("detecta búsqueda, vendedor, tipo y período", () => {
     expect(hayFiltrosActivos({ ...base, q: "x" })).toBe(true);
     expect(hayFiltrosActivos({ ...base, vendedor: "u1" })).toBe(true);
-    expect(hayFiltrosActivos({ ...base, tipo: "equipo" })).toBe(true);
+    expect(hayFiltrosActivos({ ...base, tipo: "celular" })).toBe(true);
     expect(hayFiltrosActivos({ ...base, preset: "todos" })).toBe(true);
   });
 });

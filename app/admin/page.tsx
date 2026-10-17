@@ -50,18 +50,18 @@ export default async function AdminOverviewPage() {
                 <tr className="text-xs">
                   <th className={cn("px-5 py-3", thDivider)}>Organización</th>
                   <th className={cn("px-5 py-3", thDivider)}>Creada</th>
-                  <th className={cn("px-5 py-3 text-end", thDivider)}>Usuarios</th>
-                  <th className={cn("px-5 py-3 text-end", thDivider)}>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>Usuarios</th>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
                     Activos 30d
                   </th>
                   <th className={cn("px-5 py-3", thDivider)}>Último login</th>
-                  <th className={cn("px-5 py-3 text-end", thDivider)}>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
                     Tickets abiertos
                   </th>
-                  <th className={cn("px-5 py-3 text-end", thDivider)}>
+                  <th className={cn("px-5 py-3 text-center", thDivider)}>
                     Ventas del mes
                   </th>
-                  <th className="px-5 py-3 text-end">Facturación</th>
+                  <th className="px-5 py-3 text-center">Facturación</th>
                 </tr>
               </thead>
               <tbody>
@@ -70,7 +70,7 @@ export default async function AdminOverviewPage() {
                     key={m.orgId}
                     className="border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                   >
-                    <td className="px-5 py-2.5">
+                    <td className="px-5 py-2.5 text-start">
                       <Link
                         href={`/admin/organizaciones/${m.orgId}`}
                         className="font-medium text-neutral-900 hover:text-accent"
@@ -82,22 +82,22 @@ export default async function AdminOverviewPage() {
                     <td className="px-5 py-2.5 text-neutral-500">
                       {fmtMonthYear(m.creadaEl)}
                     </td>
-                    <td className="px-5 py-2.5 text-end tabular-nums">
+                    <td className="px-5 py-2.5 text-center tabular-nums">
                       {m.usuarios}
                     </td>
-                    <td className="px-5 py-2.5 text-end tabular-nums">
+                    <td className="px-5 py-2.5 text-center tabular-nums">
                       {m.usuariosActivos30d}
                     </td>
                     <td className="px-5 py-2.5 text-neutral-500">
                       {m.ultimoLogin ? fmtDayMonth(m.ultimoLogin) : "—"}
                     </td>
-                    <td className="px-5 py-2.5 text-end tabular-nums">
+                    <td className="px-5 py-2.5 text-center tabular-nums">
                       {m.ticketsAbiertos}
                     </td>
-                    <td className="px-5 py-2.5 text-end tabular-nums">
+                    <td className="px-5 py-2.5 text-center tabular-nums">
                       {m.ventasMes}
                     </td>
-                    <td className="px-5 py-2.5 text-end font-semibold tabular-nums">
+                    <td className="px-5 py-2.5 text-center font-semibold tabular-nums">
                       {fmtUsd(m.facturacionMesUsd)}
                     </td>
                   </tr>

@@ -1,20 +1,24 @@
 ---
 titulo: "Pago dividido y cuenta corriente"
-resumen: "Cobrar una venta con varios medios a la vez, y cómo funciona vender \"fiado\" a cuenta corriente."
+resumen: "Cobrar una venta con varios medios a la vez, y cómo funciona vender «fiado» a cuenta corriente."
 seccion: ventas
 roles: []
-orden: 2
-actualizado: 2026-10-04
+orden: 3
+actualizado: 2026-10-17
 ---
 
 Una venta puede cobrarse con **varios medios** al mismo tiempo: un poco en efectivo, otro en transferencia, el resto a cuenta corriente.
 
 <Paso n={1} titulo="Agregá los medios que necesites">
-En «Pago», tocá **+ Agregar medio**. Cada pago es una tarjeta con su **medio**, su **caja** y el **monto cobrado**.
+En «Pago», tocá **«+ Agregar medio»**. Cada pago es una tarjeta con su **medio**, su **caja** (si el medio tiene cajas activas) y el **monto cobrado**. Varios pagos quedan uno debajo del otro.
 </Paso>
 
 <Paso n={2} titulo="Repartí el total">
-La suma de los pagos tiene que cubrir el total de la venta. El indicador muestra «Faltan U$ …» o «Sobran U$ …», y el botón **Saldar** completa lo que falta con el último medio.
+La suma de los pagos tiene que cubrir el total de la venta. El indicador muestra «Faltan U$ …» o «Sobran U$ …», y el botón **«Saldar»** completa lo que falta con el último medio.
+</Paso>
+
+<Paso n={3} titulo="Cobrá en pesos si hace falta">
+Si la caja elegida es en **pesos**, escribís los pesos cobrados en «Cobrado $» y debajo Tekly muestra el equivalente en USD a la cotización del momento. Es el único lugar de la app donde se tipea en ARS en vez de USD.
 </Paso>
 
 <Aviso titulo="Cuenta corriente" tono="info">
@@ -25,7 +29,20 @@ El medio **Cuenta corriente** no entra a ninguna caja: genera una **deuda** del 
 Si cobrás una cifra distinta al total (por un redondeo o un descuento de último momento), Tekly te pide una confirmación aparte antes de guardar.
 </Aviso>
 
-## Ver también
+## Qué pasa después
+
+Cada pago genera su movimiento al confirmar la venta:
+
+- El medio «Cuenta corriente» → un **cargo** en `Cuentas corrientes` del cliente.
+- El resto → un **ingreso** en la **caja** elegida, guardando la cotización y el recargo aplicado. **Mercadería (canje)** es la excepción: no es una caja, no genera movimiento y el equipo entra al inventario (ver [Canje](/ayuda/ventas/canje)).
+
+## Qué no se puede
+
+- No podés confirmar si la suma de los pagos no cubre el total (el botón queda deshabilitado y el footer dice cuánto falta).
+- Cada pago necesita un monto mayor a cero.
+- «Cuenta corriente» y «Mercadería» (canje) no son medios de una caja real: uno es una deuda, el otro es mercadería, no plata que entra.
+
+## Relacionados
 
 - [Módulo Cuentas corrientes](/ayuda/cuentas-corrientes/guia)
 - [Módulo Ventas](/ayuda/ventas/guia)

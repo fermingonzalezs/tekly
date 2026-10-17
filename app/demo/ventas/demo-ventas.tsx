@@ -44,7 +44,8 @@ export function DemoVentas() {
         openId={openId}
         ventaAbierta={consulta.ventaAbierta}
         clientesOpciones={state.clientes}
-        equipos={state.equipos}
+        celulares={state.celulares}
+        notebooks={state.notebooks}
         otros={state.otros}
         servicios={state.servicios}
         repuestos={state.repuestos}

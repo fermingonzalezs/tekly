@@ -1,7 +1,7 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import type {
-  EquipoStatus,
+  CelularStatus,
   OtroUnidad,
   Pago,
   Turno,
@@ -43,14 +43,14 @@ type TurnoRow = {
   tipo: TurnoTipo;
   estado: TurnoEstado;
   ticket_id: number | null;
-  equipo_ids: string[] | null;
+  celular_ids: string[] | null;
   items_otros: TurnoOtroItem[] | null;
   pagos: Pago[] | null;
   nota: string | null;
 };
 
 const TURNO_COLS =
-  "id, fecha, hora, cliente, cliente_id, tipo, estado, ticket_id, equipo_ids, items_otros, pagos, nota";
+  "id, fecha, hora, cliente, cliente_id, tipo, estado, ticket_id, celular_ids, items_otros, pagos, nota";
 
 function toTurno(row: TurnoRow): Turno {
   return {
@@ -62,7 +62,7 @@ function toTurno(row: TurnoRow): Turno {
     tipo: row.tipo,
     estado: row.estado,
     ticketId: row.ticket_id,
-    equipoIds: row.equipo_ids ?? undefined,
+    celularIds: row.celular_ids ?? undefined,
     itemsOtros: row.items_otros ?? undefined,
     pagos: row.pagos ?? undefined,
     nota: row.nota ?? undefined,
@@ -109,14 +109,14 @@ export async function createTurno(data: {
   clienteId: string | null;
   tipo: TurnoTipo;
   /** Solo "retira": el ticket listo que se viene a retirar (ver
-   * `Turno.ticketId`) -- el turno ya no marca equipos como vendidos. */
+   * `Turno.ticketId`) -- el turno ya no marca celulares como vendidos. */
   ticketId: number | null;
   /** Solo "compra". */
-  equipoIds: string[];
+  celularIds: string[];
   /** Solo "compra" -- ítems de "Otros" del carrito. */
   itemsOtros: TurnoOtroItem[];
   pagos: Pago[];
-  /** Solo relevante si hay `equipoIds`/`itemsOtros`: reservarlos en el stock
+  /** Solo relevante si hay `celularIds`/`itemsOtros`: reservarlos en el stock
    * al agendar (antes era obligatorio, ahora es opcional). */
   reservarStock: boolean;
   nota: string;
@@ -132,7 +132,7 @@ export async function createTurno(data: {
       tipo: data.tipo,
       estado: "confirmado" satisfies TurnoEstado,
       ticket_id: data.ticketId,
-      equipo_ids: data.equipoIds.length ? data.equipoIds : null,
+      celular_ids: data.celularIds.length ? data.celularIds : null,
       items_otros: data.itemsOtros.length ? data.itemsOtros : null,
       pagos: data.pagos.length ? data.pagos : null,
       nota: data.nota.trim() || null,
@@ -141,18 +141,18 @@ export async function createTurno(data: {
     .single();
   if (error) throw error;
 
-  // "retira" ya no toca equipos -- se vincula a un ticket (`Turno.ticketId`)
+  // "retira" ya no toca celulares -- se vincula a un ticket (`Turno.ticketId`)
   // en vez de marcar un equipo "vendido" sin una Venta real detrás (bug que
   // tenía este flujo). Reservar solo aplica a "compra", y es opcional.
   // Igual que el resto de estos flujos multi-paso (ver nota equivalente en
   // `lib/db/ventas.ts`), no es una transacción real -- aceptable a esta
   // escala. Tampoco hay reversión automática al cancelar/eliminar un turno
   // (gap preexistente: los ítems reservados se quedan reservados).
-  if (data.reservarStock && data.equipoIds.length) {
+  if (data.reservarStock && data.celularIds.length) {
     const { error: updError } = await supabase
-      .from("equipos")
-      .update({ estado: "reservado" satisfies EquipoStatus })
-      .in("id", data.equipoIds);
+      .from("celulares")
+      .update({ estado: "reservado" satisfies CelularStatus })
+      .in("id", data.celularIds);
     if (updError) throw updError;
   }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MEDIOS_CAJA, MEDIOS_VENTA } from "@/lib/status";
 import {
   calcularMargenPct,
   calcularRestante,
@@ -10,6 +11,8 @@ import {
   motivoNoConfirmable,
   resumenDeVentas,
   graficosDeVentas,
+  pagoGeneraMovimientoCaja,
+  celularCanjeBorrable,
 } from "@/lib/ventas";
 
 describe("calcularMargenPct", () => {
@@ -248,22 +251,45 @@ describe("graficosDeVentas", () => {
         totalUsd: 100,
         rubros: [
           { rubro: "servicio", monto: 30 },
-          { rubro: "equipo", monto: 70 },
+          { rubro: "celular", monto: 70 },
         ],
       },
       {
         fechaISO: "2026-09-07T13:00:00-03:00",
         totalUsd: 40,
-        rubros: [{ rubro: "equipo", monto: 40 }],
+        rubros: [{ rubro: "celular", monto: 40 }],
       },
     ]);
     expect(porRubro).toEqual([
-      { label: "Equipos", value: 110 },
+      { label: "Celulares", value: 110 },
       { label: "Reparaciones", value: 30 },
     ]);
   });
 
   it("sin ventas devuelve listas vacías", () => {
     expect(graficosDeVentas([])).toEqual({ porDia: [], porRubro: [] });
+  });
+});
+
+
+describe("plan 020 — canje sin caja", () => {
+  it("un pago en canje o a cuenta corriente no genera movimiento de caja", () => {
+    expect(pagoGeneraMovimientoCaja({ medio: "canje" })).toBe(false);
+    expect(pagoGeneraMovimientoCaja({ medio: "cuenta_corriente" })).toBe(false);
+    expect(pagoGeneraMovimientoCaja({ medio: "pesos" })).toBe(true);
+    expect(pagoGeneraMovimientoCaja({ medio: "dolares" })).toBe(true);
+  });
+
+  it("el celular del canje solo se borra si sigue en revisión o disponible", () => {
+    expect(celularCanjeBorrable("en_revision")).toBe(true);
+    expect(celularCanjeBorrable("disponible")).toBe(true);
+    expect(celularCanjeBorrable("reservado")).toBe(false);
+    expect(celularCanjeBorrable("vendido")).toBe(false);
+    expect(celularCanjeBorrable("extraviado")).toBe(false);
+  });
+
+  it("el canje ya no es un medio de caja", () => {
+    expect(MEDIOS_CAJA).not.toContain("canje");
+    expect(MEDIOS_VENTA).toContain("canje");
   });
 });

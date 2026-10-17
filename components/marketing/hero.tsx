@@ -38,7 +38,7 @@ type Evento = {
 const EVENTOS: Evento[] = [
   { icon: ShoppingCart, title: "Venta V-4821 · U$ 735", detail: "Mercadería + efectivo + transferencia", actor: "CA" },
   { icon: Wrench, title: "Ticket #128 listo para retirar", detail: "Cambio de batería · checklist de egreso OK", actor: "ME" },
-  { icon: Package, title: "Ingreso a stock · 3 equipos", detail: "IMEI cargados · 128 y 256 GB", actor: "CA" },
+  { icon: Package, title: "Ingreso a stock · 3 celulares", detail: "IMEI cargados · 128 y 256 GB", actor: "CA" },
   { icon: CalendarDays, title: "Nuevo turno · Diego Sánchez", detail: "Hoy 15:00 · deja equipo para reparación", actor: "ME" },
 ];
 

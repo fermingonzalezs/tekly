@@ -17,7 +17,7 @@ import { useReducedMotionSafe } from "./use-reduced-motion";
  */
 
 const BARRAS = [
-  { label: "Equipos", pct: 48, color: "var(--chart-1)" },
+  { label: "Celulares", pct: 48, color: "var(--chart-1)" },
   { label: "Reparaciones", pct: 30, color: "var(--chart-2)" },
   { label: "Accesorios", pct: 14, color: "var(--chart-3)" },
   { label: "Otros", pct: 8, color: "var(--chart-4)" },

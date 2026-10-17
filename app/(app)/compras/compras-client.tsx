@@ -272,7 +272,7 @@ export function ComprasClient({
                   {c.id}
                   <span className="block text-xs font-normal text-neutral-400">{c.fecha}</span>
                 </td>
-                <td className="px-5 py-2 text-center font-medium">{contraparteDe(c)}</td>
+                <td className="px-5 py-2 text-start font-medium">{contraparteDe(c)}</td>
                 <td className="max-w-[240px] truncate px-5 py-2 text-start text-neutral-500">
                   {c.items.map((i) => i.detalle).join(" · ")}
                 </td>
@@ -504,7 +504,7 @@ function CompraDetalle({ compra }: { compra: Compra }) {
           <table className="w-full text-sm [&_td]:text-center [&_th]:text-center">
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-400">
-                <th className={cn("px-4 py-2 !text-start", thDivider)}>Detalle</th>
+                <th className={cn("px-4 py-2 text-center", thDivider)}>Detalle</th>
                 <th className={cn("px-4 py-2", thDivider)}>Cant</th>
                 <th className={cn("px-4 py-2", thDivider)}>Costo unit.</th>
                 <th className="px-4 py-2">Subtotal</th>
@@ -555,6 +555,14 @@ function CompraDetalle({ compra }: { compra: Compra }) {
               </Card>
             ))}
           </div>
+          {compra.celularId && (
+            <a
+              href={`/inventario?tab=celulares&celular=${compra.celularId}`}
+              className="mt-3 inline-block text-xs font-semibold text-accent hover:underline"
+            >
+              Ver celular en inventario
+            </a>
+          )}
           {compra.checklist && (
             <div className="mt-3">
               <ReciboChecklist

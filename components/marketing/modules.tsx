@@ -3,8 +3,8 @@ import { RevealItem, RevealStagger } from "./ui/reveal";
 import { GLASS, GLASS_INNER } from "./ui/glass";
 import { SectionHeading, SECTION_WRAP } from "./ui/section-heading";
 import { chartColor, GHOST_STRIPES, heatCell, HEAT_SCALE } from "@/lib/chart";
-import { checklistItemLabel, dotClass, equipoStatus, medioPago } from "@/lib/status";
-import type { ChecklistItemId, EquipoStatus, EstadoChecklistItem, MedioPagoVenta } from "@/lib/types";
+import { checklistItemLabel, dotClass, celularStatus, medioPago } from "@/lib/status";
+import type { ChecklistItemId, CelularStatus, EstadoChecklistItem, MedioPagoVenta } from "@/lib/types";
 import { fmtUsd } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -21,8 +21,8 @@ import { cn } from "@/lib/utils";
 // ── Mini-vistas ───────────────────────────────────────────────
 
 /** Chip de estado de tabla (patrón de la app: gris neutro + punto de color). */
-function EstadoChip({ estado }: { estado: EquipoStatus }) {
-  const est = equipoStatus[estado];
+function EstadoChip({ estado }: { estado: CelularStatus }) {
+  const est = celularStatus[estado];
   return (
     <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700">
       <span className={cn("h-1.5 w-1.5 rounded-full", dotClass[est.tone])} />
@@ -38,8 +38,8 @@ function InventarioVista() {
     <div className={cn(GLASS_INNER, "px-3.5 py-1.5")}>
       {(
         [
-          { nombre: "Equipo 256 GB · grafito", imei: "···7730", estado: "disponible" },
-          { nombre: "Equipo 128 GB · azul", imei: "···1042", estado: "reservado" },
+          { nombre: "Celular 256 GB · grafito", imei: "···7730", estado: "disponible" },
+          { nombre: "Celular 128 GB · azul", imei: "···1042", estado: "reservado" },
         ] as const
       ).map((e) => (
         <div
@@ -308,7 +308,7 @@ const MODULOS: {
 }[] = [
   {
     titulo: "Inventario",
-    detalle: "Equipos por IMEI, repuestos y accesorios. Sabés qué hay, dónde y en qué estado.",
+    detalle: "Celulares por IMEI, notebooks, repuestos y accesorios. Sabés qué hay, dónde y en qué estado.",
     vista: <InventarioVista />,
   },
   {

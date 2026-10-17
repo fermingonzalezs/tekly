@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DashboardAdmin } from "@/app/(app)/dashboard/dashboard-admin";
 import { useDemo } from "@/lib/demo/store";
 import {
+  mesDashboard,
   metricasDashboard,
   objetivoDelMes,
-  ventaGananciaPorPeriodo,
+  ritmoDelMes,
   ventasPorRubro,
   ventasRecientes,
 } from "@/lib/dashboard";
@@ -15,6 +16,8 @@ import {
 export default function DemoDashboardPage() {
   const { state } = useDemo();
   const hoy = useMemo(() => new Date(), []);
+  const [claveMes, setClaveMes] = useState<string | null>(null);
+  const mes = mesDashboard(claveMes, hoy);
 
   const turnosHoy = state.turnos.filter(
     (t) => t.dayOffset === 0 && t.estado !== "cancelado",
@@ -29,12 +32,14 @@ export default function DemoDashboardPage() {
         ventas: state.ventas,
         ticketsAbiertos,
         turnosHoy,
-        hoy,
+        hoy: mes.ref,
       })}
-      objetivo={objetivoDelMes(state.ventas, hoy)}
+      objetivo={objetivoDelMes(state.ventas, mes.ref)}
       objetivoTarget={state.negocio.objetivoMesUsd}
-      trendByPeriodo={ventaGananciaPorPeriodo(state.ventas, hoy)}
-      rubrosPorPeriodo={ventasPorRubro(state.ventas, hoy)}
+      ritmo={ritmoDelMes(state.ventas, mes.ref, hoy)}
+      rubros={ventasPorRubro(state.ventas, mes.ref).mes}
+      mes={mes}
+      onMesChange={setClaveMes}
       recentSales={ventasRecientes(state.ventas, 6, hoy)}
       turnos={state.turnos}
       ventasHref="/demo/ventas"

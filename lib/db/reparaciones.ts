@@ -133,7 +133,7 @@ export type EntregarTicketInput = {
  * el modal) + los pagos registrados, genera el movimiento correspondiente
  * por cada pago (caja o cuenta corriente -- mismo patrón que `createVenta`
  * en `lib/db/ventas.ts`, sin stock de por medio: un ticket no descuenta
- * equipos/repuestos al entregar) y pasa `estado` a `"entregado"`. */
+ * celulares/repuestos al entregar) y pasa `estado` a `"entregado"`. */
 export async function entregarTicket(id: number, data: EntregarTicketInput): Promise<Ticket> {
   const user = await requireUser();
   const supabase = createServerClient();

@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
   CLIENTE_CSV_HEADERS,
-  EQUIPO_CSV_HEADERS,
+  CELULAR_CSV_HEADERS,
   clienteTemplateCsv,
-  equipoTemplateCsv,
+  celularTemplateCsv,
   marcarClienteDuplicadoEnArchivo,
   marcarImeiDuplicadoEnArchivo,
   parseClienteRow,
-  parseEquipoRow,
+  parseCelularRow,
   remapFilas,
+  NOTEBOOK_CSV_HEADERS,
+  notebookTemplateCsv,
+  parseNotebookRow,
+  marcarSerieDuplicadaEnArchivo,
 } from "@/lib/importacion";
 
-describe("parseEquipoRow", () => {
+describe("parseCelularRow", () => {
   const filaValida = {
     modelo: "iPhone 13",
     almacenamiento: "128GB",
@@ -25,7 +29,7 @@ describe("parseEquipoRow", () => {
   };
 
   it("parsea una fila válida", () => {
-    const out = parseEquipoRow(filaValida, 1);
+    const out = parseCelularRow(filaValida, 1);
     expect(out.ok).toBe(true);
     if (out.ok) {
       expect(out.data.modelo).toBe("iPhone 13");
@@ -36,22 +40,22 @@ describe("parseEquipoRow", () => {
   });
 
   it("falla si falta modelo", () => {
-    const out = parseEquipoRow({ ...filaValida, modelo: "" }, 2);
+    const out = parseCelularRow({ ...filaValida, modelo: "" }, 2);
     expect(out.ok).toBe(false);
   });
 
   it("falla con estado inválido", () => {
-    const out = parseEquipoRow({ ...filaValida, estado: "reparando" }, 3);
+    const out = parseCelularRow({ ...filaValida, estado: "reparando" }, 3);
     expect(out.ok).toBe(false);
   });
 
   it("falla si costoUsd no es numérico", () => {
-    const out = parseEquipoRow({ ...filaValida, costoUsd: "abc" }, 4);
+    const out = parseCelularRow({ ...filaValida, costoUsd: "abc" }, 4);
     expect(out.ok).toBe(false);
   });
 
   it("estado vacío se completa a en_revision", () => {
-    const out = parseEquipoRow({ ...filaValida, estado: "" }, 5);
+    const out = parseCelularRow({ ...filaValida, estado: "" }, 5);
     expect(out.ok).toBe(true);
     if (out.ok) expect(out.data.estado).toBe("en_revision");
   });
@@ -76,21 +80,21 @@ describe("marcarImeiDuplicadoEnArchivo", () => {
   });
 });
 
-describe("equipoTemplateCsv", () => {
+describe("celularTemplateCsv", () => {
   it("cada línea tiene la misma cantidad de columnas que el header (ninguna nota lleva coma)", () => {
-    const lineas = equipoTemplateCsv().split("\n");
+    const lineas = celularTemplateCsv().split("\n");
     const cols = lineas[0].split(",").length;
     for (const linea of lineas) expect(linea.split(",")).toHaveLength(cols);
   });
 
   it("la columna extra 'notas' no rompe el parseo de la fila de ejemplo", () => {
-    const headers = equipoTemplateCsv().split("\n")[0].split(",");
-    const ejemplo = equipoTemplateCsv().split("\n")[1].split(",");
+    const headers = celularTemplateCsv().split("\n")[0].split(",");
+    const ejemplo = celularTemplateCsv().split("\n")[1].split(",");
     const raw = Object.fromEntries(headers.map((h, i) => [h, ejemplo[i]]));
-    const remap = remapFilas(EQUIPO_CSV_HEADERS, [raw]);
+    const remap = remapFilas(CELULAR_CSV_HEADERS, [raw]);
     expect(remap.ok).toBe(true);
     if (remap.ok) {
-      const out = parseEquipoRow(remap.filas[0], 1);
+      const out = parseCelularRow(remap.filas[0], 1);
       expect(out.ok).toBe(true);
     }
   });
@@ -193,5 +197,62 @@ describe("marcarClienteDuplicadoEnArchivo", () => {
       { rowNum: 2, telefono: "", email: "" },
     ]);
     expect(dup.size).toBe(0);
+  });
+});
+
+describe("importación de notebooks", () => {
+  const fila = {
+    modelo: "MacBook Air M2",
+    cpu: "Apple M2",
+    memoria: "8GB",
+    almacenamiento: "256GB",
+    pantalla: "13.6",
+    color: "Gris",
+    idioma: "Español",
+    numeroSerie: "C02XYZ",
+    garantia: "6 meses",
+    observaciones: "ok",
+    condicion: "usado",
+    bateria: "95",
+    costoUsd: "800",
+    precioUsd: "1000",
+    estado: "",
+  };
+
+  it("parsea una usada y mapea observaciones a notas", () => {
+    const out = parseNotebookRow(fila, 1);
+    expect(out.ok).toBe(true);
+    if (out.ok) {
+      expect(out.data.notas).toBe("ok");
+      expect(out.data.bateria).toBe(95);
+      expect(out.data.estado).toBe("en_revision");
+    }
+  });
+
+  it("exige batería en usadas y la ignora en nuevas", () => {
+    expect(parseNotebookRow({ ...fila, bateria: "" }, 2).ok).toBe(false);
+    expect(parseNotebookRow({ ...fila, bateria: "150" }, 2).ok).toBe(false);
+    const nueva = parseNotebookRow({ ...fila, condicion: "nuevo", bateria: "" }, 3);
+    expect(nueva.ok && nueva.data.bateria).toBe(null);
+  });
+
+  it("rechaza condición inválida o modelo vacío", () => {
+    expect(parseNotebookRow({ ...fila, condicion: "" }, 1).ok).toBe(false);
+    expect(parseNotebookRow({ ...fila, modelo: "" }, 1).ok).toBe(false);
+  });
+
+  it("marca series duplicadas y no choca las vacías", () => {
+    const dup = marcarSerieDuplicadaEnArchivo([
+      { rowNum: 1, numeroSerie: "A" },
+      { rowNum: 2, numeroSerie: "" },
+      { rowNum: 3, numeroSerie: "" },
+      { rowNum: 4, numeroSerie: "A" },
+    ]);
+    expect([...dup.keys()]).toEqual([4]);
+  });
+
+  it("la plantilla incluye todos los headers", () => {
+    const header = notebookTemplateCsv().split("\n")[0].split(",");
+    for (const h of NOTEBOOK_CSV_HEADERS) expect(header).toContain(h);
   });
 });

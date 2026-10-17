@@ -103,7 +103,7 @@ export function InventarioFlow({
 
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">
         <span>
-          Las salidas son ventas (equipos/otros) y repuestos usados en ventas y
+          Las salidas son ventas (celulares/otros) y repuestos usados en ventas y
           reparaciones.
         </span>
         {bajas > 0 && (

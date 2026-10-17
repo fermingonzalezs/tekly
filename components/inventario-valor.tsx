@@ -3,32 +3,37 @@ import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
 import { fmtUsd } from "@/lib/format";
 import { CHART_COLORS as COLORS } from "@/lib/chart";
-import { otroValorStock } from "@/lib/otros";
-import type { Equipo, OtroItem, Repuesto } from "@/lib/types";
+import { valorInventario } from "@/lib/inventario";
+import type { Celular, Notebook, OtroItem, Repuesto } from "@/lib/types";
 
+/** Valor de inventario a costo, por categoría (fuente única: `valorInventario`
+ *  en `lib/inventario.ts`, que excluye vendidos **y extraviados**). Se usa en
+ *  Analíticas → Inventario; el mismo cálculo alimenta el Activo del
+ *  Patrimonio. `notebooks` es opcional: si no se pasa, la categoría va en 0. */
 export function InventarioValor({
   className,
-  equipos,
+  celulares,
+  notebooks = [],
   repuestos,
   otros,
 }: {
   className?: string;
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks?: Notebook[];
   repuestos: Repuesto[];
   otros: OtroItem[];
 }) {
-  const valEquipos = equipos
-    .filter((e) => e.estado !== "vendido")
-    .reduce((a, e) => a + e.costoUsd, 0);
-  const valRepuestos = repuestos.reduce((a, r) => a + r.stock * r.costoUsd, 0);
-  const valOtros = otros.reduce((a, o) => a + otroValorStock(o), 0);
+  const { total: totalReal, porCategoria } = valorInventario({
+    celulares,
+    notebooks,
+    repuestos,
+    otros,
+  });
 
-  const rows = [
-    { label: "Equipos", value: valEquipos },
-    { label: "Repuestos", value: valRepuestos },
-    { label: "Otros", value: valOtros },
-  ];
-  const total = rows.reduce((a, r) => a + r.value, 0) || 1;
+  const rows = porCategoria
+    .filter((c) => c.valor > 0 || c.unidades > 0)
+    .map((c) => ({ label: c.label, value: c.valor }));
+  const total = totalReal || 1;
 
   return (
     <Card className={cn("flex h-full flex-col overflow-hidden p-4", className)}>
@@ -40,7 +45,7 @@ export function InventarioValor({
         <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">
           Valor total
         </p>
-        <p className="text-2xl font-semibold tabular-nums">{fmtUsd(total)}</p>
+        <p className="text-2xl font-semibold tabular-nums">{fmtUsd(totalReal)}</p>
 
         <div className="mt-3 flex gap-[3px] overflow-hidden rounded-full">
           {rows.map((r, i) => (

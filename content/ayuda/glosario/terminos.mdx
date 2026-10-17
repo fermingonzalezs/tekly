@@ -1,25 +1,66 @@
 ---
 titulo: "Glosario"
-resumen: "Los términos que usa Tekly y la jerga del rubro: IMEI, canje, conciliación, cuenta corriente y más."
+resumen: "Los términos que usa Tekly y la jerga del rubro: IMEI, canje, conciliación, cuenta corriente, margen y más."
 seccion: glosario
 roles: []
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-- **IMEI**: el número único de cada celular. En Tekly identifica a un equipo del stock y no puede repetirse.
-- **Canje**: cuando un cliente paga (en parte) con un equipo. Tekly lo registra como una **compra** vinculada a la venta, con checklist y PDF firmable.
-- **Conciliación**: contar la plata real de una caja y compararla con lo que el sistema esperaba. No hay «cierre del día»: es una ventana flexible.
-- **Cuenta corriente**: vender «fiado». El cargo suma la deuda del cliente; el pago la reduce.
-- **Margen**: diferencia entre el precio de venta y el costo de compra. Tekly lo muestra en % y **solo sobre ítems con costo cargado**.
-- **Margen ponderado**: margen del conjunto, pesado por facturación (una venta grande pesa más que una chica).
+## Producto y venta
+
+- **IMEI**: el número único de cada celular. En Tekly identifica a un celular del stock y no puede repetirse dentro de tu organización.
+- **Celular**: una unidad única de iPhone, identificada por IMEI. **Notebook**: una unidad única identificada por su número de serie. Es distinto de un **repuesto** (stock por modelo) o de un producto de **«Otros»** (iPad, AirPods, accesorios).
+- **Canje**: cuando un cliente paga (en parte) con un equipo. Tekly lo registra como una **compra** vinculada a la venta (con checklist y PDF firmable) y el equipo **entra al inventario** como «En revisión». No es una caja ni mueve plata.
 - **Pago dividido**: una venta cobrada con varios medios a la vez.
 - **Recargo por medio**: un % extra que cobrás por pagar con tarjeta (u otro medio). No cambia el total de la venta.
+- **Procedencia**: de dónde vino el cliente (Local, WhatsApp, Instagram, MercadoLibre, Referido, Otro).
+- **Modalidad**: Minorista o Mayorista.
+- **Margen**: diferencia entre el precio de venta y el costo. Tekly lo muestra en % y **solo sobre ítems con costo cargado**.
+- **Margen ponderado**: margen del conjunto, pesado por facturación (una venta grande pesa más que una chica).
+
+## Plata
+
+- **Caja**: un fondo con una moneda (ARS o USD) y **un** medio de pago fijo. Podés tener varias del mismo medio.
+- **Medio de pago**: efectivo (pesos), dólares, transferencia, cripto, tarjeta, mercadería (canje) y —solo en ventas y reparaciones— cuenta corriente.
+- **Conciliación**: contar la plata real de una caja y compararla con lo que el sistema esperaba. No hay «cierre del día»: es una ventana flexible.
+- **Cuenta corriente**: vender «fiado». El **cargo** suma la deuda del cliente; el **pago** la reduce.
+- **Movimiento de caja**: un ingreso o egreso manual, con una **categoría de gasto** cuando es egreso (Alquiler, Sueldos, Servicios, Insumos y repuestos, Impuestos, Mantenimiento, Otros).
+- **Cotización**: el valor del dólar guardado en el momento de cada movimiento en pesos, para que los totales no cambien después.
+
+## Reparaciones
+
+- **Ticket**: una reparación, de punta a punta.
+- **Pipeline**: el recorrido de estados (Recibido → Diagnosticado → Presupuestado → Aprobado → En reparación → Listo → Entregado).
+- **Checklist**: los 22 ítems que se revisan al **ingreso** y al **egreso** de un equipo.
 - **Presupuesto**: el documento de Reparaciones con los ítems y el total, que se le manda al cliente.
 - **Ticket de ingreso / egreso**: los documentos que el cliente firma al dejar y al retirar un equipo.
-- **Recuento**: contar el stock real; un admin lo revisa antes de aplicar los cambios.
-- **Activo / en riesgo** (clientes): activo = operación en los últimos 90 días; en riesgo = con historial y nada en 180 días.
 
-## Ver también
+## Stock
+
+- **Recuento**: contar el stock real; un admin lo revisa antes de aplicar los cambios.
+- **Stock mínimo**: el nivel a partir del cual un repuesto se marca «Stock bajo».
+- **Serializado**: un producto de «Otros» que se lleva una unidad por serial, en vez de por cantidad.
+- **Estados de un celular o notebook**: En revisión, Disponible, Reservado, Vendido, Extraviado.
+- **Movimientos de stock**: Ingreso, Egreso, Edición, Baja, Recuento y Ajuste (el único que cambia el stock real).
+
+## Clientes y analíticas
+
+- **Activo / en riesgo** (clientes): activo = operación en los últimos 90 días; en riesgo = con historial y nada en 180 días. Los turnos **no** cuentan como operación.
+- **Operación**: una venta o un ticket (un turno no).
+- **Tasa de recurrencia**: % de clientes con 2 o más operaciones sobre los que tienen alguna.
+- **Ritmo ideal**: la línea recta para llegar al objetivo del mes.
+- **Objetivo del mes**: la meta de facturación del mes, editable en Configuración.
+- **Estado actual**: los gráficos de Analíticas que **no** dependen del período elegido.
+
+## Cuenta y plan
+
+- **Organización**: tu negocio dentro de Tekly. Nadie de otra organización ve tus datos.
+- **Solo lectura**: estado de la cuenta cuando venció la prueba o el período: se ve todo, no se escribe nada y no se borra nada.
+- **Prueba (trial)**: 14 días gratis, sin tarjeta, con cupo de 3 usuarios.
+- **Cupo**: cantidad máxima de usuarios de tu plan (Starter 1, Business 3, Business+ 10).
+
+## Relacionados
 
 - [Preguntas frecuentes](/ayuda/faq/preguntas)
+- [Matriz de permisos por rol](/ayuda/roles/matriz-permisos)

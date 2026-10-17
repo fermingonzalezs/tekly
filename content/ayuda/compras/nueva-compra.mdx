@@ -1,0 +1,37 @@
+---
+titulo: "Cargar una compra a proveedor"
+resumen: "Cómo registrar una compra: proveedor, ítems, medio de pago, estado y su efecto en la caja."
+seccion: compras
+roles: [admin, tecnico]
+orden: 2
+actualizado: 2026-10-17
+---
+
+El botón **«Nueva compra»** registra mercadería que pagás a un proveedor.
+
+<Paso n={1} titulo="Proveedor y pago">
+Escribí el **Proveedor** (texto libre; si no existe, se crea solo), elegí el **Medio de pago** y, si corresponde, la **Caja**.
+</Paso>
+
+<Paso n={2} titulo="Ítems">
+Agregá una fila por ítem con **Detalle**, **Cant.** y **Costo unit. (USD)**. Podés sumar más con «Agregar ítem».
+</Paso>
+
+<Paso n={3} titulo="Guardá">
+La compra nace en estado **«Pendiente»**. Cuando llegue la mercadería, usá **«Marcar como recibida»**.
+</Paso>
+
+<Aviso titulo="El movimiento de caja" tono="info">
+Si elegís una caja, se registra un **egreso** en esa caja al guardar. Si el medio no tiene caja, la compra se guarda sin movimiento de caja. Si pagás en pesos, se guarda la cotización.
+</Aviso>
+
+## Qué no se puede
+
+- No se guarda sin **proveedor** y al menos un **ítem** con detalle, cantidad y un total mayor a cero.
+- No se elige un medio de pago sin caja para que entre a una caja: sin caja, no hay movimiento.
+- El proveedor es texto libre: escribilo siempre igual para no duplicar registros.
+
+## Relacionados
+
+- [Módulo Compras](/ayuda/compras/guia)
+- [Módulo Inventario](/ayuda/inventario/guia)

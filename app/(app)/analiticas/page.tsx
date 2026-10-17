@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { listVentas } from "@/lib/db/ventas";
 import {
-  listEquipos,
+  listCelulares,
   listRepuestos,
   listOtros,
   listMovimientosStockBulk,
@@ -95,15 +95,15 @@ export default async function AnaliticasPage(
     ]);
     finanzas = resumenFinanzas(data, movs, cajas, compras, ctx);
   } else if (filtros.tab === "inventario") {
-    const [equipos, repuestos, otros, movsStock, data, tickets] = await Promise.all([
-      listEquipos(),
+    const [celulares, repuestos, otros, movsStock, data, tickets] = await Promise.all([
+      listCelulares(),
       listRepuestos(),
       listOtros(),
       listMovimientosStockBulk(),
       listVentas(),
       listTickets(),
     ]);
-    inventario = resumenInventario(equipos, repuestos, otros, movsStock, data, tickets, ctx);
+    inventario = resumenInventario(celulares, repuestos, otros, movsStock, data, tickets, ctx);
   } else if (filtros.tab === "clientes") {
     const [dataClientes, dataVentas, dataTickets] = await Promise.all([
       listClientes(),

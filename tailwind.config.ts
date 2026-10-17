@@ -52,7 +52,7 @@ const config: Config = {
           DEFAULT: "rgb(var(--accent-rgb) / <alpha-value>)",
           soft: "rgb(var(--accent-soft-rgb) / <alpha-value>)",
         },
-        "table-header": "var(--chart-1)",
+        "table-header": "var(--table-header, var(--chart-1))",
       },
       keyframes: {
         "toast-in": {

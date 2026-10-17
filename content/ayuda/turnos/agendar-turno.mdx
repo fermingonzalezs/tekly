@@ -1,0 +1,44 @@
+---
+titulo: "Agendar un turno"
+resumen: "Cómo cargar un turno en el calendario: cliente (o sin registrar), motivo, fecha y hora, y los datos según el tipo."
+seccion: turnos
+roles: []
+orden: 2
+actualizado: 2026-10-17
+---
+
+Se agenda tocando el **«+»** de un hueco libre del calendario, o con el botón de acción. El diálogo se titula **«Agendar turno»**.
+
+<Paso n={1} titulo="Cliente">
+Elegí uno existente, creá uno nuevo, o usá **«usar sin registrar»** para alguien que todavía no es cliente. En ese caso el turno guarda sólo el nombre.
+</Paso>
+
+<Paso n={2} titulo="Motivo">
+Elegí el **tipo**: Compra equipo, Deja reparación, Retira reparación o Cotizar. El formulario cambia según el tipo (ver [Tipos de turno](/ayuda/turnos/tipos-de-turno)).
+</Paso>
+
+<Paso n={3} titulo="Fecha y hora">
+El turno se crea en el hueco que tocaste. Nace en estado **«Confirmado»**.
+</Paso>
+
+<Aviso titulo="El horario" tono="info">
+El calendario va de 9 a 20 h, cada media hora, y sólo dentro de los próximos 7 días.
+</Aviso>
+
+## Qué pasa después
+
+- El bloque aparece en el calendario con el color de su tipo.
+- Se avisa al resto del equipo con una notificación («Nuevo turno»).
+- Si es una **compra** con reserva de stock, los ítems vinculados pasan a «Reservado».
+
+## Qué no se puede
+
+- No se puede agendar fuera de los 7 días o fuera de 9–20 h.
+- Un turno **«Retira reparación»** necesita elegir un ticket en estado «Listo».
+- No se crea sin cliente (aunque sea «sin registrar») ni sin motivo.
+- No hay reprogramación: para moverlo, cancelá y agendá de nuevo.
+
+## Relacionados
+
+- [Tipos de turno](/ayuda/turnos/tipos-de-turno)
+- [Módulo Turnos](/ayuda/turnos/guia)

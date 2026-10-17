@@ -5,9 +5,11 @@ import { listTurnosSemana } from "@/lib/db/turnos";
 import { getNegocio } from "@/lib/db/configuracion";
 import { onboardingCompleto } from "@/lib/onboarding";
 import {
+  mesDashboard,
   metricasDashboard,
   metricasEmpleado,
   objetivoDelMes,
+  ritmoDelMes,
   ticketsDeTecnico,
   ventaGananciaPorPeriodo,
   ventasPorRubro,
@@ -22,7 +24,12 @@ import type { DashPeriodo } from "@/lib/mock-data";
  * oro del plan 005): al empleado no se le calcula ni se le pasa ninguna
  * ganancia/margen/costo ni el objetivo de facturación de la org -- lo que
  * no viaja en el payload RSC no se puede leer desde DevTools. */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mes?: string }>;
+}) {
+  const { mes: mesParam } = await searchParams;
   const [user, ventas, tickets, turnos, negocio] = await Promise.all([
     requireUser(),
     listVentas(),
@@ -82,16 +89,18 @@ export default async function DashboardPage() {
   }
 
   // Admin
+  const mes = mesDashboard(mesParam, hoy);
   const turnosHoy = turnos.filter((t) => t.dayOffset === 0 && t.estado !== "cancelado").length;
   const ticketsAbiertos = tickets.filter((t) => t.estado !== "entregado").length;
 
   return (
     <DashboardAdmin
-      metrics={metricasDashboard({ ventas, ticketsAbiertos, turnosHoy, hoy })}
-      objetivo={objetivoDelMes(ventas, hoy)}
+      metrics={metricasDashboard({ ventas, ticketsAbiertos, turnosHoy, hoy: mes.ref })}
+      objetivo={objetivoDelMes(ventas, mes.ref)}
       objetivoTarget={negocio.objetivoMesUsd}
-      trendByPeriodo={ventaGananciaPorPeriodo(ventas, hoy)}
-      rubrosPorPeriodo={ventasPorRubro(ventas, hoy)}
+      ritmo={ritmoDelMes(ventas, mes.ref, hoy)}
+      rubros={ventasPorRubro(ventas, mes.ref).mes}
+      mes={mes}
       recentSales={ventasRecientes(ventas, 6, hoy)}
       turnos={turnos}
     />

@@ -1,0 +1,55 @@
+---
+titulo: "Qué hay en cada pestaña de Analíticas"
+resumen: "Ventas, Reparaciones, Finanzas, Inventario, Clientes y Turnos: qué mide cada gráfico de cada pestaña."
+seccion: analiticas
+roles: [admin]
+orden: 2
+actualizado: 2026-10-17
+---
+
+## Ventas
+
+- **KPIs**: Facturación, Ticket promedio, Operaciones y Margen promedio (con delta vs el período anterior).
+- **Facturación acumulada** — cómo crece la facturación dentro del período (con «Todas las fechas» se agrupa por mes).
+- **Ranking por vendedor**, **Ventas por canal** (procedencia), **Mix de rubros**, **Ganancia por categoría**.
+- **Venta promedio por día de la semana** — promedio facturado por día, no el total.
+- **Tendencia por rubro** — últimos 3 meses.
+
+## Reparaciones
+
+- **KPIs**: Cobrado (incluye lo cobrado a cuenta corriente), Reparaciones ingresadas, Gasto en repuestos y Ganancia final.
+- **Antigüedad de tickets abiertos** (estado actual), **Aceptación de presupuestos**, **Reparaciones por tipo de falla**, **Actividad semanal** (heatmap) y **Embudo de reparaciones**.
+
+## Finanzas
+
+- **KPIs**: Ingresos (cajas), Egresos (cajas), Neto (cajas) y Ganancia (ventas).
+- **Evolución de rentabilidad**, **Waterfall de resultado**, **Margen vs facturación** (scatter), **Ingresos por medio de pago**, **Flujo de caja por mes**, **Compras vs ventas** y **Gastos por categoría**.
+
+## Inventario
+
+- **KPIs**: Valor a costo, Unidades, Días de inventario y Capital inmovilizado.
+- **Antigüedad del stock**, **Valor de inventario**, **Unidades por categoría**, **Rotación vs valor**, **Capital por antigüedad**, **Flujo del inventario** y **Stock que pide atención**.
+- La parte de stock es una **foto actual**; sólo el flujo respeta el período.
+
+## Clientes (Customer Intelligence)
+
+- **KPIs** (nunca filtrados por fecha): Clientes activos, Valor por cliente activo, Tasa de recurrencia y En riesgo.
+- **Customer value map**, **Compras vs reparaciones**, **Customer lifecycle** (Sankey), **Cohortes M0–M6** (con drill-down), **Ingresos: nuevos vs existentes**, **Clientes por canal** y **Atención**.
+- Cada cliente linkea a su ficha en Clientes.
+
+## Turnos
+
+- **KPIs**: Turnos del período, Confirmados, Cancelados y Sin confirmar (ya pasaron).
+- **Tasa de confirmación**, **Turnos por tipo**, **Estado de los turnos** y **Ocupación por franja horaria** (9 a 20 h).
+- Es el historial del período (hasta hoy), no la semana próxima.
+
+## Qué no se puede
+
+- El período no aplica a Inventario (salvo el flujo) ni a la pestaña Clientes (ventanas fijas).
+- Los turnos **no** cuentan como operación en Clientes.
+- «Sin confirmar (ya pasaron)» es un proxy honesto: el sistema no registra si el cliente vino.
+
+## Relacionados
+
+- [Definiciones de los indicadores](/ayuda/analiticas/definiciones)
+- [Módulo Analíticas](/ayuda/analiticas/guia)

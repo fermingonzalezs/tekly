@@ -1,34 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
-import { Tabs } from "@/components/ui/tabs";
+import { IconButton } from "@/components/ui/button";
 import { MetricCards } from "@/components/dashboard/metric-cards";
-import { TrendChart } from "@/components/dashboard/trend-chart";
+import { RitmoChart } from "@/components/dashboard/ritmo-chart";
 import { RubrosPie } from "@/components/dashboard/rubros-pie";
 import { ObjetivoPanel } from "@/components/dashboard/objetivo-panel";
 import { TurnosHeatmap } from "@/components/dashboard/turnos-heatmap";
 import { RecentSales } from "@/components/dashboard/recent-sales";
 import { useRefrescoEnVivo } from "@/components/dashboard/use-refresco-en-vivo";
-import { DASH_PERIODOS, type DashPeriodo } from "@/lib/mock-data";
-import type {
-  MetricaDashboard,
-  ObjetivoMes,
-  VentaReciente,
+import {
+  etiquetaMes,
+  moverMes,
+  type MesDashboard,
+  type MetricaDashboard,
+  type ObjetivoMes,
+  type RitmoMes,
+  type VentaReciente,
 } from "@/lib/dashboard";
 import type { Turno } from "@/lib/types";
 
-/** Dashboard de admin: KPIs con "Ventas del mes" destacada, tendencia con
- * línea de ganancia, mix de rubros, objetivo del mes y, a la derecha,
+/** Dashboard de admin: KPIs con "Ventas del mes" destacada, ritmo del mes
+ * (acumulado vs mes anterior vs ritmo ideal), mix de rubros, objetivo del mes y, a la derecha,
  * turnos agendados + ventas recientes. Se actualiza solo ante eventos de la
  * org (`useRefrescoEnVivo`). */
 export function DashboardAdmin({
   metrics,
   objetivo,
   objetivoTarget,
-  trendByPeriodo,
-  rubrosPorPeriodo,
+  ritmo,
+  rubros,
+  mes,
+  onMesChange,
   recentSales,
   turnos,
   ventasHref,
@@ -36,35 +43,49 @@ export function DashboardAdmin({
   metrics: MetricaDashboard[];
   objetivo: ObjetivoMes;
   objetivoTarget: number;
-  trendByPeriodo: Record<
-    DashPeriodo,
-    { venta: number[]; ganancia: number[]; fechas: string[] }
-  >;
-  rubrosPorPeriodo: Record<DashPeriodo, { label: string; value: number }[]>;
+  ritmo: RitmoMes;
+  rubros: { label: string; value: number }[];
+  mes: MesDashboard;
+  /** Cambio de mes. Sin esto navega con `?mes=YYYY-MM` (la app real); la
+   * demo lo pasa para llevar el mes en estado local. */
+  onMesChange?: (clave: string) => void;
   recentSales: VentaReciente[];
   turnos: Turno[];
   /** Base del link de "Ventas recientes" (en demo `/demo/ventas`). */
   ventasHref?: string;
 }) {
   useRefrescoEnVivo();
-  const [periodo, setPeriodo] = useState<DashPeriodo>("mes");
-  const meta = DASH_PERIODOS.find((p) => p.value === periodo)!;
-  const trend = trendByPeriodo[periodo];
+  const router = useRouter();
+  const pathname = usePathname();
+  const [pendiente, startTransition] = useTransition();
+  const irA = (clave: string) => {
+    if (onMesChange) return onMesChange(clave);
+    startTransition(() => router.replace(`${pathname}?mes=${clave}`, { scroll: false }));
+  };
 
   return (
     <Section
       title="Dashboard"
       ayuda="dashboard"
       toolbar={
-        <div className="no-scrollbar flex flex-1 justify-center overflow-x-auto sm:flex-none sm:justify-start">
-          <Tabs
-            value={periodo}
-            onChange={setPeriodo}
-            options={DASH_PERIODOS.map((p) => ({
-              value: p.value,
-              label: p.label,
-            }))}
-            className="flex-nowrap gap-1.5 sm:gap-2"
+        <div className="flex items-center gap-1 rounded-full border border-neutral-900/10 bg-white px-1 shadow-sm">
+          <IconButton
+            aria-label="Mes anterior"
+            icon={ChevronLeft}
+            variant="ghost"
+            size="sm"
+            onClick={() => irA(moverMes(mes.clave, -1))}
+          />
+          <span className="min-w-[8.5rem] text-center text-sm font-medium tabular-nums">
+            {etiquetaMes(mes.anio, mes.mes0)}
+          </span>
+          <IconButton
+            aria-label="Mes siguiente"
+            icon={ChevronRight}
+            variant="ghost"
+            size="sm"
+            disabled={mes.esActual}
+            onClick={() => irA(moverMes(mes.clave, 1))}
           />
         </div>
       }
@@ -76,7 +97,9 @@ export function DashboardAdmin({
       // solo debajo de xl se suma `pb-8`.
       mainClassName="flex flex-col p-4 pb-8 xl:pb-4 xl:h-[calc(100dvh-7.5rem)] xl:overflow-hidden"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div
+        className={`flex min-h-0 flex-1 flex-col gap-3 transition-opacity ${pendiente ? "opacity-60" : ""}`}
+      >
         <MetricCards metrics={metrics} />
 
         {/* Grilla 2×2 en xl: fila de arriba a su alto natural (rubros/objetivo |
@@ -86,7 +109,7 @@ export function DashboardAdmin({
           <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:col-start-1 xl:row-start-1">
             <Card className="flex min-w-0 flex-col p-4">
               <RubrosPie
-                data={rubrosPorPeriodo[periodo]}
+                data={rubros}
                 totalFacturado={objetivo.current}
               />
             </Card>
@@ -99,13 +122,10 @@ export function DashboardAdmin({
               target={objetivoTarget}
             />
           </div>
-          <TrendChart
+          <RitmoChart
             className="min-h-[260px] min-w-0 xl:col-start-1 xl:row-start-2 xl:min-h-0"
-            venta={trend.venta}
-            ganancia={trend.ganancia}
-            fechas={trend.fechas}
-            rubroMix={rubrosPorPeriodo[periodo]}
-            sub={meta.trendSub}
+            ritmo={ritmo}
+            target={objetivoTarget}
           />
           <TurnosHeatmap
             className="min-w-0 xl:col-start-2 xl:row-start-1"

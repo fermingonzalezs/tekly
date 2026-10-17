@@ -1,7 +1,7 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { resolveProveedorId } from "@/lib/db/inventario";
-import type { Checklist, Compra, CompraEstado, CompraItem, MedioPago } from "@/lib/types";
+import type { Checklist, Compra, CompraEstado, CompraItem, MedioPago, Pago } from "@/lib/types";
 
 type CompraRow = {
   id: string;
@@ -11,7 +11,7 @@ type CompraRow = {
   proveedor_nombre: string | null;
   cliente_id: string | null;
   cliente_nombre: string | null;
-  venta: { numero: number } | { numero: number }[] | null;
+  venta: { numero: number; pagos: Pago[] | null } | { numero: number; pagos: Pago[] | null }[] | null;
   items: CompraItem[];
   total_usd: number;
   medio_pago: MedioPago;
@@ -26,10 +26,14 @@ type CompraRow = {
 };
 
 const COMPRA_COLS =
-  "id, numero, fecha, origen, proveedor_nombre, cliente_id, cliente_nombre, venta:ventas(numero), items, total_usd, medio_pago, caja_id, estado, monto_ars, cotizacion, marca, imei, checklist, aclaraciones";
+  "id, numero, fecha, origen, proveedor_nombre, cliente_id, cliente_nombre, venta:ventas(numero, pagos), items, total_usd, medio_pago, caja_id, estado, monto_ars, cotizacion, marca, imei, checklist, aclaraciones";
 
 function toCompra(row: CompraRow): Compra {
   const venta = Array.isArray(row.venta) ? row.venta[0] : row.venta;
+  const compraId = `C-${row.numero}`;
+  const celularId = (venta?.pagos ?? []).find(
+    (p) => p.medio === "canje" && p.compraId === compraId,
+  )?.celularId;
   return {
     id: `C-${row.numero}`,
     fecha: new Date(row.fecha).toLocaleDateString("es-AR", { day: "2-digit", month: "short" }),
@@ -50,6 +54,7 @@ function toCompra(row: CompraRow): Compra {
     imei: row.imei ?? undefined,
     checklist: row.checklist ?? undefined,
     aclaraciones: row.aclaraciones ?? undefined,
+    celularId,
   };
 }
 

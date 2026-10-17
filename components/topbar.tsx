@@ -1,4 +1,3 @@
-import { Search } from "lucide-react";
 import { HelpCircle } from "lucide-react";
 import { SECCION_LABEL, type SeccionAyuda } from "@/lib/ayuda-secciones";
 import { SITE_URL } from "@/lib/marketing/seo";
@@ -31,13 +30,6 @@ export function Topbar({
           <HelpCircle className="h-4 w-4" />
         </a>
       )}
-      <div className={`relative hidden sm:block ${ayuda ? "" : "ml-auto"}`}>
-        <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
-        <input
-          placeholder="Buscar…"
-          className="h-9 w-56 rounded-lg border border-neutral-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-accent"
-        />
-      </div>
     </div>
   );
 }

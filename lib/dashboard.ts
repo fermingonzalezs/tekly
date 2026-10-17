@@ -1,7 +1,7 @@
-import type { Equipo, Ticket, TicketStatus, Turno, Venta } from "@/lib/types";
+import type { Celular, Ticket, TicketStatus, Turno, Venta } from "@/lib/types";
 import type { DashPeriodo } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
-import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, margenPonderado } from "@/lib/ventas";
+import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, margenPonderado, margenVenta } from "@/lib/ventas";
 import { TICKET_FLOW } from "@/lib/status";
 
 const MESES = [
@@ -70,6 +70,15 @@ export function metricasDashboard(params: {
       ? margenMes - margenMesPrev
       : undefined;
 
+  // Ganancia real = suma por venta de los ítems con costo cargado
+  // (`margenVenta`), mismo criterio que el margen de al lado.
+  const gananciaDe = (vs: Venta[]) =>
+    vs.reduce((a, v) => a + margenVenta(v.items).gananciaUsd, 0);
+  const gananciaMes = gananciaDe(ventasMes);
+  const gananciaMesPrev = gananciaDe(ventasMesPrev);
+  const deltaGanancia =
+    gananciaMesPrev > 0 ? ((gananciaMes - gananciaMesPrev) / gananciaMesPrev) * 100 : 0;
+
   const ticketProm = ventasMes.length ? totalMes / ventasMes.length : 0;
   const ticketPromPrev = ventasMesPrev.length ? totalMesPrev / ventasMesPrev.length : 0;
   const deltaTicket =
@@ -77,6 +86,7 @@ export function metricasDashboard(params: {
 
   return [
     { key: "ventas", label: "Ventas del mes", value: fmtUsd(totalMes), delta: round1(deltaVentas), deltaHint: "vs mes anterior", destacada: true },
+    { key: "ganancia", label: "Ganancia del mes", value: fmtUsd(Math.round(gananciaMes)), delta: round1(deltaGanancia), deltaHint: "vs mes anterior" },
     { key: "margen", label: "Margen promedio", value: margenMes !== null ? `${margenMes.toFixed(1)} %` : "—", ...(deltaMargen !== undefined ? { delta: round1(deltaMargen) } : {}), deltaHint: "vs mes anterior" },
     { key: "abiertos", label: "Tickets abiertos", value: String(params.ticketsAbiertos), deltaHint: "sin entregar" },
     { key: "ticket", label: "Ticket promedio", value: fmtUsd(Math.round(ticketProm)), delta: round1(deltaTicket), deltaHint: "vs mes anterior" },
@@ -257,7 +267,7 @@ export function ventaGananciaPorPeriodo(
   return { mes: build("mes"), mesPrevio: build("mesPrevio"), quince: build("quince") };
 }
 
-/** Mix real Equipos/Reparaciones/Accesorios/Otros por período del selector
+/** Mix real Celulares/Notebooks/Reparaciones/Accesorios/Otros por período del selector
  * del dashboard, a partir de `VentaItem.categoria`. */
 export function ventasPorRubro(
   ventas: Venta[],
@@ -346,4 +356,102 @@ export function fechaPartes(iso: string): { dow: string; dia: number; mes: strin
 export function fechaCorta(iso: string): string {
   const p = fechaPartes(iso);
   return `${p.dow} ${p.dia} ${p.mes}`;
+}
+
+
+const MESES_LARGOS = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+export type MesDashboard = {
+  /** `YYYY-MM` -- lo que viaja en `?mes=`. */
+  clave: string;
+  anio: number;
+  mes0: number;
+  esActual: boolean;
+  /** Fecha de referencia para los cálculos del mes: hoy si es el mes en
+   * curso, el último día si es un mes cerrado. */
+  ref: Date;
+};
+
+/** Mes del selector del dashboard a partir de `?mes=YYYY-MM`. Un valor
+ * inválido o futuro cae al mes en curso. */
+export function mesDashboard(raw: string | undefined | null, hoy: Date): MesDashboard {
+  const anioHoy = hoy.getFullYear();
+  const mesHoy = hoy.getMonth();
+  const m = /^(\d{4})-(\d{2})$/.exec(raw ?? "");
+  let anio = anioHoy;
+  let mes0 = mesHoy;
+  if (m) {
+    const a = Number(m[1]);
+    const mm = Number(m[2]) - 1;
+    if (mm >= 0 && mm <= 11 && a * 12 + mm <= anioHoy * 12 + mesHoy) {
+      anio = a;
+      mes0 = mm;
+    }
+  }
+  const esActual = anio === anioHoy && mes0 === mesHoy;
+  return {
+    clave: `${anio}-${String(mes0 + 1).padStart(2, "0")}`,
+    anio,
+    mes0,
+    esActual,
+    ref: esActual ? hoy : new Date(anio, mes0 + 1, 0),
+  };
+}
+
+/** "Octubre de 2026". */
+export function etiquetaMes(anio: number, mes0: number): string {
+  return `${MESES_LARGOS[mes0]} de ${anio}`;
+}
+
+/** Clave `YYYY-MM` del mes `delta` meses antes/después de `clave`. */
+export function moverMes(clave: string, delta: number): string {
+  const d = new Date(Number(clave.slice(0, 4)), Number(clave.slice(5, 7)) - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export type RitmoMes = {
+  /** Venta acumulada día a día (índice 0 = día 1) hasta `dayOfMonth`. */
+  acumulado: number[];
+  /** Acumulado del mes anterior, mismos días transcurridos. */
+  anterior: number[];
+  daysInMonth: number;
+  dayOfMonth: number;
+  /** El mes mostrado es el en curso (se dibuja el marcador "Hoy"). */
+  esActual: boolean;
+};
+
+/** Ventas acumuladas del mes de `ref` contra el mes anterior, para el
+ * gráfico "Ritmo del mes". El ritmo ideal lo dibuja el componente con la
+ * meta. */
+export function ritmoDelMes(ventas: Venta[], ref: Date, hoy: Date): RitmoMes {
+  const anio = ref.getFullYear();
+  const mes0 = ref.getMonth();
+  const prev = mesAnterior(anio, mes0);
+  const dayOfMonth = ref.getDate();
+  const daysInMonth = new Date(anio, mes0 + 1, 0).getDate();
+  const daysPrev = new Date(prev.anio, prev.mes0 + 1, 0).getDate();
+
+  const porDia = new Map<string, number>();
+  for (const v of ventas) {
+    const k = v.fechaISO.slice(0, 10);
+    porDia.set(k, (porDia.get(k) ?? 0) + v.totalUsd);
+  }
+  const acumular = (a: number, m0: number, dias: number) => {
+    let acc = 0;
+    return Array.from({ length: dias }, (_, i) => {
+      acc += porDia.get(claveDia(new Date(a, m0, i + 1))) ?? 0;
+      return Math.round(acc);
+    });
+  };
+
+  return {
+    acumulado: acumular(anio, mes0, dayOfMonth),
+    anterior: acumular(prev.anio, prev.mes0, Math.min(daysPrev, dayOfMonth)),
+    daysInMonth,
+    dayOfMonth,
+    esActual: anio === hoy.getFullYear() && mes0 === hoy.getMonth(),
+  };
 }

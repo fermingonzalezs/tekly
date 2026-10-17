@@ -297,7 +297,7 @@ export function CuentasCorrientesClient({
                 onClick={() => setOpenClienteId(r.cliente.id)}
                 className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
               >
-                <td className="max-w-[160px] truncate px-5 py-2 text-center font-medium">
+                <td className="max-w-[160px] truncate px-5 py-2 text-start font-medium">
                   {r.cliente.nombre}
                 </td>
                 <td className="px-5 py-2 text-center text-neutral-500">{r.cliente.telefono}</td>

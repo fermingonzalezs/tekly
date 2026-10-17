@@ -1,0 +1,40 @@
+---
+titulo: "Filtrar y buscar ventas"
+resumen: "Cómo usar la fila de filtros de Ventas: período, vendedor, rubro, buscador por número/cliente/IMEI, tabs y paginación."
+seccion: ventas
+roles: []
+orden: 9
+actualizado: 2026-10-17
+---
+
+Todos los filtros de Ventas viven **en la URL**. Cada cambio hace un `replace` con la URL nueva (vuelve a la página 1) sin recargar la pantalla; mientras carga, la tabla baja a `opacity-60`.
+
+## Filtros disponibles
+
+- **Período**: «Todas las fechas», «Este mes», «Mes anterior», «Últimos 15 días» o «Rango personalizado» (muestra los campos Desde y Hasta).
+- **Vendedor** (sólo si hay más de uno): «Todos los vendedores» o un nombre puntual.
+- **Tipo** (rubro de la venta): Todo, Celulares, Notebooks, Reparaciones, Accesorios u Otros.
+- **Buscador** (placeholder «Buscar por cliente, serie o producto…»): matchea por **cliente**, **número de venta** (ej. `1042`) o **IMEI**. Tiene un debounce de 300 ms.
+
+Los filtros activos aparecen como chips con una «×» para quitarlos, más un botón **«Limpiar todo»**. En mobile los selects se colapsan detrás de **«Filtros · N»**.
+
+## Las dos vistas
+
+- **«Ventas»**: una fila por venta. El chip de **Pago** muestra el medio principal (el de mayor monto) y un «+N» si hubo varios; pasá el mouse para ver el detalle.
+- **«Ítems vendidos»**: una fila por producto vendido (Venta, Cliente, Ítem, Serie, Precio, Margen). Es la vista para buscar por **IMEI**. Abre el mismo detalle de la venta.
+
+## Orden y paginación
+
+- En «Ventas», los headers **Venta**, **Total** y **Margen** ordenan la tabla (ascendente/descendente).
+- La lista es server-paginada, **50 por página**, con el paginador «Mostrando 1–50 de N». Los KPIs y gráficos se calculan sobre el **período completo**, no sobre la página visible.
+
+## Qué no se puede
+
+- Un **vendedor** no puede ordenar por **Margen** (ni desde la URL): intentarlo cae a orden por fecha.
+- Los gráficos y KPIs respetan período, vendedor y tipo; el buscador no los filtra (es de la tabla).
+- Los parámetros inválidos de la URL se ignoran y vuelven al valor por defecto.
+
+## Relacionados
+
+- [Módulo Ventas](/ayuda/ventas/guia)
+- [Cómo cargar una venta](/ayuda/ventas/nueva-venta)

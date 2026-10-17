@@ -6,7 +6,7 @@
  * Las reglas de filtro/orden son las mismas -- ver "Ventas" en CLAUDE.md.
  */
 
-import type { Equipo, Venta, VentaItem } from "@/lib/types";
+import type { Celular, Notebook, Venta, VentaItem } from "@/lib/types";
 import type { FiltrosVentas } from "@/lib/ventas-filtros";
 import type { Rango } from "@/lib/date-presets";
 import { enRango } from "@/lib/date-presets";
@@ -40,23 +40,33 @@ function numeroDeVenta(id: string): number {
 function itemCoincide(
   item: VentaItem,
   q: string,
-  equipos: Equipo[],
+  celulares: Celular[],
+  notebooks: Notebook[],
 ): boolean {
   if (item.detalle.toLowerCase().includes(q)) return true;
-  if (item.equipoId) {
-    const equipo = equipos.find((e) => e.id === item.equipoId);
+  if (item.celularId) {
+    const equipo = celulares.find((e) => e.id === item.celularId);
     if (equipo && equipo.imei.toLowerCase().includes(q)) return true;
+  }
+  if (item.notebookId) {
+    const nb = notebooks.find((n) => n.id === item.notebookId);
+    if (nb && nb.numeroSerie.toLowerCase().includes(q)) return true;
   }
   return false;
 }
 
 /** `q` a nivel venta: número exacto (`V-1002` o `1002`), cliente `ilike`,
  * detalle de algún ítem o IMEI de algún equipo del ítem. */
-function ventaCoincide(v: Venta, q: string, equipos: Equipo[]): boolean {
+function ventaCoincide(
+  v: Venta,
+  q: string,
+  celulares: Celular[],
+  notebooks: Notebook[],
+): boolean {
   if (v.id.toLowerCase() === q) return true;
   if (String(numeroDeVenta(v.id)) === q) return true;
   if (v.cliente.toLowerCase().includes(q)) return true;
-  return v.items.some((i) => itemCoincide(i, q, equipos));
+  return v.items.some((i) => itemCoincide(i, q, celulares, notebooks));
 }
 
 function ventaCoincideClienteNumero(v: Venta, q: string): boolean {
@@ -79,7 +89,7 @@ function filtrarVentas(
       enRango(v.fechaISO, rango) &&
       (!filtros.vendedor || v.vendedorId === filtros.vendedor) &&
       (!filtros.tipo || v.items.some((i) => categoriaDe(i) === filtros.tipo)) &&
-      (!q || ventaCoincide(v, q, state.equipos)),
+      (!q || ventaCoincide(v, q, state.celulares, state.notebooks)),
   );
 }
 
@@ -156,13 +166,16 @@ export function consultarVentas(
     const ventaQ = !q || ventaCoincideClienteNumero(venta, q);
     for (const item of venta.items) {
       if (filtros.tipo && categoriaDe(item) !== filtros.tipo) continue;
-      if (q && !ventaQ && !itemCoincide(item, q, state.equipos)) continue;
+      if (q && !ventaQ && !itemCoincide(item, q, state.celulares, state.notebooks))
+        continue;
       filas.push({
         venta,
         item,
-        serial: item.equipoId
-          ? state.equipos.find((e) => e.id === item.equipoId)?.imei
-          : undefined,
+        serial: item.celularId
+          ? state.celulares.find((e) => e.id === item.celularId)?.imei
+          : item.notebookId
+            ? state.notebooks.find((n) => n.id === item.notebookId)?.numeroSerie
+            : undefined,
       });
     }
   }

@@ -1,0 +1,34 @@
+---
+titulo: "Cargar un cliente"
+resumen: "Cómo dar de alta un cliente con sus datos y para qué sirve la fecha de nacimiento."
+seccion: clientes
+roles: []
+orden: 2
+actualizado: 2026-10-17
+---
+
+El botón **«Nuevo cliente»** abre el formulario. También podés crear un cliente «al vuelo» desde «Nueva venta», «Nuevo ticket» o al registrar un movimiento de cuenta corriente (se persiste recién al confirmar la operación).
+
+## Campos
+
+<Paso n={1} titulo="Nombre y apellido">
+Obligatorio.
+</Paso>
+
+<Paso n={2} titulo="Teléfono y email">
+Opcionales. El teléfono se usa para buscar y para deduplicar en la importación.
+</Paso>
+
+<Paso n={3} titulo="Fecha de nacimiento (opcional)">
+Se tipea con máscara DD/MM/AAAA. Alimenta el gráfico de demografía por edad; un cliente sin fecha queda afuera de ese gráfico.
+</Paso>
+
+## Qué no se puede
+
+- No se crea sin nombre.
+- La fecha de nacimiento tiene que ser una fecha plausible (año desde 1900); si está incompleta, no se guarda.
+
+## Relacionados
+
+- [Ficha del cliente](/ayuda/clientes/ficha-cliente)
+- [Módulo Clientes](/ayuda/clientes/guia)

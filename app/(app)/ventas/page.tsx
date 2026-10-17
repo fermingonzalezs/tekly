@@ -1,7 +1,8 @@
 import { Section } from "@/components/section";
 import { requireUser } from "@/lib/auth";
 import { listClientesOpciones } from "@/lib/db/clientes";
-import { listEquipos, listOtros, listRepuestos } from "@/lib/db/inventario";
+import { listCelulares, listOtros, listRepuestos } from "@/lib/db/inventario";
+import { listNotebooks } from "@/lib/db/notebooks";
 import { listServicios } from "@/lib/db/reparaciones";
 import {
   contarItemsVendidos,
@@ -47,7 +48,8 @@ export default async function VentasPage(
     graficos,
     vendedores,
     clientesOpciones,
-    equipos,
+    celulares,
+    notebooks,
     otros,
     servicios,
     repuestos,
@@ -75,7 +77,8 @@ export default async function VentasPage(
     graficosVentas(filtros),
     listVendedores(),
     listClientesOpciones(),
-    listEquipos(),
+    listCelulares(),
+    listNotebooks(),
     listOtros(),
     listServicios(),
     listRepuestos(),
@@ -100,7 +103,8 @@ export default async function VentasPage(
         openId={openId}
         ventaAbierta={ventaAbierta}
         clientesOpciones={clientesOpciones}
-        equipos={equipos}
+        celulares={celulares}
+        notebooks={notebooks}
         otros={otros}
         servicios={servicios}
         repuestos={repuestos}

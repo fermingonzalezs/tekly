@@ -79,28 +79,28 @@ export function conteoRecuentos(recuentos: Recuento[]): ConteoRecuentos {
 export type UnidadAjustada = { label: string; value: number };
 
 const TIPO_RECUENTO_LABEL: Record<Recuento["tipo"], string> = {
-  equipos: "Equipos",
+  celulares: "Celulares",
   repuestos: "Repuestos",
   otros: "Otros",
 };
 
-/** Unidades ajustadas por tipo de recuento (Equipos/Repuestos/Otros): solo
+/** Unidades ajustadas por tipo de recuento (Celulares/Repuestos/Otros): solo
  * las diferencias que un admin efectivamente decidió ajustar -- `restaurado`
- * en Equipos (vuelve a `disponible`) y `ajustado` en Repuestos/Otros (el
+ * en Celulares (vuelve a `disponible`) y `ajustado` en Repuestos/Otros (el
  * stock pasa a lo contado). `descartado` no cambia nada y `confirmado`
  * (equipo que sigue extraviado) tampoco toca una cantidad, así que no
  * suman. Para un equipo, cada línea restaurada vale 1; para repuestos/otros,
  * la magnitud de la diferencia (`|contado - sistema|`). */
 export function unidadesAjustadasPorTipo(recuentos: Recuento[]): UnidadAjustada[] {
   const acumulado: Record<Recuento["tipo"], number> = {
-    equipos: 0,
+    celulares: 0,
     repuestos: 0,
     otros: 0,
   };
   for (const r of recuentos) {
     for (const linea of r.lineas) {
-      if (r.tipo === "equipos") {
-        if (linea.resolucion === "restaurado") acumulado.equipos += 1;
+      if (r.tipo === "celulares") {
+        if (linea.resolucion === "restaurado") acumulado.celulares += 1;
       } else if (linea.resolucion === "ajustado") {
         const l = linea as {
           cantidadSistema: number;

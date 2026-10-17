@@ -1,7 +1,7 @@
 import type {
   Cliente,
   Compra,
-  Equipo,
+  Celular,
   ListaDifusion,
   MovimientoCC,
   OtroItem,
@@ -20,7 +20,7 @@ export const dashboardMetrics = [
   { key: "ventas", label: "Ventas del mes", value: "U$ 48.250", delta: 12.4, deltaHint: "vs promedio mensual" },
   { key: "margen", label: "Margen promedio", value: "34,2 %", delta: 2.1, deltaHint: "vs promedio 3 meses" },
   { key: "abiertos", label: "Tickets abiertos", value: "17", delta: -8.0, deltaHint: "vs promedio semanal" },
-  { key: "revision", label: "Equipos en revisión", value: "9", delta: 4.0, deltaHint: "vs promedio semanal" },
+  { key: "revision", label: "Celulares en revisión", value: "9", delta: 4.0, deltaHint: "vs promedio semanal" },
   { key: "ticket", label: "Ticket promedio", value: "U$ 615", delta: 3.2, deltaHint: "vs promedio mensual" },
   { key: "turnos", label: "Turnos hoy", value: "6", delta: 20.0, deltaHint: "vs promedio diario" },
 ];
@@ -121,11 +121,11 @@ export const salesTrendByPeriod: Record<
 export const usdArs = { value: 1465, delta: 0.7, label: "Dólar blue" };
 
 export const recentSales = [
-  { id: "V-4821", cliente: "Juan Pérez", item: "iPhone 13 128GB", categoria: "Equipos", vendedor: "Caro", procedencia: "Local", monto: 735, fecha: "Hoy 14:20" },
+  { id: "V-4821", cliente: "Juan Pérez", item: "iPhone 13 128GB", categoria: "Celulares", vendedor: "Caro", procedencia: "Local", monto: 735, fecha: "Hoy 14:20" },
   { id: "V-4820", cliente: "Sofía Ramos", item: "Cambio de batería 12", categoria: "Reparaciones", vendedor: "Meli", procedencia: "WhatsApp", monto: 55, fecha: "Hoy 12:05" },
-  { id: "V-4819", cliente: "Marco Díaz", item: "iPhone 15 Pro 256GB", categoria: "Equipos", vendedor: "Caro", procedencia: "Instagram", monto: 1240, fecha: "Ayer 18:40" },
+  { id: "V-4819", cliente: "Marco Díaz", item: "iPhone 15 Pro 256GB", categoria: "Celulares", vendedor: "Caro", procedencia: "Instagram", monto: 1240, fecha: "Ayer 18:40" },
   { id: "V-4818", cliente: "Lucía V.", item: "Vidrio templado + funda", categoria: "Accesorios", vendedor: "Meli", procedencia: "Local", monto: 22, fecha: "Ayer 17:10" },
-  { id: "V-4817", cliente: "Diego F.", item: "iPhone 11 64GB", categoria: "Equipos", vendedor: "Caro", procedencia: "MercadoLibre", monto: 410, fecha: "Ayer 11:30" },
+  { id: "V-4817", cliente: "Diego F.", item: "iPhone 11 64GB", categoria: "Celulares", vendedor: "Caro", procedencia: "MercadoLibre", monto: 410, fecha: "Ayer 11:30" },
 ];
 
 // ───────────────────────── Usuarios ─────────────────────────
@@ -242,7 +242,7 @@ export const tickets: Ticket[] = [
 
 // ───────────────────────── Inventario ─────────────────────────
 
-export const equipos: Equipo[] = [
+export const celulares: Celular[] = [
   { id: "e-1", modelo: "iPhone 11", almacenamiento: "64GB", color: "Negro", imei: "356111000000011", bateria: 84, condicion: "B+", costoUsd: 300, precioUsd: 410, estado: "disponible" },
   { id: "e-2", modelo: "iPhone 13", almacenamiento: "128GB", color: "Azul", imei: "356111000000024", bateria: 91, condicion: "A", costoUsd: 560, precioUsd: 735, estado: "disponible" },
   { id: "e-3", modelo: "iPhone 12", almacenamiento: "128GB", color: "Blanco", imei: "356111000000037", bateria: 88, condicion: "B", costoUsd: 420, precioUsd: 560, estado: "disponible" },
@@ -376,7 +376,7 @@ export const compras: Compra[] = [
 
 // Catálogos armados para copiar y pegar en WhatsApp u otro medio — no son
 // listas de contactos, son la plantilla del mensaje (ver lib/types.ts). Las
-// secciones se arman con reglas por condición/categoría, no con equipos
+// secciones se arman con reglas por condición/categoría, no con celulares
 // puntuales, para que la lista se mantenga vigente sola cuando cambia el
 // stock (vendé un iPhone A+ y la regla "condición A+, A" ya no lo incluye).
 export const listasDifusion: ListaDifusion[] = [
@@ -391,21 +391,21 @@ export const listasDifusion: ListaDifusion[] = [
     secciones: [
       {
         id: "sec-0",
-        nombre: "EQUIPOS NUEVOS",
+        nombre: "CELULARES NUEVOS",
         emoji: "✨",
-        entradas: [{ id: "r-0", tipo: "equipo", condiciones: ["NUEVO"] }],
+        entradas: [{ id: "r-0", tipo: "celular", condiciones: ["NUEVO"] }],
       },
       {
         id: "sec-1",
-        nombre: "EQUIPOS TOP GAMA",
+        nombre: "CELULARES TOP GAMA",
         emoji: "📱",
-        entradas: [{ id: "r-1", tipo: "equipo", condiciones: ["A+", "A"] }],
+        entradas: [{ id: "r-1", tipo: "celular", condiciones: ["A+", "A"] }],
       },
       {
         id: "sec-2",
-        nombre: "EQUIPOS GAMA MEDIA",
+        nombre: "CELULARES GAMA MEDIA",
         emoji: "📱",
-        entradas: [{ id: "r-2", tipo: "equipo", condiciones: ["B+", "B"] }],
+        entradas: [{ id: "r-2", tipo: "celular", condiciones: ["B+", "B"] }],
       },
       {
         id: "sec-3",
@@ -429,9 +429,9 @@ export const listasDifusion: ListaDifusion[] = [
     secciones: [
       {
         id: "sec-4",
-        nombre: "EQUIPOS EN LIQUIDACIÓN",
+        nombre: "CELULARES EN LIQUIDACIÓN",
         emoji: "⚡",
-        entradas: [{ id: "r-4", tipo: "equipo", condiciones: ["B+", "B"] }],
+        entradas: [{ id: "r-4", tipo: "celular", condiciones: ["B+", "B"] }],
       },
     ],
   },

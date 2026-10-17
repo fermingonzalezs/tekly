@@ -1,18 +1,8 @@
 "use client";
 
-import { IconButton } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Boxes,
-  Loader2,
-  Search,
-  ShoppingCart,
-  Users,
-  Wallet,
-  Wrench,
-  type LucideIcon,
-} from "lucide-react";
+import { Boxes, Loader2, Search, ShoppingCart, Users, Wallet, Wrench, type LucideIcon, Laptop } from "lucide-react";
 import type { Rol } from "@/lib/auth/types";
 import {
   filterNavItems,
@@ -40,7 +30,8 @@ const TIPOS: {
   { tipo: "cliente", label: "Clientes", icon: Users },
   { tipo: "venta", label: "Ventas", icon: ShoppingCart },
   { tipo: "ticket", label: "Reparaciones", icon: Wrench },
-  { tipo: "equipo", label: "Equipos", icon: Boxes },
+  { tipo: "celular", label: "Celulares", icon: Boxes },
+  { tipo: "notebook", label: "Notebooks", icon: Laptop },
   { tipo: "movimiento_caja", label: "Movimientos de caja", icon: Wallet },
 ];
 
@@ -55,9 +46,19 @@ type Item = {
   index: number;
 };
 
-export function CommandPalette({ rol }: { rol: Rol }) {
+/** Controlada: el botón que la abre vive en `FabDock` (`components/fab-dock.tsx`),
+ * junto al de "Reportar un problema". Ctrl/⌘+K sigue andando desde acá. */
+export function CommandPalette({
+  rol,
+  open,
+  onOpenChange,
+}: {
+  rol: Rol;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const setOpen = onOpenChange;
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [resultados, setResultados] = useState<ResultadoBusqueda[]>([]);
@@ -194,7 +195,7 @@ export function CommandPalette({ rol }: { rol: Rol }) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((v) => !v);
+        setOpen(!open);
         return;
       }
       if (!open) return;
@@ -229,19 +230,6 @@ export function CommandPalette({ rol }: { rol: Rol }) {
 
   return (
     <>
-      {/* El overlay va como hermano del wrapper fixed, no anidado -- mismo
-          patrón que ReportarBugFab: anidado quedaría atrapado en su
-          stacking context y pintaría debajo de otros fixed z-50. */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <IconButton
-          aria-label="Buscar o crear"
-          icon={Search}
-          variant="primary"
-          size="xl"
-          onClick={() => setOpen(true)}
-        />
-      </div>
-
       {open && (
         <div
           className="fixed inset-0 z-50 bg-neutral-900/30"

@@ -16,12 +16,12 @@ import {
 } from "@/lib/demo/operaciones";
 
 /** Clave de `sessionStorage`. Versionar si cambia el shape del seed/estado. */
-const STORAGE_KEY = "tekly:demo:v1";
+const STORAGE_KEY = "tekly:demo:v2";
 
 /** Opciones de borrado -- mismas que `DeleteVentaOpts` de `lib/db/ventas.ts`,
  * copiadas acá para no importar un módulo `server-only`. */
 export type OpcionesEliminar = {
-  restituirEquipos: boolean;
+  restituirCelulares: boolean;
   restituirRepuestos: boolean;
   eliminarMovimientosCaja: boolean;
   eliminarMovimientoCC: boolean;
@@ -31,7 +31,7 @@ export type OpcionesEliminar = {
 type DemoCtx = {
   state: DemoState;
   crearVenta: (input: CrearVentaDemoInput) => Promise<Venta>;
-  eliminarVenta: (id: string, opts: OpcionesEliminar) => Promise<void>;
+  eliminarVenta: (id: string, opts: OpcionesEliminar) => Promise<string | null>;
   reiniciar: () => void;
 };
 
@@ -86,10 +86,11 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       eliminarVenta: async (id, opts) => {
         setState((prev) =>
           eliminarVentaDemo(prev, id, {
-            restituirEquipos: opts.restituirEquipos,
+            restituirCelulares: opts.restituirCelulares,
             restituirRepuestos: opts.restituirRepuestos,
           }),
         );
+        return null;
       },
       reiniciar: () => setState(crearSeedDemo(new Date())),
     }),

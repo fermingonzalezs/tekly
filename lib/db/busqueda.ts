@@ -1,8 +1,8 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { fmtArs, fmtDayMonth, fmtUsd } from "@/lib/format";
-import { equipoStatus } from "@/lib/status";
-import type { EquipoStatus } from "@/lib/types";
+import { celularStatus } from "@/lib/status";
+import type { CelularStatus } from "@/lib/types";
 
 /** Búsqueda global de la CommandPalette (Cmd+K) -- un server action la llama
  * con cada query debounced. Corre con el cliente normal (respeta RLS): cada
@@ -17,7 +17,8 @@ export type ResultadoBusquedaTipo =
   | "cliente"
   | "venta"
   | "ticket"
-  | "equipo"
+  | "celular"
+  | "notebook"
   | "movimiento_caja";
 
 export type ResultadoBusqueda = {
@@ -49,12 +50,19 @@ type MovimientoRow = {
   cajas: { nombre: string; moneda: "usd" | "ars" } | null;
 };
 
-type EquipoRow = {
+type CelularRow = {
   id: string;
   modelo: string;
   almacenamiento: string | null;
   imei: string | null;
-  estado: EquipoStatus;
+  estado: CelularStatus;
+};
+
+type NotebookRow = {
+  id: string;
+  modelo: string;
+  numero_serie: string | null;
+  estado: CelularStatus;
 };
 
 export async function buscarGlobal(query: string): Promise<ResultadoBusqueda[]> {
@@ -67,7 +75,7 @@ export async function buscarGlobal(query: string): Promise<ResultadoBusqueda[]> 
   const hrefQ = encodeURIComponent(query.trim());
   const supabase = createServerClient();
 
-  const [cliRes, venRes, ticRes, equRes, movRes] = await Promise.all([
+  const [cliRes, venRes, ticRes, equRes, nbRes, movRes] = await Promise.all([
     supabase
       .from("clientes")
       .select("id, nombre, telefono, email")
@@ -91,9 +99,15 @@ export async function buscarGlobal(query: string): Promise<ResultadoBusqueda[]> 
       .order("id", { ascending: false })
       .limit(5),
     supabase
-      .from("equipos")
+      .from("celulares")
       .select("id, modelo, almacenamiento, imei, estado")
       .or(`modelo.ilike."${patron}",imei.ilike."${patron}"`)
+      .order("modelo")
+      .limit(5),
+    supabase
+      .from("notebooks")
+      .select("id, modelo, numero_serie, estado")
+      .or(`modelo.ilike."${patron}",numero_serie.ilike."${patron}"`)
       .order("modelo")
       .limit(5),
     supabase
@@ -129,12 +143,20 @@ export async function buscarGlobal(query: string): Promise<ResultadoBusqueda[]> 
     href: `/reparaciones?q=${hrefQ}`,
   }));
 
-  const equipos = ((equRes.data ?? []) as unknown as EquipoRow[]).map((e) => ({
-    tipo: "equipo" as const,
+  const celulares = ((equRes.data ?? []) as unknown as CelularRow[]).map((e) => ({
+    tipo: "celular" as const,
     id: e.id,
     titulo: e.almacenamiento ? `${e.modelo} · ${e.almacenamiento}` : e.modelo,
-    subtitulo: `${e.imei || "sin IMEI"} · ${equipoStatus[e.estado].label}`,
-    href: `/inventario?tab=equipos&q=${hrefQ}`,
+    subtitulo: `${e.imei || "sin IMEI"} · ${celularStatus[e.estado].label}`,
+    href: `/inventario?tab=celulares&q=${hrefQ}`,
+  }));
+
+  const notebooks = ((nbRes.data ?? []) as unknown as NotebookRow[]).map((n) => ({
+    tipo: "notebook" as const,
+    id: n.id,
+    titulo: n.modelo,
+    subtitulo: `${n.numero_serie || "sin N.º de serie"} · ${celularStatus[n.estado].label}`,
+    href: `/inventario?tab=notebooks&q=${hrefQ}`,
   }));
 
   const movimientos = ((movRes.data ?? []) as unknown as MovimientoRow[]).map(
@@ -149,5 +171,12 @@ export async function buscarGlobal(query: string): Promise<ResultadoBusqueda[]> 
     }),
   );
 
-  return [...clientes, ...ventas, ...tickets, ...equipos, ...movimientos];
+  return [
+    ...clientes,
+    ...ventas,
+    ...tickets,
+    ...celulares,
+    ...notebooks,
+    ...movimientos,
+  ];
 }

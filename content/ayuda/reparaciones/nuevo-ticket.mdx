@@ -1,0 +1,56 @@
+---
+titulo: "Nuevo ticket de reparación"
+resumen: "Todos los campos del alta de un ticket: cliente, marca, modelo, IMEI, falla, técnico, checklist de ingreso y color."
+seccion: reparaciones
+roles: []
+orden: 2
+actualizado: 2026-10-17
+---
+
+El botón **«Nuevo ticket»** abre un formulario a dos columnas: los datos a la izquierda y el **checklist de ingreso** a la derecha. El ticket nace en estado **«Recibido»**.
+
+## Campos
+
+<Paso n={1} titulo="Cliente">
+Elegí uno existente o creá uno nuevo (se guarda recién al crear el ticket). Obligatorio.
+</Paso>
+
+<Paso n={2} titulo="Datos del equipo">
+- **Marca** (viene «Apple» por defecto).
+- **Modelo** — obligatorio (ej. «iPhone 13 Pro 128GB»).
+- **Serial / IMEI** (opcional).
+- **Color** (opcional).
+- **Reparación solicitada** (opcional).
+- **Clave / código de desbloqueo** (opcional).
+- **Descripción del equipo** (opcional): golpes, funda, mica, accesorios que trae.
+</Paso>
+
+<Paso n={3} titulo="Falla y técnico">
+- **Falla reportada** — obligatorio.
+- **Técnico (opcional)**: «Sin asignar» o cualquier usuario activo de la organización.
+</Paso>
+
+<Paso n={4} titulo="Checklist de ingreso">
+Recorré los **22 ítems** marcando **«Bien» / «Mal» / «No aplica»**, o usá **«Marcar todo bien»** y **«No se testeó»**. Ver [Checklists](/ayuda/reparaciones/checklists).
+</Paso>
+
+<Aviso titulo="El botón de crear no se habilita" tono="warning">
+Necesitás al menos **cliente, modelo y falla**. Si falta algo, revisá esos tres campos.
+</Aviso>
+
+## Qué pasa después
+
+- El ticket se crea en estado **«Recibido»** con el checklist de ingreso y el color guardados.
+- Aparece al principio de la lista y en el pipeline del estado.
+- Si cargaste un cliente nuevo, se persiste en Clientes.
+
+## Qué no se puede
+
+- No se crea sin **cliente, modelo y falla**.
+- El checklist de **egreso** no se carga acá: es aparte, antes de entregar.
+- El técnico asignado no se restringe a rol técnico, pero tiene que ser un usuario activo.
+
+## Relacionados
+
+- [Checklist de ingreso y egreso](/ayuda/reparaciones/checklists)
+- [Módulo Reparaciones](/ayuda/reparaciones/guia)

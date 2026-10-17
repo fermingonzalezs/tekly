@@ -15,7 +15,7 @@ function inputBase(overrides: Partial<CrearVentaDemoInput> = {}): CrearVentaDemo
     vendedorNombre: "Ana Pérez",
     modalidad: "minorista",
     items: [
-      { detalle: "iPhone 12 128GB Azul", cantidad: 1, precioUsd: 1000, costoUsd: 700, categoria: "equipo" },
+      { detalle: "iPhone 12 128GB Azul", cantidad: 1, precioUsd: 1000, costoUsd: 700, categoria: "celular" },
     ],
     totalUsd: 1000,
     pagos: [{ medio: "pesos", montoUsd: 1000, caja: "ars", cajaId: "demo-caja-1" }],
@@ -60,20 +60,53 @@ describe("crearVentaDemo", () => {
 
   it("marca vendido el equipo del stock", () => {
     const state = crearSeedDemo(HOY);
-    const libre = state.equipos.find((e) => e.estado === "disponible")!;
+    const libre = state.celulares.find((e) => e.estado === "disponible")!;
     const { state: next, venta } = crearVentaDemo(
       state,
       inputBase({
         items: [
-          { detalle: "Equipo", cantidad: 1, precioUsd: 600, costoUsd: 400, equipoId: libre.id, categoria: "equipo" },
+          { detalle: "Celular", cantidad: 1, precioUsd: 600, costoUsd: 400, celularId: libre.id, categoria: "celular" },
         ],
         totalUsd: 600,
         pagos: [{ medio: "dolares", montoUsd: 600, caja: "usd", cajaId: "demo-caja-3" }],
       }),
       HOY,
     );
-    expect(venta.items[0].equipoId).toBe(libre.id);
-    expect(next.equipos.find((e) => e.id === libre.id)?.estado).toBe("vendido");
+    expect(venta.items[0].celularId).toBe(libre.id);
+    expect(next.celulares.find((e) => e.id === libre.id)?.estado).toBe("vendido");
+  });
+
+  it("marca vendida la notebook del stock y la devuelve al eliminar", () => {
+    const state = crearSeedDemo(HOY);
+    const nb = state.notebooks.find((n) => n.estado === "disponible")!;
+    const { state: next, venta } = crearVentaDemo(
+      state,
+      inputBase({
+        items: [
+          {
+            detalle: "Notebook",
+            cantidad: 1,
+            precioUsd: 900,
+            costoUsd: 700,
+            notebookId: nb.id,
+            categoria: "notebook",
+          },
+        ],
+        totalUsd: 900,
+        pagos: [{ medio: "dolares", montoUsd: 900, caja: "usd", cajaId: "demo-caja-3" }],
+      }),
+      HOY,
+    );
+    expect(venta.items[0].notebookId).toBe(nb.id);
+    expect(next.notebooks.find((n) => n.id === nb.id)?.estado).toBe("vendido");
+
+    const restaurado = eliminarVentaDemo(next, venta.id, {
+      restituirCelulares: true,
+      restituirRepuestos: true,
+    });
+    expect(restaurado.notebooks.find((n) => n.id === nb.id)?.estado).toBe(
+      "disponible",
+    );
   });
 
   it("descuenta stock de los repuestos usados", () => {
@@ -138,21 +171,21 @@ describe("crearVentaDemo", () => {
 });
 
 describe("eliminarVentaDemo", () => {
-  it("saca la venta y restituye equipos y repuestos con los flags", () => {
+  it("saca la venta y restituye celulares y repuestos con los flags", () => {
     const state = crearSeedDemo(HOY);
     const venta = state.ventas[0];
-    const equipoId = venta.items.find((i) => i.equipoId)?.equipoId;
+    const celularId = venta.items.find((i) => i.celularId)?.celularId;
     const repuestoId = venta.items.flatMap((i) => i.repuestos ?? [])[0]?.repuestoId;
 
     const next = eliminarVentaDemo(state, venta.id, {
-      restituirEquipos: true,
+      restituirCelulares: true,
       restituirRepuestos: true,
     });
 
     expect(next.ventas.find((v) => v.id === venta.id)).toBeUndefined();
     expect(next.ventas).toHaveLength(state.ventas.length - 1);
-    if (equipoId) {
-      expect(next.equipos.find((e) => e.id === equipoId)?.estado).toBe("disponible");
+    if (celularId) {
+      expect(next.celulares.find((e) => e.id === celularId)?.estado).toBe("disponible");
     }
     if (repuestoId) {
       const antes = state.repuestos.find((r) => r.id === repuestoId)!.stock;
@@ -163,15 +196,15 @@ describe("eliminarVentaDemo", () => {
   it("con los flags en false no toca inventario", () => {
     const state = crearSeedDemo(HOY);
     const next = eliminarVentaDemo(state, state.ventas[0].id, {
-      restituirEquipos: false,
+      restituirCelulares: false,
       restituirRepuestos: false,
     });
-    expect(next.equipos).toEqual(state.equipos);
+    expect(next.celulares).toEqual(state.celulares);
     expect(next.repuestos).toEqual(state.repuestos);
   });
 
   it("id inexistente devuelve el mismo estado", () => {
     const state = crearSeedDemo(HOY);
-    expect(eliminarVentaDemo(state, "V-99999", { restituirEquipos: true, restituirRepuestos: true })).toBe(state);
+    expect(eliminarVentaDemo(state, "V-99999", { restituirCelulares: true, restituirRepuestos: true })).toBe(state);
   });
 });

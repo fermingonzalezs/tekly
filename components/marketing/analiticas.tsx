@@ -52,19 +52,19 @@ const TREND: Record<DashPeriodo, { venta: number[]; ganancia: number[] }> = {
 
 const RUBROS: Record<DashPeriodo, { label: string; value: number }[]> = {
   mes: [
-    { label: "Equipos", value: 58 },
+    { label: "Celulares", value: 58 },
     { label: "Reparaciones", value: 22 },
     { label: "Accesorios", value: 14 },
     { label: "Otros", value: 6 },
   ],
   mesPrevio: [
-    { label: "Equipos", value: 61 },
+    { label: "Celulares", value: 61 },
     { label: "Reparaciones", value: 19 },
     { label: "Accesorios", value: 12 },
     { label: "Otros", value: 8 },
   ],
   quince: [
-    { label: "Equipos", value: 54 },
+    { label: "Celulares", value: 54 },
     { label: "Reparaciones", value: 25 },
     { label: "Accesorios", value: 15 },
     { label: "Otros", value: 6 },

@@ -3,27 +3,27 @@ import { ChartTitle } from "@/components/ui/chart-title";
 import { DonutChart } from "@/components/dashboard/donut-chart";
 import { cn } from "@/lib/utils";
 import {
-  equipos as equiposSeed,
+  celulares as celularesSeed,
   repuestos as repuestosSeed,
   otros as otrosSeed,
 } from "@/lib/mock-data";
 import { CHART_COLORS as COLORS } from "@/lib/chart";
 import { otroCantidad } from "@/lib/otros";
-import type { Equipo, OtroItem, Repuesto } from "@/lib/types";
+import type { Celular, OtroItem, Repuesto } from "@/lib/types";
 
 export function InventarioUnidades({
   className,
-  equipos = equiposSeed,
+  celulares = celularesSeed,
   repuestos = repuestosSeed,
   otros = otrosSeed,
 }: {
   className?: string;
-  equipos?: Equipo[];
+  celulares?: Celular[];
   repuestos?: Repuesto[];
   otros?: OtroItem[];
 }) {
   const rows = [
-    { label: "Equipos", value: equipos.length },
+    { label: "Celulares", value: celulares.length },
     { label: "Repuestos", value: repuestos.reduce((a, r) => a + r.stock, 0) },
     {
       label: "Otros",

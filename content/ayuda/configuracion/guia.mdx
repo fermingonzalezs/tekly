@@ -1,36 +1,65 @@
 ---
 titulo: "Módulo Configuración"
-resumen: "Usuarios y roles, datos del negocio, textos de recibos y garantía, e importar datos. Incluye \"Mi cuenta\" para todos."
+resumen: "Usuarios y roles, datos del negocio, preferencias, recibos, importar datos y Mi cuenta."
 seccion: configuracion
 roles: [admin]
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
 Configuración es casi toda **solo admin**, salvo la pestaña **Mi cuenta** (que la ve cualquier rol para editar su nombre y alias).
 
 ## Pestañas
 
-<Paso n={1} titulo="Usuarios y roles">
-Invitás gente y cambiás roles. Ver [Invitar a tu equipo](/ayuda/primeros-pasos/invitar-equipo).
-</Paso>
+- **Usuarios y roles** — invitá gente, cambiá roles y desactivá usuarios.
+- **Datos del negocio** — nombre, dirección, teléfono, CUIT y horario.
+- **Preferencias** — color del tema, logo, objetivo del mes y recargos por medio de pago.
+- **Recibos** — los textos de garantía y de reparaciones.
+- **Importar datos** — alta masiva por CSV de celulares y clientes.
+- **Mi cuenta** — nombre y alias (cualquier rol).
 
-<Paso n={2} titulo="Datos del negocio">
-Nombre, dirección, teléfono, CUIT, horario, logo y el **objetivo del mes**. Ver [Configurar los datos del negocio](/ayuda/primeros-pasos/datos-del-negocio).
-</Paso>
+## Operaciones
 
-<Paso n={3} titulo="Recibos">
-Los textos de garantía de Ventas y los tres de Reparaciones (ingreso, presupuesto, egreso), con **preview en vivo** de la garantía.
-</Paso>
+- [Usuarios y roles](/ayuda/configuracion/usuarios-y-roles)
+- [Datos del negocio y preferencias](/ayuda/configuracion/datos-del-negocio)
+- [Recibos y textos](/ayuda/configuracion/recibos)
+- [Mi cuenta](/ayuda/configuracion/mi-cuenta)
+- [Plan y facturación](/ayuda/configuracion/plan-y-facturacion)
 
-<Paso n={4} titulo="Importar datos">
-Alta masiva por CSV de **equipos** y **clientes** existentes. Ver [Inventario inicial](/ayuda/primeros-pasos/inventario-inicial).
-</Paso>
+## Qué no se puede
 
-<Aviso titulo="Mi cuenta" tono="info">
-Cualquier usuario puede, desde **Mi cuenta**, cambiar su **nombre** y **alias** (el saludo del Dashboard usa el alias).
-</Aviso>
+- Un **no-admin** sólo ve «Mi cuenta».
+- No hay **reenviar invitación** ni estado de «pendiente»: al invitar, el usuario ya queda activo y ocupa un lugar del plan.
+- No se pueden cambiar **contraseñas de otros**: cada uno la recupera con «Olvidé mi contraseña».
+- La desactivación de un usuario **no se revierte** desde la interfaz.
 
-## Ver también
+## Preguntas frecuentes
 
-- [Módulo Cajas](/ayuda/cajas/guia)
+**¿Cómo invito a alguien del equipo?**
+Usuarios y roles → «Invitar usuario». Ver [Usuarios y roles](/ayuda/configuracion/usuarios-y-roles).
+
+**¿Cuántos usuarios puedo tener?**
+Depende del plan: Starter 1, Business 3, Business+ 10; la prueba permite 3.
+
+**¿Puedo reenviar una invitación?**
+No hay reenvío: el invitado recibe el mail una vez.
+
+**¿Qué pasa si desactivo a un usuario?**
+Se le corta el acceso pero conserva su historial. No se puede reactivar desde la app.
+
+**¿Cómo cambio el logo?**
+Preferencias → Logo. PNG, JPG o WebP de hasta 2 MB. Ver [Datos del negocio y preferencias](/ayuda/configuracion/datos-del-negocio).
+
+**¿Dónde edito los textos de la garantía?**
+En Recibos. Ver [Recibos y textos](/ayuda/configuracion/recibos).
+
+**¿Puedo importar clientes sin fecha de nacimiento?**
+Sí: es opcional.
+
+**¿Dónde veo mi plan?**
+En `/plan`, con un link desde el menú de usuario. Ver [Plan y facturación](/ayuda/configuracion/plan-y-facturacion).
+
+## Relacionados
+
+- [Plan y facturación](/ayuda/configuracion/plan-y-facturacion)
+- [Primeros pasos: crear la organización](/ayuda/primeros-pasos/crear-organizacion)

@@ -142,8 +142,8 @@ export function ConfiguracionClient({
                       onClick={() => setEditandoMiembro(u)}
                       className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                     >
-                      <td className="px-5 py-2 text-center font-medium">{u.nombre}</td>
-                      <td className="px-5 py-2 text-center text-neutral-500">{u.email}</td>
+                      <td className="px-5 py-2 text-start font-medium">{u.nombre}</td>
+                      <td className="px-5 py-2 text-start text-neutral-500">{u.email}</td>
                       <td className="px-5 py-2 text-center">
                         <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                           <span

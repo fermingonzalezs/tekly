@@ -75,7 +75,7 @@ export function MockupReparaciones({ className }: { className?: string }) {
             Cliente
           </div>
           <div className="bg-table-header px-1 py-1 text-[5px] font-bold uppercase tracking-wide text-white">
-            Equipo
+            Celular
           </div>
           <div className="bg-table-header px-1.5 py-1 text-[5px] font-bold uppercase tracking-wide text-white">
             Falla

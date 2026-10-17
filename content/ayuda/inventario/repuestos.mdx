@@ -1,0 +1,47 @@
+---
+titulo: "Repuestos y stock"
+resumen: "Cómo se lleva el stock de repuestos por modelo: stock mínimo, proveedor, estado calculado, ingreso y reposición."
+seccion: inventario
+roles: []
+orden: 4
+actualizado: 2026-10-17
+---
+
+La pestaña **Repuestos** lleva el stock por modelo (pantallas, baterías, pin de carga…), con un **stock mínimo** que dispara la alerta de reposición.
+
+## Cargar y reponer
+
+<Paso n={1} titulo="Ingreso de stock">
+El botón **«Ingreso»** suma unidades a un ítem existente (con cantidad y precio de compra) o crea uno nuevo. Desde la tarjeta lateral **«Reponer pronto»** o el botón **«Reponer»** de una fila se abre el mismo diálogo con el ítem ya elegido.
+</Paso>
+
+<Paso n={2} titulo="Editar un repuesto">
+Tocá una fila para editar **Nombre, SKU, Modelo, Proveedor, Stock, Stock mínimo y Costo** (el costo sólo si no sos vendedor).
+</Paso>
+
+## Estados
+
+Cada fila calcula su estado según el stock y el mínimo:
+
+- **OK** — por encima del mínimo.
+- **Stock bajo** — llegó al mínimo (ámbar).
+- **Sin stock** — en cero (rojo).
+
+La barra de stock y la tarjeta «Bajo mínimo» te muestran qué reponer. El **Proveedor** se escribe como texto libre: si no existe, Tekly lo crea solo.
+
+## Qué pasa después
+
+- Reponer suma stock y **actualiza el precio de compra** al valor ingresado.
+- Cuando un servicio de un ticket o una venta usa un repuesto, el stock **baja** y queda un movimiento de egreso; si se quita, vuelve.
+
+## Qué no se puede
+
+- El stock y el mínimo son números enteros.
+- El proveedor es texto libre pero se guarda como un registro de proveedor: escribilo siempre igual para no duplicar.
+- Sólo el admin puede **eliminar** un repuesto.
+- Un vendedor no ve el costo.
+
+## Relacionados
+
+- [Movimientos de stock](/ayuda/inventario/movimientos-stock)
+- [Módulo Recuentos](/ayuda/recuentos/guia)

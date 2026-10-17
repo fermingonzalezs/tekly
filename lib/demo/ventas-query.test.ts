@@ -3,7 +3,7 @@ import { crearSeedDemo, fechaISOLocal, type DemoState } from "@/lib/demo/seed";
 import { consultarVentas } from "@/lib/demo/ventas-query";
 import { rangoDe, type FiltrosVentas } from "@/lib/ventas-filtros";
 import type { Rango } from "@/lib/date-presets";
-import type { Equipo, Venta, VentaItem } from "@/lib/types";
+import type { Celular, Venta, VentaItem } from "@/lib/types";
 
 const HOY = new Date(2026, 9, 4, 12, 0, 0); // 4 oct 2026
 
@@ -34,7 +34,7 @@ function venta(
   };
 }
 
-function equipo(id: string, imei: string): Equipo {
+function celular(id: string, imei: string): Celular {
   return {
     id,
     modelo: "iPhone 12",
@@ -49,8 +49,8 @@ function equipo(id: string, imei: string): Equipo {
   };
 }
 
-function estadoCon(ventas: Venta[], equipos: Equipo[] = []): DemoState {
-  return { ...crearSeedDemo(HOY), ventas, equipos };
+function estadoCon(ventas: Venta[], celulares: Celular[] = []): DemoState {
+  return { ...crearSeedDemo(HOY), ventas, celulares };
 }
 
 function filtros(overrides: Partial<FiltrosVentas> = {}): FiltrosVentas {
@@ -111,10 +111,10 @@ describe("consultarVentas · búsqueda q", () => {
         id: "V-1003",
         fechaISO: "2026-10-03",
         cliente: "Otro",
-        items: [item({ detalle: "Cambio de pantalla", equipoId: "demo-equipo-9" })],
+        items: [item({ detalle: "Cambio de pantalla", celularId: "demo-celular-9" })],
       }),
     ],
-    [equipo("demo-equipo-9", "123456789012345")],
+    [celular("demo-celular-9", "123456789012345")],
   );
 
   it("por número exacto (con y sin prefijo V-)", () => {
@@ -149,13 +149,13 @@ describe("consultarVentas · tipo (rubro)", () => {
     venta({
       id: "V-2",
       fechaISO: "2026-10-02",
-      items: [item({ categoria: "equipo", detalle: "iPhone", equipoId: "e1" })],
+      items: [item({ categoria: "celular", detalle: "iPhone", celularId: "e1" })],
     }),
   ]);
 
   it("filtra ventas que tienen al menos un ítem del rubro", () => {
     expect(consultar(state, { tipo: "servicio" }).ventas.map((v) => v.id)).toEqual(["V-1"]);
-    expect(consultar(state, { tipo: "equipo" }).ventas.map((v) => v.id)).toEqual(["V-2"]);
+    expect(consultar(state, { tipo: "celular" }).ventas.map((v) => v.id)).toEqual(["V-2"]);
   });
 
   it("en la vista ítems filtra el ítem, no la venta entera", () => {
@@ -164,7 +164,7 @@ describe("consultarVentas · tipo (rubro)", () => {
         id: "V-9",
         fechaISO: "2026-10-03",
         items: [
-          item({ categoria: "equipo", detalle: "iPhone", equipoId: "e1" }),
+          item({ categoria: "celular", detalle: "iPhone", celularId: "e1" }),
           item({ categoria: "servicio", detalle: "Batería" }),
         ],
       }),
@@ -239,12 +239,12 @@ describe("consultarVentas · ventaAbierta e ítems vendidos", () => {
           id: "V-1",
           fechaISO: "2026-10-01",
           items: [
-            item({ detalle: "iPhone", equipoId: "eq1" }),
+            item({ detalle: "iPhone", celularId: "eq1" }),
             item({ detalle: "Funda", categoria: "otro" }),
           ],
         }),
       ],
-      [equipo("eq1", "999888777666555")],
+      [celular("eq1", "999888777666555")],
     );
     const out = consultar(s, { vista: "items" });
     expect(out.totalItems).toBe(2);

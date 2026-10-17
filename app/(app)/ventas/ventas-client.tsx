@@ -75,8 +75,9 @@ import type {
   Checklist,
   ClienteOpcion,
   ClienteSeleccion,
-  Equipo,
+  Celular,
   MedioPago,
+  Notebook,
   MedioPagoVenta,
   ModalidadVenta,
   OtroItem,
@@ -187,7 +188,7 @@ export type CrearVentaInput = {
  * reales; la demo (`/demo/ventas`) pasa las suyas contra el store local. */
 export type AccionesVentas = {
   crearVenta: (input: CrearVentaInput) => Promise<Venta>;
-  eliminarVenta: (id: string, opts: DeleteVentaOpts) => Promise<void>;
+  eliminarVenta: (id: string, opts: DeleteVentaOpts) => Promise<string | null>;
   refrescar: () => void;
 };
 
@@ -205,7 +206,8 @@ export function VentasClient({
   openId,
   ventaAbierta,
   clientesOpciones,
-  equipos,
+  celulares,
+  notebooks,
   otros,
   servicios,
   repuestos,
@@ -230,7 +232,8 @@ export function VentasClient({
   openId: string | null;
   ventaAbierta: Venta | null;
   clientesOpciones: ClienteOpcion[];
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks: Notebook[];
   otros: OtroItem[];
   servicios: Servicio[];
   repuestos: Repuesto[];
@@ -267,21 +270,26 @@ export function VentasClient({
   );
   const [qInput, setQInput] = useState(filtros.q);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [restituirEquipos, setRestituirEquipos] = useState(true);
+  const [restituirCelulares, setRestituirCelulares] = useState(true);
   const [restituirRepuestos, setRestituirRepuestos] = useState(true);
   const [eliminarMovimientosCaja, setEliminarMovimientosCaja] = useState(true);
   const [eliminarMovimientoCC, setEliminarMovimientoCC] = useState(true);
   const [eliminarCompraCanje, setEliminarCompraCanje] = useState(true);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [recibo, setRecibo] = useState<
     | { venta: Venta; tipo: "venta" }
     | { venta: Venta; tipo: "garantia"; item?: VentaItem }
     | null
   >(null);
 
-  const equiposPorId = useMemo(
-    () => new Map(equipos.map((e) => [e.id, e])),
-    [equipos],
+  const celularesPorId = useMemo(
+    () => new Map(celulares.map((e) => [e.id, e])),
+    [celulares],
+  );
+  const notebooksPorId = useMemo(
+    () => new Map(notebooks.map((n) => [n.id, n])),
+    [notebooks],
   );
   const clientesPorId = useMemo(
     () => new Map(clientesOpciones.map((c) => [c.id, c])),
@@ -376,13 +384,14 @@ export function VentasClient({
     const id = venta.id;
     startTransition(async () => {
       try {
-        await acc.eliminarVenta(id, {
-          restituirEquipos,
+        const avisoEliminar = await acc.eliminarVenta(id, {
+          restituirCelulares,
           restituirRepuestos,
           eliminarMovimientosCaja,
           eliminarMovimientoCC,
           eliminarCompraCanje,
         });
+        if (avisoEliminar) setAviso(avisoEliminar);
         cerrarDetalle();
         setConfirmDelete(false);
         publish({
@@ -421,8 +430,16 @@ export function VentasClient({
         <ReciboGarantiaItems
           items={itemsVenta.map((i) => ({
             detalle: i.detalle,
-            serial: i.equipoId ? equiposPorId.get(i.equipoId)?.imei : undefined,
-            garantia: i.equipoId ? negocio.garantiaTexto || "—" : "—",
+            serial: i.celularId
+              ? celularesPorId.get(i.celularId)?.imei
+              : i.notebookId
+                ? notebooksPorId.get(i.notebookId)?.numeroSerie
+                : undefined,
+            garantia: i.celularId
+              ? negocio.garantiaTexto || "—"
+              : i.notebookId
+                ? notebooksPorId.get(i.notebookId)?.garantia || negocio.garantiaTexto || "—"
+                : "—",
           }))}
         />
         <ReciboNota titulo="Condiciones de garantía" texto={negocio.garantiaCondiciones} />
@@ -449,7 +466,11 @@ export function VentasClient({
                     detalle: i.detalle,
                     cantidad: i.cantidad,
                     montoUsd: i.cantidad * i.precioUsd,
-                    serial: i.equipoId ? equiposPorId.get(i.equipoId)?.imei : undefined,
+                    serial: i.celularId
+                      ? celularesPorId.get(i.celularId)?.imei
+                      : i.notebookId
+                        ? notebooksPorId.get(i.notebookId)?.numeroSerie
+                        : undefined,
                   }))}
                   total={recibo.venta.totalUsd}
                 />
@@ -464,7 +485,7 @@ export function VentasClient({
               </>
             ),
           },
-          ...(recibo.venta.items.some((i) => i.equipoId)
+          ...(recibo.venta.items.some((i) => i.celularId || i.notebookId)
             ? [
                 {
                   titulo: "Garantía",
@@ -491,6 +512,18 @@ export function VentasClient({
 
   return (
     <>
+      {aviso && (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span>{aviso}</span>
+          <button
+            type="button"
+            onClick={() => setAviso(null)}
+            className="shrink-0 font-semibold text-amber-800 hover:underline"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
       <SeccionTabla
         id="ventas"
         graficos={
@@ -637,7 +670,7 @@ export function VentasClient({
               aria-label="Filtrar por tipo"
             >
               <option value="">Todo</option>
-              <option value="equipo">Equipos</option>
+              <option value="celular">Celulares</option>
               <option value="servicio">Reparaciones</option>
               <option value="otro">Accesorios</option>
               <option value="libre">Otros</option>
@@ -751,7 +784,8 @@ export function VentasClient({
         open={creating}
         onClose={() => setCreating(false)}
         clientesOpciones={clientesOpciones}
-        equipos={equipos}
+        celulares={celulares}
+        notebooks={notebooks}
         otros={otros}
         servicios={servicios}
         repuestos={repuestos}
@@ -764,6 +798,7 @@ export function VentasClient({
         modoDemo={modoDemo}
         onCreate={(v) => {
           setCreating(false);
+          if (v.avisoCanje) setAviso(v.avisoCanje);
           publish({
             type: "sale_confirmed",
             actor: v.vendedor,
@@ -787,7 +822,7 @@ export function VentasClient({
               {esAdmin && (
                 <Button icon={Trash2}
                   onClick={() => {
-                    setRestituirEquipos(true);
+                    setRestituirCelulares(true);
                     setRestituirRepuestos(true);
                     setEliminarMovimientosCaja(true);
                     setEliminarMovimientoCC(true);
@@ -815,7 +850,12 @@ export function VentasClient({
         }
       >
         {abierta && (
-          <VentaDetalle venta={abierta} puedeVerCosto={puedeVerCosto} cajas={cajas} />
+          <VentaDetalle
+            venta={abierta}
+            puedeVerCosto={puedeVerCosto}
+            cajas={cajas}
+            celulares={celularesPorId}
+          />
         )}
       </Dialog>
 
@@ -836,15 +876,15 @@ export function VentasClient({
               Se eliminará la venta {abierta.id} de {abierta.cliente}. Esta acción
               no se puede deshacer.
             </p>
-            {abierta.items.some((i) => i.equipoId) && (
+            {abierta.items.some((i) => i.celularId || i.notebookId) && (
               <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
                 <input
                   type="checkbox"
-                  checked={restituirEquipos}
-                  onChange={(e) => setRestituirEquipos(e.target.checked)}
+                  checked={restituirCelulares}
+                  onChange={(e) => setRestituirCelulares(e.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
                 />
-                Devolver los equipos vendidos al inventario (quedan
+                Devolver los celulares/notebooks vendidos al inventario (quedan
                 «disponibles» de nuevo)
               </label>
             )}
@@ -883,7 +923,9 @@ export function VentasClient({
                 por esta venta
               </label>
             )}
-            {abierta.pagos.some((p) => p.medio === "canje" && p.compraId) && (
+            {abierta.pagos.some(
+              (p) => p.medio === "canje" && (p.compraId || p.celularId),
+            ) && (
               <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
                 <input
                   type="checkbox"
@@ -891,7 +933,8 @@ export function VentasClient({
                   onChange={(e) => setEliminarCompraCanje(e.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
                 />
-                Eliminar también la compra de canje generada por esta venta
+                Eliminar también la compra de canje y el celular recibido (si
+                todavía no se movió del inventario)
               </label>
             )}
             {errorEliminar && <p className="text-sm text-red-600">{errorEliminar}</p>}
@@ -903,7 +946,7 @@ export function VentasClient({
         key={
           recibo
             ? `${recibo.tipo}-${recibo.venta.id}-${
-                recibo.tipo === "garantia" ? (recibo.item?.equipoId ?? "full") : ""
+                recibo.tipo === "garantia" ? (recibo.item?.celularId ?? "full") : ""
               }`
             : "recibo-none"
         }
@@ -1051,7 +1094,7 @@ function VentasTabla({
                 onSort={onSort}
                 className="text-right"
               />
-              <th className="w-px whitespace-nowrap px-5 py-3 text-right">Acciones</th>
+              <th className="w-px whitespace-nowrap px-5 py-3 text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -1071,22 +1114,22 @@ function VentasTabla({
                     {v.fecha}
                   </span>
                 </td>
-                <td className="max-w-[160px] truncate px-5 py-2">{v.cliente}</td>
-                <td className="max-w-[260px] truncate px-5 py-2 text-neutral-600">
+                <td className="max-w-[160px] truncate px-5 py-2 text-start">{v.cliente}</td>
+                <td className="max-w-[260px] truncate px-5 py-2 text-neutral-600 text-start">
                   {v.items.map((i) => i.detalle).join(" · ")}
                 </td>
                 <td className="px-5 py-2">
                   <PagoChip pagos={v.pagos} />
                 </td>
                 {puedeVerCosto && (
-                  <td className="px-5 py-2 text-right tabular-nums text-neutral-500">
+                  <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                     {ventaMargenLabel(v)}
                   </td>
                 )}
-                <td className="px-5 py-2 text-right font-semibold tabular-nums">
+                <td className="px-5 py-2 text-center font-semibold tabular-nums">
                   {fmtUsd(v.totalUsd)}
                 </td>
-                <td className="w-px whitespace-nowrap px-5 py-2 text-right">
+                <td className="w-px whitespace-nowrap px-5 py-2 text-center">
                   <div className="flex items-center justify-end gap-1">
                     <button
                       onClick={(e) => {
@@ -1239,11 +1282,11 @@ function ItemsVendidosTabla({
               <th className={cn("px-5 py-3", thDivider)}>Cliente</th>
               <th className={cn("px-5 py-3", thDivider)}>Ítem</th>
               <th className={cn("px-5 py-3", thDivider)}>Serie</th>
-              <th className={cn("px-5 py-3 text-right", thDivider)}>Precio</th>
+              <th className={cn("px-5 py-3 text-center", thDivider)}>Precio</th>
               {puedeVerCosto && (
-                <th className={cn("px-5 py-3 text-right", thDivider)}>Margen</th>
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Margen</th>
               )}
-              <th className="w-px whitespace-nowrap px-5 py-3 text-right">Acciones</th>
+              <th className="w-px whitespace-nowrap px-5 py-3 text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -1263,20 +1306,20 @@ function ItemsVendidosTabla({
                     {v.fecha}
                   </span>
                 </td>
-                <td className="max-w-[160px] truncate px-5 py-2">{v.cliente}</td>
-                <td className="max-w-[260px] truncate px-5 py-2">{i.detalle}</td>
+                <td className="max-w-[160px] truncate px-5 py-2 text-start">{v.cliente}</td>
+                <td className="max-w-[260px] truncate px-5 py-2 text-start">{i.detalle}</td>
                 <td className="px-5 py-2 font-mono text-xs tabular-nums text-neutral-500">
                   {serial ?? "—"}
                 </td>
-                <td className="px-5 py-2 text-right tabular-nums">
+                <td className="px-5 py-2 text-center tabular-nums">
                   {fmtUsd(i.precioUsd)}
                 </td>
                 {puedeVerCosto && (
-                  <td className="px-5 py-2 text-right tabular-nums text-neutral-500">
+                  <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                     {itemMargenLabel(i)}
                   </td>
                 )}
-                <td className="w-px whitespace-nowrap px-5 py-2 text-right">
+                <td className="w-px whitespace-nowrap px-5 py-2 text-center">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1467,10 +1510,12 @@ function VentaDetalle({
   venta,
   puedeVerCosto,
   cajas,
+  celulares,
 }: {
   venta: Venta;
   puedeVerCosto: boolean;
   cajas: Caja[];
+  celulares: Map<string, Celular>;
 }) {
   const metaFields: { label: string; value: string }[] = [
     { label: "Cliente", value: venta.cliente },
@@ -1482,7 +1527,7 @@ function VentaDetalle({
     {
       label: "Tipo",
       value:
-        venta.tipo === "venta" ? "Venta de equipos" : "Reparación / servicio",
+        venta.tipo === "venta" ? "Venta de celulares" : "Reparación / servicio",
     },
   ];
   const m = margenVenta(venta.items);
@@ -1551,28 +1596,28 @@ function VentaDetalle({
             <thead>
               <tr className="border-b border-neutral-100 text-xs text-neutral-500">
                 <th className={cn("px-4 py-2", thDivider)}>Detalle</th>
-                <th className={cn("px-4 py-2 text-right", thDivider)}>Cant</th>
+                <th className={cn("px-4 py-2 text-center", thDivider)}>Cant</th>
                 {puedeVerCosto && (
-                  <th className={cn("px-4 py-2 text-right", thDivider)}>Costo</th>
+                  <th className={cn("px-4 py-2 text-center", thDivider)}>Costo</th>
                 )}
-                <th className={cn("px-4 py-2 text-right", thDivider)}>Precio</th>
-                <th className="px-4 py-2 text-right">Subtotal</th>
+                <th className={cn("px-4 py-2 text-center", thDivider)}>Precio</th>
+                <th className="px-4 py-2 text-center">Subtotal</th>
               </tr>
             </thead>
             <tbody>
               {venta.items.map((i, idx) => (
                 <tr key={idx} className="border-t border-neutral-100 first:border-t-0">
-                  <td className="px-4 py-2.5">{i.detalle}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{i.cantidad}</td>
+                  <td className="px-4 py-2.5 text-start">{i.detalle}</td>
+                  <td className="px-4 py-2.5 text-center tabular-nums">{i.cantidad}</td>
                   {puedeVerCosto && (
-                    <td className="px-4 py-2.5 text-right tabular-nums text-neutral-500">
+                    <td className="px-4 py-2.5 text-center tabular-nums text-neutral-500">
                       {i.costoUsd !== undefined ? fmtUsd(i.costoUsd) : "—"}
                     </td>
                   )}
-                  <td className="px-4 py-2.5 text-right tabular-nums">
+                  <td className="px-4 py-2.5 text-center tabular-nums">
                     {fmtUsd(i.precioUsd)}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums">
+                  <td className="px-4 py-2.5 text-center font-semibold tabular-nums">
                     {fmtUsd(i.cantidad * i.precioUsd)}
                   </td>
                 </tr>
@@ -1587,7 +1632,7 @@ function VentaDetalle({
                 >
                   Total
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums">
+                <td className="px-4 py-2.5 text-center tabular-nums">
                   {fmtUsd(venta.totalUsd)}
                 </td>
               </tr>
@@ -1614,7 +1659,11 @@ function VentaDetalle({
                     />
                     {medioPagoCfg[p.medio].label}
                   </span>
-                  <span className="text-xs text-neutral-500">{cajaLabel(p, cajas)}</span>
+                  {p.medio !== "canje" && (
+                    <span className="text-xs text-neutral-500">
+                      {cajaLabel(p, cajas)}
+                    </span>
+                  )}
                 </div>
                 <span className="shrink-0 text-sm font-semibold tabular-nums">
                   {montoPagoLabel(p)}
@@ -1626,14 +1675,39 @@ function VentaDetalle({
                   {p.cotizacion ? ` · cotización ${fmtArs(p.cotizacion)}` : ""}
                 </p>
               ) : null}
-              {p.medio === "canje" && p.compraId ? (
-                <a
-                  href={`/compras?open=${p.compraId}`}
-                  className="mt-1 inline-block text-xs font-semibold text-accent hover:underline"
-                >
-                  Ver compra de canje
-                </a>
-              ) : null}
+              {p.medio === "canje" && (
+                <div className="mt-1 flex flex-wrap items-center gap-3">
+                  {p.celularId && celulares.get(p.celularId)?.modelo && (
+                    <span className="truncate text-xs text-neutral-500">
+                      📦 {celulares.get(p.celularId)?.modelo}
+                    </span>
+                  )}
+                  {p.compraId && (
+                    <a
+                      href={`/compras?open=${p.compraId}`}
+                      className="inline-block text-xs font-semibold text-accent hover:underline"
+                    >
+                      Ver compra de canje
+                    </a>
+                  )}
+                  {p.celularId &&
+                    (() => {
+                      const imei = celulares.get(p.celularId)?.imei;
+                      const href =
+                        imei && imei !== "—"
+                          ? `/inventario?tab=celulares&q=${encodeURIComponent(imei)}`
+                          : `/inventario?tab=celulares&celular=${p.celularId}`;
+                      return (
+                        <a
+                          href={href}
+                          className="inline-block text-xs font-semibold text-accent hover:underline"
+                        >
+                          Ver celular
+                        </a>
+                      );
+                    })()}
+                </div>
+              )}
             </div>
           ))}
           <div className="flex items-center justify-between py-2">
@@ -1684,7 +1758,7 @@ function VentaDetalle({
 
 const rid = () => Math.random().toString(36).slice(2);
 
-type Origen = "equipo" | "otro" | "servicio" | "libre";
+type Origen = "celular" | "notebook" | "otro" | "servicio" | "libre";
 type DraftItem = VentaItem & { _k: string; origen: Origen };
 type DraftPago = Pago & { _k: string; canje?: CanjeEquipo };
 
@@ -1699,13 +1773,15 @@ type CatItem = {
 };
 
 const origenTone: Record<Origen, "violet" | "blue" | "green" | "gray"> = {
-  equipo: "violet",
+  celular: "violet",
+  notebook: "violet",
   otro: "blue",
   servicio: "green",
   libre: "gray",
 };
 const origenLabel: Record<Origen, string> = {
-  equipo: "Equipo",
+  celular: "Celular",
+  notebook: "Notebook",
   otro: "Producto",
   servicio: "Servicio",
   libre: "Libre",
@@ -1722,14 +1798,16 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 // ── Buscador de ítems ──────────────────────────────────────────
 
 function ItemBuscador({
-  equipos,
+  celulares,
+  notebooks,
   otros,
   servicios,
   yaAgregados,
   onAdd,
   onLibre,
 }: {
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks: Notebook[];
   otros: OtroItem[];
   servicios: Servicio[];
   yaAgregados: string[];
@@ -1744,16 +1822,34 @@ function ItemBuscador({
 
   const catalogo: CatItem[] = useMemo(
     () => [
-      ...equipos
+      ...celulares
         .filter((e) => e.estado === "disponible")
         .map((e) => ({
           key: `e-${e.id}`,
-          origen: "equipo" as const,
+          origen: "celular" as const,
           refId: e.id,
           nombre: `${e.modelo} ${e.almacenamiento} ${e.color}`,
           costoUsd: e.costoUsd,
           precioUsd: e.precioUsd,
           serial: e.imei,
+        })),
+      ...notebooks
+        .filter((n) => n.estado === "disponible")
+        .map((n) => ({
+          key: `n-${n.id}`,
+          origen: "notebook" as const,
+          refId: n.id,
+          nombre: [
+            [n.modelo, n.cpu, n.memoria].filter(Boolean).join(" "),
+            n.condicion === "usado"
+              ? `Usada${n.bateria !== null ? ` · batería ${n.bateria}%` : ""}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          costoUsd: n.costoUsd,
+          precioUsd: n.precioUsd,
+          serial: n.numeroSerie || undefined,
         })),
       ...otros.map((o) => ({
         key: `o-${o.id}`,
@@ -1774,7 +1870,7 @@ function ItemBuscador({
           precioUsd: s.precioUsd,
         })),
     ],
-    [equipos, otros, servicios],
+    [celulares, notebooks, otros, servicios],
   );
 
   const matches = useMemo(() => {
@@ -1784,7 +1880,11 @@ function ItemBuscador({
         const coincide =
           c.nombre.toLowerCase().includes(needle) ||
           (c.serial?.toLowerCase().includes(needle) ?? false);
-        return coincide && !(c.origen === "equipo" && yaAgregados.includes(c.refId));
+        return (
+          coincide &&
+          !((c.origen === "celular" || c.origen === "notebook") &&
+            yaAgregados.includes(c.refId))
+        );
       })
       .slice(0, 8);
   }, [catalogo, q, yaAgregados]);
@@ -1899,7 +1999,8 @@ function NuevaVentaDialog({
   onClose,
   onCreate,
   clientesOpciones,
-  equipos,
+  celulares,
+  notebooks,
   otros,
   servicios,
   repuestos,
@@ -1915,7 +2016,8 @@ function NuevaVentaDialog({
   onClose: () => void;
   onCreate: (v: Venta) => void;
   clientesOpciones: ClienteOpcion[];
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks: Notebook[];
   otros: OtroItem[];
   servicios: Servicio[];
   repuestos: Repuesto[];
@@ -1946,6 +2048,9 @@ function NuevaVentaDialog({
         recargoPct: negocio.recargosMediosPago.cuenta_corriente,
       };
     }
+    if (destino === "canje") {
+      return { medio: "canje", cajaId: undefined, caja: "usd" };
+    }
     const caja = cajasActivas.find((c) => c.id === destino);
     return {
       medio: caja?.medioPago ?? "transferencia",
@@ -1958,9 +2063,12 @@ function NuevaVentaDialog({
 
   const cajasDeMedio = (medio: MedioPago) =>
     cajasActivas.filter((c) => c.medioPago === medio);
-  const mediosDisponibles = MEDIOS_CAJA.filter(
-    (m) => (!modoDemo || m !== "canje") && cajasDeMedio(m).length > 0,
-  );
+  // Medios de caja con alguna caja activa + «Mercadería», que ya no es una
+  // caja (plan 020) y se ofrece siempre (salvo en la demo).
+  const mediosDisponibles: MedioPagoVenta[] = [
+    ...MEDIOS_CAJA.filter((m) => cajasDeMedio(m).length > 0),
+    ...(modoDemo ? [] : (["canje"] as const)),
+  ];
   const medioAPago = (medio: MedioPagoVenta): Partial<DraftPago> => {
     if (medio === "cuenta_corriente") {
       return {
@@ -1968,6 +2076,16 @@ function NuevaVentaDialog({
         cajaId: undefined,
         caja: "usd",
         recargoPct: negocio.recargosMediosPago.cuenta_corriente,
+      };
+    }
+    if (medio === "canje") {
+      // El canje no es una caja: no pide `cajaId` ni movimiento de caja.
+      return {
+        medio,
+        cajaId: undefined,
+        caja: "usd",
+        recargoPct: undefined,
+        canje: undefined,
       };
     }
     const caja = cajasDeMedio(medio)[0];
@@ -2015,7 +2133,8 @@ function NuevaVentaDialog({
       {
         _k: rid(),
         origen: c.origen,
-        equipoId: c.origen === "equipo" ? c.refId : undefined,
+        celularId: c.origen === "celular" ? c.refId : undefined,
+        notebookId: c.origen === "notebook" ? c.refId : undefined,
         detalle: c.nombre,
         cantidad: 1,
         costoUsd: c.costoUsd,
@@ -2081,7 +2200,7 @@ function NuevaVentaDialog({
 
   const destinos = modoDemo
     ? cajasActivas.map((c) => c.id)
-    : ["cuenta_corriente", ...cajasActivas.map((c) => c.id)];
+    : ["cuenta_corriente", ...cajasActivas.map((c) => c.id), "canje"];
   const updPago = (k: string, patch: Partial<DraftPago>) =>
     setPagos((p) => p.map((x) => (x._k === k ? { ...x, ...patch } : x)));
   const rmPago = (k: string) =>
@@ -2118,7 +2237,9 @@ function NuevaVentaDialog({
           totalUsd: totalPrecio,
           pagos: pagos.map(({ _k, ...p }) => p),
           margenPct: Math.round(margenPct * 10) / 10,
-          tipo: items.some((i) => i.origen === "equipo") ? "venta" : "reparacion",
+          tipo: items.some((i) => i.origen === "celular" || i.origen === "notebook")
+            ? "venta"
+            : "reparacion",
           dolarVenta,
         });
         onCreate({ ...venta, vendedor: vendedorNombre || venta.vendedor });
@@ -2223,11 +2344,12 @@ function NuevaVentaDialog({
           <Eyebrow>Ítems</Eyebrow>
 
           <ItemBuscador
-            equipos={equipos}
+            celulares={celulares}
+            notebooks={notebooks}
             otros={otros}
             servicios={servicios}
             yaAgregados={items
-              .map((i) => i.equipoId)
+              .map((i) => i.celularId ?? i.notebookId)
               .filter((x): x is string => !!x)}
             onAdd={addCatalogo}
             onLibre={addLibre}
@@ -2350,7 +2472,10 @@ function NuevaVentaDialog({
           <div className="space-y-2">
             {pagos.map((p) => {
               const recargoPct = p.recargoPct ?? 0;
-              const cajasMedio = p.medio !== "cuenta_corriente" ? cajasDeMedio(p.medio) : [];
+              const cajasMedio =
+                p.medio !== "cuenta_corriente" && p.medio !== "canje"
+                  ? cajasDeMedio(p.medio)
+                  : [];
               return (
                 <div key={p._k} className="space-y-1.5 rounded-lg border border-neutral-200 p-3">
                   <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
@@ -2562,7 +2687,7 @@ function CanjeModal({
       open={open}
       onClose={onClose}
       size="3xl"
-      title="Equipo recibido en canje"
+      title="Celular recibido en canje"
       description="Se guarda como una compra al confirmar la venta"
       footer={
         <>
@@ -2596,7 +2721,7 @@ function CanjeModal({
                   placeholder="Apple"
                 />
               </Field>
-              <Field label="Equipo">
+              <Field label="Celular">
                 <Input
                   value={equipo}
                   onChange={(e) => setEquipo(e.target.value)}

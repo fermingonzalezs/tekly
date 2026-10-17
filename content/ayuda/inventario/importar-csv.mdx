@@ -1,0 +1,52 @@
+---
+titulo: "Importar stock por CSV"
+resumen: "Alta masiva de celulares y clientes desde un archivo CSV: columnas exactas, qué rechaza y cómo se evitan duplicados."
+seccion: inventario
+roles: [admin]
+orden: 8
+actualizado: 2026-10-17
+---
+
+La importación es una **alta masiva** de **celulares** y **clientes** existentes (no de ventas históricas). Vive en **Configuración → Importar datos** y es **solo para el admin**.
+
+<Paso n={1} titulo="Descargá la plantilla">
+Cada tarjeta tiene un botón **«Plantilla»** que baja el CSV de ejemplo con los encabezados correctos.
+</Paso>
+
+<Paso n={2} titulo="Elegí el archivo">
+Se parsea en el navegador y ves una **vista previa** con cada fila marcada como válida, duplicada o con error.
+</Paso>
+
+<Paso n={3} titulo="Confirmá">
+Sólo se importan las filas **válidas y no duplicadas**, en un solo alta masiva. El servidor **revalida** todo de nuevo. Al final ves el resultado: importadas, salteadas y con error, con el detalle por fila.
+</Paso>
+
+## Columnas
+
+**Celulares**: `modelo, almacenamiento, color, imei, bateria, condicion, costoUsd, precioUsd, estado`.
+- `modelo`, `costoUsd` y `precioUsd` son obligatorios. `bateria` va de 0 a 100. `estado` admite `en_revision/disponible/reservado/vendido`; si va vacío, se completa como **«En revisión»**.
+
+**Clientes**: `nombre, telefono, email, fechaNacimiento`.
+- `nombre` obligatorio. `fechaNacimiento` acepta `DD/MM/AAAA` o `AAAA-MM-DD`.
+
+<Aviso titulo="Los encabezados tienen que estar todos" tono="warning">
+Si falta alguna columna canónica, el archivo se rechaza con «Faltan columnas en el CSV». Se toleran mayúsculas y espacios en los encabezados. Una columna extra `notas` se ignora.
+</Aviso>
+
+## Qué hace con los duplicados
+
+- **Celulares**: por **IMEI**, tanto dentro del archivo como contra el stock existente («IMEI ya existe en Inventario»).
+- **Clientes**: por **teléfono o email** (normalizados), dentro del archivo y contra los clientes existentes.
+- Las filas duplicadas **no** se importan; quedan listadas en el resultado.
+
+## Qué no se puede
+
+- **No** se importan ventas históricas (decisión a propósito).
+- **No** se importan datos que no sean celulares o clientes (tampoco notebooks: la importación por CSV es sólo de celulares y clientes).
+- Un CSV sin las columnas canónicas se rechaza entero.
+- La importación es sólo del admin, y sólo con la cuenta habilitada para escribir.
+
+## Relacionados
+
+- [Primeros pasos: inventario inicial](/ayuda/primeros-pasos/inventario-inicial)
+- [Configuración · Importar datos](/ayuda/configuracion/guia)

@@ -1,0 +1,44 @@
+---
+titulo: "Servicios, repuestos e ítems libres"
+resumen: "Cómo agregar lo que se le hace al equipo, desde el catálogo, con un repuesto del stock o como ítem libre, y su efecto en el stock."
+seccion: reparaciones
+roles: []
+orden: 4
+actualizado: 2026-10-17
+---
+
+En el detalle del ticket, el bloque **«Servicios asociados»** junta todo lo que se le hace al equipo. El botón **«Agregar»** abre un diálogo con tres orígenes.
+
+<Paso n={1} titulo="Elegí el origen">
+- **Catálogo de servicios**: elegís un servicio activo; trae su precio y sus días de garantía.
+- **Repuesto**: elegís un repuesto del inventario, la cantidad (con tope = stock disponible) y el precio a cobrar. **Descuenta stock** al agregarlo.
+- **Ítem libre**: nombre y precio a mano.
+</Paso>
+
+<Paso n={2} titulo="Ajustá el precio">
+Con el lápiz de la fila (sólo en escritorio) podés editar el **precio** de un ítem ya cargado. No toca el stock.
+</Paso>
+
+<Paso n={3} titulo="Quitá lo que no va">
+El botón de quitar elimina el ítem. Si era un **repuesto**, **repone** el stock.
+</Paso>
+
+El **«Presupuesto total»** del bloque es la suma de todos los ítems y se recalcula solo.
+
+## Qué pasa después
+
+- Agregar un repuesto baja el stock y deja un movimiento de egreso («Usado en ticket #…»).
+- Quitarlo repone el stock con un movimiento de ingreso («Devuelto de ticket #…»).
+- El presupuesto alimenta el documento **Presupuesto** y el total a cobrar en la entrega.
+
+## Qué no se puede
+
+- No podés agregar un repuesto con cantidad mayor al stock: «No hay stock suficiente».
+- El repuesto baja stock al **agregar** (no al entregar); si el ticket no se entrega, igual quedó descontado hasta que lo quites.
+- El precio lo podés editar, pero el stock no (sólo se mueve agregando/quitando).
+- La garantía sólo la aporta el catálogo: repuestos e ítems libres no tienen garantía propia.
+
+## Relacionados
+
+- [Catálogo de Servicios](/ayuda/reparaciones/catalogo-servicios)
+- [Módulo Inventario](/ayuda/inventario/guia)

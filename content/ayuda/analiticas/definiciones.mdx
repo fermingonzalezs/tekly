@@ -1,0 +1,49 @@
+---
+titulo: "Definiciones de los indicadores"
+resumen: "Qué significan margen ponderado, cobrado, activo/en riesgo, recurrencia, y por qué un dato aparece como «—» o queda sin cotización."
+seccion: analiticas
+roles: [admin]
+orden: 3
+actualizado: 2026-10-17
+---
+
+Varias métricas de Analíticas tienen una definición precisa. Vale la pena tenerlas claras.
+
+<Aviso titulo="Margen promedio = margen ponderado" tono="info">
+Es Σ ganancia / Σ precio, **ponderado por facturación** (una venta grande pesa más), y sólo cuenta los ítems **con costo cargado** (mismo criterio que «Ganancia por categoría»). Si ningún ítem tiene costo, muestra «—» con la leyenda «sin costos cargados».
+</Aviso>
+
+<Aviso titulo="Cobrado (Reparaciones)" tono="info">
+Es la plata que **entró** por reparaciones (ingresos de caja con ticket + cargos de cuenta corriente con ticket), fechada **al cobrar**, no cuando se creó el ticket ni por su presupuesto. «Ganancia final» = cobrado − gasto de repuestos de los tickets cobrados.
+</Aviso>
+
+<Aviso titulo="Cliente activo / en riesgo" tono="info">
+**Activo** = al menos una operación en los últimos 90 días. **En riesgo** = tiene historial y nada en los últimos 180 días. Los **turnos no cuentan** como operación; una operación es una venta o un ticket.
+</Aviso>
+
+<Aviso titulo="Tasa de recurrencia" tono="info">
+Porcentaje de clientes con **2 o más operaciones** sobre los que tienen **al menos una**. Los que nunca operaron no entran en el denominador.
+</Aviso>
+
+<Aviso titulo="Finanzas en pesos" tono="warning">
+Los movimientos en pesos se convierten con la **cotización guardada** en cada movimiento, nunca con la de hoy. Los movimientos viejos sin cotización **no se suman** y se informan aparte (en Finanzas y en Reparaciones).
+</Aviso>
+
+## Por qué un dato aparece como «—»
+
+- **Margen** — no hay ningún ítem con costo cargado.
+- **Días de inventario** — no hay celulares con recorrido completo ingreso→venta.
+- **Sin cotización** — un movimiento en pesos anterior al registro de cotización.
+
+## Glosario rápido
+
+- **Operación** = una venta o un ticket (los turnos no).
+- **Gasto** = `totalUsd` de las ventas; los tickets aportan operaciones y presupuesto, pero no se mezclan con el gasto.
+- **Recurrente (lifecycle)** = 3 o más operaciones.
+- **Nuevo** = primera operación en los últimos 30 días.
+- **Procedencia** = canal de la primera venta con procedencia cargada; sin dato se agrupa en «Sin dato».
+
+## Relacionados
+
+- [Qué hay en cada pestaña](/ayuda/analiticas/pestanas)
+- [Glosario](/ayuda/glosario/terminos)

@@ -8,7 +8,7 @@ import { ACTIVIDAD_FRANJAS } from "@/lib/analiticas";
 
 const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-/** Heatmap de actividad: cuándo ingresan equipos, por día de la semana
+/** Heatmap de actividad: cuándo ingresan celulares, por día de la semana
  * (Lun..Dom) y franja horaria. La grilla se calcula en el server
  * (`actividadTickets`, lib/analiticas.ts) y llega como `grid`; el cliente
  * solo dibuja. Reemplaza al chart de "tickets por día de la semana": el
@@ -26,12 +26,12 @@ export function HeatmapActividad({
 
   return (
     <Card className={cn("flex h-full flex-col p-5", className)}>
-      <ChartTitle align="left" divider sub="ingresos de equipos por día y franja horaria">
+      <ChartTitle align="left" divider sub="ingresos de celulares por día y franja horaria">
         Actividad semanal
       </ChartTitle>
       {total === 0 ? (
         <p className="mt-5 rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
-          Sin ingresos de equipos en el período filtrado.
+          Sin ingresos de celulares en el período filtrado.
         </p>
       ) : (
         <div className="mt-3 flex flex-1 flex-col justify-center overflow-x-auto px-2">

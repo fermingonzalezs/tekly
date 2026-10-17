@@ -4,40 +4,64 @@ resumen: "Tickets de reparación con checklist de ingreso y egreso, presupuesto,
 seccion: reparaciones
 roles: []
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-La sección tiene dos pestañas: **Tickets** (el flujo de reparaciones) y **Servicios** (el catálogo de servicios con precio y días de garantía).
+La sección tiene dos pestañas: **Tickets** (el flujo de reparaciones) y **Servicios** (el catálogo editable de servicios con precio y días de garantía). No existe una sección aparte de servicios: vive acá.
+
+<Captura alt="Lista de tickets con las tarjetas del pipeline, filtros y la tabla." caption="Reparaciones · Tickets (datos demo)." />
 
 ## El flujo de un ticket
 
-<Paso n={1} titulo="Nuevo ticket">
-Cargá **cliente, marca (ej. Apple), modelo, IMEI, falla, técnico** y el **checklist de ingreso** (22 ítems bien/mal/n-a + color). El selector de técnico ofrece cualquier usuario activo, no sólo los de rol técnico.
-</Paso>
+- [Nuevo ticket](/ayuda/reparaciones/nuevo-ticket)
+- [Estados y cómo avanzar](/ayuda/reparaciones/estados-y-flujo)
+- [Servicios, repuestos e ítems libres](/ayuda/reparaciones/servicios-asociados)
+- [Checklist de ingreso y egreso](/ayuda/reparaciones/checklists)
+- [Entregar el equipo y cobrar](/ayuda/reparaciones/entregar-equipo)
+- [Los documentos del ticket](/ayuda/reparaciones/documentos)
+- [Catálogo de Servicios](/ayuda/reparaciones/catalogo-servicios)
 
-<Paso n={2} titulo="Avanzá el estado">
-El pipeline va de **Recibido → Diagnosticado → Presupuestado → Aprobado → En reparación → Listo → Entregado**.
-</Paso>
+## La lista
 
-<Paso n={3} titulo="Servicios asociados">
-Con **«Agregar»** sumás ítems de 3 orígenes: **catálogo** (servicio con precio y garantía fijos), **repuesto** del inventario (descuenta stock) o **libre** (nombre y precio a mano).
-</Paso>
+- **Pipeline**: 8 tarjetas, una por estado. Tocarlas filtra la tabla.
+- **Gráficos**: «Reparaciones» (terminadas / en curso) y «Reparaciones mes» (una barra por estado).
+- **Filtros**: tabs «Tickets» / «Servicios», buscador por cliente/equipo/IMEI, técnico, estado y período.
+- **Tabla**: Ticket, Cliente, Equipo, Técnico, Presupuesto y Estado. Tocá una fila para abrir el detalle.
 
-<Paso n={4} titulo="Checklist de egreso">
-Aparte del de ingreso, con el botón **«Checklist»** en el detalle, en cualquier momento antes de entregar.
-</Paso>
+## Qué no se puede
 
-## Los 3 documentos
+- El **estado no se elige libremente**: la UI sólo te deja avanzar al siguiente del flujo.
+- Un ticket no se borra salvo por **admin**, y es definitivo.
+- Los tres documentos se imprimen desde el detalle; **no** hay edición de sus textos por ticket (los textos son del negocio, en Configuración).
+- El presupuesto **no cobra**: lo cobrado se registra recién al entregar.
 
-- **Ticket de ingreso**: lo que el cliente deja firmado al dejar el equipo (incluye checklist y aclaraciones).
-- **Ticket de egreso**: al retirar, con el checklist de egreso.
-- **Presupuesto**: para mandarle al cliente, con el checklist comparado ingreso/egreso y los ítems separados por origen.
+## Preguntas frecuentes
 
-<Aviso titulo="El presupuesto no cobra" tono="warning">
-El KPI de «Cobrado» de Analíticas cuenta la plata que **entró** (pagos al entregar), no el presupuesto de los tickets creados.
-</Aviso>
+**¿Puede un vendedor crear un ticket?**
+Sí: cualquier rol con escritura puede crear, avanzar, agregar ítems y entregar. Sólo **eliminar** es del admin.
 
-## Ver también
+**¿El técnico tiene que ser de rol técnico?**
+No. El selector ofrece cualquier usuario activo de la organización.
+
+**¿Cómo cobro la reparación?**
+Al entregar el equipo: elegís caja o cuenta corriente. Ver [Entregar el equipo](/ayuda/reparaciones/entregar-equipo).
+
+**¿Puedo usar un repuesto del inventario en un ticket?**
+Sí: «Agregar» → origen «Repuesto». Descuenta stock y lo repone si lo quitás. Ver [Servicios asociados](/ayuda/reparaciones/servicios-asociados).
+
+**¿Qué documento le doy al cliente cuando deja el equipo?**
+El **Ticket de ingreso**, con el checklist y las aclaraciones. Ver [Documentos](/ayuda/reparaciones/documentos).
+
+**¿Qué pasa si recién al entregar aparece un problema?**
+Podés cargar el **checklist de egreso** (botón «Checklist») y compararlo con el de ingreso antes de entregar.
+
+**¿Cómo manejo una reparación sin costo?**
+En la entrega, si el total es 0, Tekly no pide ningún pago: «Reparación sin costo».
+
+**¿Puedo editar el precio de un servicio ya agregado?**
+Sí, con el lápiz en la fila (sólo en escritorio). No toca el stock.
+
+## Relacionados
 
 - [Módulo Turnos](/ayuda/turnos/guia)
 - [Módulo Analíticas](/ayuda/analiticas/guia)

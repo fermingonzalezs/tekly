@@ -1,0 +1,46 @@
+---
+titulo: "Tipos de turno"
+resumen: "Compra equipo, Deja reparación, Retira reparación y Cotizar: campos y efecto de cada tipo."
+seccion: turnos
+roles: []
+orden: 3
+actualizado: 2026-10-17
+---
+
+El **tipo** define qué viene a hacer el cliente y cambia el formulario y el color del bloque.
+
+## Compra equipo
+
+Para cuando viene a comprar. Podés **vincular ítems del stock** (equipos disponibles y productos de «Otros»), definir un **pago esperado** con varios medios y marcar **«Reservar estos ítems en el stock»**.
+
+<Aviso titulo="Reservar stock" tono="info">
+Con la reserva marcada, los equipos vinculados pasan a **«Reservado»** y los «Otros» descuentan cantidad, para que no se vendan antes del turno.
+</Aviso>
+
+## Deja reparación
+
+Para cuando deja un equipo para reparar. Sólo lleva un comentario opcional.
+
+## Retira reparación
+
+Para cuando retira un equipo ya reparado. Elegís un **ticket en estado «Listo»** y un **método de pago esperado**. Ves un resumen del presupuesto aceptado.
+
+<Aviso titulo="No hay turnos listos" tono="warning">
+Si no hay reparaciones listas para retirar, el selector queda vacío: «No hay reparaciones listas para retirar por el momento».
+</Aviso>
+
+## Cotizar
+
+Para cuando viene a pedir un presupuesto. Sólo lleva un comentario.
+
+## Qué no se puede
+
+- Vinculás ítems y pagos **sólo** en «Compra equipo».
+- Sólo «Retira reparación» requiere un ticket, y tiene que estar en estado «Listo».
+- Reservar stock es opcional; si no lo marcás, el stock no cambia.
+- Cancelar el turno **no** devuelve las reservas.
+
+## Relacionados
+
+- [Agendar un turno](/ayuda/turnos/agendar-turno)
+- [Módulo Turnos](/ayuda/turnos/guia)

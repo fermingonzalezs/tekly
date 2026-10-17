@@ -1,0 +1,41 @@
+---
+titulo: "Entregar el equipo y cobrar"
+resumen: "El paso final del ticket: completar el checklist de egreso, cobrar en caja o a cuenta corriente y marcar el ticket como entregado."
+seccion: reparaciones
+roles: []
+orden: 6
+actualizado: 2026-10-17
+---
+
+Cuando el ticket está en **«Listo»**, el botón del detalle dice **«Entregar equipo»**. Ese diálogo hace dos cosas a la vez: cierra el checklist de egreso y registra el cobro.
+
+<Paso n={1} titulo="Checklist de egreso">
+Completá el estado del equipo al entregarlo, igual que en el ingreso (**«Bien» / «Mal» / «No aplica»**).
+</Paso>
+
+<Paso n={2} titulo="Cobro">
+El total a cobrar es el **presupuesto del ticket** (fijo, no se editan ítems acá). Podés repartirlo en **varios medios**, igual que en Ventas: elegís medio y caja, y si la caja es en pesos escribís los pesos cobrados.
+- **«Cuenta corriente»** genera un cargo en la cuenta del cliente (queda debiendo).
+- El resto genera un **ingreso** en la caja elegida, con la cotización guardada.
+</Paso>
+
+<Paso n={3} titulo="Confirmá entrega">
+Se guarda el checklist, el cobro y el ticket pasa a **«Entregado»**.
+</Paso>
+
+<Aviso titulo="Reparación sin costo" tono="info">
+Si el presupuesto es 0, Tekly no pide ningún pago: «Reparación sin costo -- no se registra ningún pago».
+</Aviso>
+
+## Qué no se puede
+
+- Sólo se puede entregar desde el estado **«Listo»**.
+- El medio de pago **canje** no está disponible al entregar.
+- Los ítems del ticket no se editan en este paso: se manejan en «Servicios asociados».
+- Si el total no cierra exacto, aparece una confirmación aparte («El monto no coincide»).
+
+## Relacionados
+
+- [Los documentos del ticket](/ayuda/reparaciones/documentos)
+- [Módulo Cajas](/ayuda/cajas/guia)
+- [Módulo Cuentas corrientes](/ayuda/cuentas-corrientes/guia)

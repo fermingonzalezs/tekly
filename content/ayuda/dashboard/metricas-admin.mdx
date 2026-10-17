@@ -1,0 +1,52 @@
+---
+titulo: "Dashboard del admin"
+resumen: "Qué mide cada tarjeta y cada panel del Dashboard del administrador, y cómo funciona el selector de mes."
+seccion: dashboard
+roles: [admin]
+orden: 2
+actualizado: 2026-10-17
+---
+
+El Dashboard del admin muestra el negocio del **mes** elegido. En la toolbar hay un navegador de mes (**‹ Octubre de 2026 ›**) que guarda el mes en la URL (`?mes=YYYY-MM`).
+
+## Tarjetas
+
+- **Ventas del mes** (destacada) — suma facturada del mes, con variación vs el mes anterior.
+- **Ganancia del mes** — ganancia real de las ventas del mes (sólo ítems con costo cargado).
+- **Margen promedio** — margen ponderado; «—» si no hay costos cargados.
+- **Tickets abiertos** — tickets sin entregar (sin variación).
+- **Ticket promedio** — facturación del mes dividida por cantidad de ventas.
+- **Turnos hoy** — turnos de hoy sin cancelar (sin variación).
+
+## Paneles
+
+<Paso n={1} titulo="Ritmo del mes">
+Cómo se fue acumulando la venta día a día, comparada con el mes anterior y con el ritmo ideal para llegar al objetivo. Ver [Objetivo y ritmo](/ayuda/dashboard/objetivo-y-ritmo).
+</Paso>
+
+<Paso n={2} titulo="Objetivo del mes">
+El avance sobre la meta (`organizations.objetivo_mes_usd`), con proyección, ritmo necesario y comparación con el mes anterior.
+</Paso>
+
+<Paso n={3} titulo="Categorías más vendidas">
+Donut con la facturación del mes por rubro (Celulares, Notebooks, Reparaciones, Accesorios, Otros).
+</Paso>
+
+<Paso n={4} titulo="Turnos agendados">
+Heatmap de la próxima semana; tocá una celda para ir a Turnos.
+</Paso>
+
+<Paso n={5} titulo="Ventas recientes">
+Las últimas ventas; tocá una para abrirla en Ventas.
+</Paso>
+
+## Qué no se puede
+
+- No se pueden ver meses **futuros**: el navegador te deja avanzar sólo hasta el mes actual.
+- La meta del mes se edita en Configuración, no acá.
+- Las tarjetas de conteo no traen variación porcentual.
+
+## Relacionados
+
+- [Objetivo y ritmo del mes](/ayuda/dashboard/objetivo-y-ritmo)
+- [Módulo Dashboard](/ayuda/dashboard/guia)

@@ -56,7 +56,7 @@ export function TrendChart({
    * tooltip con fechas reales. Sin `fechas` (ej. la landing) cae al
    * numerado por defecto. */
   fechas?: string[];
-  /** Mix real Equipos/Reparaciones/Accesorios/Otros del período que se está
+  /** Mix real Celulares/Reparaciones/Accesorios/Otros del período que se está
    * mostrando (mismo dato que alimenta el donut "Categorías más vendidas",
    * `ventasPorRubro` en `lib/dashboard.ts`) -- se parte la barra al hacer
    * hover con esto, no con un mock fijo. */

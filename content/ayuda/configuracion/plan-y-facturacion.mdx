@@ -1,0 +1,49 @@
+---
+titulo: "Plan y facturación"
+resumen: "Qué plan tenés, cuántos usuarios permite, la prueba gratis de 14 días y cómo se activa un plan pago."
+seccion: configuracion
+roles: [admin]
+orden: 6
+actualizado: 2026-10-17
+---
+
+La pantalla **`/plan`** (link «Plan y facturación» en el menú de usuario) muestra tu plan, el uso de usuarios y los planes disponibles.
+
+## Qué muestra
+
+- **Plan actual** — con su estado: «Prueba gratis: N días restantes», «Activo hasta …» o el motivo de solo lectura.
+- **Usuarios** — cuántos usás y cuántos permite el plan.
+- **Precio** — el valor mensual de referencia.
+
+## Planes
+
+| Plan | Usuarios | Nota |
+|---|---|---|
+| Prueba gratis | 3 | 14 días, sin tarjeta |
+| Starter | 1 | — |
+| Business | 3 | — |
+| Business+ | 10 | — |
+
+<Paso n={1} titulo="Cómo contratar">
+El cobro es **por transferencia, a mano**. Elegís un plan, escribís a la dirección de contacto y el equipo lo activa. Un admin de plataforma asigna el plan, el estado y la fecha de fin de período (el botón «+30 días» extiende el período).
+</Paso>
+
+## Qué pasa al vencer la prueba
+
+La cuenta pasa a **solo lectura**: se ve todo, no se escribe nada y **no se borra nada**. Las acciones de guardar te redirigen a `/plan`.
+
+<Aviso titulo="Plan de la cuenta" tono="info">
+Si no sos admin, ves «El plan de la cuenta lo administra el administrador de tu organización».
+</Aviso>
+
+## Qué no se puede
+
+- No hay pago con tarjeta todavía: la activación es manual.
+- No se puede superar el **cupo de usuarios** del plan.
+- Los precios son de referencia y pueden cambiar.
+- El plan lo cambia el equipo de Tekly (o el admin de plataforma), no desde la app.
+
+## Relacionados
+
+- [Usuarios y roles](/ayuda/configuracion/usuarios-y-roles)
+- [Prueba gratis de 14 días](/ayuda/primeros-pasos/prueba-gratis)

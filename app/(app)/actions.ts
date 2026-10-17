@@ -21,7 +21,7 @@ export async function signOutAction() {
 }
 
 /** Búsqueda en vivo de la CommandPalette (Cmd+K) -- trae datos reales
- * (clientes, ventas, tickets, equipos, movimientos de caja) de la
+ * (clientes, ventas, tickets, celulares, movimientos de caja) de la
  * organización del usuario. No es una mutación (sin revalidatePath), pero sí
  * `requireUser()` primero, mismo criterio que toda action de este archivo. */
 export async function buscarGlobalAction(

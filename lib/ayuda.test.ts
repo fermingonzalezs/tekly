@@ -56,7 +56,7 @@ describe("centro de ayuda (contenido real)", () => {
   it("vecinos arma anterior/siguiente dentro de la sección", () => {
     const guia = getArticulo("ventas", "guia")!;
     expect(vecinos(guia).anterior).toBeNull();
-    expect(vecinos(guia).siguiente?.slug).toBe("pago-dividido");
+    expect(vecinos(guia).siguiente?.slug).toBe("nueva-venta");
   });
 
   it("relacionados prioriza la misma sección", () => {

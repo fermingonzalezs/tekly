@@ -1,0 +1,48 @@
+---
+titulo: "Conciliar las cajas"
+resumen: "El cierre con ventana flexible: contás la plata real de cada caja, Tekly calcula la diferencia y archiva los movimientos."
+seccion: cajas
+roles: [admin, tecnico]
+orden: 3
+actualizado: 2026-10-17
+---
+
+**Conciliar** es contar la plata real de cada caja y compararla con lo que el sistema esperaba. Reemplaza al viejo «cerrar el día», pero con **ventana flexible**: no es obligatorio hacerlo todos los días.
+
+<Paso n={1} titulo="«Conciliar cajas»">
+Por cada caja activa anotás el **monto real contado** (obligatorio) y un comentario opcional. Tekly calcula la **diferencia** contra lo que el sistema esperaba.
+</Paso>
+
+<Paso n={2} titulo="Revisá las diferencias">
+La diferencia se muestra en vivo: verde si coincide, roja si sobra o falta (en la moneda de cada caja). Podés dejar un **comentario general**.
+</Paso>
+
+<Paso n={3} titulo="Confirmá">
+Al confirmar, **todos los movimientos sin conciliar quedan archivados** bajo esa conciliación. Queda el registro en **«Conciliaciones anteriores»**.
+</Paso>
+
+<Captura
+  alt="Diálogo «Conciliar cajas» con el monto contado por caja y la diferencia calculada."
+  caption="La conciliación compara lo contado con lo que esperaba el sistema."
+/>
+
+<Aviso titulo="No hay «cerrar la caja del día»" tono="info">
+Si un día no conciliás, los movimientos simplemente se acumulan. Nada se bloquea.
+</Aviso>
+
+## Qué pasa después
+
+- Los movimientos archivados dejan de aparecer en «Desde conciliación» y sí en «Historial».
+- El movimiento archivado **no se puede eliminar**.
+- Se acumulan los gráficos de diferencia por conciliación y por caja.
+
+## Qué no se puede
+
+- No se puede confirmar sin anotar el **contado de cada caja activa**.
+- Un movimiento ya conciliado no se borra ni se edita.
+- La conciliación **no** mueve plata: sólo archiva y deja la diferencia registrada.
+
+## Relacionados
+
+- [Registrar un movimiento](/ayuda/cajas/nuevo-movimiento)
+- [Módulo Cajas](/ayuda/cajas/guia)

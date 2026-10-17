@@ -32,14 +32,15 @@ import type {
   MovimientoTipo,
   Recuento,
   RecuentoLineaCantidad,
-  RecuentoLineaEquipo,
+  RecuentoLineaCelular,
   RecuentoResolucion,
 } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
 import { resolverRecuentoAction } from "./actions";
 
 const ITEM_TIPO_LABEL: Record<MovimientoItem["itemTipo"], string> = {
-  equipo: "Equipo",
+  celular: "Celular",
+  notebook: "Notebook",
   repuesto: "Repuesto",
   otro: "Otro",
 };
@@ -215,7 +216,7 @@ export function RecuentosClient({
                   className="sm:w-52"
                   aria-label="Filtrar por tipo de ítem"
                 >
-                  <option value="todos">Equipos, repuestos y otros</option>
+                  <option value="todos">Todos los tipos</option>
                   {(Object.keys(ITEM_TIPO_LABEL) as MovimientoItem["itemTipo"][]).map((t) => (
                     <option key={t} value={t}>
                       {ITEM_TIPO_LABEL[t]}
@@ -243,7 +244,7 @@ export function RecuentosClient({
             {recuentos.length === 0 && (
               <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-500">
                 Sin recuentos todavía. Se cargan desde Inventario → «Recuento»,
-                en cada pestaña (Equipos/Repuestos/Otros).
+                en cada pestaña (Celulares/Repuestos/Otros).
               </p>
             )}
           </div>
@@ -273,7 +274,7 @@ export function RecuentosClient({
                   <tr>
                     <td colSpan={6} className="px-5 py-10 text-center text-sm text-neutral-500">
                       Sin recuentos todavía. Se cargan desde Inventario → «Recuento», en
-                      cada pestaña (Equipos/Repuestos/Otros).
+                      cada pestaña (Celulares/Repuestos/Otros).
                     </td>
                   </tr>
                 )}
@@ -378,7 +379,7 @@ function MovimientoRow({ movimiento: m }: { movimiento: MovimientoItem }) {
           {info.label}
         </span>
       </td>
-      <td className="max-w-[180px] truncate px-5 py-2 text-center">
+      <td className="max-w-[180px] truncate px-5 py-2 text-start">
         <span className="text-neutral-500">{ITEM_TIPO_LABEL[m.itemTipo]}</span> {m.itemNombre}
       </td>
       <td className="px-5 py-2 text-center">{m.usuario}</td>
@@ -388,7 +389,7 @@ function MovimientoRow({ movimiento: m }: { movimiento: MovimientoItem }) {
 }
 
 const RECUENTO_TIPO_LABEL: Record<Recuento["tipo"], string> = {
-  equipos: "Equipos",
+  celulares: "Celulares",
   repuestos: "Repuestos",
   otros: "Otros",
 };
@@ -505,10 +506,10 @@ function RecuentoRow({
  * Para repuestos/otros siempre es la misma dupla (ajustar o descartar). */
 function opcionesResolucion(
   recuento: Recuento,
-  linea: RecuentoLineaEquipo | RecuentoLineaCantidad,
+  linea: RecuentoLineaCelular | RecuentoLineaCantidad,
 ): { value: RecuentoResolucion; label: string }[] {
-  if (recuento.tipo === "equipos") {
-    const l = linea as RecuentoLineaEquipo;
+  if (recuento.tipo === "celulares") {
+    const l = linea as RecuentoLineaCelular;
     return l.encontrado
       ? [
           { value: "restaurado", label: "Restaurar a disponible" },
@@ -531,7 +532,7 @@ function opcionesResolucion(
  * ofrecerlas para elegir. */
 function resolucionLabel(
   recuento: Recuento,
-  linea: RecuentoLineaEquipo | RecuentoLineaCantidad,
+  linea: RecuentoLineaCelular | RecuentoLineaCantidad,
 ): string {
   return (
     opcionesResolucion(recuento, linea).find((o) => o.value === linea.resolucion)?.label ??
@@ -633,25 +634,25 @@ function RevisarRecuentoDialog({
           )}
           {recuento.lineas.map((linea) => {
             const opciones = opcionesResolucion(recuento, linea);
-            const esEquipo = recuento.tipo === "equipos";
-            const equipoLinea = linea as RecuentoLineaEquipo;
+            const esCelular = recuento.tipo === "celulares";
+            const celularLinea = linea as RecuentoLineaCelular;
             const cantidadLinea = linea as RecuentoLineaCantidad;
             return (
               <Card key={linea.itemId} className="p-3">
                 <p className="truncate text-sm font-medium text-neutral-900">{linea.detalle}</p>
                 <p className="mt-0.5 text-xs text-neutral-500">
-                  {esEquipo
-                    ? equipoLinea.encontrado
+                  {esCelular
+                    ? celularLinea.encontrado
                       ? "Estaba extraviado · se encontró en el recuento"
                       : "Se esperaba presente · no se encontró"
                     : `Sistema: ${cantidadLinea.cantidadSistema} · Contado: ${cantidadLinea.cantidadContada}`}
                 </p>
-                {esEquipo && !equipoLinea.encontrado && equipoLinea.comentario && (
+                {esCelular && !celularLinea.encontrado && celularLinea.comentario && (
                   <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
-                    "{equipoLinea.comentario}"
+                    "{celularLinea.comentario}"
                   </p>
                 )}
-                {!esEquipo && cantidadLinea.comentario && (
+                {!esCelular && cantidadLinea.comentario && (
                   <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
                     "{cantidadLinea.comentario}"
                   </p>

@@ -1,0 +1,38 @@
+---
+titulo: "Registrar un movimiento de caja"
+resumen: "Cómo cargar un ingreso o egreso manual en una caja, con categoría de gasto y cotización guardada."
+seccion: cajas
+roles: [admin, tecnico]
+orden: 2
+actualizado: 2026-10-17
+---
+
+El botón **«Nuevo movimiento»** carga plata que no viene de una venta: un gasto, un aporte, un ajuste.
+
+<Paso n={1} titulo="Elegí el tipo y la caja">
+**Tipo**: ingreso o egreso. Después elegís la **caja** (su medio de pago se completa solo).
+</Paso>
+
+<Paso n={2} titulo="Concepto y monto">
+El **concepto** describe el movimiento. El monto se carga en la moneda de la caja.
+- Si es un **egreso**, aparece además la **Categoría** (Alquiler, Sueldos, Servicios, Insumos y repuestos, Impuestos, Mantenimiento, Otros).
+</Paso>
+
+<Paso n={3} titulo="Guardá">
+Si la caja es en pesos, Tekly muestra el equivalente en dólares y **guarda la cotización del momento**.
+</Paso>
+
+<Aviso titulo="Los montos en pesos viejos no se recalculan" tono="info">
+Cada movimiento en ARS queda con la cotización del día en que se cargó, para que los totales no cambien con el tiempo.
+</Aviso>
+
+## Qué no se puede
+
+- No hay selector de **medio de pago**: se hereda de la caja.
+- Un movimiento en pesos **exige** una cotización: no se puede guardar sin ella.
+- No se puede cargar sin concepto ni con monto cero.
+
+## Relacionados
+
+- [Conciliar las cajas](/ayuda/cajas/conciliar)
+- [Módulo Cajas](/ayuda/cajas/guia)

@@ -1,30 +1,57 @@
 ---
 titulo: "Módulo Dashboard"
-resumen: "Tu pantalla de inicio según el rol: métricas, tendencia de ventas, objetivo del mes y pendientes del taller."
+resumen: "Tu pantalla de inicio según el rol: métricas del mes, ritmo del mes, objetivo, mix de rubros, turnos y ventas recientes."
 seccion: dashboard
 roles: []
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-El Dashboard es lo primero que ves al entrar, y cambia según tu rol.
+El Dashboard es lo primero que ves al entrar, y cambia por completo según tu rol: hay un dashboard de **admin** y uno de **vendedor/técnico**. El filtrado por rol vive en el servidor: al empleado no se le calculan ni se le envían ganancia, margen ni el objetivo.
 
-## Si sos admin
+## Operaciones
 
-Ves 5 métricas del mes, la **tendencia de ventas con la línea de ganancia**, el **mix de rubros**, el **objetivo del mes** (contra la meta que cargaste en Configuración) y, a la derecha, los **turnos agendados** y las **ventas recientes**. Podés cambiar el período con los tabs de arriba.
-
-## Si sos vendedor
-
-Ves **tu propia** facturación (la tendencia **sin** ganancia) y las **«Listos para retirar»** de toda la organización. Las ventas recientes son las tuyas.
-
-## Si sos técnico
-
-Ves **tus tickets** abiertos y los turnos agendados.
+- [Dashboard del admin](/ayuda/dashboard/metricas-admin)
+- [Dashboard del vendedor y del técnico](/ayuda/dashboard/dashboard-empleado)
+- [Objetivo y ritmo del mes](/ayuda/dashboard/objetivo-y-ritmo)
 
 <Aviso titulo="Se actualiza solo" tono="info">
-Cuando otro usuario de tu organización carga una venta, un ticket o un turno, el Dashboard se refresca automáticamente.
+Cuando otro usuario de tu organización carga una venta, un ticket o un turno, el Dashboard se refresca automáticamente (con una pequeña espera para agrupar cambios).
 </Aviso>
 
-## Ver también
+## Qué no se puede
+
+- Un **vendedor** no ve ganancia, margen ni el objetivo de la organización.
+- Un **técnico** ve sus tickets y los turnos, pero no la facturación.
+- El selector de mes sólo está en el dashboard del admin y no admite meses futuros.
+
+## Preguntas frecuentes
+
+**¿Por qué mi Dashboard es distinto al de mi compañero?**
+Porque cambia según el rol: admin ve el negocio entero; vendedor ve su facturación; técnico, sus tickets.
+
+**¿Por qué no veo ganancia ni margen?**
+Porque tu rol es vendedor: esa información es del admin. Ver [Dashboard del empleado](/ayuda/dashboard/dashboard-empleado).
+
+**¿Qué es «Ganancia del mes»?**
+La ganancia real de las ventas del mes, sólo de los ítems con costo cargado. Ver [Dashboard del admin](/ayuda/dashboard/metricas-admin).
+
+**¿Qué es «Ritmo del mes»?**
+El acumulado de ventas día a día comparado con el mes anterior y con el ritmo ideal para llegar al objetivo. Ver [Objetivo y ritmo](/ayuda/dashboard/objetivo-y-ritmo).
+
+**¿Puedo cambiar la meta del mes?**
+Sí, desde Configuración → Preferencias (sólo admin).
+
+**¿Qué significa que una venta reciente se pueda tocar?**
+Abre esa venta en la sección Ventas.
+
+**¿De dónde salen los turnos del panel?**
+De la próxima semana. Ver [Módulo Turnos](/ayuda/turnos/guia).
+
+**¿Por qué una tarjeta no tiene el chip de variación?**
+Los conteos puntuales (Tickets abiertos, Turnos hoy) no van con variación porcentual.
+
+## Relacionados
 
 - [Módulo Analíticas](/ayuda/analiticas/guia)
+- [Guía del admin](/ayuda/roles/guia-admin)

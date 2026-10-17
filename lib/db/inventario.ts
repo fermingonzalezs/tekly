@@ -3,10 +3,10 @@ import { createServerClient } from "@/lib/auth/supabase";
 import { requireUser, requireRole } from "@/lib/auth";
 import type { SessionUser } from "@/lib/auth/types";
 import { fmtDayMonth, fmtTime } from "@/lib/format";
-import { diffEquipo, diffRepuesto, diffOtro } from "@/lib/inventario-diff";
+import { diffCelular, diffRepuesto, diffOtro } from "@/lib/inventario-diff";
 import type {
-  Equipo,
-  EquipoStatus,
+  Celular,
+  CelularStatus,
   Movimiento,
   MovimientoItem,
   MovimientoTipo,
@@ -15,14 +15,14 @@ import type {
   OtroUnidad,
   Recuento,
   RecuentoLineaCantidad,
-  RecuentoLineaEquipo,
+  RecuentoLineaCelular,
   RecuentoResolucion,
   Repuesto,
 } from "@/lib/types";
 
-// ─────────────────────────── Equipos ───────────────────────────
+// ─────────────────────────── Celulares ───────────────────────────
 
-type EquipoRow = {
+type CelularRow = {
   id: string;
   modelo: string;
   almacenamiento: string | null;
@@ -32,10 +32,10 @@ type EquipoRow = {
   condicion: string | null;
   costo_usd: number;
   precio_usd: number;
-  estado: EquipoStatus;
+  estado: CelularStatus;
 };
 
-function toEquipo(row: EquipoRow): Equipo {
+function toCelular(row: CelularRow): Celular {
   return {
     id: row.id,
     modelo: row.modelo,
@@ -50,21 +50,21 @@ function toEquipo(row: EquipoRow): Equipo {
   };
 }
 
-const EQUIPO_COLS =
+const CELULAR_COLS =
   "id, modelo, almacenamiento, color, imei, bateria, condicion, costo_usd, precio_usd, estado";
 
-export async function listEquipos(): Promise<Equipo[]> {
+export async function listCelulares(): Promise<Celular[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
-    .from("equipos")
-    .select(EQUIPO_COLS)
+    .from("celulares")
+    .select(CELULAR_COLS)
     .eq("activo", true)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data.map(toEquipo);
+  return data.map(toCelular);
 }
 
-export type EquipoInput = {
+export type CelularInput = {
   modelo: string;
   almacenamiento: string;
   color: string;
@@ -73,13 +73,13 @@ export type EquipoInput = {
   condicion: string;
   costoUsd: number;
   precioUsd: number;
-  estado: EquipoStatus;
+  estado: CelularStatus;
 };
 
-export async function createEquipo(data: EquipoInput): Promise<Equipo> {
+export async function createCelular(data: CelularInput): Promise<Celular> {
   const supabase = createServerClient();
   const { data: row, error } = await supabase
-    .from("equipos")
+    .from("celulares")
     .insert({
       modelo: data.modelo,
       almacenamiento: data.almacenamiento || null,
@@ -91,22 +91,22 @@ export async function createEquipo(data: EquipoInput): Promise<Equipo> {
       precio_usd: data.precioUsd,
       estado: data.estado,
     })
-    .select(EQUIPO_COLS)
+    .select(CELULAR_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("equipo", row.id, "Ingreso a inventario", "ingreso");
-  return toEquipo(row);
+  await addMovimiento("celular", row.id, "Ingreso a inventario", "ingreso");
+  return toCelular(row);
 }
 
-export async function updateEquipo(id: string, data: EquipoInput): Promise<Equipo> {
+export async function updateCelular(id: string, data: CelularInput): Promise<Celular> {
   const supabase = createServerClient();
   const { data: antesRow } = await supabase
-    .from("equipos")
-    .select(EQUIPO_COLS)
+    .from("celulares")
+    .select(CELULAR_COLS)
     .eq("id", id)
     .single();
   const { data: row, error } = await supabase
-    .from("equipos")
+    .from("celulares")
     .update({
       modelo: data.modelo,
       almacenamiento: data.almacenamiento || null,
@@ -119,49 +119,49 @@ export async function updateEquipo(id: string, data: EquipoInput): Promise<Equip
       estado: data.estado,
     })
     .eq("id", id)
-    .select(EQUIPO_COLS)
+    .select(CELULAR_COLS)
     .single();
   if (error) throw error;
-  const despues = toEquipo(row);
-  const detalle = antesRow ? diffEquipo(toEquipo(antesRow), despues) : "Editado";
-  await addMovimiento("equipo", id, detalle, "edicion");
+  const despues = toCelular(row);
+  const detalle = antesRow ? diffCelular(toCelular(antesRow), despues) : "Editado";
+  await addMovimiento("celular", id, detalle, "edicion");
   return despues;
 }
 
-/** Baja lógica -- nunca `DELETE` real: `venta_items.equipo_id` referencia
- * `equipos.id` con `NO ACTION`, así que un equipo que alguna vez se vendió
- * rompería el borrado en duro. Queda desactivado (afuera de `listEquipos`)
+/** Baja lógica -- nunca `DELETE` real: `venta_items.celular_id` referencia
+ * `celulares.id` con `NO ACTION`, así que un equipo que alguna vez se vendió
+ * rompería el borrado en duro. Queda desactivado (afuera de `listCelulares`)
  * y con su baja registrada en `movimientos_stock`, igual que cualquier
  * otro cambio del ítem. */
-export async function deleteEquipo(id: string): Promise<void> {
+export async function deleteCelular(id: string): Promise<void> {
   const supabase = createServerClient();
-  const { error } = await supabase.from("equipos").update({ activo: false }).eq("id", id);
+  const { error } = await supabase.from("celulares").update({ activo: false }).eq("id", id);
   if (error) throw error;
-  await addMovimiento("equipo", id, "Baja de inventario", "baja");
+  await addMovimiento("celular", id, "Baja de inventario", "baja");
 }
 
 /** IMEIs ya cargados en la organización (sin nulos) -- usado por el
- * importador de equipos para descartar filas con IMEI repetido antes de
+ * importador de celulares para descartar filas con IMEI repetido antes de
  * insertar (el bulk insert de abajo abortaría entero si alguna fila choca
  * con el `UNIQUE (organization_id, imei)` de la tabla). */
 export async function listImeisExistentes(): Promise<Set<string>> {
   const supabase = createServerClient();
-  const { data, error } = await supabase.from("equipos").select("imei").not("imei", "is", null);
+  const { data, error } = await supabase.from("celulares").select("imei").not("imei", "is", null);
   if (error) throw error;
   return new Set(data.map((r) => r.imei as string));
 }
 
-/** Alta masiva (importación de equipos existentes): un solo insert para
- * `equipos` + un solo insert para `movimientos_stock` -- nunca un loop de
+/** Alta masiva (importación de celulares existentes): un solo insert para
+ * `celulares` + un solo insert para `movimientos_stock` -- nunca un loop de
  * `addMovimiento`, que haría N round-trips y N `requireUser()` redundantes. */
-export async function createEquiposBulk(
-  rows: EquipoInput[],
-): Promise<{ inserted: number; equipos: Equipo[] }> {
-  if (rows.length === 0) return { inserted: 0, equipos: [] };
+export async function createCelularesBulk(
+  rows: CelularInput[],
+): Promise<{ inserted: number; celulares: Celular[] }> {
+  if (rows.length === 0) return { inserted: 0, celulares: [] };
   const user = await requireUser();
   const supabase = createServerClient();
   const { data, error } = await supabase
-    .from("equipos")
+    .from("celulares")
     .insert(
       rows.map((r) => ({
         modelo: r.modelo,
@@ -175,11 +175,11 @@ export async function createEquiposBulk(
         estado: r.estado,
       })),
     )
-    .select(EQUIPO_COLS);
+    .select(CELULAR_COLS);
   if (error) throw error;
 
   const movimientos = data.map((row) => ({
-    item_type: "equipo" as const,
+    item_type: "celular" as const,
     item_id: row.id,
     detalle: "Importación inicial",
     tipo: "ingreso" as const,
@@ -189,49 +189,49 @@ export async function createEquiposBulk(
   const { error: movError } = await supabase.from("movimientos_stock").insert(movimientos);
   if (movError) throw movError;
 
-  return { inserted: data.length, equipos: data.map(toEquipo) };
+  return { inserted: data.length, celulares: data.map(toCelular) };
 }
 
 /** Recuento (auditoría física): `draft` mapea id de equipo -> si se
  * encontró al revisarlo; `comentarios`, id de equipo -> nota libre cargada
- * al tildarlo "no encontrado" (ver `RecuentoLineaEquipo.comentario`, vacío
+ * al tildarlo "no encontrado" (ver `RecuentoLineaCelular.comentario`, vacío
  * para el resto). Registra qué se encontró y qué no, pero NO toca
- * `equipos.estado` todavía -- queda `pendiente` hasta que un admin lo
+ * `celulares.estado` todavía -- queda `pendiente` hasta que un admin lo
  * revise (`resolverRecuento`). Solo las diferencias (esperaba una cosa,
  * contó otra) entran a `lineas`; lo que coincide con lo esperado igual deja
  * su registro en `movimientos_stock`, pero no requiere revisión. */
-export async function crearRecuentoEquipos(
+export async function crearRecuentoCelulares(
   draft: Record<string, boolean>,
   comentarios: Record<string, string>,
   comentarioGeneral?: string,
 ): Promise<Recuento> {
   const ids = Object.keys(draft);
   const user = await requireUser();
-  const lineas: RecuentoLineaEquipo[] = [];
+  const lineas: RecuentoLineaCelular[] = [];
 
   if (ids.length > 0) {
     const supabase = createServerClient();
     const { data: actuales, error: readError } = await supabase
-      .from("equipos")
+      .from("celulares")
       .select("id, modelo, almacenamiento, imei, estado")
       .in("id", ids);
     if (readError) throw readError;
 
     for (const eq of actuales) {
       const encontrado = draft[eq.id];
-      const eraExtraviado = (eq.estado as EquipoStatus) === "extraviado";
+      const eraExtraviado = (eq.estado as CelularStatus) === "extraviado";
       const detalle = `${eq.modelo} ${eq.almacenamiento ?? ""} · ${eq.imei ?? "—"}`.trim();
       if (encontrado && eraExtraviado) {
-        await addMovimiento("equipo", eq.id, "Recuento: reapareció (pendiente de revisión)", "recuento");
+        await addMovimiento("celular", eq.id, "Recuento: reapareció (pendiente de revisión)", "recuento");
         lineas.push({ itemId: eq.id, detalle, eraExtraviado: true, encontrado: true, resolucion: "pendiente" });
       } else if (encontrado) {
-        await addMovimiento("equipo", eq.id, "Recuento: presente", "recuento");
+        await addMovimiento("celular", eq.id, "Recuento: presente", "recuento");
       } else if (eraExtraviado) {
-        await addMovimiento("equipo", eq.id, "Recuento: sigue sin encontrarse", "recuento");
+        await addMovimiento("celular", eq.id, "Recuento: sigue sin encontrarse", "recuento");
       } else {
         const comentario = comentarios[eq.id]?.trim() || undefined;
         await addMovimiento(
-          "equipo",
+          "celular",
           eq.id,
           `Recuento: no encontrado (pendiente de revisión)${comentario ? ` -- ${comentario}` : ""}`,
           "recuento",
@@ -248,7 +248,7 @@ export async function crearRecuentoEquipos(
     }
   }
 
-  return crearRecuento("equipos", user, lineas, comentarioGeneral);
+  return crearRecuento("celulares", user, lineas, comentarioGeneral);
 }
 
 // ─────────────────────────── Repuestos ───────────────────────────
@@ -391,7 +391,7 @@ export async function ingresoRepuesto(
   return toRepuesto(row as unknown as RepuestoRow);
 }
 
-/** Igual criterio que `crearRecuentoEquipos`: no ajusta `stock` todavía,
+/** Igual criterio que `crearRecuentoCelulares`: no ajusta `stock` todavía,
  * queda pendiente de revisión. `draft` solo trae los ítems que el usuario
  * efectivamente contó (el modal de recuento arranca "Cantidad real" vacío,
  * no pre-cargado con el stock del sistema) -- lo que no se cuenta no entra
@@ -441,7 +441,7 @@ export async function crearRecuentoRepuestos(
 }
 
 /** Baja lógica (nada referencia `repuestos.id` con FK, pero se usa el mismo
- * criterio que equipos por consistencia: nunca un `DELETE` real, siempre
+ * criterio que celulares por consistencia: nunca un `DELETE` real, siempre
  * queda la baja en `movimientos_stock`). */
 export async function deleteRepuesto(id: string): Promise<void> {
   const supabase = createServerClient();
@@ -624,7 +624,7 @@ export async function crearRecuentoOtros(
   return crearRecuento("otros", user, lineas, comentarioGeneral);
 }
 
-/** Baja lógica, mismo criterio que equipos/repuestos. */
+/** Baja lógica, mismo criterio que celulares/repuestos. */
 export async function deleteOtro(id: string): Promise<void> {
   const supabase = createServerClient();
   const { error } = await supabase.from("otros_items").update({ activo: false }).eq("id", id);
@@ -634,7 +634,7 @@ export async function deleteOtro(id: string): Promise<void> {
 
 // ─────────────────────────── Movimientos de stock ───────────────────────────
 
-export type ItemType = "equipo" | "repuesto" | "otro";
+export type ItemType = "celular" | "notebook" | "repuesto" | "otro";
 
 export async function addMovimiento(
   itemType: ItemType,
@@ -709,7 +709,7 @@ export async function listMovimientosStockBulk(): Promise<MovimientoStockBulk[]>
 // Un recuento queda `pendiente` con sus diferencias (`lineas`) hasta que un
 // admin lo revisa (`resolverRecuento`) -- recién ahí se toca el stock real.
 // Mismo criterio que `Conciliacion` en Cajas. Las tres `crearRecuentoX` de
-// arriba (Equipos/Repuestos/Otros) terminan acá.
+// arriba (Celulares/Repuestos/Otros) terminan acá.
 
 type RecuentoRow = {
   id: string;
@@ -719,7 +719,7 @@ type RecuentoRow = {
   estado: Recuento["estado"];
   revisado_por_nombre: string | null;
   revisado_en: string | null;
-  lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[];
+  lineas: RecuentoLineaCelular[] | RecuentoLineaCantidad[];
   comentario_general: string | null;
 };
 
@@ -747,7 +747,7 @@ function toRecuento(row: RecuentoRow): Recuento {
 async function crearRecuento(
   tipo: Recuento["tipo"],
   user: SessionUser,
-  lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[],
+  lineas: RecuentoLineaCelular[] | RecuentoLineaCantidad[],
   comentarioGeneral?: string,
 ): Promise<Recuento> {
   const supabase = createServerClient();
@@ -781,8 +781,8 @@ export async function listRecuentos(): Promise<Recuento[]> {
 }
 
 /** Admin revisa un recuento pendiente: cada línea necesita una resolución
- * (`confirmado`/`restaurado` para equipos, `ajustado`/`descartado` para
- * repuestos/otros). Recién acá se toca `equipos`/`repuestos`/`otros_items`
+ * (`confirmado`/`restaurado` para celulares, `ajustado`/`descartado` para
+ * repuestos/otros). Recién acá se toca `celulares`/`repuestos`/`otros_items`
  * de verdad, y cada cambio deja su propio registro en `movimientos_stock`
  * (además del que ya había al contar) -- doble rastro: qué se contó y qué
  * se decidió hacer con eso. */
@@ -803,42 +803,42 @@ export async function resolverRecuento(
     throw new Error("Este recuento ya fue revisado.");
   }
 
-  const lineasResueltas: (RecuentoLineaEquipo | RecuentoLineaCantidad)[] = [];
+  const lineasResueltas: (RecuentoLineaCelular | RecuentoLineaCantidad)[] = [];
   for (const linea of recuento.lineas) {
     const resolucion = resoluciones[linea.itemId];
     if (!resolucion || resolucion === "pendiente") {
       throw new Error(`Falta resolver "${linea.detalle}".`);
     }
 
-    if (recuento.tipo === "equipos") {
-      const l = linea as RecuentoLineaEquipo;
+    if (recuento.tipo === "celulares") {
+      const l = linea as RecuentoLineaCelular;
       if (resolucion === "confirmado") {
         const { error } = await supabase
-          .from("equipos")
+          .from("celulares")
           .update({ estado: "extraviado" })
           .eq("id", l.itemId);
         if (error) throw error;
         await addMovimiento(
-          "equipo",
+          "celular",
           l.itemId,
           `Recuento revisado por ${admin.nombre}: confirmado extraviado`,
           "recuento",
         );
       } else if (resolucion === "restaurado") {
         const { error } = await supabase
-          .from("equipos")
+          .from("celulares")
           .update({ estado: "disponible" })
           .eq("id", l.itemId);
         if (error) throw error;
         await addMovimiento(
-          "equipo",
+          "celular",
           l.itemId,
           `Recuento revisado por ${admin.nombre}: restaurado a disponible`,
           "recuento",
         );
       } else if (resolucion === "descartado") {
         await addMovimiento(
-          "equipo",
+          "celular",
           l.itemId,
           `Recuento revisado por ${admin.nombre}: descartado, sin cambios`,
           "recuento",
@@ -900,7 +900,7 @@ export async function resolverRecuento(
   return toRecuento(updated as unknown as RecuentoRow);
 }
 
-/** Vista consolidada de `movimientos_stock` mezclando equipos/repuestos/
+/** Vista consolidada de `movimientos_stock` mezclando celulares/repuestos/
  * otros en una sola tabla (para /recuentos → pestaña "Movimientos"; el
  * historial de UN ítem, en su dialog, sigue usando `listMovimientos`). Sin
  * FK a una tabla fija (`item_id` apunta a una de tres según `item_type`),
@@ -923,19 +923,27 @@ export async function listMovimientosStock(filtro: {
   if (error) throw error;
 
   const idsPorTipo: Record<ItemType, Set<string>> = {
-    equipo: new Set(),
+    celular: new Set(),
+    notebook: new Set(),
     repuesto: new Set(),
     otro: new Set(),
   };
   for (const m of data) idsPorTipo[m.item_type as ItemType].add(m.item_id);
 
-  const [equiposMap, repuestosMap, otrosMap] = await Promise.all([
-    idsPorTipo.equipo.size
+  const [celularesMap, notebooksMap, repuestosMap, otrosMap] = await Promise.all([
+    idsPorTipo.celular.size
       ? supabase
-          .from("equipos")
+          .from("celulares")
           .select("id, modelo, almacenamiento")
-          .in("id", [...idsPorTipo.equipo])
+          .in("id", [...idsPorTipo.celular])
           .then(({ data }) => new Map((data ?? []).map((e) => [e.id, `${e.modelo} ${e.almacenamiento ?? ""}`.trim()])))
+      : Promise.resolve(new Map<string, string>()),
+    idsPorTipo.notebook.size
+      ? supabase
+          .from("notebooks")
+          .select("id, modelo, numero_serie")
+          .in("id", [...idsPorTipo.notebook])
+          .then(({ data }) => new Map((data ?? []).map((n) => [n.id, `${n.modelo} ${n.numero_serie ?? ""}`.trim()])))
       : Promise.resolve(new Map<string, string>()),
     idsPorTipo.repuesto.size
       ? supabase
@@ -953,7 +961,8 @@ export async function listMovimientosStock(filtro: {
       : Promise.resolve(new Map<string, string>()),
   ]);
   const nombrePorTipo: Record<ItemType, Map<string, string>> = {
-    equipo: equiposMap,
+    celular: celularesMap,
+    notebook: notebooksMap,
     repuesto: repuestosMap,
     otro: otrosMap,
   };

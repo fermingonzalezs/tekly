@@ -9,7 +9,8 @@
 import type {
   Caja,
   ClienteOpcion,
-  Equipo,
+  Celular,
+  Notebook,
   OtroItem,
   Pago,
   Repuesto,
@@ -29,7 +30,8 @@ import { margenVenta, montoConRecargo } from "@/lib/ventas";
 
 export type DemoState = {
   ventas: Venta[];
-  equipos: Equipo[];
+  celulares: Celular[];
+  notebooks: Notebook[];
   clientes: ClienteOpcion[];
   repuestos: Repuesto[];
   otros: OtroItem[];
@@ -95,6 +97,77 @@ const REPUESTOS_BASE: Omit<Repuesto, "id">[] = [
   { sku: "TAP-CAM", nombre: "Tapa cámara iPhone 14", modelo: "iPhone 14", stock: 4, stockMin: 2, costoUsd: 20, proveedor: "Partes Ya" },
   { sku: "ALT-13", nombre: "Altavoz iPhone 13", modelo: "iPhone 13", stock: 3, stockMin: 1, costoUsd: 25, proveedor: "TecnoPartes" },
   { sku: "VID-TRA", nombre: "Vidrio trasero iPhone 12", modelo: "iPhone 12", stock: 0, stockMin: 3, costoUsd: 30, proveedor: "Partes Ya" },
+];
+
+const NOTEBOOKS_BASE: Omit<Notebook, "id">[] = [
+  {
+    modelo: "MacBook Air M2",
+    cpu: "Apple M2 8 núcleos",
+    memoria: "8 GB",
+    almacenamiento: "256 GB SSD",
+    pantalla: '13.6" Liquid Retina',
+    color: "Medianoche",
+    idioma: "Español",
+    numeroSerie: "DMPNB0001",
+    garantia: "6 meses",
+    notas: "",
+    costoUsd: 780,
+    precioUsd: 1050,
+    estado: "disponible",
+    condicion: "nuevo",
+    bateria: null,
+  },
+  {
+    modelo: "MacBook Pro 14",
+    cpu: "Apple M3 Pro",
+    memoria: "18 GB",
+    almacenamiento: "512 GB SSD",
+    pantalla: '14.2" Liquid Retina XDR',
+    color: "Negro espacial",
+    idioma: "Inglés",
+    numeroSerie: "DMPNB0002",
+    garantia: "12 meses",
+    notas: "Cargador original incluido.",
+    costoUsd: 1550,
+    precioUsd: 2100,
+    estado: "disponible",
+    condicion: "usado",
+    bateria: 91,
+  },
+  {
+    modelo: "Lenovo IdeaPad 3",
+    cpu: "Intel Core i5-1135G7",
+    memoria: "16 GB",
+    almacenamiento: "512 GB SSD",
+    pantalla: '15.6" FHD',
+    color: "Gris",
+    idioma: "Español",
+    numeroSerie: "DMPNB0003",
+    garantia: "3 meses",
+    notas: "",
+    costoUsd: 420,
+    precioUsd: 620,
+    estado: "reservado",
+    condicion: "nuevo",
+    bateria: null,
+  },
+  {
+    modelo: "HP Pavilion 14",
+    cpu: "AMD Ryzen 5 5500U",
+    memoria: "8 GB",
+    almacenamiento: "256 GB SSD",
+    pantalla: '14" HD',
+    color: "Plata",
+    idioma: "Español",
+    numeroSerie: "DMPNB0004",
+    garantia: "",
+    notas: "Detalle en la tapa.",
+    costoUsd: 340,
+    precioUsd: 520,
+    estado: "en_revision",
+    condicion: "usado",
+    bateria: 84,
+  },
 ];
 
 const SERVICIOS_BASE: Omit<Servicio, "id">[] = [
@@ -186,9 +259,9 @@ export function crearSeedDemo(hoy: Date): DemoState {
     email: `cliente${i + 1}@demo.tekly`,
   }));
 
-  const equipos: Equipo[] = MODELOS.map(
-    ([modelo, almacenamiento, color], i): Equipo => ({
-      id: `demo-equipo-${i + 1}`,
+  const celulares: Celular[] = MODELOS.map(
+    ([modelo, almacenamiento, color], i): Celular => ({
+      id: `demo-celular-${i + 1}`,
       modelo,
       almacenamiento,
       color,
@@ -200,6 +273,11 @@ export function crearSeedDemo(hoy: Date): DemoState {
       estado: i < 6 ? "vendido" : i < 12 ? "disponible" : "reservado",
     }),
   );
+
+  const notebooks: Notebook[] = NOTEBOOKS_BASE.map((n, i) => ({
+    ...n,
+    id: `demo-notebook-${i + 1}`,
+  }));
 
   const repuestos: Repuesto[] = REPUESTOS_BASE.map((r, i) => ({
     ...r,
@@ -277,22 +355,22 @@ export function crearSeedDemo(hoy: Date): DemoState {
   ];
 
   // ── Ventas (40, últimos ~70 días) ──
-  const equiposVendidos = equipos.filter((e) => e.estado === "vendido");
-  let cursorEquipo = 0;
+  const celularesVendidos = celulares.filter((e) => e.estado === "vendido");
+  let cursorCelular = 0;
   let cursorRepuesto = 0;
   let cursorOtro = 0;
 
   const itemsDeVenta = (idx: number): VentaItem[] => {
     const out: VentaItem[] = [];
-    const pushEquipo = () => {
-      const e = equiposVendidos[cursorEquipo++ % equiposVendidos.length];
+    const pushCelular = () => {
+      const e = celularesVendidos[cursorCelular++ % celularesVendidos.length];
       out.push({
         detalle: `${e.modelo} ${e.almacenamiento} ${e.color}`,
         cantidad: 1,
         precioUsd: e.precioUsd,
         costoUsd: e.costoUsd,
-        equipoId: e.id,
-        categoria: "equipo",
+        celularId: e.id,
+        categoria: "celular",
       });
     };
     const pushServicio = () => {
@@ -339,12 +417,12 @@ export function crearSeedDemo(hoy: Date): DemoState {
     };
 
     const patron = idx % 5;
-    if (patron === 0) pushEquipo();
+    if (patron === 0) pushCelular();
     else if (patron === 1) pushServicio();
     else if (patron === 2) pushOtro();
     else if (patron === 3) pushLibre();
     else {
-      pushEquipo();
+      pushCelular();
       pushServicio();
     }
     return out;
@@ -422,7 +500,7 @@ export function crearSeedDemo(hoy: Date): DemoState {
       tipo: t.tipo,
       estado: t.estado,
       ticketId: t.tipo === "retira" ? 2001 + (i % 3) : null,
-      equipoIds: t.tipo === "compra" ? [equipos[i % equipos.length].id] : undefined,
+      celularIds: t.tipo === "compra" ? [celulares[i % celulares.length].id] : undefined,
     };
   });
 
@@ -502,7 +580,8 @@ export function crearSeedDemo(hoy: Date): DemoState {
 
   return {
     ventas,
-    equipos,
+    celulares,
+    notebooks,
     clientes,
     repuestos,
     otros,

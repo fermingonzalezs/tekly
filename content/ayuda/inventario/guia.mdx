@@ -1,37 +1,68 @@
 ---
 titulo: "Módulo Inventario"
-resumen: "Equipos por IMEI, repuestos con stock por modelo, y \"Otros\" (iPad, AirPods, accesorios). Recuento e Ingreso."
+resumen: "Celulares por IMEI, notebooks por número de serie, repuestos con stock por modelo y «Otros» (iPad, AirPods, accesorios). Alta, edición, recuento e ingreso."
 seccion: inventario
 roles: []
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-Inventario tiene **3 pestañas**:
+Inventario tiene **4 pestañas**: **Celulares**, **Notebooks**, **Repuestos** y **Otros**. Cada una tiene sus propios gráficos, tarjetas, filtros, buscador y una toolbar de acciones a la derecha.
 
-- **Equipos**: unidades únicas identificadas por **IMEI** (modelo, almacenamiento, color, batería, condición, costo y precio).
-- **Repuestos**: stock por modelo (pantallas, baterías…), con stock mínimo.
-- **Otros**: iPad, AirPods, tablets y accesorios. Pueden ser por cantidad o **serializados** (una unidad por serial).
+<Captura alt="Pestañas Celulares / Notebooks / Repuestos / Otros con la tabla y las acciones." caption="La sección Inventario (datos demo)." />
 
 ## Operaciones
 
-<Paso n={1} titulo="Agregar o editar un equipo">
-Tocá una fila de Equipos para ver y editar **todos** sus campos, incluido el estado. El botón **«Agregar equipo»** abre el mismo formulario en blanco.
-</Paso>
+- [Celulares por IMEI](/ayuda/inventario/celulares)
+- [Notebooks](/ayuda/inventario/notebooks)
+- [Repuestos y stock](/ayuda/inventario/repuestos)
+- [Otros productos (iPad, AirPods, accesorios)](/ayuda/inventario/otros)
+- [Recuento de stock](/ayuda/inventario/recuento)
+- [Movimientos de stock](/ayuda/inventario/movimientos-stock)
+- [Importar stock por CSV](/ayuda/inventario/importar-csv)
 
-<Paso n={2} titulo="Ingreso de stock">
-En Repuestos u Otros, el botón **«Ingreso»** suma unidades a un ítem existente (con cantidad y precio de compra) o crea uno nuevo.
-</Paso>
+## Qué no se puede
 
-<Paso n={3} titulo="Recuento">
-**«Recuento»** es una auditoría: en Equipos tildás los que **encontraste** físicamente; en Repuestos y Otros anotás la **cantidad real** de cada producto. Las diferencias quedan **pendientes** y un administrador las revisa en [Recuentos](/ayuda/recuentos/guia); recién ahí se ajusta el stock. Cada cambio deja un registro en el **historial de movimientos** del ítem.
-</Paso>
-
-<Aviso titulo="Estados de un equipo" tono="info">
-Un equipo puede estar **en revisión, disponible, reservado, vendido o extraviado**. Al venderlo, pasa a «vendido» automáticamente.
+<Aviso titulo="No hay stock negativo por diseño" tono="warning">
+El stock de repuestos y la cantidad de «Otros» no deberían quedar en negativo: el sistema te avisa cuando un producto está «Sin stock». Un celular o una notebook «Vendido» no vuelve a venderse.
 </Aviso>
 
-## Ver también
+- El **IMEI/número de serie no se puede repetir** dentro de tu organización (lo impone la base).
+- Los ítems **no se borran de verdad**: se dan de baja (lógica) para no romper el historial. Sólo el admin puede eliminarlos.
+- Un **vendedor** no ve costo ni margen en Celulares/Notebooks ni en la carga en bulk de seriales.
+- La cantidad de un producto serializado no se edita a mano: se carga o se agrega unidad por unidad.
+- Recuentos e Importar CSV por ahora cubren **celulares** (no notebooks).
+
+## Preguntas frecuentes
+
+**¿Cómo agrego un iPhone al stock?**
+Pestaña Celulares → «Agregar celular». Completá modelo, costo y precio (obligatorios). Entra como «En revisión». Ver [Celulares](/ayuda/inventario/celulares).
+
+**¿Cómo agrego una notebook?**
+Pestaña Notebooks → «Agregar notebook». Sólo el modelo es obligatorio; cargá serie, CPU, memoria, costo y precio. Ver [Notebooks](/ayuda/inventario/notebooks).
+
+**¿El IMEI es obligatorio?**
+No, pero es lo que identifica una unidad única. Si no lo cargás, no vas a poder buscarla por serie.
+
+**¿Cómo repongo repuestos?**
+Con **«Ingreso»** (o «Reponer» desde la tarjeta «Reponer pronto»). Ver [Repuestos](/ayuda/inventario/repuestos).
+
+**¿Recuento e Ingreso son lo mismo?**
+No. **Ingreso** suma stock real; **Recuento** cuenta lo que hay y deja las diferencias para que un admin las revise. Ver [Recuento](/ayuda/inventario/recuento).
+
+**¿Puedo importar mi stock del sistema anterior?**
+Sí, por CSV, en **Configuración → Importar datos** o desde Inventario. Ver [Importar stock por CSV](/ayuda/inventario/importar-csv).
+
+**¿Qué significan los estados de un celular o notebook?**
+«En revisión» (recién ingresado), «Disponible» (vendible), «Reservado» (con turno o reserva), «Vendido» y «Extraviado». Ver [Celulares](/ayuda/inventario/celulares).
+
+**¿Por qué un producto dice «Stock bajo»?**
+Porque llegó al **stock mínimo** que tiene configurado. Es un aviso para reponer.
+
+**¿Se puede ver quién movió un ítem y cuándo?**
+Sí, cada celular/notebook/repuesto/producto tiene su registro de movimientos. Ver [Movimientos de stock](/ayuda/inventario/movimientos-stock).
+
+## Relacionados
 
 - [Primeros pasos: inventario inicial](/ayuda/primeros-pasos/inventario-inicial)
 - [Módulo Recuentos](/ayuda/recuentos/guia)

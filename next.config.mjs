@@ -6,6 +6,11 @@ const nextConfig = {
   // incluye `mdx` para que `page.mdx` funcione, aunque nuestras páginas son
   // `.tsx` e importan el contenido desde `content/ayuda/*.mdx`.
   pageExtensions: ["ts", "tsx", "mdx"],
+  // `next-mdx-remote/rsc` crea los elementos con el `react` de node_modules
+  // (18.3.1) en vez del React vendoreado de Next: sin transpilarlo, cada
+  // artículo de /ayuda falla con "A React Element from an older version of
+  // React was rendered".
+  transpilePackages: ["next-mdx-remote"],
   // La app usa <img> (logos de organizaciones, SVG del kit): no necesita el
   // optimizador de imágenes de Next, que además es superficie de ataque.
   images: { unoptimized: true },

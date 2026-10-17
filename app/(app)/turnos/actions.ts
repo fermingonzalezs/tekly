@@ -20,7 +20,7 @@ export async function createTurnoAction(data: {
   /** Solo "retira": ticket listo que se viene a retirar. */
   ticketId: number | null;
   /** Solo "compra". */
-  equipoIds: string[];
+  celularIds: string[];
   itemsOtros: TurnoOtroItem[];
   pagos: Pago[];
   reservarStock: boolean;
@@ -38,7 +38,7 @@ export async function createTurnoAction(data: {
     clienteId: cliente.id,
     tipo: data.tipo,
     ticketId: data.ticketId,
-    equipoIds: data.equipoIds,
+    celularIds: data.celularIds,
     itemsOtros: data.itemsOtros,
     pagos: data.pagos,
     reservarStock: data.reservarStock,

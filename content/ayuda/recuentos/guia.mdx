@@ -4,7 +4,7 @@ resumen: "Cómo controlar que el stock del sistema coincida con lo que hay en el
 seccion: recuentos
 roles: []
 orden: 1
-actualizado: 2026-10-05
+actualizado: 2026-10-17
 ---
 
 Un **recuento** es una auditoría de stock: alguien cuenta lo que hay físicamente y Tekly marca las **diferencias** contra lo que dice el sistema. **Contar no modifica el stock**: las diferencias quedan pendientes hasta que un administrador las revisa.
@@ -12,18 +12,18 @@ Un **recuento** es una auditoría de stock: alguien cuenta lo que hay físicamen
 La pantalla Recuentos tiene **2 pestañas**:
 
 - **Recuentos**: cada recuento hecho, con su fecha, quién lo hizo, cuántas diferencias tuvo y si está **pendiente** o **revisado**.
-- **Movimientos**: el historial de todo lo que tocó el stock (ingresos, egresos y ajustes), con buscador y filtros por tipo de movimiento y tipo de ítem.
+- **Movimientos**: el historial de todo lo que tocó el stock (ingresos, egresos y ajustes), con buscador y filtros.
 
 ## Cómo hacer un recuento
 
-Los recuentos se **inician desde Inventario**, en la pestaña del tipo que querés contar.
+Los recuentos se **inician desde Inventario**, en la pestaña del tipo que querés contar (ver [Hacer un recuento](/ayuda/inventario/recuento)).
 
-<Paso n={1} titulo="Equipos: tildá lo que encontraste">
-En **Inventario → Equipos**, abrí el recuento de equipos. Cada equipo trae el tilde **«Encontrado»** puesto: destildá los que **no** están en el local y, si querés, anotá qué pasó (por ejemplo «lo tiene el técnico en el banco de trabajo»). Solo las diferencias entran al recuento.
+<Paso n={1} titulo="Celulares: tildá lo que encontraste">
+Cada celular trae el tilde **«Encontrado»** puesto: destildá los que no están y, si querés, anotá qué pasó. Sólo las diferencias entran al recuento.
 </Paso>
 
 <Paso n={2} titulo="Repuestos y Otros: anotá la cantidad real">
-En **Repuestos** u **Otros**, escribí la **cantidad real** al lado de cada producto, con un comentario opcional. Lo que dejes en blanco **no entra** en el recuento.
+Escribí la **cantidad real** al lado de cada producto, con un comentario opcional. Lo que dejes en blanco no entra en el recuento.
 </Paso>
 
 <Paso n={3} titulo="Guardá el recuento">
@@ -32,17 +32,44 @@ Se crea un recuento en estado **pendiente**. Si no hubo ninguna diferencia, se c
 
 ## Revisar las diferencias (admin)
 
-Solo un **administrador** puede revisar. En la pestaña Recuentos, un recuento pendiente tiene el botón **«Revisar»**: para cada diferencia elegís qué hacer, y recién al guardar la revisión se aplican los cambios reales.
+Sólo un **administrador** puede revisar. En la pestaña Recuentos, un recuento pendiente tiene el botón **«Revisar»**: para cada diferencia elegís qué hacer, y recién al guardar la revisión se aplican los cambios reales.
 
-- **Equipos que no se encontraron:** *Confirmar extraviado* (queda como extraviado) o *Descartar (fue un error)*.
-- **Equipos que figuraban como extraviados y aparecieron:** *Restaurar a disponible* o *Descartar (sigue extraviado)*.
-- **Repuestos y Otros:** *Ajustar a la cantidad contada* (el stock pasa a lo contado) o *Descartar* (fue un error de conteo: no toca el stock).
+- **Celulares que no se encontraron:** *Confirmar extraviado* o *Descartar (fue un error)*.
+- **Celulares que figuraban extraviados y aparecieron:** *Restaurar a disponible* o *Descartar (sigue extraviado)*.
+- **Repuestos y Otros:** *Ajustar a la cantidad contada* o *Descartar* (fue un error de conteo: no toca el stock).
 
 <Aviso titulo="Hay que resolver todas" tono="info">
 El botón «Guardar revisión» se habilita cuando **todas** las diferencias tienen una decisión. Después, el recuento queda como revisado y se puede abrir con «Ver detalle».
 </Aviso>
 
-## Ver también
+## Qué no se puede
+
+- Un recuento **no ajusta el stock solo**: siempre pasa por la revisión de un admin.
+- Un recuento ya **revisado** no se vuelve a revisar (sólo «Ver detalle»).
+- Los celulares **«Vendidos»** no entran en el recuento.
+- El historial de movimientos no se edita ni se borra.
+
+## Preguntas frecuentes
+
+**¿Cada cuánto hay que hacer un recuento?**
+Cuando quieras: no hay una frecuencia impuesta. Conviene hacerlo al cerrar el mes o cuando sospechás de una diferencia.
+
+**¿Puedo contar sólo algunos productos?**
+Sí. Lo que dejes en blanco (o tildado como encontrado) no entra; sólo se registran las diferencias.
+
+**¿Quién revisa las diferencias?**
+Un administrador, desde la pestaña Recuentos.
+
+**¿El recuento cambia el stock?**
+No por sí solo. Recién cuando el admin resuelve y guarda la revisión se ajusta el stock.
+
+**¿Qué pasa si un celular estaba extraviado y aparece?**
+Se cuenta como diferencia y el admin puede «Restaurar a disponible».
+
+**¿Dónde veo quién movió qué?**
+En la pestaña Movimientos o en el historial de cada ítem. Ver [Movimientos de stock](/ayuda/inventario/movimientos-stock).
+
+## Relacionados
 
 - [Módulo Inventario](/ayuda/inventario/guia)
 - [Glosario](/ayuda/glosario/terminos)

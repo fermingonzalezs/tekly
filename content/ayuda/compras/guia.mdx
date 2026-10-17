@@ -2,25 +2,62 @@
 titulo: "Módulo Compras"
 resumen: "El lado del gasto: compras a proveedor y las compras por canje que se generan solas desde una venta."
 seccion: compras
-roles: []
+roles: [admin, tecnico]
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-Compras es el espejo de Ventas del lado del gasto. Tiene dos orígenes:
+Compras es el espejo de Ventas del lado del gasto. La sección es **solo para admin y técnico** (expone precios de compra). Tiene dos orígenes:
 
-- **Proveedor**: la compra de siempre (mercadería que pagás). Cargás proveedor, ítems (detalle, cantidad, costo), medio de pago y estado **pendiente/recibida**.
+- **Proveedor**: la compra de siempre (mercadería que pagás).
 - **Canje**: se **genera sola** desde una venta cuando cobrás con caja de canje (ver [Canje](/ayuda/ventas/canje)). No se carga a mano.
 
-<Paso n={1} titulo="Nueva compra">
-Cargá el proveedor (podés escribir uno nuevo), los ítems y el medio de pago. Si pagás en pesos, se guarda la cotización del momento.
-</Paso>
+## Operaciones
 
-<Paso n={2} titulo="Recibo de canje">
-En una compra de canje, el botón **«Imprimir recibo de canje»** genera el PDF con el equipo recibido, el checklist y las firmas.
-</Paso>
+- [Cargar una compra a proveedor](/ayuda/compras/nueva-compra)
+- [Compras por canje y su recibo](/ayuda/compras/compras-canje)
 
-## Ver también
+## La lista
+
+- **Tarjetas**: Compras, Gastado, Pendientes de recepción y Ticket promedio.
+- **Gráficos**: «Gasto por mes» y «Gasto por proveedor».
+- **Filtros**: buscador, período y estado.
+- **Tabla**: número (`C-…`), Contraparte (proveedor o cliente del canje), Ítems, Total, Estado y Acciones.
+
+## Qué no se puede
+
+- Un **vendedor** no entra: la sección expone costos de compra.
+- Sólo el **admin** puede eliminar una compra.
+- El **canje no se carga a mano**: se genera desde una venta.
+- El recibo de canje se imprime desde acá; en Ventas sólo hay un link a esta compra.
+
+## Preguntas frecuentes
+
+**¿Quién ve Compras?**
+Admin y técnico. El vendedor no la tiene en su menú.
+
+**¿Cómo registro una compra a un proveedor?**
+Con «Nueva compra»: proveedor, ítems, medio de pago y estado. Ver [Cargar una compra](/ayuda/compras/nueva-compra).
+
+**¿Qué es una compra «Pendiente»?**
+Una que todavía no llegó. Cuando llega la marcás **«Marcar como recibida»**.
+
+**¿De dónde salen las compras por canje?**
+De una venta cobrada con caja de canje. Ver [Canje](/ayuda/ventas/canje).
+
+**¿Dónde imprimo el recibo del canje?**
+En el detalle de la compra: «Imprimir recibo de canje». Ver [Compras por canje](/ayuda/compras/compras-canje).
+
+**¿La compra afecta el stock?**
+La compra registra el gasto y el movimiento de caja; el ingreso del equipo al stock se hace por Inventario.
+
+**¿Puedo pagar una compra en pesos?**
+Sí: si la caja es en pesos se guarda la cotización y el monto en ARS.
+
+**¿Puedo eliminar una compra?**
+Sólo el admin, y podés elegir si borrar también el movimiento de caja que generó.
+
+## Relacionados
 
 - [Canje: recibir un equipo como pago](/ayuda/ventas/canje)
 - [Módulo Cajas](/ayuda/cajas/guia)

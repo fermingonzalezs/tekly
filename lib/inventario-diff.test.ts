@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { diffEquipo, diffRepuesto, diffOtro } from "@/lib/inventario-diff";
-import type { Equipo, OtroItem, Repuesto } from "@/lib/types";
+import { diffCelular, diffRepuesto, diffOtro } from "@/lib/inventario-diff";
+import type { Celular, OtroItem, Repuesto } from "@/lib/types";
 
-const equipo: Equipo = {
+const equipo: Celular = {
   id: "e1",
   modelo: "iPhone 13",
   almacenamiento: "128GB",
@@ -26,21 +26,21 @@ const repuesto: Repuesto = {
   proveedor: "ACME",
 };
 
-describe("diffEquipo", () => {
+describe("diffCelular", () => {
   it("sin cambios devuelve el mensaje explícito", () => {
-    expect(diffEquipo(equipo, { ...equipo })).toBe("Editado (sin cambios)");
+    expect(diffCelular(equipo, { ...equipo })).toBe("Editado (sin cambios)");
   });
 
   it("un solo campo cambiado", () => {
-    expect(diffEquipo(equipo, { ...equipo, precioUsd: 750 })).toBe("venta U$ 700 → U$ 750");
+    expect(diffCelular(equipo, { ...equipo, precioUsd: 750 })).toBe("venta U$ 700 → U$ 750");
   });
 
   it("formatea batería con %", () => {
-    expect(diffEquipo(equipo, { ...equipo, bateria: 85 })).toContain("batería 90% → 85%");
+    expect(diffCelular(equipo, { ...equipo, bateria: 85 })).toContain("batería 90% → 85%");
   });
 
   it("varios campos cambiados se listan todos, separados por coma", () => {
-    const d = diffEquipo(equipo, { ...equipo, color: "Blanco", estado: "reservado" });
+    const d = diffCelular(equipo, { ...equipo, color: "Blanco", estado: "reservado" });
     expect(d).toContain("color Negro → Blanco");
     expect(d).toContain("estado disponible → reservado");
   });

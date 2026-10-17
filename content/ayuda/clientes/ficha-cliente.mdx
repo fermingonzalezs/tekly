@@ -1,0 +1,43 @@
+---
+titulo: "Ficha del cliente"
+resumen: "El historial cruzado de un cliente: sus ventas, reparaciones y turnos, más los contadores calculados."
+seccion: clientes
+roles: []
+orden: 3
+actualizado: 2026-10-17
+---
+
+Tocá una fila de la lista (o entrá por un deep link `?open=…`) para abrir la ficha.
+
+## Qué muestra
+
+<Paso n={1} titulo="Información general">
+Teléfono, email, desde cuándo es cliente y los contadores **Compras**, **Reparaciones** y **Gastado**.
+</Paso>
+
+<Paso n={2} titulo="Historial">
+Una línea por operación, cruzando:
+- **Ventas** (con el detalle de los ítems y el total),
+- **Reparaciones** (equipo, falla, estado, presupuesto),
+- **Turnos** (fecha, motivo, estado).
+
+Se ordena por fecha, lo más reciente arriba.
+</Paso>
+
+<Paso n={3} titulo="Acciones">
+**«Editar»** abre el formulario; **«Eliminar»** (solo admin) da de baja al cliente.
+</Paso>
+
+<Aviso titulo="Contadores en vivo" tono="info">
+Las columnas **Compras, Reparaciones y Gastado** no se guardan: se calculan en el momento contra las ventas y tickets del cliente, así nunca se desincronizan.
+</Aviso>
+
+## Qué no se puede
+
+- La baja de un cliente es **lógica**: no se borra el historial.
+- No se puede editar el historial: las ventas y tickets no se editan desde acá.
+
+## Relacionados
+
+- [Módulo Clientes](/ayuda/clientes/guia)
+- [Módulo Cuentas corrientes](/ayuda/cuentas-corrientes/guia)

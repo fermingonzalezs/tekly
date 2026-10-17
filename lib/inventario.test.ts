@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  agingEquipos,
-  equiposPorEstado,
-  resumenEquipos,
+  agingCelulares,
+  celularesPorEstado,
+  resumenCelulares,
   resumenOtros,
   resumenRepuestos,
   stockVsMinimo,
   unidadesPorCategoria,
+  valorInventario,
   valorPorCategoria,
   valorPorProveedor,
 } from "@/lib/inventario";
-import type { Equipo, EquipoStatus, OtroItem, Repuesto } from "@/lib/types";
+import type { Celular, CelularStatus, Notebook, OtroItem, Repuesto } from "@/lib/types";
 
-function equipo(id: string, estado: EquipoStatus, costoUsd = 100, precioUsd = 150): Equipo {
+function celular(id: string, estado: CelularStatus, costoUsd = 100, precioUsd = 150): Celular {
   return {
     id,
     modelo: `iPhone ${id}`,
@@ -60,37 +61,37 @@ function otro(
   };
 }
 
-describe("equiposPorEstado", () => {
+describe("celularesPorEstado", () => {
   it("cuenta por estado y descarta los estados sin unidades", () => {
-    const equipos = [
-      equipo("1", "disponible"),
-      equipo("2", "disponible"),
-      equipo("3", "vendido"),
-      equipo("4", "reservado"),
+    const celulares = [
+      celular("1", "disponible"),
+      celular("2", "disponible"),
+      celular("3", "vendido"),
+      celular("4", "reservado"),
     ];
-    expect(equiposPorEstado(equipos)).toEqual([
+    expect(celularesPorEstado(celulares)).toEqual([
       { label: "Disponible", value: 2 },
       { label: "Reservado", value: 1 },
       { label: "Vendido", value: 1 },
     ]);
   });
 
-  it("sin equipos devuelve una lista vacía", () => {
-    expect(equiposPorEstado([])).toEqual([]);
+  it("sin celulares devuelve una lista vacía", () => {
+    expect(celularesPorEstado([])).toEqual([]);
   });
 });
 
-describe("agingEquipos", () => {
+describe("agingCelulares", () => {
   const hoy = "2026-10-04";
 
   it("ubica cada equipo en su rango desde el primer ingreso", () => {
-    const equipos = [equipo("1", "disponible"), equipo("2", "disponible"), equipo("3", "disponible")];
+    const celulares = [celular("1", "disponible"), celular("2", "disponible"), celular("3", "disponible")];
     const movimientos = [
-      { itemTipo: "equipo" as const, itemId: "1", tipo: "ingreso", fechaISO: "2026-09-20" }, // 14 d
-      { itemTipo: "equipo" as const, itemId: "2", tipo: "ingreso", fechaISO: "2026-08-01" }, // 64 d
-      { itemTipo: "equipo" as const, itemId: "3", tipo: "ingreso", fechaISO: "2025-01-01" }, // 180+
+      { itemTipo: "celular" as const, itemId: "1", tipo: "ingreso", fechaISO: "2026-09-20" }, // 14 d
+      { itemTipo: "celular" as const, itemId: "2", tipo: "ingreso", fechaISO: "2026-08-01" }, // 64 d
+      { itemTipo: "celular" as const, itemId: "3", tipo: "ingreso", fechaISO: "2025-01-01" }, // 180+
     ];
-    expect(agingEquipos(equipos, movimientos, hoy)).toEqual([
+    expect(agingCelulares(celulares, movimientos, hoy)).toEqual([
       { label: "0-30", value: 1 },
       { label: "61-90", value: 1 },
       { label: "180+", value: 1 },
@@ -98,20 +99,20 @@ describe("agingEquipos", () => {
   });
 
   it("usa el primer ingreso cuando hay varios", () => {
-    const equipos = [equipo("1", "disponible")];
+    const celulares = [celular("1", "disponible")];
     const movimientos = [
-      { itemTipo: "equipo" as const, itemId: "1", tipo: "ingreso", fechaISO: "2025-01-01" },
-      { itemTipo: "equipo" as const, itemId: "1", tipo: "ingreso", fechaISO: "2026-10-01" },
+      { itemTipo: "celular" as const, itemId: "1", tipo: "ingreso", fechaISO: "2025-01-01" },
+      { itemTipo: "celular" as const, itemId: "1", tipo: "ingreso", fechaISO: "2026-10-01" },
     ];
-    expect(agingEquipos(equipos, movimientos, hoy)).toEqual([{ label: "180+", value: 1 }]);
+    expect(agingCelulares(celulares, movimientos, hoy)).toEqual([{ label: "180+", value: 1 }]);
   });
 
   it("excluye vendidos y los que no tienen ingreso registrado", () => {
-    const equipos = [equipo("1", "vendido"), equipo("2", "disponible")];
+    const celulares = [celular("1", "vendido"), celular("2", "disponible")];
     const movimientos = [
-      { itemTipo: "equipo" as const, itemId: "1", tipo: "ingreso", fechaISO: "2026-09-20" },
+      { itemTipo: "celular" as const, itemId: "1", tipo: "ingreso", fechaISO: "2026-09-20" },
     ];
-    expect(agingEquipos(equipos, movimientos, hoy)).toEqual([]);
+    expect(agingCelulares(celulares, movimientos, hoy)).toEqual([]);
   });
 });
 
@@ -171,14 +172,14 @@ describe("unidadesPorCategoria / valorPorCategoria", () => {
   });
 });
 
-describe("resumenEquipos", () => {
+describe("resumenCelulares", () => {
   it("calcula totales, disponibles y capital inmovilizado", () => {
-    const equipos = [
-      equipo("1", "disponible", 100, 150),
-      equipo("2", "vendido", 200, 300),
-      equipo("3", "reservado", 50, 80),
+    const celulares = [
+      celular("1", "disponible", 100, 150),
+      celular("2", "vendido", 200, 300),
+      celular("3", "reservado", 50, 80),
     ];
-    expect(resumenEquipos(equipos)).toEqual({
+    expect(resumenCelulares(celulares)).toEqual({
       total: 3,
       disponibles: 1,
       reservados: 1,
@@ -229,5 +230,84 @@ describe("resumenOtros", () => {
       valorVenta: 140,
       serializados: 1,
     });
+  });
+});
+
+function notebook(id: string, estado: CelularStatus, costoUsd = 500, precioUsd = 700): Notebook {
+  return {
+    id,
+    modelo: `MacBook ${id}`,
+    cpu: "M2",
+    memoria: "8GB",
+    almacenamiento: "256GB",
+    pantalla: '13"',
+    color: "Gris",
+    idioma: "ES",
+    numeroSerie: id,
+    garantia: "6 meses",
+    notas: "",
+    costoUsd,
+    precioUsd,
+    estado,
+    condicion: "nuevo",
+    bateria: null,
+  };
+}
+
+describe("valorInventario", () => {
+  it("excluye vendidos y extraviados y calcula el valor a venta/margen", () => {
+    const r = valorInventario({
+      celulares: [
+        celular("1", "disponible", 100, 150),
+        celular("2", "vendido", 200, 300),
+        celular("3", "extraviado", 50, 80),
+      ],
+      notebooks: [notebook("n1", "disponible", 500, 700)],
+      repuestos: [repuesto("a", { stock: 2, costoUsd: 10 })], // 20
+      otros: [otro("o1", "ipad", 2, 100)], // 200 costo, 40 venta
+    });
+    // costo: 100 + 500 + 20 + 200 = 820
+    expect(r.total).toBe(820);
+    // venta: celulares 150 + notebooks 700 + repuestos (sin precio) + otros 2*20=40
+    expect(r.valorVenta).toBe(890);
+    expect(r.margenPotencial).toBe(70);
+    expect(r.extraviadoACosto).toBe(50);
+    const repuestos = r.porCategoria.find((c) => c.key === "repuestos")!;
+    expect(repuestos.valorVenta).toBeNull();
+    expect(repuestos.margen).toBeNull();
+    expect(r.porCategoria).toHaveLength(4);
+  });
+
+  it("cuenta unidades sin costo cargado (serializado y no serializado)", () => {
+    const r = valorInventario({
+      celulares: [celular("1", "disponible", 0, 100)],
+      repuestos: [repuesto("a", { stock: 3, costoUsd: 0 })],
+      otros: [
+        otro("o1", "ipad", 4, 0), // 4 unidades sin costo
+        {
+          id: "o2",
+          nombre: "AirPods",
+          categoria: "airpods",
+          precioUsd: 50,
+          serializado: true,
+          unidades: [
+            { serial: "S1", costoUsd: 0 },
+            { serial: "S2", costoUsd: 40 },
+          ],
+        },
+      ],
+    });
+    const cel = r.porCategoria.find((c) => c.key === "celulares")!;
+    const rep = r.porCategoria.find((c) => c.key === "repuestos")!;
+    const otr = r.porCategoria.find((c) => c.key === "otros")!;
+    expect(cel.sinCosto).toBe(1);
+    expect(rep.sinCosto).toBe(3);
+    expect(otr.sinCosto).toBe(5); // 4 (cantidad) + 1 (unidad sin costo)
+  });
+
+  it("sin notebooks (param opcional) no rompe", () => {
+    const r = valorInventario({ celulares: [], repuestos: [], otros: [] });
+    expect(r.total).toBe(0);
+    expect(r.porCategoria.find((c) => c.key === "notebooks")!.unidades).toBe(0);
   });
 });

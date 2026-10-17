@@ -1,0 +1,62 @@
+---
+titulo: "Celulares por IMEI"
+resumen: "Cómo dar de alta, editar y entender los estados de un celular: modelo, almacenamiento, batería, condición, costo y precio."
+seccion: inventario
+roles: []
+orden: 2
+actualizado: 2026-10-17
+---
+
+La pestaña **Celulares** lista las unidades únicas del stock. Cada celular se identifica por su **IMEI/serial**.
+
+## Ver y editar
+
+<Paso n={1} titulo="Agregar celular">
+El botón **«Agregar celular»** abre el formulario en blanco. Entra en estado **«En revisión»**.
+</Paso>
+
+<Paso n={2} titulo="Editar">
+Tocá una fila para abrir el mismo formulario con todos los campos, incluido el **estado**.
+</Paso>
+
+## Campos
+
+- **Modelo** (obligatorio), **Almacenamiento** (64GB a 1TB), **Color**, **IMEI/Serial**, **Batería (%)**, **Condición** (NUEVO, A+, A, B+, B, C).
+- **Costo (U$)** y **Venta (U$)** (obligatorios para guardar).
+- **Estado**: sólo se cambia en edición.
+
+La tabla muestra Celular, Color, Almacenamiento, IMEI, Batería, Condición, Costo y Margen (si tu rol no es vendedor), Estado y Venta.
+
+## Estados
+
+- **En revisión**: recién ingresado, todavía no está a la venta.
+- **Disponible**: se puede vender.
+- **Reservado**: está reservado para una venta o un turno.
+- **Vendido**: ya salió; no vuelve a venderse y no entra en recuentos.
+- **Extraviado**: no se encontró en un recuento.
+
+## Qué pasa después
+
+- Al venderlo desde Ventas, el celular pasa solo a **«Vendido»**.
+- Al agendarlo en un turno de compra con reserva, pasa a **«Reservado»**.
+- Si un cliente paga con un equipo en un **canje**, ese celular aparece acá como **«En revisión»** (costo = valor del canje, precio 0) — ver [Canje](/ayuda/ventas/canje).
+- Cada alta o edición deja un registro en el **historial de movimientos** del celular.
+
+## Copiar el texto para publicar
+
+En cada fila hay un botón **📋**: copia al portapapeles una ficha lista para pegar en WhatsApp o redes (modelo, almacenamiento, color, batería, condición y precio de venta). También está en el detalle del celular, como «📋 Copiar texto». Al copiar, el botón muestra ✅ un instante.
+
+La ficha **nunca incluye el costo, el IMEI ni notas internas**, así que se puede mandar tal cual. Copia lo que está guardado: si editás un dato, guardá primero.
+
+## Qué no se puede
+
+- El **IMEI no se puede repetir** en tu organización.
+- Un vendedor no ve costo ni margen.
+- Sólo el admin puede **eliminar** un celular (y es una baja lógica: conserva el historial).
+- El estado no se cambia desde la fila: se edita abriendo el celular.
+
+## Relacionados
+
+- [Notebooks](/ayuda/inventario/notebooks)
+- [Movimientos de stock](/ayuda/inventario/movimientos-stock)
+- [Módulo Inventario](/ayuda/inventario/guia)

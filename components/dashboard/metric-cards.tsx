@@ -71,6 +71,7 @@ const XL_COLS: Record<number, string> = {
   4: "xl:grid-cols-4",
   5: "xl:grid-cols-5",
   6: "xl:grid-cols-6",
+  7: "xl:grid-cols-7",
 };
 
 export function MetricCards({ metrics }: { metrics: MetricaDashboard[] }) {

@@ -2,7 +2,7 @@
  * red. Extraída de `app/ventas/page.tsx` (antes vivía inline en el
  * componente del modal). */
 
-import type { MedioPagoVenta, Pago, Venta, VentaItem } from "@/lib/types";
+import type { CelularStatus, MedioPagoVenta, Pago, Venta, VentaItem } from "@/lib/types";
 import { fmtArs, fmtUsd } from "@/lib/format";
 import { hoyISO } from "@/lib/date-presets";
 
@@ -11,7 +11,8 @@ export type PagoDraft = { montoUsd: number };
 export type Rubro = NonNullable<VentaItem["categoria"]>;
 
 export const RUBRO_LABEL: Record<Rubro, string> = {
-  equipo: "Equipos",
+  celular: "Celulares",
+  notebook: "Notebooks",
   servicio: "Reparaciones",
   otro: "Accesorios",
   libre: "Otros",
@@ -20,12 +21,26 @@ export const RUBRO_LABEL: Record<Rubro, string> = {
 export const RUBRO_ORDEN = Object.keys(RUBRO_LABEL) as Rubro[];
 
 /** Ventas de antes de trackear `VentaItem.categoria` sólo permiten inferir
- * con certeza el caso "equipo" (tiene `equipoId`); el resto cae en "Otros"
+ * con certeza el caso "celular" (tiene `celularId`); el resto cae en "Otros"
  * en vez de adivinar servicio/producto/libre. Compartida entre
  * `ventasPorRubro` (dashboard) y `margenPorTipo` (analíticas) -- una sola
  * fuente de verdad para el rubro de un ítem. */
+/** `false` para un pago en canje («Mercadería») o a cuenta corriente: son
+ * los dos medios que **no** son una caja ni generan `movimientos_caja`
+ * (plan 020). La caja real la elige el usuario, va en `cajaId`. */
+export function pagoGeneraMovimientoCaja(p: Pick<Pago, "medio">): boolean {
+  return p.medio !== "cuenta_corriente" && p.medio !== "canje";
+}
+
+/** El celular que entró por un canje solo se puede dar de baja al eliminar
+ * la venta si sigue `en_revision` o `disponible`: si ya se vendió, reservó
+ * o extravió, se conserva (plan 020). */
+export function celularCanjeBorrable(estado: CelularStatus): boolean {
+  return estado === "en_revision" || estado === "disponible";
+}
+
 export function categoriaDe(item: VentaItem): Rubro {
-  return item.categoria ?? (item.equipoId ? "equipo" : "libre");
+  return item.categoria ?? (item.celularId ? "celular" : "libre");
 }
 
 /** % de margen sobre precio -- 0 si no hay precio (evita división por 0). */

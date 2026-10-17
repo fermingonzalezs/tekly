@@ -1,26 +1,59 @@
 ---
 titulo: "Módulo Cuentas corrientes"
-resumen: "El \"fiado\" por cliente: cargos que suman deuda y pagos que la reducen, con saldo e historial por cliente."
+resumen: "El «fiado» por cliente: cargos que suman deuda y pagos que la reducen, con saldo e historial por cliente."
 seccion: cuentas-corrientes
-roles: []
+roles: [admin, tecnico]
 orden: 1
-actualizado: 2026-10-04
+actualizado: 2026-10-17
 ---
 
-Cuentas corrientes lleva el saldo que tus clientes te deben. Un **cargo** (por ejemplo, una venta cobrada a cuenta corriente) suma deuda; un **pago** la reduce.
+Cuentas corrientes lleva el saldo que tus clientes te deben. La sección es **solo para admin y técnico**. Un **cargo** suma deuda; un **pago** la reduce.
 
-<Paso n={1} titulo="Buscá al cliente">
-Por nombre o teléfono. Ves su saldo actual y el detalle de movimientos.
-</Paso>
+## Operaciones
 
-<Paso n={2} titulo="Registrar pago">
-Desde la ficha del cliente, **«Registrar pago»** descuenta del saldo. También podés registrar desde el botón de la sección.
-</Paso>
+- [Cargos y pagos](/ayuda/cuentas-corrientes/cargos-y-pagos)
+- [Registrar un pago](/ayuda/cuentas-corrientes/registrar-pago)
 
-<Aviso titulo="Siempre en dólares" tono="info">
-Los saldos se manejan en **USD**, como el resto del sistema. Una venta cobrada a cuenta corriente genera el cargo automáticamente.
-</Aviso>
+## La pantalla
 
-## Ver también
+- **Tarjetas**: Clientes con deuda, Total por cobrar, Cobrado (histórico) y Cuentas al día.
+- **Gráficos**: «Deuda por cliente» y «Cargos vs pagos por mes».
+- **Lista**: una fila por cliente con deuda; el buscador filtra por nombre o teléfono. Tocá un cliente para ver su detalle.
+- **Ficha**: el historial de movimientos del cliente, con un botón para **«Registrar pago»**.
+
+## Qué no se puede
+
+- Un **vendedor** no entra: la sección es admin/técnico.
+- Sólo el **admin** puede eliminar un movimiento.
+- Borrar una venta fiada no borra la deuda sola: hay que marcar la opción en el diálogo de borrado (ver [Cargos y pagos](/ayuda/cuentas-corrientes/cargos-y-pagos)).
+
+## Preguntas frecuentes
+
+**¿Cómo vendo fiado?**
+En «Nueva venta», elegí el medio «Cuenta corriente». El cargo se crea solo acá.
+
+**¿De dónde salen los cargos?**
+De una venta cobrada a cuenta corriente o de una reparación entregada a cuenta corriente. También podés crear uno a mano.
+
+**¿Hay que crear el cliente antes?**
+Sí: los cargos automáticos necesitan un cliente registrado.
+
+**¿Puedo cobrar una deuda en partes?**
+Sí: cada pago reduce el saldo; podés registrar varios.
+
+**¿Qué pasa si borro una venta fiada?**
+Podés elegir borrar también el movimiento de cuenta corriente que generó. Ver [Cargos y pagos](/ayuda/cuentas-corrientes/cargos-y-pagos).
+
+**¿El saldo está en pesos o en dólares?**
+En **USD**, como el resto del sistema.
+
+**¿Puedo eliminar un pago por error?**
+Sí, el admin puede eliminar un movimiento desde la ficha.
+
+**¿Un saldo negativo qué significa?**
+Que el cliente tiene saldo a favor (pagó de más).
+
+## Relacionados
 
 - [Pago dividido y cuenta corriente](/ayuda/ventas/pago-dividido)
+- [Entregar el equipo y cobrar](/ayuda/reparaciones/entregar-equipo)

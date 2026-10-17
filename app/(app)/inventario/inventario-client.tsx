@@ -21,7 +21,7 @@ import { SeccionTabla } from "@/components/ui/seccion-tabla";
 import { BarraFiltros } from "@/components/ui/barra-filtros";
 import { GraficoDona, GraficoRanking } from "@/components/seccion/graficos";
 import {
-  equipoStatus,
+  celularStatus,
   otroCategoria,
   repuestoEstado,
   dotClass,
@@ -31,9 +31,12 @@ import { GHOST_STRIPES } from "@/lib/chart";
 import { fmtUsd } from "@/lib/format";
 import { otroCantidad, otroCostoPromedio } from "@/lib/otros";
 import {
-  agingEquipos,
-  equiposPorEstado,
-  resumenEquipos,
+  CELULAR_ESTADOS,
+  agingCelulares,
+  celularesPorEstado,
+  notebooksPorEstado,
+  resumenCelulares,
+  resumenNotebooks,
   resumenOtros,
   resumenRepuestos,
   stockVsMinimo,
@@ -44,19 +47,21 @@ import {
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import type {
-  Equipo,
-  EquipoStatus,
+  Celular,
+  CelularStatus,
   Movimiento,
+  Notebook,
+  NotebookCondicion,
   OtroCategoria,
   OtroItem,
   OtroUnidad,
   Repuesto,
 } from "@/lib/types";
 import {
-  createEquipoAction,
-  updateEquipoAction,
-  deleteEquipoAction,
-  crearRecuentoEquiposAction,
+  createCelularAction,
+  updateCelularAction,
+  deleteCelularAction,
+  crearRecuentoCelularesAction,
   updateRepuestoAction,
   nuevoRepuestoAction,
   ingresoRepuestoAction,
@@ -68,12 +73,20 @@ import {
   crearRecuentoOtrosAction,
   deleteOtroAction,
   getMovimientosAction,
+  createNotebookAction,
+  updateNotebookAction,
+  deleteNotebookAction,
 } from "./actions";
-import type { EquipoInput, RepuestoInput } from "@/lib/db/inventario";
+import type { CelularInput, RepuestoInput } from "@/lib/db/inventario";
+import type { NotebookInput } from "@/lib/db/notebooks";
+import { CopiarTexto } from "@/components/copiar-texto";
+import { copyCelular, copyNotebook } from "@/lib/difusion";
+import { CopiarSeleccion } from "@/components/copiar-texto";
+import { CheckSeleccion } from "@/components/ui/check-seleccion";
 import type { MovimientoStockBulk } from "@/lib/db/inventario";
 import type { SessionUser } from "@/lib/auth/types";
 
-type Tab = "equipos" | "repuestos" | "otros";
+type Tab = "celulares" | "notebooks" | "repuestos" | "otros";
 const CATS: OtroCategoria[] = [
   "ipad",
   "airpods",
@@ -93,17 +106,24 @@ function MovimientosLog({ movimientos }: { movimientos: Movimiento[] | null }) {
           detalle -- se apila en su lugar. */}
       <div className="overflow-hidden rounded-xl border border-neutral-200 font-mono md:hidden">
         {movimientos === null ? (
-          <p className="px-4 py-3 text-center text-[13px] text-neutral-400">Cargando…</p>
+          <p className="px-4 py-3 text-center text-[13px] text-neutral-400">
+            Cargando…
+          </p>
         ) : movimientos.length === 0 ? (
           <p className="px-4 py-3 text-center text-[13px] text-neutral-400">
             Sin movimientos registrados.
           </p>
         ) : (
           movimientos.map((m, i) => (
-            <div key={i} className="border-t border-neutral-100 px-4 py-2 text-[12px] first:border-t-0">
+            <div
+              key={i}
+              className="border-t border-neutral-100 px-4 py-2 text-[12px] first:border-t-0"
+            >
               <p className="truncate text-neutral-800">{m.detalle}</p>
               <p className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-neutral-500">
-                <span>{m.fecha} · {m.hora}</span>
+                <span>
+                  {m.fecha} · {m.hora}
+                </span>
                 <span className="truncate text-accent">{m.usuario}</span>
               </p>
             </div>
@@ -149,7 +169,10 @@ function MovimientosLog({ movimientos }: { movimientos: Movimiento[] | null }) {
 }
 
 /** Trae el historial de movimientos de un ítem cuando su diálogo se abre. */
-function useMovimientos(itemType: "equipo" | "repuesto" | "otro", itemId: string | null) {
+function useMovimientos(
+  itemType: "celular" | "notebook" | "repuesto" | "otro",
+  itemId: string | null,
+) {
   const [movimientos, setMovimientos] = useState<Movimiento[] | null>(null);
   useEffect(() => {
     if (!itemId) {
@@ -169,18 +192,20 @@ function useMovimientos(itemType: "equipo" | "repuesto" | "otro", itemId: string
 }
 
 export function InventarioClient({
-  initialEquipos,
+  initialCelulares,
+  initialNotebooks,
   initialRepuestos,
   initialOtros,
   movimientos,
   hoy,
   user,
 }: {
-  initialEquipos: Equipo[];
+  initialCelulares: Celular[];
+  initialNotebooks: Notebook[];
   initialRepuestos: Repuesto[];
   initialOtros: OtroItem[];
   /** Movimientos de stock de la org (ingreso/egreso/baja) -- alimentan el
-   *  gráfico de antigüedad de Equipos. */
+   *  gráfico de antigüedad de Celulares. */
   movimientos: MovimientoStockBulk[];
   /** "Hoy" en hora de Argentina (server) -- pasarlo evita el mismatch de
    *  hidratación al medir antigüedad con `new Date()` en cada lado. */
@@ -195,27 +220,33 @@ export function InventarioClient({
   const puedeVerCosto = user.rol !== "vendedor";
   const [, startDeleteTransition] = useTransition();
   // ?tab=/?q= (búsqueda global de la CommandPalette): la tab inicial y el
-  // prefill del buscador se leen de la URL (un resultado de "Equipos" linkea
-  // /inventario?tab=equipos&q=...). Acá arriba porque el useState de `q`
+  // prefill del buscador se leen de la URL (un resultado de "Celulares" linkea
+  // /inventario?tab=celulares&q=...). Acá arriba porque el useState de `q`
   // (más abajo) ya los usa.
   const urlParams = useSearchParams();
   const tabParam = urlParams.get("tab");
   const [tab, setTab] = useState<Tab>(
-    tabParam === "repuestos" || tabParam === "otros" ? tabParam : "equipos",
+    tabParam === "notebooks" || tabParam === "repuestos" || tabParam === "otros"
+      ? tabParam
+      : "celulares",
   );
-  const [equipos, setEquipos] = useState<Equipo[]>(initialEquipos);
+  const [celulares, setCelulares] = useState<Celular[]>(initialCelulares);
+  const [notebooks, setNotebooks] = useState<Notebook[]>(initialNotebooks);
   const [repuestos, setRepuestos] = useState<Repuesto[]>(initialRepuestos);
   const [otros, setOtros] = useState<OtroItem[]>(initialOtros);
 
-  // Recuento (Equipos/Repuestos/Otros) siempre en un modal aparte
-  // (`recuentoModalTipo` + `RecuentoEquiposModalDialog`/`RecuentoModalDialog`,
+  // Recuento (Celulares/Repuestos/Otros) siempre en un modal aparte
+  // (`recuentoModalTipo` + `RecuentoCelularesModalDialog`/`RecuentoModalDialog`,
   // al final del archivo) -- la tabla nunca cambia de forma al hacer un
   // recuento, todo el conteo se anota en el modal.
   const [recuentoModalTipo, setRecuentoModalTipo] = useState<
-    "equipos" | "repuestos" | "otros" | null
+    "celulares" | "repuestos" | "otros" | null
   >(null);
   const [q, setQ] = useState(urlParams.get("q") ?? "");
-  const [equipoFiltro, setEquipoFiltro] = useState<"todos" | EquipoStatus>(
+  const [celularFiltro, setCelularFiltro] = useState<"todos" | CelularStatus>(
+    "todos",
+  );
+  const [notebookFiltro, setNotebookFiltro] = useState<"todos" | CelularStatus>(
     "todos",
   );
   const [repuestoFiltro, setRepuestoFiltro] = useState<
@@ -225,15 +256,33 @@ export function InventarioClient({
     "todos",
   );
 
-  const [addEquipo, setAddEquipo] = useState(false);
+  // Selección múltiple para copiar varios textos «para publicar» a la vez.
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  function toggleSel(id: string) {
+    setSeleccion((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function toggleTodos(ids: string[]) {
+    setSeleccion((prev) =>
+      ids.every((id) => prev.has(id)) ? new Set() : new Set(ids),
+    );
+  }
+  const [addCelular, setAddCelular] = useState(false);
+  const [addNotebook, setAddNotebook] = useState(false);
   const [addRepuesto, setAddRepuesto] = useState(false);
   const [addOtro, setAddOtro] = useState(false);
-  const [openEquipoId, setOpenEquipoId] = useState<string | null>(null);
+  const [openCelularId, setOpenCelularId] = useState<string | null>(null);
+  const [openNotebookId, setOpenNotebookId] = useState<string | null>(null);
   const [openRepuestoId, setOpenRepuestoId] = useState<string | null>(null);
   const [openOtroId, setOpenOtroId] = useState<string | null>(null);
   const [reponerId, setReponerId] = useState<string | null>(null);
   const [expandedOtros, setExpandedOtros] = useState<Set<string>>(new Set());
-  const openEquipo = equipos.find((e) => e.id === openEquipoId) ?? null;
+  const openCelular = celulares.find((e) => e.id === openCelularId) ?? null;
+  const openNotebook = notebooks.find((n) => n.id === openNotebookId) ?? null;
   const openRepuesto = repuestos.find((r) => r.id === openRepuestoId) ?? null;
   const openOtro = otros.find((o) => o.id === openOtroId) ?? null;
 
@@ -252,8 +301,10 @@ export function InventarioClient({
 
   function switchTab(t: Tab) {
     setRecuentoModalTipo(null);
+    setSeleccion(new Set());
     setQ("");
-    setEquipoFiltro("todos");
+    setCelularFiltro("todos");
+    setNotebookFiltro("todos");
     setRepuestoFiltro("todos");
     setOtroFiltro("todos");
     setTab(t);
@@ -267,24 +318,43 @@ export function InventarioClient({
   useEffect(() => {
     const tabParam = urlParams.get("tab");
     const qParam = urlParams.get("q");
+    const celularParam = urlParams.get("celular");
+    if (celularParam) {
+      // Deep link al detalle de un celular (ej. "Ver celular" desde el
+      // detalle de una venta con canje, plan 020).
+      setTab("celulares");
+      setOpenCelularId(celularParam);
+    }
     if (
-      tabParam === "equipos" ||
+      tabParam === "celulares" ||
+      tabParam === "notebooks" ||
       tabParam === "repuestos" ||
       tabParam === "otros"
     ) {
       setTab(tabParam);
+    } else if (tabParam === "equipos") {
+      // Links viejos (?tab=equipos) -> Celulares.
+      setTab("celulares");
     }
     if (qParam) setQ(qParam);
   }, [urlParams]);
 
   const needle = q.trim().toLowerCase();
-  const equiposFiltrados = equipos.filter(
+  const celularesFiltrados = celulares.filter(
     (e) =>
-      (equipoFiltro === "todos" || e.estado === equipoFiltro) &&
+      (celularFiltro === "todos" || e.estado === celularFiltro) &&
       (!needle ||
         e.modelo.toLowerCase().includes(needle) ||
         e.color.toLowerCase().includes(needle) ||
         e.imei.toLowerCase().includes(needle)),
+  );
+  const notebooksFiltrados = notebooks.filter(
+    (n) =>
+      (notebookFiltro === "todos" || n.estado === notebookFiltro) &&
+      (!needle ||
+        n.modelo.toLowerCase().includes(needle) ||
+        n.numeroSerie.toLowerCase().includes(needle) ||
+        n.cpu.toLowerCase().includes(needle)),
   );
   const repuestosFiltrados = repuestos.filter(
     (r) =>
@@ -305,7 +375,8 @@ export function InventarioClient({
   );
 
   const tabOptions = [
-    { value: "equipos" as Tab, label: "Equipos", count: equipos.length },
+    { value: "celulares" as Tab, label: "Celulares", count: celulares.length },
+    { value: "notebooks" as Tab, label: "Notebooks", count: notebooks.length },
     { value: "repuestos" as Tab, label: "Repuestos", count: repuestos.length },
     { value: "otros" as Tab, label: "Otros", count: otros.length },
   ];
@@ -313,11 +384,19 @@ export function InventarioClient({
   // Derivados de la tab activa. Las tarjetas y los gráficos son una foto del
   // inventario completo (no de la búsqueda): el buscador filtra la tabla, no
   // los KPIs.
-  const eq = resumenEquipos(equipos);
+  const eq = resumenCelulares(celulares);
+  const nb = resumenNotebooks(notebooks);
+  const notebookSlices = notebooksPorEstado(notebooks);
+  const notebookValorPorEstado = CELULAR_ESTADOS.map((estado) => ({
+    label: celularStatus[estado].label,
+    value: notebooks
+      .filter((n) => n.estado === estado)
+      .reduce((a, n) => a + n.costoUsd, 0),
+  })).filter((b) => b.value > 0);
   const rep = resumenRepuestos(repuestos);
   const ot = resumenOtros(otros);
-  const estadoSlices = equiposPorEstado(equipos);
-  const agingRows = agingEquipos(equipos, movimientos, hoy);
+  const estadoSlices = celularesPorEstado(celulares);
+  const agingRows = agingCelulares(celulares, movimientos, hoy);
   const stockMinRows = stockVsMinimo(repuestos);
   const proveedorRows = valorPorProveedor(repuestos);
   const categoriaUnidades = unidadesPorCategoria(otros);
@@ -330,11 +409,13 @@ export function InventarioClient({
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder={
-          tab === "equipos"
+          tab === "celulares"
             ? "Buscar por modelo, color o IMEI…"
-            : tab === "repuestos"
-              ? "Buscar por nombre, SKU, modelo o proveedor…"
-              : "Buscar por nombre…"
+            : tab === "notebooks"
+              ? "Buscar por modelo, serie o CPU…"
+              : tab === "repuestos"
+                ? "Buscar por nombre, SKU, modelo o proveedor…"
+                : "Buscar por nombre…"
         }
         className={cn("w-full pl-9", filterPill)}
         aria-label="Buscar en inventario"
@@ -344,39 +425,50 @@ export function InventarioClient({
 
   const accion = (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <Button icon={ClipboardCheck}
-        variant="outline"
-        size="sm"
-        className="w-full sm:w-auto"
-        onClick={() => setRecuentoModalTipo(tab)}
-      >
-        Recuento
-      </Button>
-      <Button icon={Plus}
+      {tab !== "notebooks" && (
+        <Button
+          icon={ClipboardCheck}
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={() =>
+            setRecuentoModalTipo(tab as "celulares" | "repuestos" | "otros")
+          }
+        >
+          Recuento
+        </Button>
+      )}
+      <Button
+        icon={Plus}
         onClick={() =>
-          tab === "equipos"
-            ? setAddEquipo(true)
-            : tab === "repuestos"
-              ? setAddRepuesto(true)
-              : setAddOtro(true)
+          tab === "celulares"
+            ? setAddCelular(true)
+            : tab === "notebooks"
+              ? setAddNotebook(true)
+              : tab === "repuestos"
+                ? setAddRepuesto(true)
+                : setAddOtro(true)
         }
-        variant="tonal" fullOnMobile
+        variant="tonal"
+        fullOnMobile
       >
-        {tab === "equipos"
-          ? "Agregar equipo"
-          : tab === "repuestos"
-            ? "Agregar / ingresar repuesto"
-            : "Agregar / ingresar producto"}
+        {tab === "celulares"
+          ? "Agregar celular"
+          : tab === "notebooks"
+            ? "Agregar notebook"
+            : tab === "repuestos"
+              ? "Agregar / ingresar repuesto"
+              : "Agregar / ingresar producto"}
       </Button>
     </div>
   );
 
   const filtrosTab =
-    tab === "equipos" ? (
+    tab === "celulares" ? (
       <Select
-        value={equipoFiltro}
+        value={celularFiltro}
         onChange={(e) =>
-          setEquipoFiltro(e.target.value as "todos" | EquipoStatus)
+          setCelularFiltro(e.target.value as "todos" | CelularStatus)
         }
         className={cn("w-full md:w-52", filterPill)}
         aria-label="Filtrar por estado"
@@ -384,7 +476,23 @@ export function InventarioClient({
         <option value="todos">Todos los estados</option>
         {ESTADOS.map((s) => (
           <option key={s} value={s}>
-            {equipoStatus[s].label}
+            {celularStatus[s].label}
+          </option>
+        ))}
+      </Select>
+    ) : tab === "notebooks" ? (
+      <Select
+        value={notebookFiltro}
+        onChange={(e) =>
+          setNotebookFiltro(e.target.value as "todos" | CelularStatus)
+        }
+        className={cn("w-full md:w-52", filterPill)}
+        aria-label="Filtrar por estado"
+      >
+        <option value="todos">Todos los estados</option>
+        {ESTADOS.map((s) => (
+          <option key={s} value={s}>
+            {celularStatus[s].label}
           </option>
         ))}
       </Select>
@@ -415,33 +523,52 @@ export function InventarioClient({
       </Select>
     );
 
-  const filtrosActivos =
-    (tab === "equipos"
-      ? equipoFiltro !== "todos"
-      : tab === "repuestos"
-        ? repuestoFiltro !== "todos"
-        : otroFiltro !== "todos")
-      ? 1
-      : 0;
+  const filtrosActivos = (
+    tab === "celulares"
+      ? celularFiltro !== "todos"
+      : tab === "notebooks"
+        ? notebookFiltro !== "todos"
+        : tab === "repuestos"
+          ? repuestoFiltro !== "todos"
+          : otroFiltro !== "todos"
+  )
+    ? 1
+    : 0;
 
   return (
     <>
       <SeccionTabla
         id="inventario"
         graficos={
-          tab === "equipos" ? (
+          tab === "celulares" ? (
             <>
               <GraficoDona
-                title="Estado de los equipos"
+                title="Estado de los celulares"
                 sub="unidades por estado"
                 data={estadoSlices}
-                vacio="Sin equipos cargados."
+                vacio="Sin celulares cargados."
               />
               <GraficoRanking
                 title="Antigüedad del stock"
-                sub="equipos sin vender, por días desde el ingreso"
+                sub="celulares sin vender, por días desde el ingreso"
                 rows={agingRows}
                 vacio="Sin registros de ingreso para medir la antigüedad."
+              />
+            </>
+          ) : tab === "notebooks" ? (
+            <>
+              <GraficoDona
+                title="Estado de las notebooks"
+                sub="unidades por estado"
+                data={notebookSlices}
+                vacio="Sin notebooks cargadas."
+              />
+              <GraficoRanking
+                title="Valor por estado"
+                sub="a costo"
+                rows={notebookValorPorEstado}
+                fmt={fmtUsd}
+                vacio="Sin notebooks cargadas."
               />
             </>
           ) : tab === "repuestos" ? (
@@ -479,11 +606,11 @@ export function InventarioClient({
           )
         }
         tarjetas={
-          tab === "equipos" ? (
+          tab === "celulares" ? (
             <>
               <StatCard
                 align="left"
-                label="Equipos"
+                label="Celulares"
                 value={eq.total}
                 hint="unidades"
               />
@@ -523,6 +650,42 @@ export function InventarioClient({
                   hint="turno pendiente"
                 />
               )}
+            </>
+          ) : tab === "notebooks" ? (
+            <>
+              <StatCard
+                align="left"
+                label="Notebooks"
+                value={nb.total}
+                hint="unidades"
+              />
+              {puedeVerCosto ? (
+                <StatCard
+                  align="left"
+                  label="Valor a costo"
+                  value={fmtUsd(nb.valorCosto)}
+                  hint="inventario histórico"
+                />
+              ) : (
+                <StatCard
+                  align="left"
+                  label="Valor de venta"
+                  value={fmtUsd(nb.valorVenta)}
+                  hint="precio de lista"
+                />
+              )}
+              <StatCard
+                align="left"
+                label="Disponibles"
+                value={nb.disponibles}
+                hint="para vender"
+              />
+              <StatCard
+                align="left"
+                label="Reservadas"
+                value={nb.reservadas}
+                hint="turno pendiente"
+              />
             </>
           ) : tab === "repuestos" ? (
             <>
@@ -615,20 +778,35 @@ export function InventarioClient({
           />
         }
       >
-
-        {/* ── Equipos ───────────────────────────── */}
-        {tab === "equipos" &&
+        {/* ── Celulares ───────────────────────────── */}
+        {tab === "celulares" &&
           (() => {
             return (
               <>
+                {celularesFiltrados.some((e) => seleccion.has(e.id)) && (
+                  <CopiarSeleccion
+                    textos={() =>
+                      celularesFiltrados
+                        .filter((e) => seleccion.has(e.id))
+                        .map(copyCelular)
+                    }
+                    onLimpiar={() => setSeleccion(new Set())}
+                  />
+                )}
                 <div className="space-y-2 md:hidden">
-                  {equiposFiltrados.map((e) => (
+                  {celularesFiltrados.map((e) => (
                     <Card
                       key={e.id}
-                      onClick={() => setOpenEquipoId(e.id)}
+                      onClick={() => setOpenCelularId(e.id)}
                       className="cursor-pointer overflow-hidden p-0"
                     >
-                      <div className="bg-table-header px-4 py-2 text-white">
+                      <div className="flex items-center gap-2.5 bg-table-header px-4 py-2 text-white">
+                        <CheckSeleccion
+                          tono="oscuro"
+                          label={`Seleccionar ${e.modelo}`}
+                          checked={seleccion.has(e.id)}
+                          onChange={() => toggleSel(e.id)}
+                        />
                         <p className="truncate text-sm font-semibold">
                           {e.modelo} {e.almacenamiento}
                         </p>
@@ -640,29 +818,32 @@ export function InventarioClient({
                           </p>
                           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
                             <span>Batería {e.bateria}%</span>
-                            {puedeVerCosto && <span>Costo {fmtUsd(e.costoUsd)}</span>}
+                            {puedeVerCosto && (
+                              <span>Costo {fmtUsd(e.costoUsd)}</span>
+                            )}
                             <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                               <span
                                 className={cn(
                                   "h-1.5 w-1.5 rounded-full",
-                                  dotClass[equipoStatus[e.estado].tone],
+                                  dotClass[celularStatus[e.estado].tone],
                                 )}
                               />
-                              {equipoStatus[e.estado].label}
+                              {celularStatus[e.estado].label}
                             </span>
                           </div>
                         </div>
-                        <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+                        <div className="flex shrink-0 flex-col items-center justify-center gap-1 border-l border-neutral-100 pl-3">
                           <p className="text-base font-semibold tabular-nums">
                             {fmtUsd(e.precioUsd)}
                           </p>
+                          <CopiarTexto texto={copyCelular(e)} />
                         </div>
                       </div>
                     </Card>
                   ))}
-                  {equiposFiltrados.length === 0 && (
+                  {celularesFiltrados.length === 0 && (
                     <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
-                      Sin equipos para esta búsqueda.
+                      Sin celulares para esta búsqueda.
                     </p>
                   )}
                 </div>
@@ -670,8 +851,26 @@ export function InventarioClient({
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-neutral-100 text-xs text-neutral-400">
+                        <th className="w-px py-3 pl-4 pr-0 text-center">
+                          <CheckSeleccion
+                            label="Seleccionar todos los celulares"
+                            tono="oscuro"
+                            parcial={celularesFiltrados.some((e) =>
+                              seleccion.has(e.id),
+                            )}
+                            checked={
+                              celularesFiltrados.length > 0 &&
+                              celularesFiltrados.every((e) =>
+                                seleccion.has(e.id),
+                              )
+                            }
+                            onChange={() =>
+                              toggleTodos(celularesFiltrados.map((e) => e.id))
+                            }
+                          />
+                        </th>
                         <th className={cn("px-5 py-3 text-center", thDivider)}>
-                          Equipo
+                          Celular
                         </th>
                         <th className={cn("px-5 py-3 text-center", thDivider)}>
                           Color
@@ -689,7 +888,9 @@ export function InventarioClient({
                           Condición
                         </th>
                         {puedeVerCosto && (
-                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                          <th
+                            className={cn("px-5 py-3 text-center", thDivider)}
+                          >
                             Costo
                           </th>
                         )}
@@ -697,21 +898,40 @@ export function InventarioClient({
                           Venta
                         </th>
                         {puedeVerCosto && (
-                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                          <th
+                            className={cn("px-5 py-3 text-center", thDivider)}
+                          >
                             Margen
                           </th>
                         )}
-                        <th className="px-5 py-3 text-center">Estado</th>
+                        <th className={cn("px-5 py-3 text-center", thDivider)}>
+                          Estado
+                        </th>
+                        <th className="w-px px-3 py-3 text-center">
+                          <span className="sr-only">
+                            Copiar texto para publicar
+                          </span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {equiposFiltrados.map((e) => (
+                      {celularesFiltrados.map((e) => (
                         <tr
                           key={e.id}
-                          onClick={() => setOpenEquipoId(e.id)}
+                          onClick={() => setOpenCelularId(e.id)}
                           className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                         >
-                          <td className="max-w-[160px] truncate px-5 py-2 text-center font-medium">
+                          <td
+                            className="w-px py-2 pl-4 pr-0"
+                            onClick={(ev) => ev.stopPropagation()}
+                          >
+                            <CheckSeleccion
+                              label={`Seleccionar ${e.modelo}`}
+                              checked={seleccion.has(e.id)}
+                              onChange={() => toggleSel(e.id)}
+                            />
+                          </td>
+                          <td className="max-w-[160px] truncate px-5 py-2 text-start font-medium">
                             {e.modelo}
                           </td>
                           <td className="max-w-[110px] truncate px-5 py-2 text-center text-neutral-500">
@@ -751,21 +971,24 @@ export function InventarioClient({
                               <span
                                 className={cn(
                                   "h-1.5 w-1.5 rounded-full",
-                                  dotClass[equipoStatus[e.estado].tone],
+                                  dotClass[celularStatus[e.estado].tone],
                                 )}
                               />
-                              {equipoStatus[e.estado].label}
+                              {celularStatus[e.estado].label}
                             </span>
+                          </td>
+                          <td className="w-px whitespace-nowrap px-3 py-2 text-center">
+                            <CopiarTexto texto={copyCelular(e)} />
                           </td>
                         </tr>
                       ))}
-                      {equiposFiltrados.length === 0 && (
+                      {celularesFiltrados.length === 0 && (
                         <tr>
                           <td
-                            colSpan={puedeVerCosto ? 10 : 8}
+                            colSpan={puedeVerCosto ? 12 : 10}
                             className="px-5 py-10 text-center text-sm text-neutral-400"
                           >
-                            Sin equipos para esta búsqueda.
+                            Sin celulares para esta búsqueda.
                           </td>
                         </tr>
                       )}
@@ -775,6 +998,220 @@ export function InventarioClient({
               </>
             );
           })()}
+
+        {/* ── Notebooks ─────────────────────────── */}
+        {tab === "notebooks" && (
+          <>
+            {notebooksFiltrados.some((n) => seleccion.has(n.id)) && (
+              <CopiarSeleccion
+                textos={() =>
+                  notebooksFiltrados
+                    .filter((n) => seleccion.has(n.id))
+                    .map(copyNotebook)
+                }
+                onLimpiar={() => setSeleccion(new Set())}
+              />
+            )}
+            <div className="space-y-2 md:hidden">
+              {notebooksFiltrados.map((n) => (
+                <Card
+                  key={n.id}
+                  onClick={() => setOpenNotebookId(n.id)}
+                  className="cursor-pointer overflow-hidden p-0"
+                >
+                  <div className="flex items-center gap-2.5 bg-table-header px-4 py-2 text-white">
+                    <CheckSeleccion
+                      tono="oscuro"
+                      label={`Seleccionar ${n.modelo}`}
+                      checked={seleccion.has(n.id)}
+                      onChange={() => toggleSel(n.id)}
+                    />
+                    <p className="truncate text-sm font-semibold">{n.modelo}</p>
+                  </div>
+                  <div className="flex items-stretch gap-3 p-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs text-neutral-500">
+                        {[n.cpu, n.memoria, n.almacenamiento]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      <p className="truncate text-xs text-neutral-500">
+                        {n.numeroSerie || "Sin número de serie"}
+                      </p>
+                      <p className="truncate text-xs text-neutral-500">
+                        {condicionLabel(n)}
+                        {n.condicion === "usado" && n.bateria !== null
+                          ? ` · Batería ${n.bateria}%`
+                          : ""}
+                      </p>
+                      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                        {puedeVerCosto && (
+                          <span>Costo {fmtUsd(n.costoUsd)}</span>
+                        )}
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              dotClass[celularStatus[n.estado].tone],
+                            )}
+                          />
+                          {celularStatus[n.estado].label}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-center justify-center gap-1 border-l border-neutral-100 pl-3">
+                      <p className="text-base font-semibold tabular-nums">
+                        {fmtUsd(n.precioUsd)}
+                      </p>
+                      <CopiarTexto texto={copyNotebook(n)} />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+              {notebooksFiltrados.length === 0 && (
+                <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
+                  Sin notebooks para esta búsqueda.
+                </p>
+              )}
+            </div>
+            <Card className="hidden overflow-hidden md:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-100 text-xs">
+                    <th className="w-px py-3 pl-4 pr-0 text-center">
+                      <CheckSeleccion
+                        label="Seleccionar todas las notebooks"
+                        tono="oscuro"
+                        parcial={notebooksFiltrados.some((n) =>
+                          seleccion.has(n.id),
+                        )}
+                        checked={
+                          notebooksFiltrados.length > 0 &&
+                          notebooksFiltrados.every((n) => seleccion.has(n.id))
+                        }
+                        onChange={() =>
+                          toggleTodos(notebooksFiltrados.map((n) => n.id))
+                        }
+                      />
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Modelo
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      CPU
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Memoria
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Almacenamiento
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Pantalla
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Condición
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Estado
+                    </th>
+                    {puedeVerCosto && (
+                      <th className={cn("px-5 py-3 text-center", thDivider)}>
+                        Costo
+                      </th>
+                    )}
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Precio
+                    </th>
+                    <th className="w-px px-3 py-3 text-center">
+                      <span className="sr-only">
+                        Copiar texto para publicar
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {notebooksFiltrados.map((n) => (
+                    <tr
+                      key={n.id}
+                      onClick={() => setOpenNotebookId(n.id)}
+                      className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
+                    >
+                      <td
+                        className="w-px py-2 pl-4 pr-0"
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
+                        <CheckSeleccion
+                          label={`Seleccionar ${n.modelo}`}
+                          checked={seleccion.has(n.id)}
+                          onChange={() => toggleSel(n.id)}
+                        />
+                      </td>
+                      <td className="max-w-[220px] px-5 py-2 text-start">
+                        <p className="truncate font-medium">{n.modelo}</p>
+                        <p className="truncate text-xs text-neutral-500">
+                          {n.numeroSerie || "Sin número de serie"}
+                        </p>
+                      </td>
+                      <td className="px-5 py-2 text-center text-neutral-500">
+                        {n.cpu || "—"}
+                      </td>
+                      <td className="px-5 py-2 text-center text-neutral-500">
+                        {n.memoria || "—"}
+                      </td>
+                      <td className="px-5 py-2 text-center text-neutral-500">
+                        {n.almacenamiento || "—"}
+                      </td>
+                      <td className="px-5 py-2 text-center text-neutral-500">
+                        {n.pantalla || "—"}
+                      </td>
+                      <td className="px-5 py-2 text-center">
+                        <p className="text-neutral-700">{condicionLabel(n)}</p>
+                        {n.condicion === "usado" && n.bateria !== null && (
+                          <p className="text-xs tabular-nums text-neutral-500">
+                            Batería {n.bateria}%
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-5 py-2 text-center">
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                          <span
+                            className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              dotClass[celularStatus[n.estado].tone],
+                            )}
+                          />
+                          {celularStatus[n.estado].label}
+                        </span>
+                      </td>
+                      {puedeVerCosto && (
+                        <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
+                          {fmtUsd(n.costoUsd)}
+                        </td>
+                      )}
+                      <td className="px-5 py-2 text-center font-semibold tabular-nums">
+                        {fmtUsd(n.precioUsd)}
+                      </td>
+                      <td className="w-px whitespace-nowrap px-3 py-2 text-center">
+                        <CopiarTexto texto={copyNotebook(n)} />
+                      </td>
+                    </tr>
+                  ))}
+                  {notebooksFiltrados.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={puedeVerCosto ? 11 : 10}
+                        className="px-5 py-10 text-center text-sm text-neutral-400"
+                      >
+                        Sin notebooks para esta búsqueda.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </Card>
+          </>
+        )}
 
         {/* ── Repuestos ─────────────────────────── */}
         {tab === "repuestos" &&
@@ -806,56 +1243,67 @@ export function InventarioClient({
                           className="cursor-pointer overflow-hidden p-0"
                         >
                           <div className="bg-table-header px-4 py-2 text-white">
-                            <p className="truncate text-sm font-semibold">{r.nombre}</p>
+                            <p className="truncate text-sm font-semibold">
+                              {r.nombre}
+                            </p>
                           </div>
                           <div
                             className={cn(
                               "p-3",
                               r.stock <= 0 && "bg-red-50/50",
-                              r.stock > 0 && r.stock <= r.stockMin && "bg-amber-50/40",
+                              r.stock > 0 &&
+                                r.stock <= r.stockMin &&
+                                "bg-amber-50/40",
                             )}
                           >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-xs text-neutral-400">
-                              {r.sku} · {r.modelo}
-                            </p>
-                            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                              <span
-                                className={cn("h-1.5 w-1.5 rounded-full", dotClass[est.tone])}
-                              />
-                              {est.label}
-                            </span>
-                          </div>
-
-                          <div className="mt-2.5 flex items-center gap-2 border-t border-neutral-100 pt-2.5">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs tabular-nums text-neutral-500">
-                                <span className="font-semibold text-neutral-900">
-                                  {r.stock}
-                                </span>{" "}
-                                / mín {r.stockMin}
-                                {puedeVerCosto && ` · ${fmtUsd(r.costoUsd)}`}
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="truncate text-xs text-neutral-400">
+                                {r.sku} · {r.modelo}
                               </p>
-                              <div
-                                className="mt-1 h-1.5 overflow-hidden rounded-full"
-                                style={{ background: GHOST_STRIPES }}
-                              >
-                                <div
-                                  className={cn("h-full rounded-full", barColor)}
-                                  style={{ width: `${frac * 100}%` }}
+                              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full",
+                                    dotClass[est.tone],
+                                  )}
                                 />
-                              </div>
+                                {est.label}
+                              </span>
                             </div>
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                reponer(r.id);
-                              }}
-                              variant="tonal" size="sm"
-                            >
-                              Reponer
-                            </Button>
-                          </div>
+
+                            <div className="mt-2.5 flex items-center gap-2 border-t border-neutral-100 pt-2.5">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs tabular-nums text-neutral-500">
+                                  <span className="font-semibold text-neutral-900">
+                                    {r.stock}
+                                  </span>{" "}
+                                  / mín {r.stockMin}
+                                  {puedeVerCosto && ` · ${fmtUsd(r.costoUsd)}`}
+                                </p>
+                                <div
+                                  className="mt-1 h-1.5 overflow-hidden rounded-full"
+                                  style={{ background: GHOST_STRIPES }}
+                                >
+                                  <div
+                                    className={cn(
+                                      "h-full rounded-full",
+                                      barColor,
+                                    )}
+                                    style={{ width: `${frac * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  reponer(r.id);
+                                }}
+                                variant="tonal"
+                                size="sm"
+                              >
+                                Reponer
+                              </Button>
+                            </div>
                           </div>
                         </Card>
                       );
@@ -925,13 +1373,13 @@ export function InventarioClient({
                                   "bg-amber-50/40",
                               )}
                             >
-                              <td className="max-w-[160px] truncate px-5 py-2 text-center">
+                              <td className="max-w-[160px] truncate px-5 py-2 text-start">
                                 <span className="font-medium">{r.nombre}</span>
                                 <span className="block truncate text-xs text-neutral-400">
                                   {r.sku}
                                 </span>
                               </td>
-                              <td className="max-w-[120px] truncate px-5 py-2 text-center text-neutral-500">
+                              <td className="max-w-[120px] truncate px-5 py-2 text-start text-neutral-500">
                                 {r.modelo}
                               </td>
                               <td className="px-5 py-2 text-center">
@@ -981,7 +1429,8 @@ export function InventarioClient({
                                     e.stopPropagation();
                                     reponer(r.id);
                                   }}
-                                  variant="tonal" size="sm"
+                                  variant="tonal"
+                                  size="sm"
                                 >
                                   Reponer
                                 </Button>
@@ -1092,89 +1541,105 @@ export function InventarioClient({
                             {o.nombre}
                           </p>
                           {o.serializado && (
-                            <IconButton aria-label="Expandir" icon={ChevronDown} variant="ghost" size="sm" onClick={(e) => {
+                            <IconButton
+                              aria-label="Expandir"
+                              icon={ChevronDown}
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
                                 e.stopPropagation();
                                 toggleExpandOtro(o.id);
-                              }} />
+                              }}
+                            />
                           )}
                         </div>
 
                         <div className="p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="min-w-0 flex-1 truncate text-xs text-neutral-500">
-                            {o.descripcion ?? "—"}
-                          </p>
-                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                            <span
-                              className={cn(
-                                "h-1.5 w-1.5 rounded-full",
-                                dotClass[otroCategoria[o.categoria].tone],
-                              )}
-                            />
-                            {otroCategoria[o.categoria].label}
-                          </span>
-                        </div>
-
-                        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
-                          {puedeVerCosto && (
-                            <span>
-                              Costo {fmtUsd(otroCostoPromedio(o))}
-                              {o.serializado && (
-                                <span className="ml-1 text-[10px]">prom.</span>
-                              )}
-                            </span>
-                          )}
-                          <span className="font-semibold text-neutral-900">
-                            {fmtUsd(o.precioUsd)}
-                          </span>
-                          {o.serializado ? (
-                            <span className="inline-flex items-center gap-1 font-semibold text-neutral-700">
-                              {cantidad}
-                              <Tag className="h-3 w-3 text-neutral-400" />
-                            </span>
-                          ) : (
-                            <span className="font-semibold text-neutral-900">
-                              {cantidad}
-                            </span>
-                          )}
-                        </div>
-
-                        {o.serializado && expanded && (
-                          <div
-                            className="animate-fade-in mt-2.5 overflow-hidden rounded-lg border border-neutral-200 font-mono"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div
-                              className={cn(
-                                "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-500",
-                                puedeVerCosto ? "grid-cols-[1fr_1fr_84px]" : "grid-cols-[1fr_1fr]",
-                              )}
-                            >
-                              <span>Serial</span>
-                              <span>Color</span>
-                              {puedeVerCosto && <span className="text-end">Costo</span>}
-                            </div>
-                            {o.unidades.map((u) => (
-                              <div
-                                key={u.serial}
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="min-w-0 flex-1 truncate text-xs text-neutral-500">
+                              {o.descripcion ?? "—"}
+                            </p>
+                            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                              <span
                                 className={cn(
-                                  "grid items-center gap-2 border-t border-neutral-100 bg-white px-3 py-1.5 text-[12px] first:border-t-0",
-                                  puedeVerCosto ? "grid-cols-[1fr_1fr_84px]" : "grid-cols-[1fr_1fr]",
+                                  "h-1.5 w-1.5 rounded-full",
+                                  dotClass[otroCategoria[o.categoria].tone],
                                 )}
-                              >
-                                <span className="truncate text-neutral-700">{u.serial}</span>
-                                <span className="truncate text-neutral-500">
-                                  {u.color ?? "—"}
-                                </span>
-                                {puedeVerCosto && (
-                                  <span className="text-end tabular-nums text-neutral-500">
-                                    {fmtUsd(u.costoUsd)}
+                              />
+                              {otroCategoria[o.categoria].label}
+                            </span>
+                          </div>
+
+                          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
+                            {puedeVerCosto && (
+                              <span>
+                                Costo {fmtUsd(otroCostoPromedio(o))}
+                                {o.serializado && (
+                                  <span className="ml-1 text-[10px]">
+                                    prom.
                                   </span>
                                 )}
-                              </div>
-                            ))}
+                              </span>
+                            )}
+                            <span className="font-semibold text-neutral-900">
+                              {fmtUsd(o.precioUsd)}
+                            </span>
+                            {o.serializado ? (
+                              <span className="inline-flex items-center gap-1 font-semibold text-neutral-700">
+                                {cantidad}
+                                <Tag className="h-3 w-3 text-neutral-400" />
+                              </span>
+                            ) : (
+                              <span className="font-semibold text-neutral-900">
+                                {cantidad}
+                              </span>
+                            )}
                           </div>
-                        )}
+
+                          {o.serializado && expanded && (
+                            <div
+                              className="animate-fade-in mt-2.5 overflow-hidden rounded-lg border border-neutral-200 font-mono"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div
+                                className={cn(
+                                  "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-500",
+                                  puedeVerCosto
+                                    ? "grid-cols-[1fr_1fr_84px]"
+                                    : "grid-cols-[1fr_1fr]",
+                                )}
+                              >
+                                <span>Serial</span>
+                                <span>Color</span>
+                                {puedeVerCosto && (
+                                  <span className="text-end">Costo</span>
+                                )}
+                              </div>
+                              {o.unidades.map((u) => (
+                                <div
+                                  key={u.serial}
+                                  className={cn(
+                                    "grid items-center gap-2 border-t border-neutral-100 bg-white px-3 py-1.5 text-[12px] first:border-t-0",
+                                    puedeVerCosto
+                                      ? "grid-cols-[1fr_1fr_84px]"
+                                      : "grid-cols-[1fr_1fr]",
+                                  )}
+                                >
+                                  <span className="truncate text-neutral-700">
+                                    {u.serial}
+                                  </span>
+                                  <span className="truncate text-neutral-500">
+                                    {u.color ?? "—"}
+                                  </span>
+                                  {puedeVerCosto && (
+                                    <span className="text-end tabular-nums text-neutral-500">
+                                      {fmtUsd(u.costoUsd)}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </Card>
                     );
@@ -1199,7 +1664,9 @@ export function InventarioClient({
                           Categoría
                         </th>
                         {puedeVerCosto && (
-                          <th className={cn("px-5 py-3 text-center", thDivider)}>
+                          <th
+                            className={cn("px-5 py-3 text-center", thDivider)}
+                          >
                             Costo
                           </th>
                         )}
@@ -1232,7 +1699,10 @@ export function InventarioClient({
                                         className="text-neutral-400 hover:text-accent"
                                       >
                                         <ChevronDown
-                                          className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")}
+                                          className={cn(
+                                            "h-3.5 w-3.5 transition-transform",
+                                            expanded && "rotate-180",
+                                          )}
                                         />
                                       </button>
                                     )}
@@ -1280,8 +1750,11 @@ export function InventarioClient({
                             </tr>
                             {o.serializado && expanded && (
                               <tr className="bg-neutral-50">
-                                <td colSpan={puedeVerCosto ? 6 : 5} className="px-5 py-3">
-                                   <div className="animate-fade-in overflow-hidden rounded-lg border border-neutral-200 font-mono">
+                                <td
+                                  colSpan={puedeVerCosto ? 6 : 5}
+                                  className="px-5 py-3"
+                                >
+                                  <div className="animate-fade-in overflow-hidden rounded-lg border border-neutral-200 font-mono">
                                     <div
                                       className={cn(
                                         "grid gap-2 border-b border-neutral-200 bg-neutral-100 px-3 py-1.5 text-start text-[10px] font-semibold uppercase tracking-wider text-neutral-500",
@@ -1292,7 +1765,9 @@ export function InventarioClient({
                                     >
                                       <span>Serial</span>
                                       <span>Color</span>
-                                      {puedeVerCosto && <span className="text-end">Costo</span>}
+                                      {puedeVerCosto && (
+                                        <span className="text-end">Costo</span>
+                                      )}
                                     </div>
                                     {o.unidades.map((u) => (
                                       <div
@@ -1342,46 +1817,99 @@ export function InventarioClient({
           })()}
       </SeccionTabla>
 
-      {/* Agregar equipo */}
-      <EquipoFormDialog
-        key={addEquipo ? "e" : "e0"}
-        equipo={null}
-        open={addEquipo}
-        onClose={() => setAddEquipo(false)}
+      {/* Agregar celular */}
+      <CelularFormDialog
+        key={addCelular ? "e" : "e0"}
+        celular={null}
+        open={addCelular}
+        onClose={() => setAddCelular(false)}
         puedeVerCosto={puedeVerCosto}
         onSubmit={async (data) => {
-          const nuevo = await createEquipoAction(data);
-          setEquipos((p) => [nuevo, ...p]);
-          setAddEquipo(false);
+          const nuevo = await createCelularAction(data);
+          setCelulares((p) => [nuevo, ...p]);
+          setAddCelular(false);
         }}
       />
 
-      {/* Ver / editar equipo */}
-      <EquipoFormDialog
-        key={openEquipoId ?? "equipo-none"}
-        equipo={openEquipo}
-        open={!!openEquipo}
-        onClose={() => setOpenEquipoId(null)}
+      {/* Ver / editar celular */}
+      <CelularFormDialog
+        key={openCelularId ?? "celular-none"}
+        celular={openCelular}
+        open={!!openCelular}
+        onClose={() => setOpenCelularId(null)}
         puedeVerCosto={puedeVerCosto}
         onSubmit={async (data) => {
-          const actualizado = await updateEquipoAction(openEquipo!.id, data);
-          setEquipos((p) => p.map((x) => (x.id === actualizado.id ? actualizado : x)));
-          setOpenEquipoId(null);
+          const actualizado = await updateCelularAction(openCelular!.id, data);
+          setCelulares((p) =>
+            p.map((x) => (x.id === actualizado.id ? actualizado : x)),
+          );
+          setOpenCelularId(null);
         }}
         onDelete={
           esAdmin
             ? () => {
-                const id = openEquipo!.id;
-                const modelo = openEquipo!.modelo;
-                setEquipos((p) => p.filter((x) => x.id !== id));
-                setOpenEquipoId(null);
+                const id = openCelular!.id;
+                const modelo = openCelular!.modelo;
+                setCelulares((p) => p.filter((x) => x.id !== id));
+                setOpenCelularId(null);
                 startDeleteTransition(async () => {
-                  await deleteEquipoAction(id);
+                  await deleteCelularAction(id);
                 });
                 publish({
                   type: "item_deleted",
                   actor: user.nombre,
-                  entity: "Equipo",
+                  entity: "Celular",
+                  label: modelo,
+                });
+              }
+            : undefined
+        }
+      />
+
+      {/* Agregar notebook */}
+      <NotebookFormDialog
+        key={addNotebook ? "n" : "n0"}
+        notebook={null}
+        open={addNotebook}
+        onClose={() => setAddNotebook(false)}
+        puedeVerCosto={puedeVerCosto}
+        onSubmit={async (data) => {
+          const res = await createNotebookAction(data);
+          if (!res.ok) throw new Error(res.error);
+          setNotebooks((p) => [res.notebook, ...p]);
+          setAddNotebook(false);
+        }}
+      />
+
+      {/* Ver / editar notebook */}
+      <NotebookFormDialog
+        key={openNotebookId ?? "notebook-none"}
+        notebook={openNotebook}
+        open={!!openNotebook}
+        onClose={() => setOpenNotebookId(null)}
+        puedeVerCosto={puedeVerCosto}
+        onSubmit={async (data) => {
+          const res = await updateNotebookAction(openNotebook!.id, data);
+          if (!res.ok) throw new Error(res.error);
+          setNotebooks((p) =>
+            p.map((x) => (x.id === res.notebook.id ? res.notebook : x)),
+          );
+          setOpenNotebookId(null);
+        }}
+        onDelete={
+          esAdmin
+            ? () => {
+                const id = openNotebook!.id;
+                const modelo = openNotebook!.modelo;
+                setNotebooks((p) => p.filter((x) => x.id !== id));
+                setOpenNotebookId(null);
+                startDeleteTransition(async () => {
+                  await deleteNotebookAction(id);
+                });
+                publish({
+                  type: "item_deleted",
+                  actor: user.nombre,
+                  entity: "Notebook",
                   label: modelo,
                 });
               }
@@ -1410,7 +1938,11 @@ export function InventarioClient({
           setReponerId(null);
         }}
         onNuevo={async (nombre, precioCompra, cantidad) => {
-          const nuevo = await nuevoRepuestoAction(nombre, precioCompra, cantidad);
+          const nuevo = await nuevoRepuestoAction(
+            nombre,
+            precioCompra,
+            cantidad,
+          );
           setRepuestos((p) => [nuevo, ...p]);
           setAddRepuesto(false);
           setReponerId(null);
@@ -1430,12 +1962,23 @@ export function InventarioClient({
           serializado: o.serializado,
         }))}
         onIngreso={async (id, cantidad, precio, unidades) => {
-          const actualizado = await ingresoOtroAction(id, cantidad, precio, unidades);
+          const actualizado = await ingresoOtroAction(
+            id,
+            cantidad,
+            precio,
+            unidades,
+          );
           setOtros((p) => p.map((o) => (o.id === id ? actualizado : o)));
           setAddOtro(false);
         }}
         onNuevo={async (nombre, precioCompra, cantidad, cat, unidades) => {
-          const nuevo = await nuevoOtroAction(nombre, precioCompra, cantidad, cat, unidades);
+          const nuevo = await nuevoOtroAction(
+            nombre,
+            precioCompra,
+            cantidad,
+            cat,
+            unidades,
+          );
           setOtros((p) => [nuevo, ...p]);
           setAddOtro(false);
         }}
@@ -1449,8 +1992,13 @@ export function InventarioClient({
         puedeVerCosto={puedeVerCosto}
         onClose={() => setOpenRepuestoId(null)}
         onSubmit={async (data) => {
-          const actualizado = await updateRepuestoAction(openRepuesto!.id, data);
-          setRepuestos((p) => p.map((x) => (x.id === actualizado.id ? actualizado : x)));
+          const actualizado = await updateRepuestoAction(
+            openRepuesto!.id,
+            data,
+          );
+          setRepuestos((p) =>
+            p.map((x) => (x.id === actualizado.id ? actualizado : x)),
+          );
           setOpenRepuestoId(null);
         }}
         onDelete={
@@ -1483,7 +2031,9 @@ export function InventarioClient({
         puedeVerCosto={puedeVerCosto}
         onSubmit={async (o) => {
           const actualizado = await updateOtroAction(o.id, o);
-          setOtros((p) => p.map((x) => (x.id === actualizado.id ? actualizado : x)));
+          setOtros((p) =>
+            p.map((x) => (x.id === actualizado.id ? actualizado : x)),
+          );
           setOpenOtroId(null);
         }}
         onDelete={
@@ -1508,10 +2058,14 @@ export function InventarioClient({
       />
 
       {/* Recuento -- siempre en un modal aparte, la tabla no cambia de forma */}
-      <RecuentoEquiposModalDialog
-         key={recuentoModalTipo === "equipos" ? "equipos" : "recuento-equipos-none"}
-        open={recuentoModalTipo === "equipos"}
-        items={equipos
+      <RecuentoCelularesModalDialog
+        key={
+          recuentoModalTipo === "celulares"
+            ? "celulares"
+            : "recuento-celulares-none"
+        }
+        open={recuentoModalTipo === "celulares"}
+        items={celulares
           .filter((e) => e.estado !== "vendido")
           .map((e) => ({
             id: e.id,
@@ -1519,7 +2073,11 @@ export function InventarioClient({
           }))}
         onClose={() => setRecuentoModalTipo(null)}
         onSubmit={async (draft, comentarios, comentarioGeneral) => {
-          await crearRecuentoEquiposAction(draft, comentarios, comentarioGeneral);
+          await crearRecuentoCelularesAction(
+            draft,
+            comentarios,
+            comentarioGeneral,
+          );
           setRecuentoModalTipo(null);
         }}
       />
@@ -1527,23 +2085,39 @@ export function InventarioClient({
         key={
           recuentoModalTipo === "repuestos" || recuentoModalTipo === "otros"
             ? recuentoModalTipo
-             : "recuento-modal-none"
+            : "recuento-modal-none"
         }
         tipo={recuentoModalTipo === "otros" ? "otros" : "repuestos"}
-        open={recuentoModalTipo === "repuestos" || recuentoModalTipo === "otros"}
+        open={
+          recuentoModalTipo === "repuestos" || recuentoModalTipo === "otros"
+        }
         items={
           recuentoModalTipo === "repuestos"
-            ? repuestos.map((r) => ({ id: r.id, nombre: r.nombre, sistema: r.stock }))
+            ? repuestos.map((r) => ({
+                id: r.id,
+                nombre: r.nombre,
+                sistema: r.stock,
+              }))
             : otros.flatMap((o) =>
-                o.serializado ? [] : [{ id: o.id, nombre: o.nombre, sistema: o.cantidad }],
+                o.serializado
+                  ? []
+                  : [{ id: o.id, nombre: o.nombre, sistema: o.cantidad }],
               )
         }
         onClose={() => setRecuentoModalTipo(null)}
         onSubmit={async (draft, comentarios, comentarioGeneral) => {
           if (recuentoModalTipo === "repuestos") {
-            await crearRecuentoRepuestosAction(draft, comentarios, comentarioGeneral);
+            await crearRecuentoRepuestosAction(
+              draft,
+              comentarios,
+              comentarioGeneral,
+            );
           } else {
-            await crearRecuentoOtrosAction(draft, comentarios, comentarioGeneral);
+            await crearRecuentoOtrosAction(
+              draft,
+              comentarios,
+              comentarioGeneral,
+            );
           }
           setRecuentoModalTipo(null);
         }}
@@ -1561,8 +2135,8 @@ const RECUENTO_MODAL_TITULO: Record<"repuestos" | "otros", string> = {
   otros: "Recuento de otros productos",
 };
 
-/** Modal de recuento para Repuestos/Otros (ver `RecuentoEquiposModalDialog`
- * más abajo para Equipos, que es un checklist en vez de cantidades). Una
+/** Modal de recuento para Repuestos/Otros (ver `RecuentoCelularesModalDialog`
+ * más abajo para Celulares, que es un checklist en vez de cantidades). Una
  * fila por ítem: Sistema (de referencia, no editable) + Cantidad real +
  * comentario opcional, más un comentario general de todo el recuento al
  * pie. La tabla de Inventario no cambia de forma al abrir esto -- antes el
@@ -1593,8 +2167,12 @@ function RecuentoModalDialog({
   const [pending, startTransition] = useTransition();
 
   const needle = q.trim().toLowerCase();
-  const filtrados = items.filter((i) => !needle || i.nombre.toLowerCase().includes(needle));
-  const contadosCount = Object.values(contados).filter((v) => v.trim() !== "").length;
+  const filtrados = items.filter(
+    (i) => !needle || i.nombre.toLowerCase().includes(needle),
+  );
+  const contadosCount = Object.values(contados).filter(
+    (v) => v.trim() !== "",
+  ).length;
 
   function guardar() {
     startTransition(async () => {
@@ -1622,14 +2200,16 @@ function RecuentoModalDialog({
           <Button
             onClick={onClose}
             disabled={pending}
-            variant="outline" fullOnMobile
+            variant="outline"
+            fullOnMobile
           >
             Cancelar
           </Button>
           <Button
             onClick={guardar}
             disabled={pending || contadosCount === 0}
-            variant="primary" fullOnMobile
+            variant="primary"
+            fullOnMobile
           >
             {pending ? "Guardando…" : "Guardar recuento"}
           </Button>
@@ -1660,7 +2240,7 @@ function RecuentoModalDialog({
             <tbody>
               {filtrados.map((item) => (
                 <tr key={item.id}>
-                  <td className="px-3 py-1.5 font-medium">{item.nombre}</td>
+                  <td className="px-3 py-1.5 font-medium text-start">{item.nombre}</td>
                   <td className="px-3 py-1.5 text-center tabular-nums text-neutral-500">
                     {item.sistema}
                   </td>
@@ -1671,16 +2251,22 @@ function RecuentoModalDialog({
                       placeholder="Contado"
                       value={contados[item.id] ?? ""}
                       onChange={(e) =>
-                        setContados((c) => ({ ...c, [item.id]: e.target.value }))
+                        setContados((c) => ({
+                          ...c,
+                          [item.id]: e.target.value,
+                        }))
                       }
                       className="mx-auto h-8 w-20 text-center"
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className="px-3 py-1.5 text-start">
                     <Input
                       value={comentarios[item.id] ?? ""}
                       onChange={(e) =>
-                        setComentarios((c) => ({ ...c, [item.id]: e.target.value }))
+                        setComentarios((c) => ({
+                          ...c,
+                          [item.id]: e.target.value,
+                        }))
                       }
                       placeholder="Opcional"
                       className="h-8 text-sm"
@@ -1690,7 +2276,10 @@ function RecuentoModalDialog({
               ))}
               {filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-neutral-400">
+                  <td
+                    colSpan={4}
+                    className="px-3 py-6 text-center text-neutral-400"
+                  >
                     Sin productos para esta búsqueda.
                   </td>
                 </tr>
@@ -1712,22 +2301,22 @@ function RecuentoModalDialog({
   );
 }
 
-type RecuentoEquipoItem = { id: string; nombre: string };
+type RecuentoCelularItem = { id: string; nombre: string };
 
-/** Modal de recuento para Equipos -- un checklist "Encontrado" en vez de
+/** Modal de recuento para Celulares -- un checklist "Encontrado" en vez de
  * cantidades (ver `RecuentoModalDialog` arriba para Repuestos/Otros). Todos
  * arrancan tildados como encontrados; destildar uno abre un comentario
  * opcional para esa fila, igual criterio que tenía el modo inline viejo
  * (comentario libre solo tiene sentido para lo que no se encontró). No
- * ajusta `equipos.estado` al guardar -- queda pendiente hasta que un admin
+ * ajusta `celulares.estado` al guardar -- queda pendiente hasta que un admin
  * lo revise en «Recuentos» (`resolverRecuento`). */
-function RecuentoEquiposModalDialog({
+function RecuentoCelularesModalDialog({
   items,
   open,
   onClose,
   onSubmit,
 }: {
-  items: RecuentoEquipoItem[];
+  items: RecuentoCelularItem[];
   open: boolean;
   onClose: () => void;
   onSubmit: (
@@ -1745,11 +2334,17 @@ function RecuentoEquiposModalDialog({
   const [pending, startTransition] = useTransition();
 
   const needle = q.trim().toLowerCase();
-  const filtrados = items.filter((i) => !needle || i.nombre.toLowerCase().includes(needle));
+  const filtrados = items.filter(
+    (i) => !needle || i.nombre.toLowerCase().includes(needle),
+  );
 
   function guardar() {
     startTransition(async () => {
-      await onSubmit(encontrados, comentarios, comentarioGeneral.trim() || undefined);
+      await onSubmit(
+        encontrados,
+        comentarios,
+        comentarioGeneral.trim() || undefined,
+      );
     });
   }
 
@@ -1758,21 +2353,23 @@ function RecuentoEquiposModalDialog({
       open={open}
       onClose={onClose}
       size="2xl"
-      title="Recuento de equipos"
-      description="Tildá los equipos que encontraste físicamente -- las diferencias quedan pendientes de revisión en «Recuentos», no se marcan extraviados al toque. Los equipos vendidos no entran en el recuento."
+      title="Recuento de celulares"
+      description="Tildá los celulares que encontraste físicamente -- las diferencias quedan pendientes de revisión en «Recuentos», no se marcan extraviados al toque. Los celulares vendidos no entran en el recuento."
       footer={
         <>
           <Button
             onClick={onClose}
             disabled={pending}
-            variant="outline" fullOnMobile
+            variant="outline"
+            fullOnMobile
           >
             Cancelar
           </Button>
           <Button
             onClick={guardar}
             disabled={pending}
-            variant="primary" fullOnMobile
+            variant="primary"
+            fullOnMobile
           >
             {pending ? "Guardando…" : "Guardar recuento"}
           </Button>
@@ -1805,7 +2402,10 @@ function RecuentoEquiposModalDialog({
                       type="checkbox"
                       checked={found}
                       onChange={(e) =>
-                        setEncontrados((d) => ({ ...d, [item.id]: e.target.checked }))
+                        setEncontrados((d) => ({
+                          ...d,
+                          [item.id]: e.target.checked,
+                        }))
                       }
                       className="h-5 w-5 rounded border-neutral-300 text-accent focus:ring-accent"
                     />
@@ -1815,9 +2415,12 @@ function RecuentoEquiposModalDialog({
                   <Input
                     value={comentarios[item.id] ?? ""}
                     onChange={(e) =>
-                      setComentarios((c) => ({ ...c, [item.id]: e.target.value }))
+                      setComentarios((c) => ({
+                        ...c,
+                        [item.id]: e.target.value,
+                      }))
                     }
-                    placeholder="¿Qué pasó con este equipo? (opcional)"
+                    placeholder="¿Qué pasó con este celular? (opcional)"
                     className="mt-2 text-sm"
                   />
                 )}
@@ -1826,7 +2429,7 @@ function RecuentoEquiposModalDialog({
           })}
           {filtrados.length === 0 && (
             <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-10 text-center text-sm text-neutral-400">
-              No hay equipos para auditar con esta búsqueda.
+              No hay celulares para auditar con esta búsqueda.
             </p>
           )}
         </div>
@@ -1844,7 +2447,7 @@ function RecuentoEquiposModalDialog({
   );
 }
 
-const ESTADOS: EquipoStatus[] = [
+const ESTADOS: CelularStatus[] = [
   "en_revision",
   "disponible",
   "reservado",
@@ -1852,26 +2455,26 @@ const ESTADOS: EquipoStatus[] = [
   "extraviado",
 ];
 
-function EquipoFormDialog({
-  equipo,
+function CelularFormDialog({
+  celular,
   open,
   onClose,
   onSubmit,
   onDelete,
   puedeVerCosto,
 }: {
-  equipo: Equipo | null;
+  celular: Celular | null;
   open: boolean;
   onClose: () => void;
-  onSubmit: (e: EquipoInput) => void | Promise<void>;
+  onSubmit: (e: CelularInput) => void | Promise<void>;
   onDelete?: () => void;
-  /** false para vendedor -- oculta el costo de un equipo YA cargado (no el
+  /** false para vendedor -- oculta el costo de un celular YA cargado (no el
    * campo al dar de alta uno nuevo, ahí lo escribe la misma persona). */
   puedeVerCosto: boolean;
 }) {
-  const edit = !!equipo;
-  const [f, setF] = useState<Equipo>(
-    equipo ?? {
+  const edit = !!celular;
+  const [f, setF] = useState<Celular>(
+    celular ?? {
       id: "",
       modelo: "",
       almacenamiento: "128GB",
@@ -1886,13 +2489,13 @@ function EquipoFormDialog({
   );
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const set = <K extends keyof Equipo>(k: K, v: Equipo[K]) =>
+  const set = <K extends keyof Celular>(k: K, v: Celular[K]) =>
     setF((p) => ({ ...p, [k]: v }));
   const valid = f.modelo.trim() && f.costoUsd > 0 && f.precioUsd > 0;
   const margen =
     f.precioUsd > 0 ? ((f.precioUsd - f.costoUsd) / f.precioUsd) * 100 : 0;
 
-  const movimientos = useMovimientos("equipo", edit ? equipo!.id : null);
+  const movimientos = useMovimientos("celular", edit ? celular!.id : null);
 
   return (
     <Fragment>
@@ -1900,7 +2503,7 @@ function EquipoFormDialog({
         open={open}
         onClose={onClose}
         size="3xl"
-        title={edit ? `Equipo · ${equipo!.modelo}` : "Agregar equipo"}
+        title={edit ? `Celular · ${celular!.modelo}` : "Agregar celular"}
         description={
           edit
             ? puedeVerCosto
@@ -1911,17 +2514,20 @@ function EquipoFormDialog({
         footer={
           <>
             {onDelete && (
-              <Button icon={Trash2}
+              <Button
+                icon={Trash2}
                 onClick={() => setConfirmDelete(true)}
-                variant="danger-outline" fullOnMobile className="sm:mr-auto"
+                variant="danger-outline"
+                fullOnMobile
+                className="sm:mr-auto"
               >
-                Eliminar equipo
+                Eliminar celular
               </Button>
             )}
-            <Button
-              onClick={onClose}
-              variant="outline" fullOnMobile
-            >
+            {celular && (
+              <CopiarTexto texto={copyCelular(celular)} conTexto fullOnMobile />
+            )}
+            <Button onClick={onClose} variant="outline" fullOnMobile>
               Cancelar
             </Button>
             <Button
@@ -1941,7 +2547,8 @@ function EquipoFormDialog({
                   });
                 })
               }
-              variant="primary" fullOnMobile
+              variant="primary"
+              fullOnMobile
             >
               {pending ? "Guardando…" : edit ? "Guardar" : "Agregar"}
             </Button>
@@ -2008,7 +2615,9 @@ function EquipoFormDialog({
                     type="number"
                     min={0}
                     value={f.costoUsd || ""}
-                    onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
+                    onChange={(e) =>
+                      set("costoUsd", Number(e.target.value) || 0)
+                    }
                   />
                 </Field>
               )}
@@ -2017,7 +2626,9 @@ function EquipoFormDialog({
                   type="number"
                   min={0}
                   value={f.precioUsd || ""}
-                  onChange={(e) => set("precioUsd", Number(e.target.value) || 0)}
+                  onChange={(e) =>
+                    set("precioUsd", Number(e.target.value) || 0)
+                  }
                 />
               </Field>
               {edit && (
@@ -2025,12 +2636,12 @@ function EquipoFormDialog({
                   <Select
                     value={f.estado}
                     onChange={(e) =>
-                      set("estado", e.target.value as EquipoStatus)
+                      set("estado", e.target.value as CelularStatus)
                     }
                   >
                     {ESTADOS.map((s) => (
                       <option key={s} value={s}>
-                        {equipoStatus[s].label}
+                        {celularStatus[s].label}
                       </option>
                     ))}
                   </Select>
@@ -2050,10 +2661,292 @@ function EquipoFormDialog({
             setConfirmDelete(false);
             onDelete();
           }}
-          title="¿Eliminar equipo?"
-          confirmLabel="Eliminar equipo"
+          title="¿Eliminar celular?"
+          confirmLabel="Eliminar celular"
         >
-          Se eliminará «{equipo?.modelo}» del inventario. Esta acción no se
+          Se eliminará «{celular?.modelo}» del inventario. Esta acción no se
+          puede deshacer.
+        </ConfirmDialog>
+      )}
+    </Fragment>
+  );
+}
+
+function condicionLabel(n: Pick<Notebook, "condicion">): string {
+  return n.condicion === "usado" ? "Usada" : "Nueva";
+}
+
+function NotebookFormDialog({
+  notebook,
+  open,
+  onClose,
+  onSubmit,
+  onDelete,
+  puedeVerCosto,
+}: {
+  notebook: Notebook | null;
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (n: NotebookInput) => void | Promise<void>;
+  onDelete?: () => void;
+  puedeVerCosto: boolean;
+}) {
+  const edit = !!notebook;
+  const [f, setF] = useState<Notebook>(
+    notebook ?? {
+      id: "",
+      modelo: "",
+      cpu: "",
+      memoria: "",
+      almacenamiento: "",
+      pantalla: "",
+      color: "",
+      idioma: "",
+      numeroSerie: "",
+      garantia: "",
+      notas: "",
+      costoUsd: 0,
+      precioUsd: 0,
+      estado: "en_revision",
+      condicion: "nuevo",
+      bateria: null,
+    },
+  );
+  const [pending, startTransition] = useTransition();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState("");
+  const set = <K extends keyof Notebook>(k: K, v: Notebook[K]) =>
+    setF((p) => ({ ...p, [k]: v }));
+  const usado = f.condicion === "usado";
+  const bateriaOk =
+    !usado || (f.bateria !== null && f.bateria >= 0 && f.bateria <= 100);
+  const valid = f.modelo.trim().length > 0 && bateriaOk;
+  const margen =
+    f.precioUsd > 0 ? ((f.precioUsd - f.costoUsd) / f.precioUsd) * 100 : 0;
+
+  const movimientos = useMovimientos("notebook", edit ? notebook!.id : null);
+
+  function submit() {
+    if (!valid || pending) return;
+    setError("");
+    startTransition(async () => {
+      try {
+        await onSubmit({
+          modelo: f.modelo.trim(),
+          cpu: f.cpu,
+          memoria: f.memoria,
+          almacenamiento: f.almacenamiento,
+          pantalla: f.pantalla,
+          color: f.color,
+          idioma: f.idioma,
+          numeroSerie: f.numeroSerie,
+          garantia: f.garantia,
+          notas: f.notas,
+          costoUsd: f.costoUsd,
+          precioUsd: f.precioUsd,
+          estado: f.estado,
+          condicion: f.condicion,
+          bateria: usado ? f.bateria : null,
+        });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "No se pudo guardar.");
+      }
+    });
+  }
+
+  return (
+    <Fragment>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        size="3xl"
+        title={edit ? `Notebook · ${notebook!.modelo}` : "Agregar notebook"}
+        description={
+          edit
+            ? puedeVerCosto
+              ? `Margen ${margen.toFixed(0)}%`
+              : undefined
+            : "Ingresa en estado «En revisión»."
+        }
+        footer={
+          <>
+            {onDelete && (
+              <Button
+                icon={Trash2}
+                onClick={() => setConfirmDelete(true)}
+                variant="danger-outline"
+                fullOnMobile
+                className="sm:mr-auto"
+              >
+                Eliminar notebook
+              </Button>
+            )}
+            {notebook && (
+              <CopiarTexto
+                texto={copyNotebook(notebook)}
+                conTexto
+                fullOnMobile
+              />
+            )}
+            <Button onClick={onClose} variant="outline" fullOnMobile>
+              Cancelar
+            </Button>
+            <Button onClick={submit} loading={pending} fullOnMobile>
+              {edit ? "Guardar cambios" : "Agregar notebook"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <Field label="Modelo">
+              <Input
+                value={f.modelo}
+                onChange={(e) => set("modelo", e.target.value)}
+                placeholder="MacBook Air M2"
+              />
+            </Field>
+            <Field label="N.º de serie">
+              <Input
+                value={f.numeroSerie}
+                onChange={(e) => set("numeroSerie", e.target.value)}
+                placeholder="C02XXXXXXX"
+              />
+            </Field>
+            <Field label="CPU">
+              <Input
+                value={f.cpu}
+                onChange={(e) => set("cpu", e.target.value)}
+              />
+            </Field>
+            <Field label="Memoria">
+              <Input
+                value={f.memoria}
+                onChange={(e) => set("memoria", e.target.value)}
+                placeholder="8 GB"
+              />
+            </Field>
+            <Field label="Almacenamiento">
+              <Input
+                value={f.almacenamiento}
+                onChange={(e) => set("almacenamiento", e.target.value)}
+                placeholder="256 GB SSD"
+              />
+            </Field>
+            <Field label="Pantalla">
+              <Input
+                value={f.pantalla}
+                onChange={(e) => set("pantalla", e.target.value)}
+                placeholder="13.6''"
+              />
+            </Field>
+            <Field label="Color">
+              <Input
+                value={f.color}
+                onChange={(e) => set("color", e.target.value)}
+              />
+            </Field>
+            <Field label="Idioma">
+              <Input
+                value={f.idioma}
+                onChange={(e) => set("idioma", e.target.value)}
+              />
+            </Field>
+            <Field label="Estado">
+              <Select
+                value={f.estado}
+                onChange={(e) => set("estado", e.target.value as CelularStatus)}
+              >
+                {ESTADOS.map((s) => (
+                  <option key={s} value={s}>
+                    {celularStatus[s].label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Condición">
+              <Select
+                value={f.condicion}
+                onChange={(e) => {
+                  const condicion = e.target.value as NotebookCondicion;
+                  setF((p) => ({
+                    ...p,
+                    condicion,
+                    // La batería solo existe en las usadas.
+                    bateria: condicion === "usado" ? p.bateria : null,
+                  }));
+                }}
+              >
+                <option value="nuevo">Nueva</option>
+                <option value="usado">Usada</option>
+              </Select>
+            </Field>
+            {usado && (
+              <Field label="Batería (% de salud)">
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={f.bateria ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "bateria",
+                      e.target.value === ""
+                        ? null
+                        : Math.min(
+                            100,
+                            Math.max(0, Math.round(Number(e.target.value))),
+                          ),
+                    )
+                  }
+                  placeholder="Ej. 87"
+                />
+              </Field>
+            )}
+            <Field label="Garantía">
+              <Input
+                value={f.garantia}
+                onChange={(e) => set("garantia", e.target.value)}
+                placeholder="6 meses"
+              />
+            </Field>
+            <Field label="Costo USD">
+              <Input
+                type="number"
+                value={f.costoUsd}
+                onChange={(e) => set("costoUsd", Number(e.target.value))}
+              />
+            </Field>
+            <Field label="Precio USD">
+              <Input
+                type="number"
+                value={f.precioUsd}
+                onChange={(e) => set("precioUsd", Number(e.target.value))}
+              />
+            </Field>
+          </div>
+          <Field label="Notas">
+            <Textarea
+              value={f.notas}
+              onChange={(e) => set("notas", e.target.value)}
+            />
+          </Field>
+          {edit && <MovimientosLog movimientos={movimientos} />}
+        </div>
+      </Dialog>
+      {onDelete && (
+        <ConfirmDialog
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            onDelete();
+          }}
+          title="¿Eliminar notebook?"
+          confirmLabel="Eliminar notebook"
+        >
+          Se eliminará «{notebook?.modelo}» del inventario. Esta acción no se
           puede deshacer.
         </ConfirmDialog>
       )}
@@ -2109,17 +3002,17 @@ function RepuestoFormDialog({
         footer={
           <>
             {onDelete && (
-              <Button icon={Trash2}
+              <Button
+                icon={Trash2}
                 onClick={() => setConfirmDelete(true)}
-                variant="danger-outline" fullOnMobile className="sm:mr-auto"
+                variant="danger-outline"
+                fullOnMobile
+                className="sm:mr-auto"
               >
                 Eliminar repuesto
               </Button>
             )}
-            <Button
-              onClick={onClose}
-              variant="outline" fullOnMobile
-            >
+            <Button onClick={onClose} variant="outline" fullOnMobile>
               Cancelar
             </Button>
             <Button
@@ -2137,7 +3030,8 @@ function RepuestoFormDialog({
                   });
                 })
               }
-              variant="primary" fullOnMobile
+              variant="primary"
+              fullOnMobile
             >
               {pending ? "Guardando…" : "Guardar"}
             </Button>
@@ -2157,7 +3051,10 @@ function RepuestoFormDialog({
                 />
               </Field>
               <Field label="SKU">
-                <Input value={f.sku} onChange={(e) => set("sku", e.target.value)} />
+                <Input
+                  value={f.sku}
+                  onChange={(e) => set("sku", e.target.value)}
+                />
               </Field>
               <Field label="Modelo">
                 <Input
@@ -2193,7 +3090,9 @@ function RepuestoFormDialog({
                     type="number"
                     min={0}
                     value={f.costoUsd || ""}
-                    onChange={(e) => set("costoUsd", Number(e.target.value) || 0)}
+                    onChange={(e) =>
+                      set("costoUsd", Number(e.target.value) || 0)
+                    }
                   />
                 </Field>
               )}
@@ -2307,7 +3206,9 @@ function OtroFormDialog({
     );
   const addUnidad = () => setUnidadesManual((p) => [...p, emptyUnidad()]);
   const rmUnidad = (i: number) =>
-    setUnidadesManual((p) => (p.length > 1 ? p.filter((_, idx) => idx !== i) : p));
+    setUnidadesManual((p) =>
+      p.length > 1 ? p.filter((_, idx) => idx !== i) : p,
+    );
   function aplicarBulk() {
     const nuevas = bulkText
       .split(/[\n,]+/)
@@ -2339,17 +3240,17 @@ function OtroFormDialog({
         footer={
           <>
             {onDelete && (
-              <Button icon={Trash2}
+              <Button
+                icon={Trash2}
                 onClick={() => setConfirmDelete(true)}
-                variant="danger-outline" fullOnMobile className="sm:mr-auto"
+                variant="danger-outline"
+                fullOnMobile
+                className="sm:mr-auto"
               >
                 Eliminar producto
               </Button>
             )}
-            <Button
-              onClick={onClose}
-              variant="outline" fullOnMobile
-            >
+            <Button onClick={onClose} variant="outline" fullOnMobile>
               Cancelar
             </Button>
             <Button
@@ -2369,7 +3270,8 @@ function OtroFormDialog({
                   });
                 })
               }
-              variant="primary" fullOnMobile
+              variant="primary"
+              fullOnMobile
             >
               {pending ? "Guardando…" : "Guardar"}
             </Button>
@@ -2383,12 +3285,17 @@ function OtroFormDialog({
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Nombre">
-                <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                <Input
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                />
               </Field>
               <Field label="Categoría">
                 <Select
                   value={categoria}
-                  onChange={(e) => setCategoria(e.target.value as OtroCategoria)}
+                  onChange={(e) =>
+                    setCategoria(e.target.value as OtroCategoria)
+                  }
                 >
                   {CATS.map((c) => (
                     <option key={c} value={c}>
@@ -2416,7 +3323,10 @@ function OtroFormDialog({
                   ))}
                 </div>
               </Field>
-              <Field label="Descripción" className="col-span-1 sm:col-span-2 lg:col-span-3">
+              <Field
+                label="Descripción"
+                className="col-span-1 sm:col-span-2 lg:col-span-3"
+              >
                 <Input
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
@@ -2462,12 +3372,17 @@ function OtroFormDialog({
                 )}
               </Field>
               {serializado && (
-                <Field label="Unidades" className="col-span-1 sm:col-span-2 lg:col-span-3">
+                <Field
+                  label="Unidades"
+                  className="col-span-1 sm:col-span-2 lg:col-span-3"
+                >
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                       <span className="flex-1">Serial</span>
                       <span className="w-28 text-center">Color</span>
-                      {puedeVerCosto && <span className="w-24 text-center">Costo</span>}
+                      {puedeVerCosto && (
+                        <span className="w-24 text-center">Costo</span>
+                      )}
                       <span className="w-9" />
                     </div>
                     {unidadesManual.map((u, i) => (
@@ -2502,7 +3417,14 @@ function OtroFormDialog({
                             }
                           />
                         )}
-                        <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmUnidad(i)} disabled={unidadesManual.length === 1} />
+                        <IconButton
+                          aria-label="Quitar"
+                          icon={Trash2}
+                          variant="danger-ghost"
+                          size="lg"
+                          onClick={() => rmUnidad(i)}
+                          disabled={unidadesManual.length === 1}
+                        />
                       </div>
                     ))}
                   </div>
@@ -2525,7 +3447,8 @@ function OtroFormDialog({
                     </div>
                   ) : (
                     <p className="mt-2 text-xs text-neutral-400">
-                      Para sumar unidades nuevas usá «Agregar / ingresar producto».
+                      Para sumar unidades nuevas usá «Agregar / ingresar
+                      producto».
                     </p>
                   )}
                   {puedeVerCosto && bulkOpen && (
@@ -2534,7 +3457,9 @@ function OtroFormDialog({
                         rows={3}
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
-                        placeholder={"Un serial por línea\nIPAD9-010\nIPAD9-011"}
+                        placeholder={
+                          "Un serial por línea\nIPAD9-010\nIPAD9-011"
+                        }
                       />
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         <Input
@@ -2576,8 +3501,8 @@ function OtroFormDialog({
           title="¿Eliminar producto?"
           confirmLabel="Eliminar producto"
         >
-          Se eliminará «{item?.nombre}» del inventario. Esta acción no se
-          puede deshacer.
+          Se eliminará «{item?.nombre}» del inventario. Esta acción no se puede
+          deshacer.
         </ConfirmDialog>
       )}
     </Fragment>
@@ -2672,7 +3597,9 @@ function IngresoDialog({
     );
   const addUnidad = () => setUnidadesManual((p) => [...p, emptyUnidad()]);
   const rmUnidad = (i: number) =>
-    setUnidadesManual((p) => (p.length > 1 ? p.filter((_, idx) => idx !== i) : p));
+    setUnidadesManual((p) =>
+      p.length > 1 ? p.filter((_, idx) => idx !== i) : p,
+    );
 
   const valid =
     (modo === "existente" ? !!sel : !!nombre.trim()) &&
@@ -2713,16 +3640,14 @@ function IngresoDialog({
       }
       footer={
         <>
-          <Button
-            onClick={onClose}
-            variant="outline" fullOnMobile
-          >
+          <Button onClick={onClose} variant="outline" fullOnMobile>
             Cancelar
           </Button>
           <Button
             disabled={!valid || pending}
             onClick={submit}
-            variant="primary" fullOnMobile
+            variant="primary"
+            fullOnMobile
           >
             {pending
               ? "Guardando…"
@@ -2883,7 +3808,14 @@ function IngresoDialog({
                           })
                         }
                       />
-                      <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmUnidad(i)} disabled={unidadesManual.length === 1} />
+                      <IconButton
+                        aria-label="Quitar"
+                        icon={Trash2}
+                        variant="danger-ghost"
+                        size="lg"
+                        onClick={() => rmUnidad(i)}
+                        disabled={unidadesManual.length === 1}
+                      />
                     </div>
                   ))}
                 </div>

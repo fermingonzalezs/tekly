@@ -12,6 +12,7 @@ import {
   BarChart3,
   ClipboardCheck,
   Settings,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import type { Rol } from "@/lib/auth/types";
@@ -44,6 +45,7 @@ export const NAV: NavItem[] = [
   { href: "/difusion", label: "Difusión", icon: Megaphone },
   { href: "/cajas", label: "Cajas", icon: Wallet, roles: ["admin", "tecnico"] },
   { href: "/analiticas", label: "Analíticas", icon: BarChart3, roles: ["admin"] },
+  { href: "/patrimonio", label: "Patrimonio", icon: Landmark, roles: ["admin"] },
   { href: "/configuracion", label: "Configuración", icon: Settings, roles: ["admin"] },
 ];
 
@@ -66,7 +68,7 @@ const NAV_GROUPS: NavGroupDef[] = [
   { label: "Reparaciones", icon: Wrench, hrefs: ["/reparaciones"] },
   { label: "Stock", icon: Boxes, hrefs: ["/inventario", "/compras", "/recuentos"] },
   { label: "Clientes", icon: Users, hrefs: ["/clientes"] },
-  { label: "Finanzas", icon: Wallet, hrefs: ["/cajas", "/analiticas", "/cuentas-corrientes"] },
+  { label: "Finanzas", icon: Wallet, hrefs: ["/cajas", "/analiticas", "/patrimonio", "/cuentas-corrientes"] },
 ];
 
 export type NavCategory = {

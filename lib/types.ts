@@ -10,7 +10,7 @@ export type TicketStatus =
   | "listo"
   | "entregado";
 
-export type EquipoStatus =
+export type CelularStatus =
   | "en_revision"
   | "disponible"
   | "reservado"
@@ -218,8 +218,8 @@ export type Turno = {
   tipo: TurnoTipo;
   estado: TurnoEstado;
   ticketId: number | null;
-  /** Equipos de inventario vinculados (turnos de compra). */
-  equipoIds?: string[];
+  /** Celulares de inventario vinculados (turnos de compra). */
+  celularIds?: string[];
   /** Ítems de "Otros" del carrito de un turno de compra -- snapshot
    * embebido, no una relación viva (mismo criterio que `CompraItem`). */
   itemsOtros?: TurnoOtroItem[];
@@ -241,7 +241,7 @@ export type TurnoOtroItem = {
   cantidad?: number;
 };
 
-export type Equipo = {
+export type Celular = {
   id: string;
   modelo: string;
   almacenamiento: string;
@@ -251,7 +251,32 @@ export type Equipo = {
   condicion: string;
   costoUsd: number;
   precioUsd: number;
-  estado: EquipoStatus;
+  estado: CelularStatus;
+};
+
+/** Condición de una notebook: las usadas además informan el estado de la
+ * batería. */
+export type NotebookCondicion = "nuevo" | "usado";
+
+export type Notebook = {
+  id: string;
+  modelo: string;
+  cpu: string;
+  memoria: string;
+  almacenamiento: string;
+  pantalla: string;
+  color: string;
+  idioma: string;
+  numeroSerie: string;
+  garantia: string;
+  notas: string;
+  costoUsd: number;
+  precioUsd: number;
+  estado: CelularStatus;
+  condicion: NotebookCondicion;
+  /** Salud de la batería en % (0–100). Solo si `condicion === "usado"`;
+   * `null` en las nuevas. */
+  bateria: number | null;
 };
 
 /** Historial de stock de un ítem de inventario (equipo, repuesto u otro) —
@@ -267,11 +292,11 @@ export type Movimiento = {
 };
 
 /** Un `Movimiento` con el ítem resuelto -- para la vista consolidada de
- * "Movimientos" en /recuentos, que mezcla equipos/repuestos/otros en una
+ * "Movimientos" en /recuentos, que mezcla celulares/repuestos/otros en una
  * sola tabla (el historial por ítem, en su propio dialog, no necesita
  * esto). */
 export type MovimientoItem = Movimiento & {
-  itemTipo: "equipo" | "repuesto" | "otro";
+  itemTipo: "celular" | "notebook" | "repuesto" | "otro";
   itemNombre: string;
   /** Fecha real en ISO (`YYYY-MM-DD`), para agrupar en los gráficos -- la
    * `fecha` mostrada es `DD mes`, sin año. */
@@ -279,7 +304,7 @@ export type MovimientoItem = Movimiento & {
 };
 
 /** Estado de una unidad puntual de un "Otro" serializado -- misma semántica
- * que `EquipoStatus` para equipos: una unidad reservada/vendida no vuelve a
+ * que `CelularStatus` para celulares: una unidad reservada/vendida no vuelve a
  * ofrecerse. `undefined` = "disponible" (unidades de antes de este campo). */
 export type OtroUnidadEstado = "disponible" | "reservado" | "vendido";
 
@@ -316,18 +341,18 @@ export type Repuesto = {
 };
 
 /** Cómo quedó una diferencia del recuento al revisarla (admin-only, ver
- * `Recuento` abajo) -- "pendiente" hasta que alguien decide. Para equipos:
+ * `Recuento` abajo) -- "pendiente" hasta que alguien decide. Para celulares:
  * `confirmado` dice "sí, sigue extraviado", `restaurado` lo vuelve a
  * `disponible` (reapareció). Para repuestos/otros solo hay `ajustado`
  * (el stock pasa a lo contado) o `descartado` (fue un error de conteo,
  * ninguno toca el ítem real -- solo queda el registro). */
 export type RecuentoResolucion = "pendiente" | "confirmado" | "restaurado" | "ajustado" | "descartado";
 
-/** Una diferencia de un recuento de Equipos: lo que se esperaba (según el
+/** Una diferencia de un recuento de Celulares: lo que se esperaba (según el
  * estado guardado antes del recuento) vs. si se tildó como encontrado. Solo
  * entran acá los que NO coinciden -- un equipo que estaba disponible y se
  * encontró, o extraviado y seguía sin encontrarse, no es una diferencia. */
-export type RecuentoLineaEquipo = {
+export type RecuentoLineaCelular = {
   itemId: string;
   detalle: string;
   eraExtraviado: boolean;
@@ -354,7 +379,7 @@ export type RecuentoLineaCantidad = {
 };
 
 /** Una "sesión" de recuento de inventario: alguien cuenta (encontrado/no
- * encontrado para Equipos, cantidad real para Repuestos/Otros) y el
+ * encontrado para Celulares, cantidad real para Repuestos/Otros) y el
  * resultado queda `pendiente` -- no toca el stock todavía. Un admin lo
  * revisa después (`resolverRecuento`) línea por línea; recién ahí se
  * aplican los cambios reales y el recuento pasa a `revisado`. Si el
@@ -363,7 +388,7 @@ export type RecuentoLineaCantidad = {
  * Cajas -- ver "Backend y multi-tenancy" en CLAUDE.md. */
 export type Recuento = {
   id: string;
-  tipo: "equipos" | "repuestos" | "otros";
+  tipo: "celulares" | "repuestos" | "otros";
   fecha: string;
   hora: string;
   /** Fecha real en ISO (`YYYY-MM-DD`), para agrupar por mes en los gráficos
@@ -373,12 +398,12 @@ export type Recuento = {
   estado: "pendiente" | "revisado";
   revisadoPor?: string;
   revisadoEn?: string;
-  lineas: RecuentoLineaEquipo[] | RecuentoLineaCantidad[];
+  lineas: RecuentoLineaCelular[] | RecuentoLineaCantidad[];
   /** Nota libre para todo el recuento, cargada una sola vez al guardarlo
    * (ej. "conteo hecho después de cerrar, con poca luz en el depósito") --
-   * separada de `comentario`/`RecuentoLineaEquipo.comentario`, que son por
+   * separada de `comentario`/`RecuentoLineaCelular.comentario`, que son por
    * ítem. Hoy solo la cargan Repuestos/Otros (ver `RecuentoModalDialog` en
-   * inventario-client.tsx); Equipos sigue con su checklist inline. */
+   * inventario-client.tsx); Celulares sigue con su checklist inline. */
   comentarioGeneral?: string;
 };
 
@@ -397,13 +422,15 @@ export type VentaItem = {
   cantidad: number;
   precioUsd: number;
   costoUsd?: number;
-  /** Si el ítem sale del inventario de equipos. */
-  equipoId?: string;
+  /** Si el ítem sale del inventario de celulares. */
+  celularId?: string;
+  /** Si el ítem sale del inventario de notebooks. */
+  notebookId?: string;
   /** Origen elegido en "Nueva venta" (equipo del stock, servicio del
    * catálogo, producto de "Otros" o ítem libre) -- alimenta el mix de
    * categorías del dashboard (`ventasPorRubro` en `lib/dashboard.ts`).
    * Ventas creadas antes de este campo no lo tienen. */
-  categoria?: "equipo" | "servicio" | "otro" | "libre";
+  categoria?: "celular" | "notebook" | "servicio" | "otro" | "libre";
   /** Repuestos consumidos por este ítem (solo tiene sentido en ítems de
    * servicio, ver "Nueva venta") -- descuenta stock al vender, se puede
    * devolver al borrar la venta. `nombre` es un snapshot, igual criterio
@@ -434,14 +461,20 @@ export type Pago = {
   montoArs?: number;
   /** Si `medio === "canje"`: `Compra.id` de la compra generada para el
    * equipo recibido (ver `CanjeEquipo` -- el detalle completo vive ahí,
-   * no acá, para no duplicar/desincronizar). */
+   * no acá, para no duplicar/desincronizar). No lleva `cajaId`: el canje
+   * no es una caja ni genera movimiento de caja (plan 020). */
   compraId?: string;
+  /** Si `medio === "canje"`: `Celular.id` del equipo que entró al
+   * inventario `en_revision` con el valor acordado. Permite linkear al
+   * celular desde el detalle de la venta y borrarlo con la venta. */
+  celularId?: string;
 };
 
 /** Datos del equipo recibido en canje, cargados en el modal de "Nueva
- * venta" al elegir la caja de canje como medio de pago -- no se guardan en
+ * venta" al elegir «Mercadería» como medio de pago -- no se guardan en
  * `Venta.pagos`, solo viajan para crear la `Compra` vinculada
- * (`Pago.compraId`). */
+ * (`Pago.compraId`) y el celular que entra al inventario
+ * (`Pago.celularId`). */
 export type CanjeEquipo = {
   marca?: string;
   equipo: string;
@@ -475,6 +508,10 @@ export type Venta = {
    * habilita el checkbox correspondiente al borrar (`lib/db/ventas.ts`). */
   tieneMovimientoCaja?: boolean;
   tieneMovimientoCC?: boolean;
+  /** Transitorio (no se persiste): aviso para mostrar al usuario después
+   * de crear la venta, ej. el IMEI del canje ya existía y el celular se
+   * cargó sin IMEI (plan 020). */
+  avisoCanje?: string;
 };
 
 /** Caja física/específica — puede haber varias por moneda (ej. "Mostrador"
@@ -578,10 +615,11 @@ export type CompraItem = {
 /** Compra — el espejo de `Venta` del lado del gasto. `origen` distingue una
  * compra a proveedor (de siempre, `proveedor` cargado a mano) de un canje
  * recibido en una venta (`origen === "canje"`, generada automáticamente
- * desde "Nueva venta" al elegir la caja de canje como medio de pago —
- * `clienteId`/`cliente` en vez de `proveedor`, `ventaId` referencia esa
- * venta, y `marca`/`imei`/`checklist`/`aclaraciones` documentan el equipo
- * recibido para el PDF firmable, ver "Ventas" en CLAUDE.md). */
+ * desde "Nueva venta" al cobrar con «Mercadería» — `clienteId`/`cliente`
+ * en vez de `proveedor`, `ventaId` referencia esa venta, y
+ * `marca`/`imei`/`checklist`/`aclaraciones` documentan el equipo recibido
+ * para el PDF firmable; el equipo además entra al inventario como celular
+ * `en_revision` (`Pago.celularId`), ver "Ventas" en CLAUDE.md). */
 export type Compra = {
   id: string;
   fecha: string;
@@ -615,21 +653,33 @@ export type Compra = {
   imei?: string;
   checklist?: Checklist;
   aclaraciones?: string;
+  /** Solo `origen === "canje"`: `Celular.id` del equipo que entró al
+   * inventario con la venta que generó esta compra (plan 020). Se resuelve
+   * desde `Pago.celularId` de la venta de origen; no es una columna. */
+  celularId?: string;
 };
 
-/** Regla que trae TODOS los equipos vendibles (disponible) de una o más
+/** Regla que trae TODOS los celulares vendibles (disponible) de una o más
  * condiciones — ej. "A+, A" para armar una sección de gama
  * alta. Vacío = todas las condiciones. Se evalúa contra el stock actual
  * cada vez que se genera el mensaje: agregar la regla una vez alcanza,
  * no hay que volver a seleccionar equipo por equipo. */
-export type DifusionReglaEquipo = {
+export type DifusionReglaCelular = {
   id: string;
-  tipo: "equipo";
+  tipo: "celular";
   condiciones: string[];
 };
 
+/** Regla que trae TODAS las notebooks disponibles de una o más condiciones
+ * (`nuevo` / `usado`). Vacío = ambas. Se evalúa contra el stock actual. */
+export type DifusionReglaNotebook = {
+  id: string;
+  tipo: "notebook";
+  condiciones: NotebookCondicion[];
+};
+
 /** Regla que trae todos los productos de "Otros" de una categoría — ej.
- * todas las tablets. Igual de reusable que la de equipos. */
+ * todas las tablets. Igual de reusable que la de celulares. */
 export type DifusionReglaOtro = {
   id: string;
   tipo: "otro";
@@ -646,7 +696,11 @@ export type DifusionManual = {
   costoUsd?: number;
 };
 
-export type DifusionEntrada = DifusionReglaEquipo | DifusionReglaOtro | DifusionManual;
+export type DifusionEntrada =
+  | DifusionReglaCelular
+  | DifusionReglaNotebook
+  | DifusionReglaOtro
+  | DifusionManual;
 
 /** Un grupo con encabezado propio dentro del mensaje, ej. "IPHONE USADOS". */
 export type DifusionSeccion = {

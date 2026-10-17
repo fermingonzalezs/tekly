@@ -501,7 +501,7 @@ async function requireMemberOfCallerOrg(
  * `tickets.tecnico_id`, `ventas.vendedor_id`, `movimientos_caja.usuario_id`,
  * etc. referencian `profiles.id` sin cascada -- borrar la fila rompería en
  * cuanto el usuario tuviera algo de historial (una venta, un ticket
- * asignado). Mismo criterio de "baja lógica" que equipos/repuestos/otros:
+ * asignado). Mismo criterio de "baja lógica" que celulares/repuestos/otros:
  * `profiles.activo = false` (ya mostrado como "Inactivo" en la UI) +
  * `ban_duration` en Supabase Auth para que además no pueda loguearse de
  * nuevo -- Supabase revalida el ban al refrescar el token, así que también

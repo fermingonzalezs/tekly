@@ -1,10 +1,11 @@
 import { z } from "zod";
-import type { EquipoInput } from "@/lib/db/inventario";
-import type { EquipoStatus } from "@/lib/types";
+import type { CelularInput } from "@/lib/db/inventario";
+import type { NotebookInput } from "@/lib/notebooks";
+import type { CelularStatus, NotebookCondicion } from "@/lib/types";
 
-// ─────────────────────── Equipos ───────────────────────
+// ─────────────────────── Celulares ───────────────────────
 
-export const EQUIPO_CSV_HEADERS = [
+export const CELULAR_CSV_HEADERS = [
   "modelo",
   "almacenamiento",
   "color",
@@ -18,11 +19,11 @@ export const EQUIPO_CSV_HEADERS = [
 
 export const CLIENTE_CSV_HEADERS = ["nombre", "telefono", "email", "fechaNacimiento"] as const;
 
-const ESTADOS_EQUIPO: EquipoStatus[] = ["en_revision", "disponible", "reservado", "vendido"];
+const ESTADOS_CELULAR: CelularStatus[] = ["en_revision", "disponible", "reservado", "vendido"];
 
 /** Valida que el CSV subido tenga todas las columnas esperadas (matching
  * trim + case-insensitive) y devuelve las filas re-clavadas con los nombres
- * canónicos exactos -- necesario porque `parseEquipoRow`/`parseClienteRow`
+ * canónicos exactos -- necesario porque `parseCelularRow`/`parseClienteRow`
  * leen claves exactas (`raw.modelo`, no `raw.Modelo`) y Papa.parse conserva
  * el casing tal cual viene en el archivo. */
 export function remapFilas(
@@ -48,9 +49,9 @@ export function remapFilas(
 
 // El schema opera sobre strings crudas del CSV (vía Papa.parse header:true)
 // -- coerciona números, valida el enum de estado, y deja todo lo demás
-// opcional. `estado` vacío se completa a "en_revision" en `parseEquipoRow`,
-// mismo default que el alta manual en `EquipoFormDialog`.
-const equipoCsvSchema = z.object({
+// opcional. `estado` vacío se completa a "en_revision" en `parseCelularRow`,
+// mismo default que el alta manual en `CelularFormDialog`.
+const celularCsvSchema = z.object({
   modelo: z.string().trim().min(1, "modelo es obligatorio"),
   almacenamiento: z.string().trim().optional().default(""),
   color: z.string().trim().optional().default(""),
@@ -63,8 +64,8 @@ const equipoCsvSchema = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .refine((v) => v === "" || ESTADOS_EQUIPO.includes(v as EquipoStatus), {
-      message: `estado debe ser una de: ${ESTADOS_EQUIPO.join(", ")} (o vacío)`,
+    .refine((v) => v === "" || ESTADOS_CELULAR.includes(v as CelularStatus), {
+      message: `estado debe ser una de: ${ESTADOS_CELULAR.join(", ")} (o vacío)`,
     })
     .optional()
     .default(""),
@@ -76,8 +77,8 @@ export type ParseResult<T> =
 
 /** `rowNum` es 1-based y cuenta solo filas de datos (no el header), para
  * que el mensaje de error coincida con lo que el usuario ve en la planilla. */
-export function parseEquipoRow(raw: Record<string, string>, rowNum: number): ParseResult<EquipoInput> {
-  const parsed = equipoCsvSchema.safeParse(raw);
+export function parseCelularRow(raw: Record<string, string>, rowNum: number): ParseResult<CelularInput> {
+  const parsed = celularCsvSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, rowNum, error: parsed.error.issues[0].message };
   }
@@ -94,7 +95,7 @@ export function parseEquipoRow(raw: Record<string, string>, rowNum: number): Par
       condicion: d.condicion,
       costoUsd: d.costoUsd,
       precioUsd: d.precioUsd,
-      estado: (d.estado || "en_revision") as EquipoStatus,
+      estado: (d.estado || "en_revision") as CelularStatus,
     },
   };
 }
@@ -121,12 +122,12 @@ export function marcarImeiDuplicadoEnArchivo(
 }
 
 // Columna extra "notas" a la derecha de los datos -- `remapFilas` solo lee
-// las columnas de `EQUIPO_CSV_HEADERS` por nombre, así que una columna de
+// las columnas de `CELULAR_CSV_HEADERS` por nombre, así que una columna de
 // más (o de menos, si el usuario la borra al preparar su archivo real) no
 // rompe nada. Ninguna nota puede llevar coma: se arma el CSV a mano
 // (`.join(",")`), sin escapado de comillas.
-export function equipoTemplateCsv(): string {
-  const headers = [...EQUIPO_CSV_HEADERS, "notas"];
+export function celularTemplateCsv(): string {
+  const headers = [...CELULAR_CSV_HEADERS, "notas"];
   const ejemplo = [
     "iPhone 13",
     "128GB",
@@ -145,7 +146,7 @@ export function equipoTemplateCsv(): string {
     "imei: no repetir -- si dos filas tienen el mismo IMEI (o ya existe en el inventario) esa fila se marca como duplicada y no se importa",
     "bateria: número entero de 0 a 100 -- vacío se completa como 100",
     "costoUsd / precioUsd: números en dólares sin símbolo ni puntos de miles (ej. 300)",
-  ].map((nota) => [...Array(EQUIPO_CSV_HEADERS.length).fill(""), nota].join(","));
+  ].map((nota) => [...Array(CELULAR_CSV_HEADERS.length).fill(""), nota].join(","));
 
   return [headers.join(","), ejemplo.join(","), ...notas].join("\n");
 }
@@ -236,7 +237,7 @@ export function marcarClienteDuplicadoEnArchivo(
   return dup;
 }
 
-// Misma idea que `equipoTemplateCsv`: columna extra "notas" a la derecha,
+// Misma idea que `celularTemplateCsv`: columna extra "notas" a la derecha,
 // ignorada por `remapFilas` -- ninguna nota puede llevar coma.
 export function clienteTemplateCsv(): string {
   const headers = [...CLIENTE_CSV_HEADERS, "notas"];
@@ -252,6 +253,162 @@ export function clienteTemplateCsv(): string {
     "telefono / email: opcionales -- pero si un cliente ya cargado tiene el mismo teléfono o email esa fila se marca como duplicada y no se importa",
     "fechaNacimiento: opcional -- formato DD/MM/AAAA o AAAA-MM-DD; si la escribís mal la fila se marca con error (no se importa sin fecha en silencio)",
   ].map((nota) => [...Array(CLIENTE_CSV_HEADERS.length).fill(""), nota].join(","));
+
+  return [headers.join(","), ejemplo.join(","), ...notas].join("\n");
+}
+
+// ─────────────────────── Notebooks ───────────────────────
+
+export const NOTEBOOK_CSV_HEADERS = [
+  "modelo",
+  "cpu",
+  "memoria",
+  "almacenamiento",
+  "pantalla",
+  "color",
+  "idioma",
+  "numeroSerie",
+  "garantia",
+  "observaciones",
+  "condicion",
+  "bateria",
+  "costoUsd",
+  "precioUsd",
+  "estado",
+] as const;
+
+const CONDICIONES_NOTEBOOK: NotebookCondicion[] = ["nuevo", "usado"];
+
+// `observaciones` se mapea a `Notebook.notas` (el header "notas" queda libre
+// para la columna de instrucciones de la plantilla). `bateria` solo cuenta en
+// las usadas, igual que en el alta manual (`notebookSchema`).
+const notebookCsvSchema = z.object({
+  modelo: z.string().trim().min(1, "modelo es obligatorio"),
+  cpu: z.string().trim().optional().default(""),
+  memoria: z.string().trim().optional().default(""),
+  almacenamiento: z.string().trim().optional().default(""),
+  pantalla: z.string().trim().optional().default(""),
+  color: z.string().trim().optional().default(""),
+  idioma: z.string().trim().optional().default(""),
+  numeroSerie: z.string().trim().optional().default(""),
+  garantia: z.string().trim().optional().default(""),
+  observaciones: z.string().trim().optional().default(""),
+  condicion: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine((v) => CONDICIONES_NOTEBOOK.includes(v as NotebookCondicion), {
+      message: `condicion debe ser una de: ${CONDICIONES_NOTEBOOK.join(", ")}`,
+    }),
+  bateria: z.string().trim().optional().default(""),
+  costoUsd: z.coerce.number().min(0, "costoUsd debe ser un número >= 0"),
+  precioUsd: z.coerce.number().min(0, "precioUsd debe ser un número >= 0"),
+  estado: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine((v) => v === "" || ESTADOS_CELULAR.includes(v as CelularStatus), {
+      message: `estado debe ser una de: ${ESTADOS_CELULAR.join(", ")} (o vacío)`,
+    })
+    .optional()
+    .default(""),
+});
+
+export function parseNotebookRow(
+  raw: Record<string, string>,
+  rowNum: number,
+): ParseResult<NotebookInput> {
+  const parsed = notebookCsvSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, rowNum, error: parsed.error.issues[0].message };
+  }
+  const d = parsed.data;
+  const condicion = d.condicion as NotebookCondicion;
+  let bateria: number | null = null;
+  if (condicion === "usado") {
+    const n = Number(d.bateria);
+    if (d.bateria === "" || !Number.isInteger(n) || n < 0 || n > 100) {
+      return {
+        ok: false,
+        rowNum,
+        error: "bateria es obligatoria en las usadas (entero de 0 a 100)",
+      };
+    }
+    bateria = n;
+  }
+  return {
+    ok: true,
+    rowNum,
+    data: {
+      modelo: d.modelo,
+      cpu: d.cpu,
+      memoria: d.memoria,
+      almacenamiento: d.almacenamiento,
+      pantalla: d.pantalla,
+      color: d.color,
+      idioma: d.idioma,
+      numeroSerie: d.numeroSerie,
+      garantia: d.garantia,
+      notas: d.observaciones,
+      costoUsd: d.costoUsd,
+      precioUsd: d.precioUsd,
+      estado: (d.estado || "en_revision") as CelularStatus,
+      condicion,
+      bateria,
+    },
+  };
+}
+
+/** Dedupe DENTRO del archivo por número de serie -- series vacías nunca
+ * chocan entre sí. */
+export function marcarSerieDuplicadaEnArchivo(
+  rows: { rowNum: number; numeroSerie: string }[],
+): Map<number, string> {
+  const vistos = new Map<string, number>();
+  const dup = new Map<number, string>();
+  for (const r of rows) {
+    const serie = r.numeroSerie.trim();
+    if (!serie) continue;
+    const prev = vistos.get(serie);
+    if (prev !== undefined) {
+      dup.set(r.rowNum, `Número de serie duplicado en el archivo (fila ${prev})`);
+    } else {
+      vistos.set(serie, r.rowNum);
+    }
+  }
+  return dup;
+}
+
+// Columna extra "instrucciones" a la derecha, ignorada por `remapFilas`;
+// ninguna nota puede llevar coma (el CSV se arma a mano).
+export function notebookTemplateCsv(): string {
+  const headers = [...NOTEBOOK_CSV_HEADERS, "instrucciones"];
+  const ejemplo = [
+    "MacBook Air M2",
+    "Apple M2",
+    "8GB",
+    "256GB",
+    "13.6\"",
+    "Gris espacial",
+    "Español",
+    "C02XYZ123456",
+    "6 meses",
+    "",
+    "usado",
+    "95",
+    "800",
+    "1000",
+    "en_revision",
+    "Fila de ejemplo -- borrala junto con las filas de notas de abajo antes de importar",
+  ];
+  const notas = [
+    "condicion: nuevo o usado (obligatoria)",
+    "bateria: entero de 0 a 100 -- obligatoria si es usado; en las nuevas se ignora",
+    "numeroSerie: no repetir -- si ya existe en el inventario (o se repite en el archivo) la fila se marca como duplicada y no se importa",
+    "estado: en_revision / disponible / reservado / vendido -- vacío se completa como en_revision",
+    "costoUsd / precioUsd: números en dólares sin símbolo ni puntos de miles (ej. 800)",
+    "observaciones: texto libre sin comas",
+  ].map((nota) => [...Array(NOTEBOOK_CSV_HEADERS.length).fill(""), nota].join(","));
 
   return [headers.join(","), ejemplo.join(","), ...notas].join("\n");
 }

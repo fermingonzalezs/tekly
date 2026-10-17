@@ -1,0 +1,40 @@
+---
+titulo: "Cargos y pagos"
+resumen: "Cómo se suma y se reduce la deuda de un cliente: de dónde salen los cargos, cómo se calcula el saldo y qué pasa al borrar una venta fiada."
+seccion: cuentas-corrientes
+roles: [admin, tecnico]
+orden: 2
+actualizado: 2026-10-17
+---
+
+Cada cliente acumula **movimientos** de dos tipos:
+
+- **Cargo** (aumenta la deuda): una venta o reparación fiada, o un cargo manual.
+- **Pago** (reduce la deuda): un pago parcial o total.
+
+El **saldo** es la suma de los cargos menos la de los pagos. Positivo = debe, negativo = a favor, cero = «Al día».
+
+## De dónde salen los cargos
+
+<Paso n={1} titulo="Automáticos">
+- **Ventas**: una venta cuyo pago es «Cuenta corriente» genera un cargo por ese monto.
+- **Reparaciones**: al entregar un ticket eligiendo «Cuenta corriente», se genera el cargo.
+</Paso>
+
+<Paso n={2} titulo="Manuales">
+El botón **«Nuevo movimiento»** permite cargar un cargo o un pago a mano, eligiendo cliente, concepto y monto.
+</Paso>
+
+## Qué pasa al borrar una venta fiada
+
+El diálogo de eliminar venta (solo admin) tiene una opción **«Eliminar también el movimiento de cuenta corriente generado por esta venta»**. Si la dejás marcada, el cargo se borra; si la desmarcás, la deuda queda como si fuera un cargo manual.
+
+## Qué no se puede
+
+- Un movimiento de cuenta corriente no se edita: se elimina (admin) y se carga de nuevo.
+- Los cargos automáticos no se pueden separar de su venta/ticket salvo al borrar el origen.
+
+## Relacionados
+
+- [Registrar un pago](/ayuda/cuentas-corrientes/registrar-pago)
+- [Eliminar una venta](/ayuda/ventas/eliminar-venta)

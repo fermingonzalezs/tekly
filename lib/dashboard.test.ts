@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  mesDashboard,
+  moverMes,
+  ritmoDelMes,
   metricasDashboard,
   metricasEmpleado,
   objetivoDelMes,
@@ -253,27 +256,27 @@ describe("ventasPorRubro", () => {
     const ventas: Venta[] = [
       venta("2026-09-05", 100, 20, {
         items: [
-          item(60, { categoria: "equipo" }),
+          item(60, { categoria: "celular" }),
           item(40, { categoria: "otro" }),
         ],
       }),
       venta("2026-08-05", 999, 20, { items: [item(999, { categoria: "servicio" })] }),
     ];
     const mes = porLabel(ventasPorRubro(ventas, hoy).mes);
-    expect(mes.Equipos).toBe(60);
+    expect(mes.Celulares).toBe(60);
     expect(mes.Accesorios).toBe(40);
     expect(mes.Reparaciones).toBe(0);
   });
 
-  it("ítem sin categoria (venta anterior a este campo): equipoId -> Equipos, si no -> Otros", () => {
+  it("ítem sin categoria (venta anterior a este campo): celularId -> Celulares, si no -> Otros", () => {
     const hoy = new Date(2026, 8, 14);
     const ventas: Venta[] = [
       venta("2026-09-05", 150, 20, {
-        items: [item(90, { equipoId: "eq-1" }), item(60)],
+        items: [item(90, { celularId: "eq-1" }), item(60)],
       }),
     ];
     const mes = porLabel(ventasPorRubro(ventas, hoy).mes);
-    expect(mes.Equipos).toBe(90);
+    expect(mes.Celulares).toBe(90);
     expect(mes.Otros).toBe(60);
   });
 });
@@ -291,5 +294,42 @@ describe("ventasRecientes", () => {
     expect(out[0].hace).toBe("hoy");
     expect(out[1].hace).toBe("1 oct");
     expect(out[1].vendedor).toBe("Vendedor");
+  });
+});
+
+describe("mesDashboard", () => {
+  const hoy = new Date(2026, 9, 17);
+  it("sin param o inválido/futuro cae al mes en curso", () => {
+    for (const raw of [undefined, "basura", "2026-11", "2027-01", "2026-13"]) {
+      const m = mesDashboard(raw, hoy);
+      expect(m.clave).toBe("2026-10");
+      expect(m.esActual).toBe(true);
+    }
+  });
+  it("un mes pasado usa su último día como referencia", () => {
+    const m = mesDashboard("2026-02", hoy);
+    expect(m.esActual).toBe(false);
+    expect(m.ref.getDate()).toBe(28);
+  });
+  it("moverMes cruza años", () => {
+    expect(moverMes("2026-01", -1)).toBe("2025-12");
+    expect(moverMes("2026-12", 1)).toBe("2027-01");
+  });
+});
+
+describe("ritmoDelMes", () => {
+  it("acumula día a día y compara con el mismo tramo del mes anterior", () => {
+    const hoy = new Date(2026, 9, 3);
+    const ventas = [
+      venta("2026-10-01", 100),
+      venta("2026-10-03", 50),
+      venta("2026-09-02", 10),
+      venta("2026-09-20", 999),
+    ];
+    const r = ritmoDelMes(ventas, hoy, hoy);
+    expect(r.acumulado).toEqual([100, 100, 150]);
+    expect(r.anterior).toEqual([0, 10, 10]);
+    expect(r.daysInMonth).toBe(31);
+    expect(r.esActual).toBe(true);
   });
 });

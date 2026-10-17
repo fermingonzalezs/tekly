@@ -14,7 +14,7 @@ function recuento(
 ): Recuento {
   return {
     id: partial.id ?? partial.fechaISO,
-    tipo: partial.tipo ?? "equipos",
+    tipo: partial.tipo ?? "celulares",
     fecha: partial.fecha ?? partial.fechaISO,
     hora: "10:00",
     responsable: "Ana",
@@ -36,7 +36,7 @@ function movimiento(
     detalle: "detalle",
     usuario: "Ana",
     tipo,
-    itemTipo: "equipo",
+    itemTipo: "celular",
     itemNombre: "iPhone",
     ...parcial,
   };
@@ -89,12 +89,12 @@ describe("conteoRecuentos", () => {
 });
 
 describe("unidadesAjustadasPorTipo", () => {
-  it("suma restaurados de equipos y ajustes de repuestos/otros", () => {
+  it("suma restaurados de celulares y ajustes de repuestos/otros", () => {
     const r = unidadesAjustadasPorTipo([
       recuento({
         fechaISO: "2026-09-01",
         estado: "revisado",
-        tipo: "equipos",
+        tipo: "celulares",
         lineas: [
           { itemId: "e1", detalle: "iPhone", eraExtraviado: true, encontrado: true, resolucion: "restaurado" },
           { itemId: "e2", detalle: "iPad", eraExtraviado: false, encontrado: false, resolucion: "descartado" },
@@ -111,7 +111,7 @@ describe("unidadesAjustadasPorTipo", () => {
       }),
     ]);
     expect(r).toEqual([
-      { label: "Equipos", value: 1 },
+      { label: "Celulares", value: 1 },
       { label: "Repuestos", value: 3 },
       { label: "Otros", value: 0 },
     ]);

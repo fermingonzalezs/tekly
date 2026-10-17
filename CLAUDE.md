@@ -74,7 +74,7 @@ lib/auth/                 sesión + login/signup -- única puerta a @supabase/* 
 lib/db/<dominio>.ts       una por dominio migrado -- única puerta a @supabase/* para datos
 lib/mock-data.ts          datos de ejemplo de las secciones TODAVÍA no migradas
 lib/types.ts              tipos del dominio (contrato entre lib/db y las páginas)
-lib/status.ts             estados (tickets, equipos, turnos, pagos) + tonos
+lib/status.ts             estados (tickets, celulares, turnos, pagos) + tonos
 lib/format.ts             formateo de moneda / fechas
 lib/realtime.ts           pub/sub de eventos + describe() para el toast
 lib/marketing/            appUrl/loginUrl/signupUrl -- CTAs de la landing a NEXT_PUBLIC_APP_URL
@@ -215,7 +215,7 @@ Acceso vía MCP con las tools `mcp__plugin_supabase_supabase__*` (el conector
   activo)` — una fila por usuario. **Un usuario pertenece a una sola
   organización** (no hay tabla de membresías N:M; si hiciera falta multi-org
   el día de mañana, es una migración de datos acotada).
-- Una tabla por dominio de negocio (`clientes`, `equipos`, `repuestos`,
+- Una tabla por dominio de negocio (`clientes`, `celulares`, `notebooks`, `repuestos`,
   `otros_items`, `movimientos_stock`, `proveedores`, `tickets`, `servicios`,
   `turnos`, `ventas`, `venta_items`, `cajas`, `movimientos_caja`,
   `conciliaciones`, `movimientos_cc`, `compras`, `listas_difusion`), todas
@@ -229,7 +229,8 @@ Acceso vía MCP con las tools `mcp__plugin_supabase_supabase__*` (el conector
   `lib/types.ts` — son snapshots embebidos, no relaciones vivas. **Excepción:
   `Venta.items` es la única estructura anidada con tabla propia
   (`venta_items`, 1 fila por `VentaItem`, `venta_id → ventas.id on delete
-  cascade`, mismas 4 policies de RLS + `DEFAULT current_user_org_id()` que
+  cascade`, `celular_id → celulares.id` / `notebook_id → notebooks.id`
+  nullables, mismas 4 policies de RLS + `DEFAULT current_user_org_id()` que
   cualquier tabla de negocio)** — se sacó del jsonb a propósito para poder
   agregar en SQL por ítem/categoría en vez de traer todas las ventas a la
   app y sumar en JS; es lo que habilita `margenPorTipo` real en Analíticas
@@ -440,6 +441,17 @@ queries a Supabase.
 **Las 12 secciones están migradas** (Clientes, Inventario, Reparaciones,
 Ventas, Turnos, Cajas, Compras, Cuentas corrientes, Difusión, Analíticas,
 Dashboard, Configuración) — no queda ninguna página en el patrón mock viejo.
+**Plan 018**: la entidad de stock «Equipo» pasó a **Celular** (tabla
+`celulares`, columnas `venta_items.celular_id`/`turnos.celular_ids`, valor
+`categoria: "celular"`) y se sumó **Notebook** como categoría de Inventario y
+de venta (`notebooks`, `venta_items.notebook_id`, `categoria: "notebook"`,
+rubro «Notebooks» — 5 rubros, `CHART_COLORS` ya tiene 5 pasos). Notebooks es
+unidad única con número de serie, se vende desde Nueva venta (queda `vendido`,
+aparece en Ítems vendidos con su serie, y el comprobante/garantía la usa) y se
+devuelve a `disponible` al borrar la venta. Quedó **fuera de alcance** (solo
+no se rompe): Turnos con notebooks, pestaña de notebooks
+en Analíticas → Inventario, Recuentos de notebooks, y
+costos/margen de notebooks por modelo en Analíticas.
 `clientesDemografia` también pasó a real: `clientes.fecha_nacimiento`
 (opcional, se carga en el alta) + `lib/clientes.ts` (`demografiaClientes()`,
 lógica pura con test) — un cliente sin esa fecha cargada simplemente no
@@ -456,7 +468,7 @@ y es 100% real: `organizations.objetivo_mes_usd`, editable en Configuración
 → Datos del negocio (`getNegocio()`/`updateNegocio()` en
 `lib/db/configuracion.ts`). `margenPorTipo` pasó a real (`lib/analiticas.ts`,
 con test) desde que `VentaItem` tiene tabla propia (`venta_items`, ver
-"Backend y multi-tenancy") — mismo rubro Equipos/Reparaciones/Accesorios/
+"Backend y multi-tenancy") — mismo rubro Celulares/Notebooks/Reparaciones/Accesorios/
 Otros que `ventasPorRubro` del dashboard (`categoriaDe`/`RUBRO_LABEL`
 compartidos vía `lib/ventas.ts`), agregando `costoUsd`/`precioUsd` por ítem;
 un ítem sin `costoUsd` cargado cuenta como operación pero no entra en el
@@ -616,7 +628,7 @@ todo gráfico de la app (dashboard, analíticas, …).
 **aliases** de las de arriba (se estrenaron en el dashboard; ya son globales).
 
 **Estados y etiquetas:** nunca hardcodear colores de estado. Usar el map de
-`lib/status.ts` (`ticketStatus`, `equipoStatus`, `repuestoEstado`,
+`lib/status.ts` (`ticketStatus`, `celularStatus`, `repuestoEstado`,
 `turnoStatus`, `turnoTipo`, `medioPago`, `otroCategoria`) — todos devuelven
 `{ label, tone }`, `tone ∈ blue | amber | green | gray | red | violet`, con su
 color asociado ya resuelto en `dotClass`.
@@ -626,7 +638,7 @@ patrón es un chip gris neutro (`bg-neutral-100 text-neutral-700 rounded-md
 px-2 py-0.5 text-xs`) con un punto `dotClass[tone]` (`h-1.5 w-1.5 rounded-full`)
 al lado del label — el color vive en el punto, no en el fondo del chip. Ya lo
 usan Ventas (Pago), Reparaciones (Estado), Inventario (Estado de
-equipos/repuestos, Categoría de "Otros") y Turnos (tipo/estado). Para una
+celulares/notebooks, repuestos, Categoría de "Otros") y Turnos (tipo/estado). Para una
 etiqueta nueva en una columna de tabla, replicar este patrón en vez de
 `Badge`.
 
@@ -812,21 +824,20 @@ Aplica a **toda tabla, presente y futura** (menos los recibos/PDF):
   Regla en `@layer base` para que el `hover:bg-*` de cada fila siga ganando.
   Los `.recibo-print` tienen su propia cebra, en violeta claro (`#edecf8`,
   `accent-soft`) en vez del índigo muy claro del resto de la app.
-- **Todo alineado a la izquierda** por defecto (`th, td { text-align:left }`).
-- **Opt-out por celda**: `text-end` / `text-right` alinea a la derecha
-  (columnas de plata / números: `Monto`, `Total`, `Precio`, `Costo`, `Margen`);
-  `text-center` centra (ej. celda vacía "sin resultados"). `text-start` sigue.
+- **Todo centrado** por defecto (`th, td { text-align:center }`): headers
+  siempre centrados, y celdas cortas (estados, chips, fechas, números, montos,
+  IMEI/serie, ids, acciones) también.
+- **Opt-out por columna de texto largo**: nombres de cliente, detalles, fallas,
+  descripciones, emails, comentarios (≈ más de 25 caracteres o que se parten en
+  líneas) llevan `text-start` en el `td` (el `th` sigue centrado). Se decide por
+  **columna**, no por celda. `text-start`/`text-left` alinea a la izquierda,
+  `text-right`/`text-end` sigue disponible pero ya no se usa en tablas.
 - Números en columnas → `tabular-nums`. Texto de las celdas: peso normal (dejar
   `font-semibold` solo para el dato que tiene que destacar, ej. Total).
 - Fuera de tablas, alinear a la izquierda con `text-start`.
-- **Decisión tomada (plan 007): texto a la izquierda, montos a la
-  derecha.** Ventas es la sección de referencia — código/estado corto a la
-  izquierda, plata/% a la derecha (`text-right tabular-nums`), acciones en
-  columna angosta a la derecha (`w-px whitespace-nowrap`). Las otras 9
-  secciones que hoy centran todas sus columnas (Cajas, Inventario, Recuentos,
-  Compras, Reparaciones, Clientes, Configuración, Cuentas corrientes,
-  Difusión) se migran a este criterio después (plan aparte) — no copiar el
-  patrón centrado solo porque es mayoritario hoy.
+- **Decisión vigente (reemplaza al plan 007): centrado salvo texto largo,
+  montos también centrados.** Los recibos/PDF (`.recibo-print`) conservan su
+  propio criterio.
 
 ## Componentes reutilizables — usar SIEMPRE estos
 
@@ -951,7 +962,7 @@ Clientes, Cuentas corrientes, Recuentos) arma su página con `SeccionTabla`
    solo los selects se colapsan detrás de "Filtros · N".
 5. **Tabla** (con `Pagination` si es server-paginada).
 
-Los tabs (Inventario Equipos/Repuestos/Otros, Cajas
+Los tabs (Inventario Celulares/Notebooks/Repuestos/Otros, Cajas
 Movimientos/Conciliaciones/Cajas, Recuentos Recuentos/Movimientos, Ventas
 Ventas/Ítems vendidos, Reparaciones Tickets/Servicios) van todos en la fila de
 filtros, con el resto de los filtros de la sección — no arriba de los
@@ -1060,7 +1071,7 @@ dialog** — no como botón aparte en la fila de la tabla (`ServicioDialog`,
 "Servicio activo", es la referencia). Título: `id ? "Editar X" : "Nuevo X"`.
 Para elegir entre opciones dentro de un form usar **`Select`**, nunca
 `Tabs` — `Tabs` es el pill de navegación/filtro de página (Del
-día/Historial, Equipos/Repuestos/Otros), no un control de formulario.
+día/Historial, Celulares/Notebooks/Repuestos/Otros), no un control de formulario.
 
 ## Convenciones al agregar una sección
 
@@ -1096,28 +1107,31 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
    children de `SeccionTabla`. Estados → `Badge` + `lib/status.ts`.
    Medios de pago (`MedioPago`): `pesos` ("Efectivo (pesos)" 💵), `dolares`
    ("Dólares" 💲), `transferencia` 🏦, `cripto` 🪙, `tarjeta` ("Tarjeta de
-   crédito") 💳, `canje` ("Mercadería") 📦 — label/tone/emoji centralizados
-   en `medioPago` (`lib/status.ts`), nunca hardcodeados. Los internos
-   (`"pesos"`, `"tarjeta"`, `"canje"`, …) no cambian aunque el label sí —
-   son el valor persistido en `cajas`/`movimientos_caja`/`compras`
-   (`MEDIOS_CAJA` en `lib/status.ts`, fuente única para esos 3 selectores +
-   Turnos). Solo `Pago.medio` (ventas) admite un 7mo valor,
-   `"cuenta_corriente"` 📒 (tipo `MedioPagoVenta`, `MEDIOS_VENTA` con los 7)
-   — nunca es medio de una `Caja` real. `Venta.pagos` es `Pago[]` = `{
-   medio, montoUsd, caja, cajaId?, recargoPct?, compraId? }[]` (1+ medios,
-   pago dividido; la suma de `montoUsd` cubre `totalUsd`, sin importar el
-   recargo — ver abajo). `compraId` solo aplica a un pago `canje`: elegir la
-   caja de canje como destino abre `CanjeModal` (mismo archivo) para cargar
-   el equipo recibido + un checklist de ingreso (`ChecklistEditor`,
+   crédito") 💳 — label/tone/emoji centralizados en `medioPago`
+   (`lib/status.ts`), nunca hardcodeados. Los internos (`"pesos"`,
+   `"tarjeta"`, `"canje"`, …) no cambian aunque el label sí — son el valor
+   persistido en `cajas`/`movimientos_caja`/`compras`
+   (`MEDIOS_CAJA` en `lib/status.ts`, fuente única para esos selectores +
+   Turnos). **`canje` («Mercadería») y `"cuenta_corriente"` no son medios de
+   caja** (plan 020): `Pago.medio` (tipo `MedioPagoVenta`, `MEDIOS_VENTA`
+   con los 6 de caja + ambos) es el único lugar donde existen; ninguno mueve
+   plata ni genera `movimientos_caja`. `Venta.pagos` es `Pago[]` = `{
+   medio, montoUsd, caja, cajaId?, recargoPct?, compraId?, celularId? }[]`
+   (1+ medios, pago dividido; la suma de `montoUsd` cubre `totalUsd`, sin
+   importar el recargo — ver abajo). Un pago `canje`: no pide caja (`caja`
+   queda `"usd"`), abre `CanjeModal` (mismo archivo) para cargar el equipo
+   recibido + un checklist de ingreso (`ChecklistEditor`,
    `components/ui/checklist-editor.tsx` — compartido con Reparaciones, ver
-   esa sección) + aclaraciones libres; al confirmar la venta,
-   `createVenta` (`lib/db/ventas.ts`) crea una `Compra` con
-   `origen: "canje"` (ver "Compras" más abajo) y guarda su `id` como
-   `compraId` en el pago — el detalle completo vive ahí, no en `Venta.pagos`.
+   esa sección) + aclaraciones; al confirmar la venta, `createVenta`
+   (`lib/db/ventas.ts`) crea una `Compra` `origen: "canje"` (ver "Compras"
+   más abajo) **y un celular `en_revision`** (costo = valor del canje,
+   precio 0) y guarda `compraId` + `celularId` en el pago — el detalle
+   completo vive en la compra, no en `Venta.pagos`. Si el IMEI ya existe, el
+   celular se carga **sin IMEI** y se avisa (nunca aborta la venta).
    Formularios → `Dialog` + `Field`.
    El modal de **Nueva venta** (`app/(app)/ventas/ventas-client.tsx`) es la
    referencia de form completo: eyebrows en mayúscula, cliente existente/
-   nuevo, ítems desde el stock (`equipos`) o libres, y pago dividido con
+   nuevo, ítems desde el stock (`celulares`/`notebooks`) o libres, y pago dividido con
    conciliación (faltan/sobran/completo + botón «Saldar» — lógica en
    `lib/ventas.ts`, no reimplementarla inline). Cada pago es una tarjeta
    propia (`rounded-lg border`, una fila entera por pago -- varios pagos
@@ -1161,24 +1175,27 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   tabla (no persistido) — el contrato del tipo hacia el client component no
   cambió. El color del bloque = `turnoTipo[t.tipo]` (`compra` / `deja` /
   `retira` / `cotizar`). Click en bloque → detalle (+ «Cliente llegó» dispara
-  `appointment_arrived`); click en hueco → agendar. Agendar con equipos
-  vinculados actualiza `equipos.estado` (`retira` → vendido, resto →
+  `appointment_arrived`); click en hueco → agendar. Agendar con celulares
+  vinculados actualiza `celulares.estado` (`retira` → vendido, resto →
   reservado), igual criterio que Ventas. `Turno.clienteId` (columna
   `cliente_id`, ya existía en la tabla desde el schema inicial, sin
   usarse) es nullable a propósito: el `ClientePicker` de "Agendar turno"
   tiene `allowLibre`, para turnos de alguien que todavía no está
   registrado como cliente — en ese caso `clienteId` queda `null` y
   `cliente` (el nombre, siempre se completa) es lo único que hay.
-- **Inventario** (`app/(app)/inventario/`, migrado): 3 tabs — **Equipos**
-  (unidades únicas por IMEI, con `Equipo.almacenamiento`), **Repuestos**
-  (stock por modelo) y **Otros** (`OtroItem`: iPad, AirPods, tablets,
-  accesorios; con `cantidad`). Repuestos y Otros tienen **Recuento** (edición
-  inline de stock/cantidad + guardar) e **Ingreso** (dialog que suma unidades
-  a un ítem existente con cantidad + precio compra, o crea uno nuevo).
-  Equipos tiene «Agregar equipo». **Click en una fila de Equipos** abre
-  `EquipoFormDialog` (ver + editar todos los campos, incl. `estado`); el
-  mismo dialog con `equipo={null}` es el de alta. Los botones de acción van
-  en una toolbar sobre la tabla (`ml-auto`), no en el header.
+- **Inventario** (`app/(app)/inventario/`, migrado): 4 tabs — **Celulares**
+  (unidades únicas por IMEI, con `Celular.almacenamiento`), **Notebooks**
+  (unidades únicas por `Notebook.numeroSerie`, con CPU/memoria/pantalla/
+  garantía propios — `lib/db/notebooks.ts`), **Repuestos** (stock por modelo)
+  y **Otros** (`OtroItem`: iPad, AirPods, tablets, accesorios; con
+  `cantidad`). Repuestos y Otros tienen **Recuento** (edición inline de
+  stock/cantidad + guardar) e **Ingreso** (dialog que suma unidades a un ítem
+  existente con cantidad + precio compra, o crea uno nuevo). Celulares y
+  Notebooks tienen «Agregar celular»/«Agregar notebook». **Click en una fila**
+  abre `CelularFormDialog`/`NotebookFormDialog` (ver + editar todos los campos,
+  incl. `estado`); el mismo dialog con `celular={null}`/`notebook={null}` es el
+  de alta. Los botones de acción van en una toolbar sobre la tabla (`ml-auto`),
+  no en el header.
   `Repuesto.proveedor` es texto libre en la UI pero FK a `proveedores` en la
   base — `lib/db/inventario.ts` resuelve "buscar o crear por nombre". Cada
   alta/edición/recuento/ingreso deja un registro en `movimientos_stock`
@@ -1262,7 +1279,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   no solo la página, con `resumenDeVentas` puro) y `resumenVentas` del
   período anterior (`periodoAnterior` de `lib/date-presets.ts`) para el
   `delta` de cada `StatCard`. La búsqueda `q` matchea número exacto,
-  `cliente ilike` e ítems (`venta_items.detalle` + `equipos.imei`, tope 500
+  `cliente ilike` e ítems (`venta_items.detalle` + `celulares.imei`, tope 500
   ids). El cliente deja de tener `list`/`filtered` en estado: cada cambio de
   filtro hace `router.replace` con la URL nueva (vuelve a `page=1`) dentro
   de `startTransition`; mientras carga la tabla baja a `opacity-60`, y el
@@ -1306,7 +1323,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   el mismo criterio (`margenVenta(...) ?? 0`) y se recalculó histórica en
   `20261004140000_ventas_recalcular_margen.sql` (solo margen: la cotización
   de pagos en pesos de ventas anteriores NO se reconstruyó); la UI no la lee para
-  mostrar margen (calcula desde los ítems). Vender un ítem con `equipoId`
+  mostrar margen (calcula desde los ítems). Vender un ítem con `celularId`
   marca ese equipo `vendido`. "Cliente
   nuevo" en el modal ahora persiste de verdad (`createCliente`) antes de
   crear la venta. El margen/restante/saldar del pago dividido usan
@@ -1329,7 +1346,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `NuevaVentaDialog` recibe `user`). Solo el admin elige (`Select` que
   arranca en sí mismo; `listVendedores` incluye a los admin).
   `VentaItem.categoria`
-  (`"equipo" | "servicio" | "otro" | "libre"`) guarda el `origen` con el que
+  (`"celular" | "notebook" | "servicio" | "otro" | "libre"`) guarda el `origen` con el que
   se agregó el ítem en el modal -- alimenta `ventasPorRubro` de
   `lib/dashboard.ts` (ver Dashboard abajo) y `margenPorTipo` de
   `lib/analiticas.ts` (ver Analíticas abajo), vía el `categoriaDe`/
@@ -1338,15 +1355,17 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `venta_items` (ver "Backend y multi-tenancy"), no `jsonb` en `ventas`.
   «Eliminar venta» (admin-only) abre un `ConfirmDialog` con hasta 5
   checkboxes independientes, cada uno visible solo si aplica: devolver los
-  equipos vendidos a `disponible`, devolver los repuestos usados al stock,
+  celulares/notebooks vendidos a `disponible`, devolver los repuestos usados al stock,
   borrar el/los movimiento(s) de caja generados, borrar el movimiento de
   cuenta corriente generado (ver "Medios de pago" arriba), borrar la
-  `Compra` de canje generada — `deleteVenta` (`lib/db/ventas.ts`) recibe
+  `Compra` de canje generada **y el celular recibido** (solo si sigue
+  `en_revision`/`disponible`; si ya se movió se conserva y se avisa con un
+  banner) — `deleteVenta` (`lib/db/ventas.ts`) recibe
   los 5 como un objeto de opciones. La fila se saca de la lista recién
   cuando la action confirmó (si falla, el error se muestra dentro del
   `ConfirmDialog` y la venta no "desaparece"); `createVenta` compensa una
   falla a mitad con ese mismo `deleteVenta` (todo en `true`) para no dejar
-  ventas/equipos/movimientos a medias — no es una transacción real,
+  ventas/celulares/movimientos a medias — no es una transacción real,
   ver el comentario en `lib/db/ventas.ts`.
 - **Clientes** (`app/(app)/clientes/`, migrado): tabla (no cards). Soporta
   deep link `/clientes?open=<id>` (`useSearchParams`, mismo patrón que
@@ -1366,7 +1385,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   (se configura en `CajaDialog` al crearla/editarla) — en «Nuevo movimiento»
   no se elige medio de pago por separado, se completa solo al elegir la
   caja. `MovimientoCaja.monto` está en la moneda de su `cajaId`. Arriba, un
-  `StatCard` por medio de pago (`transferencia`, `pesos`, `tarjeta`, `canje`,
+  `StatCard` por medio de pago (`transferencia`, `pesos`, `tarjeta`,
   consolidados en ARS) + **Total (ARS)**; los de medio de pago funcionan como
   filtro de la tabla (igual que el pipeline de Reparaciones). Debajo, toolbar
   con **«Nuevo movimiento»** y **«Conciliar cajas»**.
@@ -1397,12 +1416,14 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   resuelto a `proveedores` igual que en Inventario — `resolveProveedorId`,
   exportada desde `lib/db/inventario.ts` y reusada acá), ítems
   (detalle/cantidad/costo), medio de pago, estado `pendiente`/`recibida`; o
-  `"canje"` — generada sola desde "Nueva venta" al elegir la caja de canje
-  como medio de pago (ver "Ventas" arriba): `clienteId`/`cliente` en vez de
+  `"canje"` — generada sola desde "Nueva venta" al cobrar con «Mercadería»
+  (plan 020, ver "Ventas" arriba): `clienteId`/`cliente` en vez de
   `proveedor`, `ventaId` referencia esa venta, `estado` nace `"recibida"`
   (el equipo ya está en mano), y `marca`/`imei`/`checklist`/`aclaraciones`
   documentan el equipo recibido — `checklist` es el mismo shape que
-  `Ticket.checklistIngreso` de Reparaciones. El detalle de una compra
+  `Ticket.checklistIngreso` de Reparaciones; el celular que entró al
+  inventario se linkea desde `Compra.celularId` (resuelto de `Pago.celularId`
+  de la venta, no es columna). El detalle de una compra
   `canje` muestra ese bloque ("Información del equipo" + checklist +
   aclaraciones) y un botón **«Imprimir recibo de canje»**
   (`ReciboImprimir`/`ReciboChecklist` reusados de `components/recibos/recibo`,
@@ -1422,11 +1443,15 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   un módulo `server-only`). Buscador por nombre/teléfono, ficha de cliente
   con el detalle de movimientos, «Registrar pago» directo desde la ficha.
 - **Difusión** (`app/(app)/difusion/`, migrado): catálogos armables para
-  copiar/pegar en WhatsApp. Las entradas tipo "equipo"/"otro" son reglas
-  (por condición / por categoría) que se evalúan en el momento contra el
-  stock real — `expandirEntrada` recibe `equipos`/`otros` reales (vía
-  `listEquipos()`/`listOtros()` de `lib/db/inventario.ts`) en vez de leer
-  `lib/mock-data.ts`. `secciones` (estructura anidada con las entradas de
+  copiar/pegar en WhatsApp. Las entradas tipo "celular"/"notebook"/"otro"
+  son reglas (por condición / por condición / por categoría) que se evalúan
+  en el momento contra el stock real (solo `disponible`) — la lógica vive en
+  `lib/difusion.ts` (pura, con test): `expandirEntrada` recibe
+  `celulares`/`notebooks`/`otros` reales (vía `listCelulares()`/
+  `listNotebooks()`/`listOtros()`). El mismo módulo tiene `copyCelular`/
+  `copyNotebook`: el texto «para publicar» del botón **📋** de Inventario
+  (`components/copiar-texto.tsx`, en cada fila y en el detalle de celulares
+  y notebooks; sin costo, IMEI/serie ni notas). `secciones` (estructura anidada con las entradas de
   cada sección del mensaje) se guarda tal cual en el `jsonb` de
   `listas_difusion`, sin mapeo especial. Sin borrado de listas (el original
   tampoco lo tenía).
@@ -1494,6 +1519,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `/clientes?open=<id>`. `margenPorTipo` (`lib/analiticas.ts`, con test) es
   real desde que `VentaItem` tiene tabla propia (`venta_items`). Helper
   `BarRows`/`BarColumns` (`app/(app)/analiticas/bar-rows.tsx`).
+- **Dashboard · mes** (admin): el selector es un navegador de mes (`‹ Octubre de 2026 ›`, `?mes=YYYY-MM`, `mesDashboard` en `lib/dashboard.ts`; mes pasado = calculado al último día del mes). "Ritmo del mes" (`RitmoChart`, `ritmoDelMes`) reemplazó a "Tendencia de ventas" (`TrendChart` queda solo para el vendedor); hay card "Ganancia del mes" (`margenVenta`). La demo lleva el mes en estado local (`onMesChange`).
 - **Dashboard** (`app/(app)/dashboard/`, migrado): **dos dashboards por
   rol, la ramificación vive en el server** (`page.tsx`, ver plan 005) —
   `admin` → `dashboard-admin.tsx`; `vendedor`/`tecnico` →
@@ -1546,19 +1572,19 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   (columnas `garantia_*` en `organizations`, mismo `updateNegocioAction`)
   con preview en vivo del recibo de Garantía al lado del form — ver "Recibos
   / PDFs". "Importar datos" (`importar-datos.tsx`) es un
-  alta masiva vía CSV de equipos y clientes **existentes** (no ventas
+  alta masiva vía CSV de celulares, notebooks (dedupe por número de serie; `bateria` obligatoria si es usado; la columna `observaciones` va a `Notebook.notas`) y clientes **existentes** (no ventas
   históricas — se descartó a propósito para no lidiar con fechas
-  retroactivas ni con equipos "vendido" que ya no están en stock): parseo
+  retroactivas ni con celulares "vendido" que ya no están en stock): parseo
   y validación con zod puros en `lib/importacion.ts` (con test, sin
-  Supabase), dedupe explícito antes de insertar (equipos por IMEI —
+  Supabase), dedupe explícito antes de insertar (celulares por IMEI —
   impuesto además por el `UNIQUE (organization_id, imei)` de la tabla;
   clientes por teléfono/email, que no tiene ningún constraint) tanto
   dentro del archivo subido como contra lo ya existente en la org, y un
-  solo insert bulk por entidad (`createEquiposBulk`/`createClientesBulk`)
-  en vez de un loop llamando a `createEquipo`/`createCliente` fila por
-  fila. `estado` vacío en el CSV de equipos default a `en_revision`
+  solo insert bulk por entidad (`createCelularesBulk`/`createClientesBulk`)
+  en vez de un loop llamando a `createCelular`/`createCliente` fila por
+  fila. `estado` vacío en el CSV de celulares default a `en_revision`
   (mismo criterio que el alta manual). Admin-only vía `requireRole` en
-  `importEquiposAction`/`importClientesAction` — el server revalida cada
+  `importCelularesAction`/`importClientesAction` — el server revalida cada
   fila con el mismo schema que usa el preview del navegador, nunca confía
   en esa validación client-side.
 - **Cotización del dólar**: `lib/dolar.ts` (`useDolar()` → blue de
@@ -1627,7 +1653,7 @@ Usos: Reparaciones → **Ticket de ingreso**/**Ticket de egreso**/
 compras `origen: "canje"`, ver esa sección), Ventas → comprobante de venta y
 **Garantía** (venta completa o un solo ítem, botón propio en
 Ventas y en cada fila de "Ítems vendidos" — ya no depende de que el ítem
-tenga `equipoId`; el ítem sin `equipoId` sale con "—" en la columna
+tenga `celularId`; el ítem sin `celularId` sale con "—" en la columna
 Garantía). El membrete (nombre/dirección/CUIT/teléfono) toma `negocio` real
 (`lib/db/configuracion.ts` → `getNegocio()`) pasado como prop desde cada
 `page.tsx` hasta `ReciboImprimir` — el import de `lib/mock-data.ts` que queda

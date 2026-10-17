@@ -18,7 +18,13 @@ const SORTS: [SortVentas, ...SortVentas[]] = [
   "numero",
   "margen_pct",
 ];
-const RUBROS: [Rubro, ...Rubro[]] = ["equipo", "servicio", "otro", "libre"];
+const RUBROS: [Rubro, ...Rubro[]] = [
+  "celular",
+  "notebook",
+  "servicio",
+  "otro",
+  "libre",
+];
 
 /** Filtros de la sección Ventas, con la URL como fuente de verdad. `vendedor`
  * y `tipo` (rubro) son `""` cuando no hay filtro. */
@@ -72,13 +78,15 @@ export function parseFiltrosVentas(
   params: SearchParamsInput,
   opts: { puedeVerCosto: boolean },
 ): FiltrosVentas {
+  // Links/favoritos viejos usaban `tipo=equipo` -- se mapea al rubro nuevo.
+  const tipoRaw = primero(params.tipo);
   const raw = {
     preset: primero(params.preset),
     vista: primero(params.vista),
     sort: primero(params.sort),
     dir: primero(params.dir),
     page: primero(params.page),
-    tipo: primero(params.tipo),
+    tipo: tipoRaw === "equipo" ? "celular" : tipoRaw,
     vendedor: primero(params.vendedor),
     q: primero(params.q),
     desde: primero(params.desde),

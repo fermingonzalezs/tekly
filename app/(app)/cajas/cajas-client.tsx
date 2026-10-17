@@ -66,8 +66,9 @@ import type { SessionUser } from "@/lib/auth/types";
 
 const MEDIOS = MEDIOS_CAJA;
 
-/** Tarjetas de arriba: todos los medios de caja menos "canje" (mercadería). */
-const STAT_MEDIOS: MedioPago[] = MEDIOS.filter((m) => m !== "canje");
+/** Tarjetas de arriba: todos los medios de caja (`canje` ya no es medio de
+ * caja, plan 020). */
+const STAT_MEDIOS: MedioPago[] = MEDIOS;
 
 /** Tabs de sección -- `?tab=` en la URL para linkear directo (como Configuración). */
 type Tab = "movimientos" | "conciliaciones" | "cajas";
@@ -731,7 +732,7 @@ export function CajasClient({
                   <td className="px-5 py-2.5 text-center font-medium">{c.nombre}</td>
                   <td
                     className={cn(
-                      "max-w-[260px] truncate px-5 py-2.5 text-neutral-500",
+                      "max-w-[260px] truncate px-5 py-2.5 text-neutral-500 text-start",
                       c.descripcion ? "text-start" : "text-center",
                     )}
                   >
@@ -1357,7 +1358,7 @@ function ConciliarDialog({
                       >
                         {diff === null ? "—" : `${diff > 0 ? "+" : ""}${money(c.moneda, diff)}`}
                       </td>
-                      <td className="px-5 py-2">
+                      <td className="px-5 py-2 text-start">
                         <Input
                           value={comentarios[c.id] ?? ""}
                           onChange={(e) => setComentarios((p) => ({ ...p, [c.id]: e.target.value }))}
@@ -1470,9 +1471,9 @@ function ConciliacionesTab({
               <thead>
                 <tr className="text-xs">
                   <th className={cn("px-5 py-2", thDivider)}>Caja</th>
-                  <th className={cn("px-5 py-2 text-end", thDivider)}>Sistema</th>
-                  <th className={cn("px-5 py-2 text-end", thDivider)}>Contado</th>
-                  <th className={cn("px-5 py-2 text-end", thDivider)}>Diferencia</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Sistema</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Contado</th>
+                  <th className={cn("px-5 py-2 text-center", thDivider)}>Diferencia</th>
                   <th className="px-5 py-2">Comentario</th>
                 </tr>
               </thead>
@@ -1487,22 +1488,22 @@ function ConciliacionesTab({
                         <span className="font-medium text-neutral-900">{caja?.nombre ?? l.cajaId}</span>
                         <span className="ml-1.5 text-xs text-neutral-400">{moneda.toUpperCase()}</span>
                       </td>
-                      <td className="px-5 py-2 text-end tabular-nums text-neutral-500">
+                      <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                         {money(moneda, l.montoSistema)}
                       </td>
-                      <td className="px-5 py-2 text-end tabular-nums">
+                      <td className="px-5 py-2 text-center tabular-nums">
                         {money(moneda, l.montoReal)}
                       </td>
                       <td
                         className={cn(
-                          "px-5 py-2 text-end font-semibold tabular-nums",
+                          "px-5 py-2 text-center font-semibold tabular-nums",
                           diff === 0 ? "text-emerald-600" : "text-red-500",
                         )}
                       >
                         {diff > 0 ? "+" : ""}
                         {money(moneda, diff)}
                       </td>
-                      <td className="max-w-[260px] truncate px-5 py-2 text-neutral-500">
+                      <td className="max-w-[260px] truncate px-5 py-2 text-neutral-500 text-start">
                         {l.comentario || "—"}
                       </td>
                     </tr>

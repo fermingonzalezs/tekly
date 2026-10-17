@@ -23,7 +23,8 @@ describe("crearSeedDemo", () => {
 
   it("genera el volumen pedido", () => {
     expect(state.clientes).toHaveLength(12);
-    expect(state.equipos).toHaveLength(15);
+    expect(state.celulares).toHaveLength(15);
+    expect(state.notebooks).toHaveLength(4);
     expect(state.repuestos).toHaveLength(8);
     expect(state.otros.length).toBeGreaterThanOrEqual(2);
     expect(state.servicios).toHaveLength(5);
@@ -36,7 +37,8 @@ describe("crearSeedDemo", () => {
   it("usa ids únicos por colección y globalmente no choca", () => {
     for (const lista of [
       state.clientes,
-      state.equipos,
+      state.celulares,
+      state.notebooks,
       state.repuestos,
       state.otros,
       state.servicios,
@@ -48,17 +50,19 @@ describe("crearSeedDemo", () => {
       const todos = ids(lista);
       expect(new Set(todos).size).toBe(todos.length);
     }
-    // IMEIs de equipos únicos, de 15 dígitos.
-    const imeis = state.equipos.map((e) => e.imei);
+    // IMEIs de celulares únicos, de 15 dígitos.
+    const imeis = state.celulares.map((e) => e.imei);
     expect(new Set(imeis).size).toBe(imeis.length);
     for (const imei of imeis) expect(imei).toMatch(/^\d{15}$/);
   });
 
-  it("todo `Venta.items[].equipoId` existe en el inventario", () => {
-    const equipos = new Set(state.equipos.map((e) => e.id));
+  it("todo `Venta.items[].celularId`/`notebookId` existe en el inventario", () => {
+    const celulares = new Set(state.celulares.map((e) => e.id));
+    const notebooks = new Set(state.notebooks.map((n) => n.id));
     for (const venta of state.ventas) {
       for (const item of venta.items) {
-        if (item.equipoId) expect(equipos.has(item.equipoId)).toBe(true);
+        if (item.celularId) expect(celulares.has(item.celularId)).toBe(true);
+        if (item.notebookId) expect(notebooks.has(item.notebookId)).toBe(true);
       }
     }
   });
@@ -96,7 +100,9 @@ describe("crearSeedDemo", () => {
   it("`categoriaDe` no revienta con ningún ítem", () => {
     for (const venta of state.ventas) {
       for (const item of venta.items) {
-        expect(["equipo", "servicio", "otro", "libre"]).toContain(categoriaDe(item));
+        expect(["celular", "notebook", "servicio", "otro", "libre"]).toContain(
+          categoriaDe(item),
+        );
       }
     }
   });

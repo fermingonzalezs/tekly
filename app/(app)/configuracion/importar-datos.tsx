@@ -2,25 +2,30 @@
 
 import { useState, useTransition } from "react";
 import Papa from "papaparse";
-import { CheckCircle2, Download, Smartphone, Upload, Users } from "lucide-react";
+import { CheckCircle2, Download, Laptop, Smartphone, Upload, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { dotClass, type Tone } from "@/lib/status";
 import {
   CLIENTE_CSV_HEADERS,
-  EQUIPO_CSV_HEADERS,
+  CELULAR_CSV_HEADERS,
+  NOTEBOOK_CSV_HEADERS,
+  notebookTemplateCsv,
+  parseNotebookRow,
+  marcarSerieDuplicadaEnArchivo,
   clienteTemplateCsv,
-  equipoTemplateCsv,
+  celularTemplateCsv,
   marcarClienteDuplicadoEnArchivo,
   marcarImeiDuplicadoEnArchivo,
   parseClienteRow,
-  parseEquipoRow,
+  parseCelularRow,
   remapFilas,
   type ClienteImportInput,
   type ParseResult,
 } from "@/lib/importacion";
-import type { EquipoInput } from "@/lib/db/inventario";
-import { importClientesAction, importEquiposAction, type ImportResult } from "./actions";
+import type { CelularInput } from "@/lib/db/inventario";
+import type { NotebookInput } from "@/lib/notebooks";
+import { importClientesAction, importCelularesAction, importNotebooksAction, type ImportResult } from "./actions";
 import type { ComponentType } from "react";
 
 type FilaCruda = { rowNum: number; raw: Record<string, string> };
@@ -69,7 +74,7 @@ function ResultadoLista({
 
 /** Tarjeta de import genérica -- comparte el flujo elegir archivo → preview
  * (parseo + dedupe client-side, feedback instantáneo) → confirmar (la
- * Server Action revalida todo de nuevo) → resultado, para equipos y
+ * Server Action revalida todo de nuevo) → resultado, para celulares y
  * clientes. Cada instancia sólo aporta el schema/dedupe/action de su
  * dominio (`lib/importacion.ts`). */
 function ImportCard<T>({
@@ -240,18 +245,33 @@ function ImportCard<T>({
 export function ImportarDatos() {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <ImportCard<EquipoInput>
-        titulo="Importar equipos"
-        descripcion="Alta masiva de equipos existentes por IMEI"
+      <ImportCard<CelularInput>
+        titulo="Importar celulares"
+        descripcion="Alta masiva de celulares existentes por IMEI"
         icon={Smartphone}
-        headers={EQUIPO_CSV_HEADERS}
-        templateCsv={equipoTemplateCsv}
-        templateFilename="plantilla-equipos.csv"
-        parseRow={parseEquipoRow}
+        headers={CELULAR_CSV_HEADERS}
+        templateCsv={celularTemplateCsv}
+        templateFilename="plantilla-celulares.csv"
+        parseRow={parseCelularRow}
         marcarDuplicados={(validos) =>
           marcarImeiDuplicadoEnArchivo(validos.map((v) => ({ rowNum: v.rowNum, imei: v.data.imei })))
         }
-        action={importEquiposAction}
+        action={importCelularesAction}
+      />
+      <ImportCard<NotebookInput>
+        titulo="Importar notebooks"
+        descripcion="Alta masiva de notebooks existentes por número de serie"
+        icon={Laptop}
+        headers={NOTEBOOK_CSV_HEADERS}
+        templateCsv={notebookTemplateCsv}
+        templateFilename="plantilla-notebooks.csv"
+        parseRow={parseNotebookRow}
+        marcarDuplicados={(validos) =>
+          marcarSerieDuplicadaEnArchivo(
+            validos.map((v) => ({ rowNum: v.rowNum, numeroSerie: v.data.numeroSerie })),
+          )
+        }
+        action={importNotebooksAction}
       />
       <ImportCard<ClienteImportInput>
         titulo="Importar clientes"

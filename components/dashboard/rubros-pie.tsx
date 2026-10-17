@@ -7,7 +7,7 @@ export function RubrosPie({
   data,
   totalFacturado,
 }: {
-  // Mix real Equipos/Reparaciones/Accesorios/Otros del período seleccionado
+  // Mix real Celulares/Reparaciones/Accesorios/Otros del período seleccionado
   // -- ver `ventasPorRubro` en `lib/dashboard.ts` (a partir de
   // `VentaItem.categoria`).
   data: { label: string; value: number }[];

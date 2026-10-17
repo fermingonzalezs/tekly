@@ -1,0 +1,67 @@
+---
+titulo: "Matriz de permisos por rol"
+resumen: "Qué ve y qué puede hacer cada rol (admin, vendedor, técnico) en cada sección de Tekly."
+seccion: roles
+roles: []
+orden: 4
+actualizado: 2026-10-17
+---
+
+Esta tabla resume, sección por sección, qué ve y qué puede hacer cada rol. Se armó leyendo el menú y los permisos de cada acción del sistema.
+
+## Qué secciones ve cada rol
+
+| Sección | Admin | Vendedor | Técnico |
+|---|:--:|:--:|:--:|
+| Dashboard | Sí | Sí | Sí |
+| Ventas | Sí | Sí | Sí |
+| Compras | Sí | — | Sí |
+| Reparaciones | Sí | Sí | Sí |
+| Turnos | Sí | Sí | Sí |
+| Inventario | Sí | Sí | Sí |
+| Recuentos | Sí | Sí | Sí |
+| Clientes | Sí | Sí | Sí |
+| Cuentas corrientes | Sí | — | Sí |
+| Difusión | Sí | Sí | Sí |
+| Cajas | Sí | — | Sí |
+| Analíticas | Sí | — | — |
+| Configuración | Sí | Solo «Mi cuenta» | Solo «Mi cuenta» |
+
+## Qué puede hacer cada rol
+
+<Paso n={1} titulo="Ventas e ítems">
+Los tres roles crean, avanzan y cobran. Sólo el **admin** ve costo/margen y puede **eliminar** una venta.
+</Paso>
+
+<Paso n={2} titulo="Inventario y stock">
+Los tres roles dan de alta, editan, ingresan stock y hacen recuentos. Sólo el **admin** elimina ítems, revisa recuentos e **importa CSV**. El vendedor no ve costos ni carga seriales en bulk.
+</Paso>
+
+<Paso n={3} titulo="Reparaciones y turnos">
+Los tres roles trabajan tickets y agendan turnos. Eliminar un ticket o un turno es **solo del admin**.
+</Paso>
+
+<Paso n={4} titulo="Cajas, Compras y Cuentas corrientes">
+**Admin y técnico**: cargan movimientos, compras y pagos, y concilian. Eliminar es **solo del admin**. El vendedor no ve estas secciones.
+</Paso>
+
+<Paso n={5} titulo="Analíticas y Configuración">
+**Solo admin**. El vendedor y el técnico sólo acceden a «Mi cuenta».
+</Paso>
+
+## Escritura y plan
+
+<Aviso titulo="Solo lectura por plan" tono="warning">
+Sin importar el rol, si la organización está en **solo lectura** (prueba vencida o período vencido), nadie puede escribir: toda acción de guardado redirige a `/plan`.
+</Aviso>
+
+## Qué no se puede
+
+- No hay permisos personalizados más finos que los tres roles.
+- Un vendedor nunca ve costos, márgenes, Cajas, Compras, Cuentas corrientes ni Analíticas.
+- El gating por rol se aplica en el **servidor**, no sólo escondiendo botones.
+
+## Relacionados
+
+- [Usuarios y roles](/ayuda/configuracion/usuarios-y-roles)
+- [Guía del admin](/ayuda/roles/guia-admin)

@@ -14,7 +14,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   turnoTipo,
   turnoStatus,
-  equipoStatus,
+  celularStatus,
   medioPago,
   MEDIOS_CAJA,
   dotClass,
@@ -29,7 +29,7 @@ import type {
   Turno,
   TurnoTipo,
   TurnoOtroItem,
-  Equipo,
+  Celular,
   OtroItem,
   Ticket,
   MedioPago,
@@ -67,7 +67,7 @@ type ChipState = "normal" | "highlight" | "hidden";
 
 export function TurnosClient({
   initialTurnos,
-  initialEquipos,
+  initialCelulares,
   initialOtros,
   ticketsListos,
   clientesOpciones,
@@ -75,7 +75,7 @@ export function TurnosClient({
   negocio,
 }: {
   initialTurnos: Turno[];
-  initialEquipos: Equipo[];
+  initialCelulares: Celular[];
   initialOtros: OtroItem[];
   /** Tickets en estado "listo" -- para agendar retiros y para el detalle
    * de un turno "retira" (un ticket ya entregado sale de esta lista y el
@@ -89,7 +89,7 @@ export function TurnosClient({
   const actor = user.nombre;
   const esAdmin = user.rol === "admin";
   const [list, setList] = useState<Turno[]>(initialTurnos);
-  const [equipos, setEquipos] = useState<Equipo[]>(initialEquipos);
+  const [celulares, setCelulares] = useState<Celular[]>(initialCelulares);
   const [otros, setOtros] = useState<OtroItem[]>(initialOtros);
   const [sel, setSel] = useState<Turno | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -176,7 +176,7 @@ export function TurnosClient({
   function agendar(data: {
     cliente: ClienteSeleccion;
     tipo: TurnoTipo;
-    equipoIds: string[];
+    celularIds: string[];
     ticketId: number | null;
     itemsOtros: TurnoOtroItem[];
     pagos: Pago[];
@@ -198,10 +198,10 @@ export function TurnosClient({
       // Reserva optimista local, solo si se pidió -- mismo criterio que el
       // server (`createTurno`).
       if (data.reservarStock) {
-        if (data.equipoIds.length) {
-          setEquipos((p) =>
+        if (data.celularIds.length) {
+          setCelulares((p) =>
             p.map((e) =>
-              data.equipoIds.includes(e.id) ? { ...e, estado: "reservado" } : e,
+              data.celularIds.includes(e.id) ? { ...e, estado: "reservado" } : e,
             ),
           );
         }
@@ -521,14 +521,14 @@ export function TurnosClient({
               <TicketResumen ticket={ticketsListos.find((t) => t.id === sel.ticketId) ?? null} />
             )}
 
-            {sel.equipoIds && sel.equipoIds.length > 0 && (
+            {sel.celularIds && sel.celularIds.length > 0 && (
               <div>
                 <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                  Equipos vinculados
+                  Celulares vinculados
                 </p>
                 <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
-                  {sel.equipoIds.map((id) => {
-                    const e = equipos.find((x) => x.id === id);
+                  {sel.celularIds.map((id) => {
+                    const e = celulares.find((x) => x.id === id);
                     if (!e) return null;
                     return (
                       <div key={id} className="flex items-center justify-between gap-2 px-3 py-2">
@@ -542,10 +542,10 @@ export function TurnosClient({
                           <span
                             className={cn(
                               "h-1.5 w-1.5 rounded-full",
-                              dotClass[equipoStatus[e.estado].tone],
+                              dotClass[celularStatus[e.estado].tone],
                             )}
                           />
-                          {equipoStatus[e.estado].label}
+                          {celularStatus[e.estado].label}
                         </span>
                         <span className="shrink-0 text-sm font-medium tabular-nums">
                           {fmtUsd(e.precioUsd)}
@@ -558,18 +558,18 @@ export function TurnosClient({
                   <table className="w-full text-sm">
                     <thead>
                       <tr>
-                        <th className={cn("px-4 py-2 text-start", thDivider)}>
-                          Equipo
+                        <th className={cn("px-4 py-2 text-center", thDivider)}>
+                          Celular
                         </th>
-                        <th className={cn("px-4 py-2 text-start", thDivider)}>
+                        <th className={cn("px-4 py-2 text-center", thDivider)}>
                           Estado
                         </th>
-                        <th className="px-4 py-2 text-end">Precio</th>
+                        <th className="px-4 py-2 text-center">Precio</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {sel.equipoIds.map((id) => {
-                        const e = equipos.find((x) => x.id === id);
+                      {sel.celularIds.map((id) => {
+                        const e = celulares.find((x) => x.id === id);
                         if (!e) return null;
                         return (
                           <tr key={id}>
@@ -584,13 +584,13 @@ export function TurnosClient({
                                 <span
                                   className={cn(
                                     "h-1.5 w-1.5 rounded-full",
-                                    dotClass[equipoStatus[e.estado].tone],
+                                    dotClass[celularStatus[e.estado].tone],
                                   )}
                                 />
-                                {equipoStatus[e.estado].label}
+                                {celularStatus[e.estado].label}
                               </span>
                             </td>
-                            <td className="px-4 py-2.5 text-end font-medium tabular-nums">
+                            <td className="px-4 py-2.5 text-center font-medium tabular-nums">
                               {fmtUsd(e.precioUsd)}
                             </td>
                           </tr>
@@ -649,7 +649,7 @@ export function TurnosClient({
                   Otros ítems vinculados
                 </p>
                 {/* Render simple a partir del snapshot guardado (nombre,
-                    serial, precio) -- a diferencia de los equipos, no hace
+                    serial, precio) -- a diferencia de los celulares, no hace
                     falta resolver el estado en vivo de la unidad. */}
                 <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
                   {sel.itemsOtros.map((i) => (
@@ -672,8 +672,8 @@ export function TurnosClient({
                   <table className="w-full text-sm">
                     <thead>
                       <tr>
-                        <th className={cn("px-4 py-2 text-start", thDivider)}>Ítem</th>
-                        <th className="px-4 py-2 text-end">Precio</th>
+                        <th className={cn("px-4 py-2 text-center", thDivider)}>Ítem</th>
+                        <th className="px-4 py-2 text-center">Precio</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -688,7 +688,7 @@ export function TurnosClient({
                               <span className="text-neutral-400"> · {i.serial}</span>
                             )}
                           </td>
-                          <td className="px-4 py-2.5 text-end font-medium tabular-nums">
+                          <td className="px-4 py-2.5 text-center font-medium tabular-nums">
                             {fmtUsd(i.precioUsd * (i.cantidad ?? 1))}
                           </td>
                         </tr>
@@ -700,7 +700,7 @@ export function TurnosClient({
             )}
 
             {!sel.ticketId &&
-              (!sel.equipoIds || sel.equipoIds.length === 0) &&
+              (!sel.celularIds || sel.celularIds.length === 0) &&
               (!sel.itemsOtros || sel.itemsOtros.length === 0) && (
                 <p className="text-sm text-neutral-400">
                   Sin ticket ni ítems vinculados.
@@ -736,7 +736,7 @@ export function TurnosClient({
         key={slot ? `${slot.dayOffset}-${slot.hora}` : "none"}
         slot={slot}
         dayLabel={slot ? `${dayLabel(slot.dayOffset)} · ${slot.hora}` : ""}
-        equipos={equipos}
+        celulares={celulares}
         otros={otros}
         ticketsListos={ticketsListos}
         clientesOpciones={clientesOpciones}
@@ -753,7 +753,7 @@ type DraftPago = { _k: string; medio: MedioPago; montoUsd: number; caja: "usd" |
 function AgendarDialog({
   slot,
   dayLabel,
-  equipos,
+  celulares,
   otros,
   ticketsListos,
   clientesOpciones,
@@ -763,7 +763,7 @@ function AgendarDialog({
 }: {
   slot: { dayOffset: number; hora: string } | null;
   dayLabel: string;
-  equipos: Equipo[];
+  celulares: Celular[];
   otros: OtroItem[];
   ticketsListos: Ticket[];
   clientesOpciones: ClienteOpcion[];
@@ -772,7 +772,7 @@ function AgendarDialog({
   onSubmit: (d: {
     cliente: ClienteSeleccion;
     tipo: TurnoTipo;
-    equipoIds: string[];
+    celularIds: string[];
     ticketId: number | null;
     itemsOtros: TurnoOtroItem[];
     pagos: Pago[];
@@ -793,24 +793,24 @@ function AgendarDialog({
   const [medioEsperado, setMedioEsperado] = useState<MedioPago>("pesos");
   const ticket = ticketsListos.find((t) => t.id === ticketId) ?? null;
 
-  // "compra": carrito de equipos disponibles + ítems de "Otros", seña
+  // "compra": carrito de celulares disponibles + ítems de "Otros", seña
   // opcional y reserva de stock opcional (antes la reserva era obligatoria).
-  const [equipoIds, setEquipoIds] = useState<string[]>([]);
+  const [celularIds, setCelularIds] = useState<string[]>([]);
   const [carritoOtros, setCarritoOtros] = useState<TurnoOtroItem[]>([]);
   const [pagos, setPagos] = useState<DraftPago[]>([
     { _k: rid(), medio: "pesos", montoUsd: 0, caja: defaultCaja("pesos") },
   ]);
   const [reservarStock, setReservarStock] = useState(true);
 
-  const seleccionados = equipos.filter((e) => equipoIds.includes(e.id));
+  const seleccionados = celulares.filter((e) => celularIds.includes(e.id));
   const totalCarrito =
     seleccionados.reduce((a, e) => a + e.precioUsd, 0) +
     carritoOtros.reduce((a, i) => a + i.precioUsd * (i.cantidad ?? 1), 0);
   const totalPagado = pagos.reduce((a, p) => a + p.montoUsd, 0);
-  const hayItems = equipoIds.length > 0 || carritoOtros.length > 0;
+  const hayItems = celularIds.length > 0 || carritoOtros.length > 0;
 
-  function toggleEquipo(id: string) {
-    setEquipoIds((p) =>
+  function toggleCelular(id: string) {
+    setCelularIds((p) =>
       p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
     );
   }
@@ -857,7 +857,7 @@ function AgendarDialog({
     onSubmit({
       cliente,
       tipo,
-      equipoIds: tipo === "compra" ? equipoIds : [],
+      celularIds: tipo === "compra" ? celularIds : [],
       ticketId: tipo === "retira" ? ticketId : null,
       itemsOtros: tipo === "compra" ? carritoOtros : [],
       pagos:
@@ -956,11 +956,11 @@ function AgendarDialog({
                 Ítems
               </p>
               <CarritoBuscador
-                equipos={equipos}
+                celulares={celulares}
                 otros={otros}
-                equipoIds={equipoIds}
+                celularIds={celularIds}
                 carritoOtros={carritoOtros}
-                onAddEquipo={toggleEquipo}
+                onAddCelular={toggleCelular}
                 onAddOtro={(item) => setCarritoOtros((p) => [...p, item])}
               />
               {hayItems && (
@@ -979,7 +979,7 @@ function AgendarDialog({
                       <span className="shrink-0 font-medium tabular-nums">
                         {fmtUsd(e.precioUsd)}
                       </span>
-                      <IconButton aria-label="Quitar" icon={X} variant="danger-ghost" size="sm" onClick={() => toggleEquipo(e.id)} />
+                      <IconButton aria-label="Quitar" icon={X} variant="danger-ghost" size="sm" onClick={() => toggleCelular(e.id)} />
                     </div>
                   ))}
                   {carritoOtros.map((i) => {
@@ -1239,24 +1239,24 @@ function RetiraFields({
 
 // ── Buscador del carrito de "Compra equipo" ────────────────────
 
-/** Combobox sobre el catálogo real: equipos disponibles + "Otros" (sin
+/** Combobox sobre el catálogo real: celulares disponibles + "Otros" (sin
  * servicios ni ítem libre, a diferencia del `ItemBuscador` de Ventas -- acá
  * todo tiene que salir de stock). Un "Otro" serializado aparece como una fila
  * por unidad disponible (mismo criterio que un equipo), uno no serializado
  * como una fila con cantidad. */
 function CarritoBuscador({
-  equipos,
+  celulares,
   otros,
-  equipoIds,
+  celularIds,
   carritoOtros,
-  onAddEquipo,
+  onAddCelular,
   onAddOtro,
 }: {
-  equipos: Equipo[];
+  celulares: Celular[];
   otros: OtroItem[];
-  equipoIds: string[];
+  celularIds: string[];
   carritoOtros: TurnoOtroItem[];
-  onAddEquipo: (id: string) => void;
+  onAddCelular: (id: string) => void;
   onAddOtro: (item: TurnoOtroItem) => void;
 }) {
   const [q, setQ] = useState("");
@@ -1265,11 +1265,11 @@ function CarritoBuscador({
 
   const catalogo = useMemo(
     () => [
-      ...equipos
+      ...celulares
         .filter((e) => e.estado === "disponible")
         .map((e) => ({
           key: `e-${e.id}`,
-          origen: "equipo" as const,
+          origen: "celular" as const,
           id: e.id,
           nombre: `${e.modelo} ${e.almacenamiento} ${e.color}`,
           serial: e.imei,
@@ -1302,7 +1302,7 @@ function CarritoBuscador({
           : [];
       }),
     ],
-    [equipos, otros],
+    [celulares, otros],
   );
 
   const matches = catalogo.filter((c) => {
@@ -1312,7 +1312,7 @@ function CarritoBuscador({
       c.nombre.toLowerCase().includes(needle) ||
       (c.serial?.toLowerCase().includes(needle) ?? false);
     if (!coincide) return false;
-    if (c.origen === "equipo") return !equipoIds.includes(c.id);
+    if (c.origen === "celular") return !celularIds.includes(c.id);
     // Los ya agregados al carrito no se ofrecen dos veces (por id si no es
     // serializado, por serial si lo es).
     return !carritoOtros.some((i) =>
@@ -1338,8 +1338,8 @@ function CarritoBuscador({
               key={c.key}
               type="button"
               onClick={() => {
-                if (c.origen === "equipo") {
-                  onAddEquipo(c.id);
+                if (c.origen === "celular") {
+                  onAddCelular(c.id);
                 } else {
                   onAddOtro({
                     otroId: c.id,
@@ -1354,8 +1354,8 @@ function CarritoBuscador({
               className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] hover:bg-neutral-50"
             >
               <span className="flex min-w-0 items-center gap-2">
-                <Badge tone={c.origen === "equipo" ? "violet" : "blue"}>
-                  {c.origen === "equipo" ? "Equipo" : "Producto"}
+                <Badge tone={c.origen === "celular" ? "violet" : "blue"}>
+                  {c.origen === "celular" ? "Celular" : "Producto"}
                 </Badge>
                 <span className="truncate">{c.nombre}</span>
                 {c.serial && c.serial !== "—" && (

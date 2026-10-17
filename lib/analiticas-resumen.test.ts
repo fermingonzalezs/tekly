@@ -224,27 +224,27 @@ describe("resumenFinanzas", () => {
 
 describe("resumenInventario", () => {
   it("KPI de stock no depende del rango pero el flujo sí", () => {
-    const equipoBase = {
+    const celularBase = {
       id: "e1", modelo: "iPhone 13", almacenamiento: "128", color: "Negro",
       imei: "", bateria: 90, condicion: "A+", costoUsd: 500, precioUsd: 800,
       estado: "disponible" as const,
     };
     const ventas = [
       venta("2026-10-02", 800, {
-        items: [{ detalle: "iPhone", cantidad: 1, precioUsd: 800, categoria: "equipo" }],
+        items: [{ detalle: "iPhone", cantidad: 1, precioUsd: 800, categoria: "celular" }],
       }),
     ];
     const r = resumenInventario(
-      [equipoBase], [], [], [], ventas, [], ctx("2026-10-01", "2026-10-04"),
+      [celularBase], [], [], [], ventas, [], ctx("2026-10-01", "2026-10-04"),
     );
     expect(r.unidadesStock).toBe(1);
     expect(r.valorInventario).toBe(500);
-    expect(r.salidas.equipo).toBe(1);
+    expect(r.salidas.celular).toBe(1);
     // Fuera del rango: no cuenta como salida del período.
     const r2 = resumenInventario(
-      [equipoBase], [], [], [], ventas, [], ctx("2026-09-01", "2026-09-30"),
+      [celularBase], [], [], [], ventas, [], ctx("2026-09-01", "2026-09-30"),
     );
-    expect(r2.salidas.equipo).toBe(0);
+    expect(r2.salidas.celular).toBe(0);
     expect(r2.unidadesStock).toBe(1);
   });
 });

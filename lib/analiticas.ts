@@ -1,6 +1,6 @@
 import type {
   Caja,
-  Equipo,
+  Celular,
   MovimientoCaja,
   MovimientoCC,
   OtroItem,
@@ -81,7 +81,7 @@ export function ventasPorRubroMes(
   meses = 6,
   hoy = new Date(),
 ): RubroMes[] {
-  const vacio = (): Record<Rubro, number> => ({ equipo: 0, servicio: 0, otro: 0, libre: 0 });
+  const vacio = (): Record<Rubro, number> => ({ celular: 0, notebook: 0, servicio: 0, otro: 0, libre: 0 });
   const totales = new Map<string, Record<Rubro, number>>();
   for (const v of ventas) {
     const clave = v.fechaISO.slice(0, 7); // "YYYY-MM"
@@ -421,21 +421,21 @@ export function tasaAceptacion(tickets: Ticket[]): TasaAceptacion {
 
 // ── Inventario: stock vivo, antigüedad y rotación ───────
 //
-// Los ítems no tienen fecha de ingreso propia (Equipo/Repuesto/OtroItem no
+// Los ítems no tienen fecha de ingreso propia (Celular/Repuesto/OtroItem no
 // la guardan): la antigüedad se reconstruye de los movimientos de stock,
 // que registran cada ingreso/egreso/baja por ítem. El egreso real de un
 // equipo es su venta (los movimientos "egreso" son de repuestos usados en
-// ventas), así que la rotación de equipos se mide ingreso → fecha de venta.
+// ventas), así que la rotación de celulares se mide ingreso → fecha de venta.
 
-export type StockCategoria = "equipo" | "repuesto" | "otro";
+export type StockCategoria = "celular" | "repuesto" | "otro";
 
 /** Orden fijo de las categorías de inventario -- mismo rol que
  * `RUBRO_ORDEN` para ventas: mismo orden ⇒ mismo tono (`chartColor`) y
  * mismo label en toda la sección. */
-export const STOCK_CATS: StockCategoria[] = ["equipo", "repuesto", "otro"];
+export const STOCK_CATS: StockCategoria[] = ["celular", "repuesto", "otro"];
 
 export const CAT_STOCK_LABEL: Record<StockCategoria, string> = {
-  equipo: "Equipos",
+  celular: "Celulares",
   repuesto: "Repuestos",
   otro: "Accesorios",
 };
@@ -453,7 +453,7 @@ export type StockItem = {
   /** Margen de venta potencial. Repuestos: null -- no tienen precio de
    * venta propio (se carga a mano en cada ticket/venta). */
   margenPct: number | null;
-  /** Días desde el ingreso (equipos: primer ingreso, son unidades únicas;
+  /** Días desde el ingreso (celulares: primer ingreso, son unidades únicas;
    * repuestos/otros: último ingreso, aproxima la antigüedad de la tanda
    * actual). Null si el ítem no tiene ningún registro de ingreso
    * (anteriores a los movimientos de stock). */
@@ -477,7 +477,7 @@ function diasEntreISO(a: string, b: string): number {
 }
 
 export function stockItems(
-  equipos: Equipo[],
+  celulares: Celular[],
   repuestos: Repuesto[],
   otros: OtroItem[],
   movs: MovimientoStockBulk[],
@@ -494,12 +494,12 @@ export function stockItems(
     ultimoIngreso.set(clave, m.fechaISO);
   }
   const items: StockItem[] = [];
-  for (const e of equipos) {
+  for (const e of celulares) {
     // mismo criterio "en stock" que InventarioValor: todo lo no vendido
     if (e.estado === "vendido") continue;
-    const fecha = primerIngreso.get(`equipo:${e.id}`);
+    const fecha = primerIngreso.get(`celular:${e.id}`);
     items.push({
-      categoria: "equipo",
+      categoria: "celular",
       id: e.id,
       nombre: `${e.modelo} ${e.almacenamiento}`.trim(),
       unidades: 1,
@@ -564,7 +564,7 @@ export function agingBuckets(items: StockItem[]): {
   const buckets = AGING_RANGOS.map((r) => ({
     rango: r.rango as string,
     total: vacia(),
-    porCategoria: { equipo: vacia(), repuesto: vacia(), otro: vacia() },
+    porCategoria: { celular: vacia(), repuesto: vacia(), otro: vacia() },
   }));
   for (const it of items) {
     if (it.dias == null) continue;
@@ -583,28 +583,28 @@ export function agingBuckets(items: StockItem[]): {
 }
 
 /** Promedio de días que tardó un equipo en salir del inventario, del
- * recorrido real (primer ingreso → fecha de venta). Solo equipos: son
+ * recorrido real (primer ingreso → fecha de venta). Solo celulares: son
  * unidades únicas rastreables de punta a punta; el stock de
  * repuestos/otros mezcla tandas. Null sin ningún recorrido completo. */
-export function diasInventarioEquipos(
+export function diasInventarioCelulares(
   movs: MovimientoStockBulk[],
   ventas: Venta[],
 ): number | null {
   const primerIngreso = new Map<string, string>();
   for (const m of movs) {
-    if (m.itemTipo === "equipo" && m.tipo === "ingreso" && !primerIngreso.has(m.itemId)) {
+    if (m.itemTipo === "celular" && m.tipo === "ingreso" && !primerIngreso.has(m.itemId)) {
       primerIngreso.set(m.itemId, m.fechaISO);
     }
   }
-  const ventaDeEquipo = new Map<string, string>();
+  const ventaDeCelular = new Map<string, string>();
   for (const v of ventas) {
     for (const i of v.items) {
-      if (i.equipoId && !ventaDeEquipo.has(i.equipoId)) ventaDeEquipo.set(i.equipoId, v.fechaISO);
+      if (i.celularId && !ventaDeCelular.has(i.celularId)) ventaDeCelular.set(i.celularId, v.fechaISO);
     }
   }
   const dias: number[] = [];
   for (const [id, ingreso] of primerIngreso) {
-    const venta = ventaDeEquipo.get(id);
+    const venta = ventaDeCelular.get(id);
     if (!venta) continue;
     const d = diasEntreISO(ingreso, venta);
     if (d >= 0) dias.push(d);
@@ -613,7 +613,7 @@ export function diasInventarioEquipos(
 }
 
 /** Unidades que registra el detalle de un movimiento de repuesto/otro
- * ("Ingreso: +3 unidades", "Usado en venta V-12: -2 unidades"). Equipos no
+ * ("Ingreso: +3 unidades", "Usado en venta V-12: -2 unidades"). Celulares no
  * lo necesitan (unidad única). Null si el detalle no trae cantidad. */
 export function unidadesDeMovimiento(detalle: string): number | null {
   const m = /[+-]\s?(\d+)\s?unidades/.exec(detalle);
