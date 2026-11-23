@@ -81,3 +81,10 @@ export type EstadoMp = "pending" | "authorized" | "paused" | "canceled";
 export function esEstadoMp(v: unknown): v is EstadoMp {
   return v === "pending" || v === "authorized" || v === "paused" || v === "canceled";
 }
+
+/** La API devuelve (y exige al cancelar) `cancelled`, con doble L, aunque la
+ * documentación dice `canceled`: se aceptan las dos y se guarda `canceled`. */
+export function normalizarEstadoMp(v: unknown): EstadoMp | null {
+  if (v === "cancelled") return "canceled";
+  return esEstadoMp(v) ? v : null;
+}

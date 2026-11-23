@@ -3,6 +3,7 @@ import { createServerClient, createServiceRoleClient } from "@/lib/auth/supabase
 import {
   esEstadoMp,
   leerReferenciaSuscripcion,
+  normalizarEstadoMp,
   periodoHasta,
   type EstadoMp,
 } from "@/lib/mercadopago";
@@ -42,7 +43,8 @@ export async function getSuscripcionMp(): Promise<SuscripcionMp> {
  */
 export async function aplicarPreapproval(pre: Preapproval, ahora = new Date()): Promise<void> {
   const ref = leerReferenciaSuscripcion(pre.external_reference);
-  if (!ref || !esEstadoMp(pre.status)) return;
+  const estado = normalizarEstadoMp(pre.status);
+  if (!ref || !estado) return;
 
   const service = createServiceRoleClient();
   const { data: org, error } = await service
@@ -55,7 +57,7 @@ export async function aplicarPreapproval(pre: Preapproval, ahora = new Date()): 
 
   const esLaVigente = org.mp_preapproval_id === pre.id;
 
-  if (pre.status === "authorized") {
+  if (estado === "authorized") {
     if (org.mp_preapproval_id && !esLaVigente) {
       await cancelarPreapproval(org.mp_preapproval_id).catch((e) =>
         console.error("[mercadopago] no se pudo cancelar la suscripción anterior", e),
@@ -83,7 +85,7 @@ export async function aplicarPreapproval(pre: Preapproval, ahora = new Date()): 
   if (esLaVigente) {
     const { error: upd } = await service
       .from("organizations")
-      .update({ mp_estado: pre.status })
+      .update({ mp_estado: estado })
       .eq("id", org.id);
     if (upd) throw upd;
   }

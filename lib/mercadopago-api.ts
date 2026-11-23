@@ -78,5 +78,6 @@ export function getAuthorizedPayment(id: string): Promise<AuthorizedPayment> {
 }
 
 export function cancelarPreapproval(id: string): Promise<Preapproval> {
-  return mp<Preapproval>("PUT", `/preapproval/${encodeURIComponent(id)}`, { status: "canceled" });
+  // `cancelled` con doble L: con `canceled` (como dice la doc) la API da 400.
+  return mp<Preapproval>("PUT", `/preapproval/${encodeURIComponent(id)}`, { status: "cancelled" });
 }

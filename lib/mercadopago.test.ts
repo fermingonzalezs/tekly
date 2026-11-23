@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   firmaWebhookValida,
+  normalizarEstadoMp,
   leerReferenciaSuscripcion,
   periodoHasta,
   referenciaSuscripcion,
@@ -62,5 +63,14 @@ describe("periodoHasta", () => {
     expect(
       periodoHasta({ proximoCobro: "2026-12-23T12:00:00Z", periodoActual: "2027-01-10T00:00:00.000Z", ahora }),
     ).toBe("2027-01-10T00:00:00.000Z");
+  });
+});
+
+describe("normalizarEstadoMp", () => {
+  it("acepta cancelled (API) y canceled (doc), descarta lo desconocido", () => {
+    expect(normalizarEstadoMp("cancelled")).toBe("canceled");
+    expect(normalizarEstadoMp("canceled")).toBe("canceled");
+    expect(normalizarEstadoMp("authorized")).toBe("authorized");
+    expect(normalizarEstadoMp("finished")).toBeNull();
   });
 });
