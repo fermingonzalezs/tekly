@@ -241,6 +241,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
       open={open}
       onClose={cerrar}
       title="Invitar usuario"
+      size="lg"
       formulario
       footer={
         <>
@@ -264,7 +265,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
         <Field label="Nombre">
           <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
         </Field>
-        <Field label="Email">
+        <Field label="Email" className="sm:col-span-2">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
         <Field label="Rol">
@@ -348,6 +349,7 @@ function EditarMiembroDialog({
         open={!!miembro}
         onClose={onClose}
         title={miembro ? `Editar usuario · ${miembro.nombre}` : ""}
+        size="lg"
         formulario
         footer={
           esUnoMismo ? (

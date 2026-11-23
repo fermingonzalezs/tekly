@@ -542,6 +542,7 @@ function ClienteFormDialog({
       open={open}
       onClose={onClose}
       title={cliente ? "Editar cliente" : "Nuevo cliente"}
+      size="lg"
       formulario
       footer={
         <>
@@ -568,10 +569,10 @@ function ClienteFormDialog({
         <Field label="Teléfono">
           <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+54 9 11 …" />
         </Field>
-        <Field label="Email">
+        <Field label="Email" className="sm:col-span-2">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@mail.com" />
         </Field>
-        <Field label="Fecha de nacimiento (opcional)">
+        <Field label="Fecha de nacimiento (opcional)" className="sm:col-span-2">
           <Input
             value={fechaNacimiento}
             onChange={(e) => setFechaNacimiento(maskFechaDDMMAAAA(e.target.value))}

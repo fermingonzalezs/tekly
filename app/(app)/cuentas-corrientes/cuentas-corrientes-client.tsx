@@ -544,6 +544,7 @@ function NuevoMovimientoCCDialog({
       open={open}
       onClose={onClose}
       title="Nuevo movimiento"
+      size="lg"
       formulario
       footer={
         <>
@@ -564,21 +565,14 @@ function NuevoMovimientoCCDialog({
       }
     >
       <GrillaCampos>
-        <Field label="Cliente" className="sm:col-span-2">
+        <Field label="Cliente" className="sm:col-span-3">
           <ClientePicker clientes={clientes} value={cliente} onChange={setCliente} />
         </Field>
-        <Field label="Tipo">
+        <Field label="Tipo" className="sm:col-span-2">
           <Select value={tipo} onChange={(e) => setTipo(e.target.value as "cargo" | "pago")}>
             <option value="cargo">Cargo (aumenta la deuda)</option>
             <option value="pago">Pago (reduce la deuda)</option>
           </Select>
-        </Field>
-        <Field label="Concepto" className="sm:col-span-2">
-          <Input
-            value={concepto}
-            onChange={(e) => setConcepto(e.target.value)}
-            placeholder="Ej. iPhone 13 128GB a cuenta"
-          />
         </Field>
         <Field label="Monto (USD)">
           <Input
@@ -587,6 +581,13 @@ function NuevoMovimientoCCDialog({
             value={monto || ""}
             onChange={(e) => setMonto(Number(e.target.value))}
             placeholder="0"
+          />
+        </Field>
+        <Field label="Concepto" className="sm:col-span-3">
+          <Input
+            value={concepto}
+            onChange={(e) => setConcepto(e.target.value)}
+            placeholder="Ej. iPhone 13 128GB a cuenta"
           />
         </Field>
         <p className="text-[11px] text-neutral-500 sm:col-span-3">

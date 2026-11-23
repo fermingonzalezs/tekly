@@ -28,7 +28,7 @@ import { BarraFiltros } from "@/components/ui/barra-filtros";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiciosCatalogo } from "@/components/servicios-catalogo";
-import { useVolverAlOnboarding } from "@/components/onboarding/volver-al-onboarding";
+import { CrearServiciosDialog } from "@/components/onboarding/crear-servicios-dialog";
 import { RepairsChart } from "@/components/dashboard/repairs-chart";
 import { ReparacionesSplit } from "@/components/dashboard/reparaciones-split";
 import {
@@ -222,7 +222,7 @@ export function ReparacionesClient({
   const [vista, setVista] = useState<"tickets" | "servicios">(
     useSearchParams().get("vista") === "servicios" ? "servicios" : "tickets",
   );
-  const volverAlOnboarding = useVolverAlOnboarding();
+  const [creandoServicios, setCreandoServicios] = useState(false);
   const [recibo, setRecibo] = useState<{
     ticket: Ticket;
     tipo: "ingreso" | "presupuesto" | "egreso";
@@ -251,6 +251,18 @@ export function ReparacionesClient({
     if (searchParams.get("accion") !== "nuevo-ticket") return;
     setCreating(true);
     router.replace("/reparaciones"); // limpia el param -- evita reabrir con back/refresh
+  }, [searchParams, router]);
+
+  // ?accion=nuevos-servicios (checklist de Bienvenida): pestaña Servicios con
+  // el alta de varios servicios abierta. Limpia solo `accion` -- `?onboarding=`
+  // tiene que quedar para que al guardar vuelva a los primeros pasos.
+  useEffect(() => {
+    if (searchParams.get("accion") !== "nuevos-servicios") return;
+    setVista("servicios");
+    setCreandoServicios(true);
+    const resto = new URLSearchParams(searchParams.toString());
+    resto.delete("accion");
+    router.replace(resto.size ? `/reparaciones?${resto}` : "/reparaciones");
   }, [searchParams, router]);
 
   // ?q= (búsqueda global): prefildea el filtro de la tabla. Efecto además del
@@ -559,11 +571,7 @@ export function ReparacionesClient({
         {vista === "servicios" ? (
           <ServiciosCatalogo
             initialServicios={initialServicios}
-            onSave={async (s) => {
-              const guardado = await saveServicioAction(s);
-              await volverAlOnboarding();
-              return guardado;
-            }}
+            onSave={saveServicioAction}
           />
         ) : (
           <>
@@ -1074,6 +1082,13 @@ export function ReparacionesClient({
         {open && `Se eliminará el ticket #${open.id} (${open.equipo}). Esta acción no se puede deshacer.`}
       </ConfirmDialog>
 
+      <CrearServiciosDialog
+        key={creandoServicios ? "servicios-abierto" : "servicios-none"}
+        open={creandoServicios}
+        onClose={() => setCreandoServicios(false)}
+        onSave={saveServicioAction}
+      />
+
       <NuevoTicketDialog
         open={creating}
         onClose={() => setCreating(false)}
@@ -1422,6 +1437,7 @@ function AgregarItemDialog({
         onClose();
       }}
       title="Agregar a Servicios asociados"
+      size="lg"
       formulario
       description={ticket ? `Ticket #${ticket.id}` : ""}
       footer={

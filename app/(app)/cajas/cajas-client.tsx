@@ -1005,6 +1005,7 @@ function NuevoMovimientoDialog({
       open={open}
       onClose={onClose}
       title="Nuevo movimiento"
+      size="lg"
       formulario
       description="Se registra en la caja elegida y queda en el historial."
       footer={
@@ -1032,7 +1033,7 @@ function NuevoMovimientoDialog({
             <option value="egreso">Egreso</option>
           </Select>
         </Field>
-        <Field label="Caja">
+        <Field label="Caja" className="sm:col-span-2">
           <Select
             value={cajaId}
             onChange={(e) => setCajaId(e.target.value)}

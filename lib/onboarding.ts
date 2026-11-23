@@ -41,7 +41,7 @@ export const PASOS_ONBOARDING: {
     id: "servicios",
     titulo: "Cargá tu catálogo de servicios",
     descripcion: "Reparaciones frecuentes con su precio, en la pestaña Servicios.",
-    href: "/reparaciones?vista=servicios",
+    href: "/reparaciones?vista=servicios&accion=nuevos-servicios",
     icon: Wrench,
   },
 ];
