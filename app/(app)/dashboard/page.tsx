@@ -2,8 +2,8 @@ import { requireUser } from "@/lib/auth";
 import { listVentas } from "@/lib/db/ventas";
 import { listTickets } from "@/lib/db/reparaciones";
 import { listTurnosSemana } from "@/lib/db/turnos";
-import { getNegocio } from "@/lib/db/configuracion";
-import { onboardingCompleto } from "@/lib/onboarding";
+import { getNegocio, pasosOnboardingDesdeDatos } from "@/lib/db/configuracion";
+import { combinarPasosOnboarding, onboardingCompleto } from "@/lib/onboarding";
 import {
   mesDashboard,
   metricasDashboard,
@@ -38,8 +38,14 @@ export default async function DashboardPage({
     getNegocio(),
   ]);
 
-  if (user.rol === "admin" && ventas.length === 0 && !onboardingCompleto(negocio.onboardingPasos)) {
-    return <Bienvenida negocio={negocio} />;
+  if (user.rol === "admin" && ventas.length === 0) {
+    const pasos = combinarPasosOnboarding(
+      negocio.onboardingPasos,
+      await pasosOnboardingDesdeDatos(negocio),
+    );
+    if (!onboardingCompleto(pasos)) {
+      return <Bienvenida negocio={{ ...negocio, onboardingPasos: pasos }} />;
+    }
   }
 
   const hoy = new Date();

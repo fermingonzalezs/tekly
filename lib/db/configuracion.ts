@@ -155,6 +155,55 @@ export async function setOnboardingPasos(
   if (error) throw error;
 }
 
+/** Tilda un solo paso del checklist conservando los demás (merge, no
+ * reemplazo como `setOnboardingPasos`). */
+export async function marcarPasoOnboarding(paso: OnboardingPasoId): Promise<void> {
+  const caller = await requireRole("admin");
+  const service = createServiceRoleClient();
+  const { data, error: readError } = await service
+    .from("organizations")
+    .select("onboarding_pasos")
+    .eq("id", caller.organizationId)
+    .single();
+  if (readError) throw readError;
+  const { error } = await service
+    .from("organizations")
+    .update({ onboarding_pasos: { ...(data.onboarding_pasos ?? {}), [paso]: true } })
+    .eq("id", caller.organizationId);
+  if (error) throw error;
+}
+
+/** Pasos del checklist que ya están hechos según los datos de la org, para
+ * tildarlos solos aunque se hayan hecho sin pasar por el botón "Ir". */
+export async function pasosOnboardingDesdeDatos(
+  negocio: Negocio,
+): Promise<Partial<Record<OnboardingPasoId, boolean>>> {
+  const supabase = createServerClient();
+  // Solo filas activas (bajas lógicas no cuentan); servicios no tiene baja lógica.
+  const contar = async (tabla: string, columnaActivo?: string) => {
+    let query = supabase.from(tabla).select("*", { count: "exact", head: true });
+    if (columnaActivo) query = query.eq(columnaActivo, true);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
+  };
+  const [cajas, servicios, miembros, clientes, celulares, notebooks] = await Promise.all([
+    contar("cajas", "activa"),
+    contar("servicios"),
+    contar("profiles", "activo"),
+    contar("clientes", "activo"),
+    contar("celulares", "activo"),
+    contar("notebooks", "activo"),
+  ]);
+  return {
+    negocio: Boolean(negocio.direccion.trim() && negocio.cuit.trim()),
+    importar: clientes + celulares + notebooks > 0,
+    cajas: cajas > 0,
+    usuarios: miembros > 1,
+    servicios: servicios > 0,
+  };
+}
+
 // ─────────────────────────── Logo ───────────────────────────
 
 /** Sube (o pisa -- `upsert: true`, siempre el mismo path) el logo de la

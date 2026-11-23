@@ -15,6 +15,14 @@ import { createCelularesBulk, listImeisExistentes, type CelularInput } from "@/l
 import { createNotebooksBulk, listSeriesExistentes } from "@/lib/db/notebooks";
 import type { NotebookInput } from "@/lib/notebooks";
 import { createClientesBulk, listClientesContacto } from "@/lib/db/clientes";
+import { lecturasIaUsadas, registrarLecturaIa, ultimaLecturaIa } from "@/lib/db/ia-lecturas";
+import { estructurarTextoConIa } from "@/lib/ia/importacion";
+import {
+  ENTIDADES_IMPORTACION,
+  lecturasRestantes,
+  validarTextoIa,
+  type EntidadImportacion,
+} from "@/lib/ia-lecturas";
 import {
   parseCelularRow,
   parseClienteRow,
@@ -259,4 +267,59 @@ export async function importClientesAction(
 
   if (inserted > 0) revalidatePath("/clientes");
   return ordenarResultado(inserted, results);
+}
+
+// ─────────────────────── Leer con IA ───────────────────────
+
+export type LecturaIaResult =
+  | { ok: true; filas: Record<string, string>[]; restantes: number }
+  | { ok: false; error: string; restantes: number };
+
+/** Estructura texto pegado con IA y devuelve filas crudas con las columnas de
+ * la plantilla; el cliente las muestra en la tabla editable (mismo preview que
+ * un CSV) y recién se guardan con `import*Action`. Una lectura por tipo: solo
+ * cuenta una que salió bien, y su resultado queda guardado para retomarlo. */
+export async function leerConIaAction(
+  entidad: EntidadImportacion,
+  texto: string,
+): Promise<LecturaIaResult> {
+  const user = await requireRoleEscritura("admin");
+  if (!ENTIDADES_IMPORTACION.includes(entidad)) {
+    return { ok: false, error: "Tipo de importación inválido.", restantes: 0 };
+  }
+  const restantes = lecturasRestantes((await lecturasIaUsadas())[entidad]);
+  if (restantes === 0) {
+    return {
+      ok: false,
+      error: "Ya usaste la lectura con IA de este tipo. Podés retomarla o importar con la plantilla.",
+      restantes,
+    };
+  }
+  const errorTexto = validarTextoIa(texto);
+  if (errorTexto) return { ok: false, error: errorTexto, restantes };
+
+  const lectura = await estructurarTextoConIa(entidad, texto.trim());
+  if (!lectura.ok) return { ok: false, error: lectura.error, restantes };
+  if (lectura.filas.length === 0) {
+    return { ok: false, error: "No se encontraron datos para importar en el texto.", restantes };
+  }
+
+  await registrarLecturaIa({
+    organizationId: user.organizationId,
+    usuarioId: user.id,
+    entidad,
+    filas: lectura.filas,
+    inputTokens: lectura.inputTokens,
+    outputTokens: lectura.outputTokens,
+  });
+  return { ok: true, filas: lectura.filas, restantes: restantes - 1 };
+}
+
+/** Vuelve a cargar el resultado de la lectura ya hecha (no gasta nada). */
+export async function retomarLecturaIaAction(
+  entidad: EntidadImportacion,
+): Promise<Record<string, string>[] | null> {
+  await requireRoleEscritura("admin");
+  if (!ENTIDADES_IMPORTACION.includes(entidad)) return null;
+  return ultimaLecturaIa(entidad);
 }

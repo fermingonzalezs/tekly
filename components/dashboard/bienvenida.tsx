@@ -6,7 +6,12 @@ import { CheckCircle2 } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { PASOS_ONBOARDING, onboardingCompleto, type OnboardingPasoId } from "@/lib/onboarding";
+import {
+  PASOS_ONBOARDING,
+  hrefDesdeOnboarding,
+  onboardingCompleto,
+  type OnboardingPasoId,
+} from "@/lib/onboarding";
 import { setOnboardingPasosAction } from "@/app/(app)/dashboard/actions";
 import { cn } from "@/lib/utils";
 import type { Negocio } from "@/lib/db/configuracion";
@@ -71,7 +76,7 @@ export function Bienvenida({ negocio }: { negocio: Negocio }) {
                   <p className="text-[13px] text-neutral-500">{paso.descripcion}</p>
                 </div>
                 <ButtonLink
-                  href={paso.href}
+                  href={hrefDesdeOnboarding(paso)}
                   variant="tonal"
                   size="sm"
                 >

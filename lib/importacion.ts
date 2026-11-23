@@ -391,7 +391,8 @@ export function notebookTemplateCsv(): string {
     "Apple M2",
     "8GB",
     "256GB",
-    "13.6\"",
+    "13.6 pulgadas",
+    "Integrada",
     "Gris espacial",
     "Español",
     "C02XYZ123456",
@@ -414,4 +415,36 @@ export function notebookTemplateCsv(): string {
   ].map((nota) => [...Array(NOTEBOOK_CSV_HEADERS.length).fill(""), nota].join(","));
 
   return [headers.join(","), ejemplo.join(","), ...notas].join("\n");
+}
+
+// ─────────────────────── Preview (CSV o IA) ───────────────────────
+
+export type FilaCruda = { rowNum: number; raw: Record<string, string> };
+export type EstadoFilaPreview = {
+  rowNum: number;
+  status: "ok" | "error" | "duplicate";
+  detail?: string;
+};
+
+/** Estado de cada fila del preview (válida, con error o duplicada dentro del
+ * archivo). Pura: la tabla editable la recalcula en cada cambio, así que
+ * corregir una celda actualiza el estado al instante. */
+export function evaluarFilas<T>(
+  filas: FilaCruda[],
+  parseRow: (raw: Record<string, string>, rowNum: number) => ParseResult<T>,
+  marcarDuplicados: (validos: { rowNum: number; data: T }[]) => Map<number, string>,
+): EstadoFilaPreview[] {
+  const estados = new Map<number, EstadoFilaPreview>();
+  const validos: { rowNum: number; data: T }[] = [];
+  for (const { rowNum, raw } of filas) {
+    const parsed = parseRow(raw, rowNum);
+    if (parsed.ok) validos.push({ rowNum, data: parsed.data });
+    else estados.set(rowNum, { rowNum, status: "error", detail: parsed.error });
+  }
+  const duplicadas = marcarDuplicados(validos);
+  for (const { rowNum } of validos) {
+    const detail = duplicadas.get(rowNum);
+    estados.set(rowNum, detail ? { rowNum, status: "duplicate", detail } : { rowNum, status: "ok" });
+  }
+  return filas.map((f) => estados.get(f.rowNum)!);
 }

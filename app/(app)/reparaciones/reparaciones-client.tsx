@@ -28,6 +28,7 @@ import { BarraFiltros } from "@/components/ui/barra-filtros";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ServiciosCatalogo } from "@/components/servicios-catalogo";
+import { useVolverAlOnboarding } from "@/components/onboarding/volver-al-onboarding";
 import { RepairsChart } from "@/components/dashboard/repairs-chart";
 import { ReparacionesSplit } from "@/components/dashboard/reparaciones-split";
 import {
@@ -218,7 +219,10 @@ export function ReparacionesClient({
   const [openId, setOpenId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [vista, setVista] = useState<"tickets" | "servicios">("tickets");
+  const [vista, setVista] = useState<"tickets" | "servicios">(
+    useSearchParams().get("vista") === "servicios" ? "servicios" : "tickets",
+  );
+  const volverAlOnboarding = useVolverAlOnboarding();
   const [recibo, setRecibo] = useState<{
     ticket: Ticket;
     tipo: "ingreso" | "presupuesto" | "egreso";
@@ -555,7 +559,11 @@ export function ReparacionesClient({
         {vista === "servicios" ? (
           <ServiciosCatalogo
             initialServicios={initialServicios}
-            onSave={saveServicioAction}
+            onSave={async (s) => {
+              const guardado = await saveServicioAction(s);
+              await volverAlOnboarding();
+              return guardado;
+            }}
           />
         ) : (
           <>

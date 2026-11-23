@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { requiereAceptarTerminos } from "@/lib/legal";
@@ -7,6 +8,7 @@ import { Toaster } from "@/components/notifications/toaster";
 import { RealtimeProvider } from "@/components/notifications/realtime-provider";
 import { FabDock } from "@/components/fab-dock";
 import { PlanBanner } from "@/components/plan-banner";
+import { VolverAlOnboardingBar } from "@/components/onboarding/volver-al-onboarding";
 
 export default async function AppLayout({
   children,
@@ -22,6 +24,9 @@ export default async function AppLayout({
     <RealtimeProvider organizationId={user.organizationId}>
       <TopNav user={user} logoUrl={negocio.logoUrl} nombre={negocio.nombre} />
       <PlanBanner suscripcion={user.suscripcion} esAdmin={user.rol === "admin"} />
+      <Suspense>
+        <VolverAlOnboardingBar />
+      </Suspense>
       {children}
       <Toaster esAdmin={user.rol === "admin"} />
       <FabDock rol={user.rol} />

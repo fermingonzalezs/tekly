@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useTransition } from "react";
+import { useVolverAlOnboarding } from "@/components/onboarding/volver-al-onboarding";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -139,6 +140,18 @@ export function CajasClient({
     if (searchParams.get("accion") !== "nuevo-movimiento-caja") return;
     setNuevoOpen(true);
     router.replace("/cajas"); // limpia el param -- evita reabrir con back/refresh
+  }, [searchParams, router]);
+
+  // ?accion=nueva-caja (checklist de Bienvenida): abre la pestaña Cajas con el
+  // alta ya abierta. Limpia solo `accion` -- `?onboarding=` tiene que quedar
+  // para que al guardar vuelva a los primeros pasos.
+  useEffect(() => {
+    if (searchParams.get("accion") !== "nueva-caja") return;
+    setTab("cajas");
+    setEditingCaja({ id: null, data: blankCaja });
+    const resto = new URLSearchParams(searchParams.toString());
+    resto.delete("accion");
+    router.replace(resto.size ? `/cajas?${resto}` : "/cajas");
   }, [searchParams, router]);
 
   // ?q= (búsqueda global): prefildea el filtro de movimientos. Efecto además
@@ -1100,11 +1113,13 @@ function CajaDialog({
 }) {
   const [draft, setDraft] = useState<CajaInput>(entry?.data ?? blankCaja);
   const [pending, startTransition] = useTransition();
+  const volverAlOnboarding = useVolverAlOnboarding();
 
   const submit = () => {
     startTransition(async () => {
       const caja = await saveCajaAction(entry?.id ?? null, draft);
       onSave(caja);
+      await volverAlOnboarding();
     });
   };
 

@@ -9,6 +9,7 @@ import {
   parseClienteRow,
   parseCelularRow,
   remapFilas,
+  evaluarFilas,
   NOTEBOOK_CSV_HEADERS,
   notebookTemplateCsv,
   parseNotebookRow,
@@ -254,5 +255,38 @@ describe("importación de notebooks", () => {
   it("la plantilla incluye todos los headers", () => {
     const header = notebookTemplateCsv().split("\n")[0].split(",");
     for (const h of NOTEBOOK_CSV_HEADERS) expect(header).toContain(h);
+  });
+
+  it("cada línea tiene la misma cantidad de columnas y la fila de ejemplo se importa", () => {
+    const lineas = notebookTemplateCsv().split("\n");
+    const headers = lineas[0].split(",");
+    for (const linea of lineas) expect(linea.split(",")).toHaveLength(headers.length);
+    const raw = Object.fromEntries(headers.map((h, i) => [h, lineas[1].split(",")[i]]));
+    const remap = remapFilas(NOTEBOOK_CSV_HEADERS, [raw]);
+    expect(remap.ok).toBe(true);
+    if (remap.ok) expect(parseNotebookRow(remap.filas[0], 1).ok).toBe(true);
+  });
+});
+
+describe("evaluarFilas", () => {
+  const fila = (rowNum: number, imei: string, modelo = "iPhone 13") => ({
+    rowNum,
+    raw: { modelo, almacenamiento: "", color: "", imei, bateria: "", condicion: "", costoUsd: "300", precioUsd: "450", estado: "" },
+  });
+  const dedupe = (validos: { rowNum: number; data: { imei: string } }[]) =>
+    marcarImeiDuplicadoEnArchivo(validos.map((v) => ({ rowNum: v.rowNum, imei: v.data.imei })));
+
+  it("marca errores y duplicados, en el orden de las filas", () => {
+    const estados = evaluarFilas(
+      [fila(1, "111"), fila(2, "111"), fila(3, "222", "")],
+      parseCelularRow,
+      dedupe,
+    );
+    expect(estados.map((e) => e.status)).toEqual(["ok", "duplicate", "error"]);
+  });
+
+  it("corregir la fila la vuelve válida (la tabla editable recalcula así)", () => {
+    const estados = evaluarFilas([fila(1, "111"), fila(2, "333")], parseCelularRow, dedupe);
+    expect(estados.every((e) => e.status === "ok")).toBe(true);
   });
 });

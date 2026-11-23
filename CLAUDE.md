@@ -424,7 +424,9 @@ Email Templates, SMTP propio).
 `SUPABASE_SERVICE_ROLE_KEY` (secreta, **nunca** con prefijo `NEXT_PUBLIC_`,
 server-only) + `NEXT_PUBLIC_SITE_URL` (origen público de la app: base de los
 links de mail de Auth, ver "Flujo de mail"; si falta se deduce de los headers
-de la request). Cambios acá requieren reiniciar `npm run dev`.
+de la request) + `ANTHROPIC_API_KEY` (secreta, server-only: "Leer con IA" de
+Importar datos; sin ella esa opción responde "no configurada"). Cambios acá
+requieren reiniciar `npm run dev`.
 
 ### Testing
 
@@ -1646,7 +1648,19 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   (mismo criterio que el alta manual). Admin-only vía `requireRole` en
   `importCelularesAction`/`importClientesAction` — el server revalida cada
   fila con el mismo schema que usa el preview del navegador, nunca confía
-  en esa validación client-side.
+  en esa validación client-side. **Leer con IA** (misma pantalla): el admin
+  pega texto libre y `leerConIaAction` lo estructura con Claude Haiku 4.5
+  (`lib/ia/importacion.ts`, salida estructurada con las columnas de la
+  plantilla, las notas de la plantilla son las reglas del prompt); las filas
+  vuelven crudas y pasan por el **mismo** preview/`parse*Row`/dedupe que un
+  CSV, en una **tabla editable** (`TablaEditable`: cada celda se corrige y el
+  estado se recalcula con `evaluarFilas`, pura y con test; filas se pueden
+  quitar). Cupo en `lib/ia-lecturas.ts` (puro, con test): **una lectura por
+  tipo** (celulares/notebooks/clientes) por org, sin renovación, y 20.000
+  caracteres; solo cuenta una lectura exitosa. Tabla `ia_lecturas` (escribe
+  solo service role): guarda tokens y `filas_resultado`, que permite
+  «Retomar la lectura con IA» si se recarga antes de importar. El botón «Google Sheets» copia la plantilla como TSV y abre
+  `sheets.new` (no hay plantillas en ningún Drive).
 - **Cotización del dólar**: `lib/dolar.ts` (`useDolar()` → blue de
   `dolarapi.com`, cache en memoria, fallback `1465`). Se muestra en el
   `Topbar` vía `components/dolar-navbar.tsx`. **No está en Configuración.**

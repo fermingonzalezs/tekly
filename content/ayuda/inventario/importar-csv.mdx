@@ -1,30 +1,42 @@
 ---
-titulo: "Importar stock por CSV"
-resumen: "Alta masiva de celulares y clientes desde un archivo CSV: columnas exactas, qué rechaza y cómo se evitan duplicados."
+titulo: "Importar stock y clientes"
+resumen: "Alta masiva de celulares, notebooks y clientes desde una planilla CSV o pegando el texto para que lo lea la IA: columnas, límites y duplicados."
 seccion: inventario
 roles: [admin]
 orden: 8
-actualizado: 2026-10-17
+actualizado: 2026-11-23
 ---
 
-La importación es una **alta masiva** de **celulares** y **clientes** existentes (no de ventas históricas). Vive en **Configuración → Importar datos** y es **solo para el admin**.
+La importación es una **alta masiva** de **celulares**, **notebooks** y **clientes** existentes (no de ventas históricas). Vive en **Configuración → Importar datos** y es **solo para el admin**.
 
-<Paso n={1} titulo="Descargá la plantilla">
-Cada tarjeta tiene un botón **«Plantilla»** que baja el CSV de ejemplo con los encabezados correctos.
+<Paso n={1} titulo="Prepará la planilla">
+Cada tarjeta tiene dos botones. **«Google Sheets»** abre una planilla nueva en tu cuenta de Google y copia la plantilla: tocá la celda A1 y pegá con **Ctrl+V**. Cuando la completes, bajala con *Archivo → Descargar → CSV*. **«CSV»** descarga la plantilla para abrirla en Excel u otro programa.
 </Paso>
 
-<Paso n={2} titulo="Elegí el archivo">
-Se parsea en el navegador y ves una **vista previa** con cada fila marcada como válida, duplicada o con error.
+<Paso n={2} titulo="Elegí el archivo y revisá">
+Se abre una **tabla editable** con todos los datos, cada fila marcada como lista, duplicada o con error. Podés **corregir cualquier celda** (el estado se actualiza al instante) o **quitar** filas con el tacho.
 </Paso>
 
 <Paso n={3} titulo="Confirmá">
 Sólo se importan las filas **válidas y no duplicadas**, en un solo alta masiva. El servidor **revalida** todo de nuevo. Al final ves el resultado: importadas, salteadas y con error, con el detalle por fila.
 </Paso>
 
+## Leer con IA (sin planilla)
+
+Si tu lista está en WhatsApp, en notas o en un Excel con otras columnas, tocá **«Pegar texto y leer con IA»**, pegá el texto tal como lo tenés y tocá **«Leer con IA»**. La IA lo ordena en las columnas de la plantilla y te lo muestra en la **misma tabla editable** que un CSV: corregí lo que haga falta y recién ahí importá. Nada se guarda sin tu confirmación.
+
+- Tenés **una lectura para cada tipo**: una para celulares, una para notebooks y una para clientes. Pegá la lista completa. Solo se gasta cuando la lectura sale bien.
+- Cada lectura acepta hasta **20.000 caracteres**.
+- Si cerrás o recargás la página antes de importar, no perdés el resultado: tocá **«Retomar la lectura con IA»** y vuelve a aparecer la tabla.
+- La IA no inventa datos: lo que no está en el texto queda vacío, y si falta un dato obligatorio la fila aparece con error en la vista previa.
+
 ## Columnas
 
 **Celulares**: `modelo, almacenamiento, color, imei, bateria, condicion, costoUsd, precioUsd, estado`.
 - `modelo`, `costoUsd` y `precioUsd` son obligatorios. `bateria` va de 0 a 100. `estado` admite `en_revision/disponible/reservado/vendido`; si va vacío, se completa como **«En revisión»**.
+
+**Notebooks**: `modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numeroSerie, garantia, observaciones, condicion, bateria, costoUsd, precioUsd, estado`.
+- `modelo`, `condicion` (`nuevo` o `usado`), `costoUsd` y `precioUsd` son obligatorios. `bateria` es obligatoria si es usada. Se deduplica por **número de serie**.
 
 **Clientes**: `nombre, telefono, email, fechaNacimiento`.
 - `nombre` obligatorio. `fechaNacimiento` acepta `DD/MM/AAAA` o `AAAA-MM-DD`.
@@ -42,7 +54,7 @@ Si falta alguna columna canónica, el archivo se rechaza con «Faltan columnas e
 ## Qué no se puede
 
 - **No** se importan ventas históricas (decisión a propósito).
-- **No** se importan datos que no sean celulares o clientes (tampoco notebooks: la importación por CSV es sólo de celulares y clientes).
+- **No** se importan repuestos ni otros productos: solo celulares, notebooks y clientes.
 - Un CSV sin las columnas canónicas se rechaza entero.
 - La importación es sólo del admin, y sólo con la cuenta habilitada para escribir.
 

@@ -3,6 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { Fragment, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useVolverAlOnboarding } from "@/components/onboarding/volver-al-onboarding";
+import type { EntidadImportacion } from "@/lib/ia-lecturas";
 import { Plus, Store, Trash2 } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
@@ -37,10 +39,13 @@ export function ConfiguracionClient({
   user,
   miembros,
   negocio,
+  iaRestantes,
 }: {
   user: SessionUser;
   miembros: Miembro[];
   negocio: Negocio | null;
+  /** Lecturas con IA que le quedan a la org por tipo de carga (solo admin). */
+  iaRestantes: Record<EntidadImportacion, number>;
 }) {
   const esAdmin = user.rol === "admin";
   const searchParams = useSearchParams();
@@ -183,7 +188,7 @@ export function ConfiguracionClient({
 
         {tab === "recibos" && negocio && <RecibosForm negocio={negocio} />}
 
-        {tab === "importar" && <ImportarDatos />}
+        {tab === "importar" && <ImportarDatos iaRestantes={iaRestantes} />}
 
         {tab === "cuenta" && <MiCuenta user={user} />}
       </div>
@@ -201,6 +206,7 @@ export function ConfiguracionClient({
 
 function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const volverAlOnboarding = useVolverAlOnboarding();
   const [email, setEmail] = useState("");
   const [nombre, setNombre] = useState("");
   const [rol, setRol] = useState<Rol>("vendedor");
@@ -224,6 +230,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
       setEmail("");
       setNombre("");
       setRol("vendedor");
+      if (await volverAlOnboarding()) return;
       setEnviada(true);
       router.refresh();
     });
@@ -419,6 +426,7 @@ function EditarMiembroDialog({
 
 function NegocioForm({ negocio }: { negocio: Negocio }) {
   const router = useRouter();
+  const volverAlOnboarding = useVolverAlOnboarding();
   const [form, setForm] = useState(negocio);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -427,6 +435,7 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
     setSaved(false);
     startTransition(async () => {
       await updateNegocioAction(form);
+      if (await volverAlOnboarding()) return;
       setSaved(true);
       router.refresh();
     });
