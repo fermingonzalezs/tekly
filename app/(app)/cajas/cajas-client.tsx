@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button, IconButton } from "@/components/ui/button";
 import { useEffect, useState, useTransition } from "react";
 import { useVolverAlOnboarding } from "@/components/onboarding/volver-al-onboarding";
 import {
@@ -118,6 +118,7 @@ export function CajasClient({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [nuevoOpen, setNuevoOpen] = useState(false);
   const [cajas, setCajas] = useState<Caja[]>(initialCajas);
+  const [creandoVarias, setCreandoVarias] = useState(false);
   const [editingCaja, setEditingCaja] = useState<{ id: string | null; data: CajaInput } | null>(
     null,
   );
@@ -143,12 +144,12 @@ export function CajasClient({
   }, [searchParams, router]);
 
   // ?accion=nueva-caja (checklist de Bienvenida): abre la pestaña Cajas con el
-  // alta ya abierta. Limpia solo `accion` -- `?onboarding=` tiene que quedar
+  // alta de varias cajas ya abierta. Limpia solo `accion` -- `?onboarding=` tiene que quedar
   // para que al guardar vuelva a los primeros pasos.
   useEffect(() => {
     if (searchParams.get("accion") !== "nueva-caja") return;
     setTab("cajas");
-    setEditingCaja({ id: null, data: blankCaja });
+    setCreandoVarias(true);
     const resto = new URLSearchParams(searchParams.toString());
     resto.delete("accion");
     router.replace(resto.size ? `/cajas?${resto}` : "/cajas");
@@ -930,6 +931,13 @@ export function CajasClient({
         usuarioNombre={usuarioNombre}
       />
 
+      <CrearCajasDialog
+        key={creandoVarias ? "varias-abierto" : "varias-none"}
+        open={creandoVarias}
+        onClose={() => setCreandoVarias(false)}
+        onSave={saveCajaLocal}
+      />
+
       <CajaDialog
         key={editingCaja?.id ?? "new"}
         entry={editingCaja}
@@ -1113,13 +1121,11 @@ function CajaDialog({
 }) {
   const [draft, setDraft] = useState<CajaInput>(entry?.data ?? blankCaja);
   const [pending, startTransition] = useTransition();
-  const volverAlOnboarding = useVolverAlOnboarding();
 
   const submit = () => {
     startTransition(async () => {
       const caja = await saveCajaAction(entry?.id ?? null, draft);
       onSave(caja);
-      await volverAlOnboarding();
     });
   };
 
@@ -1195,6 +1201,130 @@ function CajaDialog({
           Caja activa (disponible para cargar movimientos)
         </label>
       </GrillaCampos>
+    </Dialog>
+  );
+}
+
+/** Alta de varias cajas de una (paso "Creá tus cajas" del checklist de
+ * Bienvenida): una fila por caja, se guardan todas juntas y recién ahí vuelve
+ * a los primeros pasos. Las que se guardaron salen de la lista, así un error a
+ * mitad de camino no las duplica al reintentar. */
+function CrearCajasDialog({
+  open,
+  onClose,
+  onSave,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSave: (c: Caja) => void;
+}) {
+  const [filas, setFilas] = useState<CajaInput[]>([{ ...blankCaja }]);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const volverAlOnboarding = useVolverAlOnboarding();
+  const completas = filas.filter((f) => f.nombre.trim());
+
+  const cambiar = (i: number, patch: Partial<CajaInput>) =>
+    setFilas((prev) => prev.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+
+  const submit = () => {
+    setError(null);
+    startTransition(async () => {
+      let pendientes = completas;
+      try {
+        for (const fila of completas) {
+          onSave(await saveCajaAction(null, { ...fila, nombre: fila.nombre.trim() }));
+          pendientes = pendientes.slice(1);
+        }
+      } catch {
+        setFilas(pendientes);
+        setError("No se pudieron guardar todas las cajas. Las que quedan en la lista no se guardaron.");
+        return;
+      }
+      if (!(await volverAlOnboarding())) onClose();
+    });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Crear cajas"
+      description="Una por moneda o punto de cobro (ej. Mostrador en pesos, Caja USD)."
+      size="xl"
+      formulario
+      footer={
+        <>
+          <Button onClick={onClose} variant="outline" fullOnMobile disabled={pending}>
+            Cancelar
+          </Button>
+          <Button
+            disabled={completas.length === 0}
+            loading={pending}
+            onClick={submit}
+            variant="primary"
+            fullOnMobile
+          >
+            {pending
+              ? "Guardando…"
+              : `Guardar ${completas.length} ${completas.length === 1 ? "caja" : "cajas"}`}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        {filas.map((fila, i) => (
+          <div
+            key={i}
+            className="grid grid-cols-1 items-end gap-3 rounded-lg border border-neutral-200 p-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto]"
+          >
+            <Field label={`Caja ${i + 1}`}>
+              <Input
+                value={fila.nombre}
+                onChange={(e) => cambiar(i, { nombre: e.target.value })}
+                placeholder={i === 0 ? "Mostrador" : "Nombre de la caja"}
+                autoFocus={i === filas.length - 1}
+              />
+            </Field>
+            <Field label="Moneda">
+              <Select
+                value={fila.moneda}
+                onChange={(e) => cambiar(i, { moneda: e.target.value as "usd" | "ars" })}
+              >
+                <option value="ars">Pesos (ARS)</option>
+                <option value="usd">Dólares (USD)</option>
+              </Select>
+            </Field>
+            <Field label="Medio de pago">
+              <Select
+                value={fila.medioPago}
+                onChange={(e) => cambiar(i, { medioPago: e.target.value as MedioPago })}
+              >
+                {MEDIOS.map((m) => (
+                  <option key={m} value={m}>
+                    {medioPagoCfg[m].label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <IconButton
+              aria-label={`Quitar caja ${i + 1}`}
+              icon={Trash2}
+              variant="danger-ghost"
+              disabled={filas.length === 1}
+              onClick={() => setFilas((prev) => prev.filter((_, j) => j !== i))}
+            />
+          </div>
+        ))}
+        <Button
+          variant="tonal"
+          icon={Plus}
+          onClick={() => setFilas((prev) => [...prev, { ...blankCaja }])}
+        >
+          Agregar otra caja
+        </Button>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
     </Dialog>
   );
 }
