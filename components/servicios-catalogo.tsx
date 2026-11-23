@@ -83,7 +83,7 @@ export function ServiciosCatalogo({
         ))}
       </div>
       <Card className="hidden overflow-hidden md:block">
-        <table className="w-full text-sm">
+        <table className="tabla-separadores w-full text-sm">
           <thead>
             <tr className="border-b border-neutral-100 text-xs text-neutral-400">
               <th className="px-5 py-3">Servicio</th>
