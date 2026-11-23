@@ -21,6 +21,15 @@ export type AuthorizedPayment = {
   payment?: { id: number; status: string; status_detail?: string } | null;
 };
 
+export class MercadoPagoError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 export function mercadoPagoConfigurado(): boolean {
   return Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN);
 }
@@ -40,7 +49,7 @@ async function mp<T>(method: "GET" | "POST" | "PUT", path: string, body?: unknow
   });
   if (!res.ok) {
     const detalle = await res.text().catch(() => "");
-    throw new Error(`Mercado Pago ${method} ${path}: ${res.status} ${detalle.slice(0, 300)}`);
+    throw new MercadoPagoError(`Mercado Pago ${method} ${path}: ${res.status} ${detalle.slice(0, 300)}`, res.status);
   }
   return (await res.json()) as T;
 }

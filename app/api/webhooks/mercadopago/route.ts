@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { aplicarPreapproval } from "@/lib/db/suscripciones";
 import { firmaWebhookValida } from "@/lib/mercadopago";
-import { getAuthorizedPayment, getPreapproval, mercadoPagoConfigurado } from "@/lib/mercadopago-api";
+import {
+  MercadoPagoError,
+  getAuthorizedPayment,
+  getPreapproval,
+  mercadoPagoConfigurado,
+} from "@/lib/mercadopago-api";
 
 /** Avisos de Mercado Pago para las suscripciones (`subscription_preapproval`
  *  y `subscription_authorized_payment`). Ruta pública para el middleware
@@ -52,6 +57,11 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ ok: true });
   } catch (error) {
+    // Recurso inexistente (ej. el simulador de avisos del panel manda ids de
+    // ejemplo): nada que hacer, 200 para que Mercado Pago no reintente.
+    if (error instanceof MercadoPagoError && error.status === 404) {
+      return NextResponse.json({ ok: true });
+    }
     console.error("[mercadopago] error procesando aviso", { tipo, id }, error);
     return NextResponse.json({ ok: false }, { status: 500 });
   }
