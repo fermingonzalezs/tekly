@@ -9,3 +9,5 @@ graphify-out
 
 # opencode (contiene tokens de auth)
 .opencode
+.vercel
+.env*

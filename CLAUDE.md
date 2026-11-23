@@ -560,7 +560,7 @@ cierre y `foto_fiable` dice si se generó dentro de los 3 días posteriores.
 
 ### Planes y prueba gratis (plan 015)
 
-Cada organización nueva arranca en **`trial` por 14 días sin tarjeta**
+Cada organización nueva arranca en **`trial` por 30 días sin tarjeta**
 (defaults de las columnas de `organizations`, el signup no pasa nada). Vencida
 la prueba, la cuenta pasa a **solo lectura**: se ve todo, no se escribe, y no se
 borra nada. Cobro hoy **por transferencia, a mano**: el admin de plataforma

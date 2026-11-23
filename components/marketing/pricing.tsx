@@ -6,7 +6,7 @@ import { signupUrl } from "@/lib/marketing/app-url";
 import { cn } from "@/lib/utils";
 
 /**
- * Precios: los límites de usuarios y la prueba de 14 días sin tarjeta son
+ * Precios: los límites de usuarios y la prueba de 30 días sin tarjeta son
  * reales (`lib/planes.ts`, plan 015). Los montos siguen siendo provisorios
  * (aviso debajo) y el cobro es por transferencia, sin checkout. Mantener
  * `PLANES` de acá alineado con `lib/planes.ts`. No prometer nada que el
@@ -134,7 +134,7 @@ export function MarketingPricing() {
       </RevealStagger>
 
       <p className="text-center text-[13px] text-neutral-500">
-        14 días de prueba gratis, sin tarjeta. Precios de referencia, se confirman antes del lanzamiento.
+        30 días de prueba gratis, sin tarjeta. Precios de referencia, se confirman antes del lanzamiento.
       </p>
     </section>
   );

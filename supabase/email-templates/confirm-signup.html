@@ -1,7 +1,9 @@
 <!--
   Template de Supabase Auth -> "Confirm signup". Pegar este HTML tal cual en
-  Authentication -> Email Templates -> Confirm signup ({{ .SiteURL }}, {{ .TokenHash }},
-  {{ .Email }} y {{ .Data.* }} los completa Supabase al enviar).
+  Authentication -> Email Templates -> Confirm signup (.SiteURL, .TokenHash,
+  .Email y .Data.* los completa Supabase al enviar).
+  OJO: no escribir llaves dobles dentro de este comentario -- Supabase también
+  lo parsea como template y, si falla, manda el mail default sin diseño.
   Asunto sugerido (campo "Subject" del mismo template): Confirmá tu cuenta en Tekly
   Previsualizar: /qa/mails en dev (los tres, enteros).
 
@@ -21,9 +23,9 @@
     fuente segura, asi un cliente que ignora el <style> no se queda sin nada.
   - Tablas + estilos inline; una columna fluida (max-width 600px). El @media
     es una mejora, no la base del layout.
-  - Logo = PNG con URL absoluta ({{ .SiteURL }}/tekly-logo-kit/png/...);
+  - Logo = PNG con URL absoluta (.SiteURL/tekly-logo-kit/png/...);
     los SVG no andan en Gmail/Outlook. Requiere que SiteURL sea publica.
-  - Saludo y datos con {{ if .Data.x }} de fallback: un mail no puede decir
+  - Saludo y datos con "if .Data.x" de fallback: un mail no puede decir
     "Hola !".
 -->
 <!doctype html>

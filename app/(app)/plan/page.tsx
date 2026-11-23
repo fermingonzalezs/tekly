@@ -47,7 +47,7 @@ export default async function PlanPage() {
           <StatCard
             label="Precio"
             value={PLANES[s.plan].precioArs ? fmtArs(PLANES[s.plan].precioArs!) : "Gratis"}
-            hint={PLANES[s.plan].precioArs ? "por mes" : "14 días, sin tarjeta"}
+            hint={PLANES[s.plan].precioArs ? "por mes" : "30 días, sin tarjeta"}
           />
         </div>
 

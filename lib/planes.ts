@@ -12,7 +12,7 @@
 export type PlanId = "trial" | "starter" | "business" | "business_plus";
 export type PlanEstado = "trial" | "activo" | "vencido" | "cancelado";
 
-export const TRIAL_DIAS = 14;
+export const TRIAL_DIAS = 30;
 /** Días de gracia después de `periodo_termina_at`: el cobro es por
  * transferencia y no siempre se acredita el mismo día. */
 export const GRACIA_DIAS = 3;
@@ -98,7 +98,7 @@ export function motivoSoloLectura(
 ): string {
   switch (motivo) {
     case "trial_vencido":
-      return "Terminó tu prueba gratis de 14 días.";
+      return `Terminó tu prueba gratis de ${TRIAL_DIAS} días.`;
     case "periodo_vencido":
       return "Venció el período de tu plan.";
     case "cancelado":
