@@ -19,7 +19,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button, IconButton } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { ChecklistEditor, CHECKLIST_VACIO } from "@/components/ui/checklist-editor";
 import { Tabs } from "@/components/ui/tabs";
@@ -1097,6 +1097,13 @@ export function ReparacionesClient({
         clienteEmail={recibo ? clientesPorId.get(recibo.ticket.clienteId)?.email : undefined}
         negocio={negocio}
         compacto
+        sello={
+          recibo?.tipo === "presupuesto"
+            ? "presupuesto"
+            : recibo?.tipo === "egreso"
+              ? "egreso"
+              : "ingreso"
+        }
         sinFirmas={recibo?.tipo === "egreso"}
         paginas={
           recibo?.tipo === "egreso" && recibo.ticket.checklistEgreso
@@ -1104,6 +1111,7 @@ export function ReparacionesClient({
                 {
                   titulo: "Ticket de egreso",
                   compacto: true,
+                  sello: "egreso" as const,
                   children: egresoHoja1(recibo.ticket, negocio, dolarVenta),
                 },
                 {
@@ -1406,6 +1414,7 @@ function AgregarItemDialog({
         onClose();
       }}
       title="Agregar a Servicios asociados"
+      formulario
       description={ticket ? `Ticket #${ticket.id}` : ""}
       footer={
         <>
@@ -1423,8 +1432,8 @@ function AgregarItemDialog({
         </>
       }
     >
-      <div className="space-y-3">
-        <Field label="Origen">
+      <GrillaCampos>
+        <Field label="Origen" className="sm:col-span-3">
           <Select value={origen} onChange={(e) => setOrigen(e.target.value as typeof origen)}>
             <option value="servicio">Catálogo de servicios</option>
             <option value="repuesto">Repuesto</option>
@@ -1432,7 +1441,7 @@ function AgregarItemDialog({
           </Select>
         </Field>
         {origen === "servicio" && (
-          <Field label="Servicio">
+          <Field label="Servicio" className="sm:col-span-3">
             <Select value={servicioId} onChange={(e) => setServicioId(e.target.value)}>
               <option value="">Elegir…</option>
               {activos.map((s) => (
@@ -1445,7 +1454,7 @@ function AgregarItemDialog({
         )}
         {origen === "repuesto" && (
           <>
-            <Field label="Repuesto">
+            <Field label="Repuesto" className="sm:col-span-3">
               <Select value={repuestoId} onChange={(e) => setRepuestoId(e.target.value)}>
                 <option value="">Elegir…</option>
                 {repuestos.map((r) => (
@@ -1455,28 +1464,26 @@ function AgregarItemDialog({
                 ))}
               </Select>
             </Field>
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <Field label="Cantidad">
-                <Input
-                  type="number"
-                  min={1}
-                  max={repuestoSel?.stock ?? undefined}
-                  value={cantidad}
-                  onChange={(e) => setCantidad(Number(e.target.value) || 1)}
-                />
-              </Field>
-              <Field label="Precio a cobrar (USD)">
-                <Input
-                  type="number"
-                  min={0}
-                  value={precioUsd}
-                  onChange={(e) => setPrecioUsd(e.target.value)}
-                  placeholder="0"
-                />
-              </Field>
-            </div>
+            <Field label="Cantidad">
+              <Input
+                type="number"
+                min={1}
+                max={repuestoSel?.stock ?? undefined}
+                value={cantidad}
+                onChange={(e) => setCantidad(Number(e.target.value) || 1)}
+              />
+            </Field>
+            <Field label="Precio a cobrar (USD)" className="sm:col-span-2">
+              <Input
+                type="number"
+                min={0}
+                value={precioUsd}
+                onChange={(e) => setPrecioUsd(e.target.value)}
+                placeholder="0"
+              />
+            </Field>
             {repuestoSel && cantidad > repuestoSel.stock && (
-              <p className="text-xs text-red-500">
+              <p className="text-xs text-red-500 sm:col-span-3">
                 No hay stock suficiente (quedan {repuestoSel.stock}).
               </p>
             )}
@@ -1484,7 +1491,7 @@ function AgregarItemDialog({
         )}
         {origen === "libre" && (
           <>
-            <Field label="Nombre">
+            <Field label="Nombre" className="sm:col-span-2">
               <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
             </Field>
             <Field label="Precio (USD)">
@@ -1498,7 +1505,7 @@ function AgregarItemDialog({
             </Field>
           </>
         )}
-      </div>
+      </GrillaCampos>
     </Dialog>
   );
 }
@@ -1563,6 +1570,7 @@ function NuevoTicketDialog({
       onClose={onClose}
       size="3xl"
       title="Nuevo ticket de reparación"
+      formulario
       description="Se crea en estado «Recibido»."
       footer={
         <>
@@ -1583,66 +1591,62 @@ function NuevoTicketDialog({
       }
     >
       <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start lg:gap-6 lg:space-y-0">
-        <div className="space-y-3">
-          <Field label="Cliente">
+        <GrillaCampos>
+          <Field label="Cliente" className="sm:col-span-3">
             <ClientePicker clientes={clientesOpciones} value={cliente} onChange={setCliente} />
           </Field>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 sm:col-span-3">
             Datos del equipo
           </p>
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            <Field label="Marca">
-              <Input value={marca} onChange={(e) => setMarca(e.target.value)} />
-            </Field>
-            <Field label="Modelo">
-              <Input
-                value={equipo}
-                onChange={(e) => setEquipo(e.target.value)}
-                placeholder="iPhone 13 Pro 128GB"
-              />
-            </Field>
-            <Field label="Serial / IMEI (opcional)">
-              <Input value={imei} onChange={(e) => setImei(e.target.value)} />
-            </Field>
-            <Field label="Color (opcional)">
-              <Input
-                value={checklist.color}
-                onChange={(e) => setChecklist((c) => ({ ...c, color: e.target.value }))}
-                placeholder="Ej: Negro"
-              />
-            </Field>
-            <Field label="Reparación solicitada (opcional)">
-              <Input
-                value={reparacionSolicitada}
-                onChange={(e) => setReparacionSolicitada(e.target.value)}
-                placeholder="Ej: Cambio de pantalla"
-              />
-            </Field>
-            <Field label="Clave / código de desbloqueo (opcional)">
-              <Input value={claveCodigo} onChange={(e) => setClaveCodigo(e.target.value)} />
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            <Field label="Falla reportada">
-              <Textarea
-                rows={2}
-                value={falla}
-                onChange={(e) => setFalla(e.target.value)}
-                placeholder="Descripción de la falla…"
-              />
-            </Field>
-            <Field label="Técnico (opcional)">
-              <Select value={tecnicoId} onChange={(e) => setTecnicoId(e.target.value)}>
-                <option value="">Sin asignar</option>
-                {tecnicos.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombre}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-          <Field label="Descripción del equipo (opcional)">
+          <Field label="Marca">
+            <Input value={marca} onChange={(e) => setMarca(e.target.value)} />
+          </Field>
+          <Field label="Modelo" className="sm:col-span-2">
+            <Input
+              value={equipo}
+              onChange={(e) => setEquipo(e.target.value)}
+              placeholder="iPhone 13 Pro 128GB"
+            />
+          </Field>
+          <Field label="Serial / IMEI (opcional)">
+            <Input value={imei} onChange={(e) => setImei(e.target.value)} />
+          </Field>
+          <Field label="Color (opcional)">
+            <Input
+              value={checklist.color}
+              onChange={(e) => setChecklist((c) => ({ ...c, color: e.target.value }))}
+              placeholder="Ej: Negro"
+            />
+          </Field>
+          <Field label="Reparación solicitada (opcional)">
+            <Input
+              value={reparacionSolicitada}
+              onChange={(e) => setReparacionSolicitada(e.target.value)}
+              placeholder="Ej: Cambio de pantalla"
+            />
+          </Field>
+          <Field label="Clave / código de desbloqueo (opcional)" className="sm:col-span-3">
+            <Input value={claveCodigo} onChange={(e) => setClaveCodigo(e.target.value)} />
+          </Field>
+          <Field label="Falla reportada" className="sm:col-span-2">
+            <Textarea
+              rows={2}
+              value={falla}
+              onChange={(e) => setFalla(e.target.value)}
+              placeholder="Descripción de la falla…"
+            />
+          </Field>
+          <Field label="Técnico (opcional)">
+            <Select value={tecnicoId} onChange={(e) => setTecnicoId(e.target.value)}>
+              <option value="">Sin asignar</option>
+              {tecnicos.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nombre}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Descripción del equipo (opcional)" className="sm:col-span-3">
             <Textarea
               rows={2}
               value={descripcionEquipo}
@@ -1650,7 +1654,7 @@ function NuevoTicketDialog({
               placeholder="Golpes, funda, mica, accesorios que trae…"
             />
           </Field>
-        </div>
+        </GrillaCampos>
 
         <div>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
@@ -1827,6 +1831,7 @@ function EntregarEquipoDialog({
       onClose={onClose}
       size="3xl"
       title="Entregar equipo"
+      formulario
       description={ticket ? `Ticket #${ticket.id} · ${ticket.cliente}` : ""}
       footer={
         <>

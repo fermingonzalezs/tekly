@@ -72,6 +72,10 @@ const config: Config = {
           "60%": { transform: "scale(1.15)" },
           "100%": { transform: "scale(1)" },
         },
+        "check-draw": {
+          from: { strokeDashoffset: "1" },
+          to: { strokeDashoffset: "0" },
+        },
         "fade-in": {
           from: { opacity: "0" },
           to: { opacity: "1" },
@@ -106,6 +110,7 @@ const config: Config = {
         "toast-out": "toast-out 0.18s cubic-bezier(0.23, 1, 0.32, 1) forwards",
         "celebrate-in": "celebrate-in 0.25s ease-out",
         "celebrate-check": "celebrate-check 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both",
+        "check-draw": "check-draw 0.35s ease-out 0.3s both",
         "fade-in": "fade-in 0.18s ease-out",
         "drawer-in": "drawer-in 0.22s cubic-bezier(0.21, 1.02, 0.73, 1)",
         "modal-in": "modal-in 0.22s cubic-bezier(0.23, 1, 0.32, 1)",

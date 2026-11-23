@@ -35,6 +35,12 @@ export function isNested(): boolean {
 const CAMPOS_VIDRIO =
   "[&_input]:h-[42px] [&_select]:h-[42px] [&_textarea]:rounded-[14px] [&_input]:rounded-[14px] [&_select]:rounded-[14px] [&_input]:bg-white/70 [&_select]:bg-white/70 [&_textarea]:bg-white/70 [&_input]:border-white/80 [&_select]:border-white/80 [&_textarea]:border-white/80";
 
+/** Modales de formulario: todo el cuerpo centrado, salvo el contenido de las
+ * casillas (`Input`/`Select`/`Textarea`), que va a la izquierda. Se aplica con
+ * la prop `formulario` (ver `GrillaCampos` en `field.tsx`). */
+const CAMPOS_CENTRADOS =
+  "text-center [&_input]:text-start [&_textarea]:text-start [&_select]:text-start [&_select]:[text-align-last:start]";
+
 export function Dialog({
   open,
   onClose,
@@ -43,6 +49,7 @@ export function Dialog({
   children,
   footer,
   size = "md",
+  formulario = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,6 +58,9 @@ export function Dialog({
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl";
+  /** Modo formulario: centra todo el cuerpo salvo el contenido de las
+   * casillas. Ver `CAMPOS_CENTRADOS` y `GrillaCampos`. */
+  formulario?: boolean;
 }) {
   const titleId = useId();
   const [rendered, setRendered] = useState(open);
@@ -160,6 +170,7 @@ export function Dialog({
             className={cn(
               "px-4 py-4 sm:px-5",
               CAMPOS_VIDRIO,
+              formulario && CAMPOS_CENTRADOS,
               !footer && "rounded-b-2xl",
             )}
           >

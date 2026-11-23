@@ -1,0 +1,49 @@
+---
+titulo: "Resúmenes mensuales"
+resumen: "Un resumen congelado de cada mes (ventas, reparaciones, caja, inventario, clientes, patrimonio) que se guarda solo el día 1. Solo admin."
+seccion: resumenes
+roles: [admin]
+orden: 1
+actualizado: 2026-10-18
+---
+
+**Resúmenes** guarda, una vez por mes, los números de ese mes. Es **solo para el admin** (hay costos, ganancia y saldos). Se arma **solo el día 1 de cada mes** (cerca de la 1:30 hora Argentina) con el mes que acaba de cerrar, y queda **congelado**: no cambia aunque después se borre o se edite algo.
+
+## Qué incluye
+
+- **Ventas:** facturado, operaciones, ticket promedio, ganancia y margen, comparación con el mes anterior, cumplimiento del objetivo del mes, y cortes por rubro, vendedor, medio de pago y canal.
+- **Reparaciones:** tickets ingresados, cobrado (en caja y a cuenta corriente), gasto en repuestos, ganancia y las fallas más facturadas.
+- **Compras:** total a proveedores, por proveedor y equipos recibidos en canje.
+- **Caja:** ingresos, egresos y neto del mes.
+- **Cuentas corrientes, inventario y patrimonio:** cargos y pagos del mes, y una **foto al cierre** de saldos, stock y balance.
+- **Clientes y turnos:** nuevos, activos, en riesgo y estado de los turnos.
+
+## Cómo se usa
+
+<Paso n={1} titulo="Abrí Resúmenes">
+Está en **Finanzas → Resúmenes**. La lista muestra un renglón por mes.
+</Paso>
+
+<Paso n={2} titulo="Entrá a un mes">
+Tocá una fila para ver el detalle. **Imprimir / PDF** abre el diálogo de impresión del navegador (elegí «Guardar como PDF»).
+</Paso>
+
+<Paso n={3} titulo="Generá uno a mano (opcional)">
+«Generar resumen de un mes» arma el de cualquier mes de los últimos 12, por ejemplo si el negocio empezó a usar Tekly a mitad de año.
+</Paso>
+
+## Los puntos verde y ámbar
+
+- **Verde:** se generó solo a fin de mes. Todo es fiel al cierre, incluida la foto de inventario, saldos y patrimonio.
+- **Ámbar:** se generó después. Ventas, reparaciones, compras y caja siguen siendo exactos (salen de las fechas), pero **inventario, saldos y patrimonio reflejan el día en que se generó**, no el cierre real.
+
+Un resumen verde **no se puede regenerar**: así nunca se pierde la foto real del cierre.
+
+<Aviso titulo="Sin cotización" tono="info">
+Si al generarse no había cotización del dólar disponible, el resumen no incluye el patrimonio (no se inventa un valor).
+</Aviso>
+
+## Qué no se puede
+
+- No se resume el mes en curso: todavía está abierto.
+- No se edita un resumen: es un registro de lo que pasó.

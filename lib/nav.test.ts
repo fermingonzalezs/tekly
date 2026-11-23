@@ -66,8 +66,8 @@ describe("navCategoriesForRole", () => {
     expect(finanzas).toBeUndefined();
   });
 
-  it("a un admin \"Finanzas\" es un dropdown de 4 (Cajas, Analíticas, Patrimonio, Cuentas corrientes)", () => {
+  it("a un admin \"Finanzas\" es un dropdown de 5 (Cajas, Analíticas, Patrimonio, Resúmenes, Cuentas corrientes)", () => {
     const finanzas = navCategoriesForRole("admin").find((c) => c.key === "/cajas");
-    expect(finanzas?.children).toHaveLength(4);
+    expect(finanzas?.children).toHaveLength(5);
   });
 });

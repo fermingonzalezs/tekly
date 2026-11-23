@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { otroCategoria as otroCategoriaCfg } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
@@ -325,6 +325,7 @@ function ListaEditorDialog({
       onClose={onClose}
       size="2xl"
       title={lista ? "Editar lista" : "Nueva lista"}
+      formulario
       footer={
         <>
           <Button
@@ -344,16 +345,16 @@ function ListaEditorDialog({
       }
     >
       <div className="space-y-4">
-        <Field label="Nombre">
-          <Input
-            value={draft.nombre}
-            onChange={(e) => setDraft((d) => ({ ...d, nombre: e.target.value }))}
-            placeholder="Ej. Disponibles"
-          />
-        </Field>
+        <GrillaCampos>
+          <Field label="Nombre" className="sm:col-span-3">
+            <Input
+              value={draft.nombre}
+              onChange={(e) => setDraft((d) => ({ ...d, nombre: e.target.value }))}
+              placeholder="Ej. Disponibles"
+            />
+          </Field>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Mensaje inicial">
+          <Field label="Mensaje inicial" className="sm:col-span-3">
             <Textarea
               rows={2}
               value={draft.mensajeInicial}
@@ -361,7 +362,7 @@ function ListaEditorDialog({
               placeholder="🔥 DISPONIBLES 🔥"
             />
           </Field>
-          <Field label="Mensaje final">
+          <Field label="Mensaje final" className="sm:col-span-3">
             <Textarea
               rows={2}
               value={draft.mensajeFinal}
@@ -369,10 +370,8 @@ function ListaEditorDialog({
               placeholder="Consultanos por más info…"
             />
           </Field>
-        </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Descuento">
+          <Field label="Descuento" className="sm:col-span-2">
             <Select
               value={draft.descuentoTipo}
               onChange={(e) =>
@@ -399,7 +398,7 @@ function ListaEditorDialog({
               />
             </Field>
           )}
-        </div>
+        </GrillaCampos>
 
         <div>
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
@@ -434,7 +433,7 @@ function ListaEditorDialog({
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Vista previa
           </p>
-          <pre className="max-h-52 overflow-y-auto whitespace-pre-wrap rounded-lg bg-neutral-50 p-3 text-[13px] leading-relaxed text-neutral-700">
+          <pre className="max-h-52 overflow-y-auto whitespace-pre-wrap rounded-lg bg-neutral-50 p-3 text-start text-[13px] leading-relaxed text-neutral-700">
             {buildMensaje(draft, celulares, otros, notebooks) || "El mensaje va a aparecer acá a medida que lo completes."}
           </pre>
         </div>
@@ -474,7 +473,8 @@ function SeccionEditor({
           value={seccion.emoji}
           onChange={(e) => onChange({ ...seccion, emoji: e.target.value })}
           placeholder="📱"
-          className="w-14 shrink-0 text-center"
+          className="w-14 shrink-0"
+          style={{ textAlign: "center" }}
         />
         <Input
           value={seccion.nombre}
@@ -556,7 +556,7 @@ function EntradaRow({
 
   return (
     <div className="flex items-center justify-between gap-2 rounded-lg bg-neutral-50 px-3 py-2 text-[13px]">
-      <span className="min-w-0 truncate">{detalle}</span>
+      <span className="min-w-0 truncate text-start">{detalle}</span>
       <button
         onClick={onRemove}
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-500"

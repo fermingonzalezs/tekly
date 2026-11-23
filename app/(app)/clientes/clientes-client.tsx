@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input } from "@/components/ui/field";
+import { Field, GrillaCampos, Input } from "@/components/ui/field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatCard } from "@/components/ui/stat-card";
 import { SeccionTabla } from "@/components/ui/seccion-tabla";
@@ -542,6 +542,7 @@ function ClienteFormDialog({
       open={open}
       onClose={onClose}
       title={cliente ? "Editar cliente" : "Nuevo cliente"}
+      formulario
       footer={
         <>
           <Button
@@ -560,18 +561,16 @@ function ClienteFormDialog({
         </>
       }
     >
-      <div className="space-y-3">
-        <Field label="Nombre y apellido">
+      <GrillaCampos>
+        <Field label="Nombre y apellido" className="sm:col-span-3">
           <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Juan Pérez" />
         </Field>
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Teléfono">
-            <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+54 9 11 …" />
-          </Field>
-          <Field label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@mail.com" />
-          </Field>
-        </div>
+        <Field label="Teléfono">
+          <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+54 9 11 …" />
+        </Field>
+        <Field label="Email">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@mail.com" />
+        </Field>
         <Field label="Fecha de nacimiento (opcional)">
           <Input
             value={fechaNacimiento}
@@ -581,7 +580,7 @@ function ClienteFormDialog({
             maxLength={10}
           />
         </Field>
-      </div>
+      </GrillaCampos>
     </Dialog>
   );
 }

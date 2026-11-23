@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2, FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { SeccionTabla } from "@/components/ui/seccion-tabla";
 import { BarraFiltros } from "@/components/ui/barra-filtros";
@@ -403,6 +403,7 @@ export function ComprasClient({
           cliente={open.cliente ?? ""}
           negocio={negocio}
           compacto
+          sello="canje"
         >
           <ReciboCampos
             filas={[
@@ -642,6 +643,7 @@ function NuevaCompraDialog({
       onClose={onClose}
       size="3xl"
       title="Nueva compra"
+      formulario
       description="Se asigna un número al confirmar"
       footer={
         <>
@@ -666,11 +668,8 @@ function NuevaCompraDialog({
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Datos de la compra
           </p>
-          <div
-            className={cn(
-              "grid grid-cols-1 gap-3.5",
-              cajasDelMedio.length > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2",
-            )}
+          <GrillaCampos
+            className={cajasDelMedio.length > 0 ? undefined : "sm:grid-cols-2"}
           >
             <Field label="Proveedor">
               <Input
@@ -706,7 +705,7 @@ function NuevaCompraDialog({
                 </Select>
               </Field>
             )}
-          </div>
+          </GrillaCampos>
         </section>
 
         <section className="border-t border-neutral-200 pt-4">

@@ -33,6 +33,7 @@ function notebook(over: Partial<Notebook> = {}): Notebook {
     memoria: "8 GB",
     almacenamiento: "256 GB SSD",
     pantalla: '13.6"',
+    gpu: "",
     color: "Medianoche",
     idioma: "Español",
     numeroSerie: "SERIE-SECRETA",

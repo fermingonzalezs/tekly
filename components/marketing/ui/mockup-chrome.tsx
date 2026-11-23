@@ -25,8 +25,8 @@ import {
 const CATEGORIAS: { label: string; icon: LucideIcon; dropdown?: boolean }[] = [
   { label: "Dashboard", icon: LayoutDashboard },
   { label: "Ventas", icon: ShoppingCart, dropdown: true },
-  { label: "Reparaciones", icon: Wrench },
   { label: "Stock", icon: Boxes, dropdown: true },
+  { label: "Reparaciones", icon: Wrench },
   { label: "Clientes", icon: Users },
   { label: "Finanzas", icon: Wallet, dropdown: true },
 ];

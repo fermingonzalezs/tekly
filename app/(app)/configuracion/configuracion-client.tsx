@@ -10,7 +10,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { fmtNum } from "@/lib/format";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
 import { dotClass, rolLabel, rolTone, medioPago as medioPagoCfg, MEDIOS_VENTA } from "@/lib/status";
 import { thDivider } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
@@ -234,6 +234,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
       open={open}
       onClose={cerrar}
       title="Invitar usuario"
+      formulario
       footer={
         <>
           <Button
@@ -252,7 +253,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
         </>
       }
     >
-      <div className="space-y-3">
+      <GrillaCampos>
         <Field label="Nombre">
           <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />
         </Field>
@@ -268,9 +269,9 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
             ))}
           </Select>
         </Field>
-        {enviada && <p className="text-xs text-emerald-600">Invitación enviada.</p>}
-        {error && <p className="text-xs text-red-600">{error}</p>}
-      </div>
+        {enviada && <p className="text-xs text-emerald-600 sm:col-span-3">Invitación enviada.</p>}
+        {error && <p className="text-xs text-red-600 sm:col-span-3">{error}</p>}
+      </GrillaCampos>
     </Dialog>
   );
 }
@@ -340,6 +341,7 @@ function EditarMiembroDialog({
         open={!!miembro}
         onClose={onClose}
         title={miembro ? `Editar usuario · ${miembro.nombre}` : ""}
+        formulario
         footer={
           esUnoMismo ? (
             <Button
@@ -380,7 +382,7 @@ function EditarMiembroDialog({
             cuenta».
           </p>
         ) : (
-          <div className="space-y-3">
+          <GrillaCampos>
             <Field label="Rol">
               <Select value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
                 {ROLES.map((r) => (
@@ -390,10 +392,10 @@ function EditarMiembroDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Email">
+            <Field label="Email" className="sm:col-span-2">
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
-          </div>
+          </GrillaCampos>
         )}
         {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
       </Dialog>

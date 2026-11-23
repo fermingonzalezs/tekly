@@ -8,6 +8,7 @@ export const notebookSchema = z.object({
   memoria: z.string().optional().default(""),
   almacenamiento: z.string().optional().default(""),
   pantalla: z.string().optional().default(""),
+  gpu: z.string().optional().default(""),
   color: z.string().optional().default(""),
   idioma: z.string().optional().default(""),
   numeroSerie: z.string().optional().default(""),

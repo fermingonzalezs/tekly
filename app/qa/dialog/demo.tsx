@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
@@ -81,10 +81,44 @@ function Formulario({ largo = false }: { largo?: boolean }) {
   );
 }
 
+/** Modo formulario (plan 021): body centrado salvo el contenido de las
+ * casillas + `GrillaCampos` (3 por fila desde `sm`). */
+function FormularioCentrado() {
+  return (
+    <GrillaCampos>
+      <Field label="Modelo">
+        <Input defaultValue="iPhone 13 Pro 128GB" />
+      </Field>
+      <Field label="Almacenamiento">
+        <Select defaultValue="128GB">
+          <option>64GB</option>
+          <option>128GB</option>
+          <option>256GB</option>
+        </Select>
+      </Field>
+      <Field label="Color">
+        <Input defaultValue="Negro" />
+      </Field>
+      <Field label="IMEI / Serial" className="sm:col-span-3">
+        <Input defaultValue="356789104829104" />
+      </Field>
+      <label className="flex items-center justify-center gap-2 text-sm text-neutral-600 sm:col-span-3">
+        <input
+          type="checkbox"
+          defaultChecked
+          className="h-4 w-4 rounded border-neutral-300 text-accent"
+        />
+        Cargar también en la lista de difusión
+      </label>
+    </GrillaCampos>
+  );
+}
+
 export function DialogGlassDemo() {
   const [abierto, setAbierto] = useState<Tamano | null>("lg");
   const [sinFooter, setSinFooter] = useState(false);
   const [nested, setNested] = useState(false);
+  const [formulario, setFormulario] = useState(false);
   const recuerdaTamano = useRef<Tamano>("lg");
 
   function abrir(t: Tamano) {
@@ -117,6 +151,9 @@ export function DialogGlassDemo() {
           }}
         >
           Anidado (ConfirmDialog encima)
+        </Button>
+        <Button variant="primary" onClick={() => setFormulario(true)}>
+          Formulario centrado (3 casillas)
         </Button>
       </div>
 
@@ -197,6 +234,25 @@ export function DialogGlassDemo() {
         }
       >
         <Formulario />
+      </Dialog>
+
+      <Dialog
+        open={formulario}
+        onClose={() => setFormulario(false)}
+        size="3xl"
+        title="Agregar celular"
+        formulario
+        description="Modo formulario: todo centrado menos lo que se escribe en las casillas."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setFormulario(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => setFormulario(false)}>Agregar</Button>
+          </>
+        }
+      >
+        <FormularioCentrado />
       </Dialog>
 
       <ConfirmDemo

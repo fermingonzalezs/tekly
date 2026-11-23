@@ -241,6 +241,7 @@ function notebook(id: string, estado: CelularStatus, costoUsd = 500, precioUsd =
     memoria: "8GB",
     almacenamiento: "256GB",
     pantalla: '13"',
+    gpu: "",
     color: "Gris",
     idioma: "ES",
     numeroSerie: id,

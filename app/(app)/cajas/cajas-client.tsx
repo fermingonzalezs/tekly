@@ -23,7 +23,7 @@ import {
   GraficoRanking,
 } from "@/components/seccion/graficos";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   medioPago as medioPagoCfg,
@@ -984,6 +984,7 @@ function NuevoMovimientoDialog({
       open={open}
       onClose={onClose}
       title="Nuevo movimiento"
+      formulario
       description="Se registra en la caja elegida y queda en el historial."
       footer={
         <>
@@ -1003,7 +1004,7 @@ function NuevoMovimientoDialog({
         </>
       }
     >
-      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+      <GrillaCampos>
         <Field label="Tipo">
           <Select value={tipo} onChange={(e) => setTipo(e.target.value as "ingreso" | "egreso")}>
             <option value="ingreso">Ingreso</option>
@@ -1023,11 +1024,15 @@ function NuevoMovimientoDialog({
             ))}
           </Select>
         </Field>
-        <Field label="Concepto" className="sm:col-span-2">
+        <Field
+          label={`Monto${caja ? ` (${caja.moneda.toUpperCase()})` : ""}`}
+        >
           <Input
-            value={concepto}
-            onChange={(e) => setConcepto(e.target.value)}
-            placeholder="Ej. Compra repuestos — PartsAR"
+            type="number"
+            min={0}
+            value={monto || ""}
+            onChange={(e) => setMonto(Number(e.target.value))}
+            placeholder="0"
           />
         </Field>
         {tipo === "egreso" && (
@@ -1045,26 +1050,24 @@ function NuevoMovimientoDialog({
           </Field>
         )}
         <Field
-          label={`Monto${caja ? ` (${caja.moneda.toUpperCase()})` : ""}`}
-          className={tipo === "egreso" ? undefined : "sm:col-span-2"}
+          label="Concepto"
+          className={tipo === "egreso" ? "sm:col-span-2" : "sm:col-span-3"}
         >
           <Input
-            type="number"
-            min={0}
-            value={monto || ""}
-            onChange={(e) => setMonto(Number(e.target.value))}
-            placeholder="0"
+            value={concepto}
+            onChange={(e) => setConcepto(e.target.value)}
+            placeholder="Ej. Compra repuestos — PartsAR"
           />
         </Field>
         {cajas.length === 0 && (
-          <p className="text-xs text-red-600 sm:col-span-2">
+          <p className="text-xs text-red-600 sm:col-span-3">
             Todavía no hay ninguna caja creada. Abrí «Cajas» al final de la página
             y creá una con «Nueva caja» antes de registrar un movimiento.
           </p>
         )}
         {/* Datos derivados de la caja y del monto, en una tira de vidrio */}
         {caja && (
-          <div className="flex items-center justify-between gap-3 rounded-[14px] border border-white/80 bg-white/50 px-3.5 py-2.5 text-xs text-neutral-600 sm:col-span-2">
+          <div className="flex items-center justify-between gap-3 rounded-[14px] border border-white/80 bg-white/50 px-3.5 py-2.5 text-xs text-neutral-600 sm:col-span-3">
             <span>
               Medio de pago ·{" "}
               <strong className="font-semibold text-neutral-900">
@@ -1078,10 +1081,10 @@ function NuevoMovimientoDialog({
             )}
           </div>
         )}
-        <p className="text-[11px] text-neutral-500 sm:col-span-2">
+        <p className="text-[11px] text-neutral-500 sm:col-span-3">
           Se registra como <span className="font-medium text-neutral-700">{usuarioNombre}</span>.
         </p>
-      </div>
+      </GrillaCampos>
     </Dialog>
   );
 }
@@ -1110,6 +1113,7 @@ function CajaDialog({
       open={!!entry}
       onClose={onClose}
       title={entry?.id ? "Editar caja" : "Nueva caja"}
+      formulario
       footer={
         <>
           <Button
@@ -1128,38 +1132,36 @@ function CajaDialog({
         </>
       }
     >
-      <div className="space-y-3">
-        <Field label="Nombre">
+      <GrillaCampos>
+        <Field label="Nombre" className="sm:col-span-3">
           <Input
             value={draft.nombre}
             onChange={(e) => setDraft({ ...draft, nombre: e.target.value })}
             placeholder="Mostrador"
           />
         </Field>
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Moneda">
-            <Select
-              value={draft.moneda}
-              onChange={(e) => setDraft({ ...draft, moneda: e.target.value as "usd" | "ars" })}
-            >
-              <option value="ars">Pesos (ARS)</option>
-              <option value="usd">Dólares (USD)</option>
-            </Select>
-          </Field>
-          <Field label="Medio de pago">
-            <Select
-              value={draft.medioPago}
-              onChange={(e) => setDraft({ ...draft, medioPago: e.target.value as MedioPago })}
-            >
-              {MEDIOS.map((m) => (
-                <option key={m} value={m}>
-                  {medioPagoCfg[m].label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-        <Field label="Descripción">
+        <Field label="Moneda">
+          <Select
+            value={draft.moneda}
+            onChange={(e) => setDraft({ ...draft, moneda: e.target.value as "usd" | "ars" })}
+          >
+            <option value="ars">Pesos (ARS)</option>
+            <option value="usd">Dólares (USD)</option>
+          </Select>
+        </Field>
+        <Field label="Medio de pago" className="sm:col-span-2">
+          <Select
+            value={draft.medioPago}
+            onChange={(e) => setDraft({ ...draft, medioPago: e.target.value as MedioPago })}
+          >
+            {MEDIOS.map((m) => (
+              <option key={m} value={m}>
+                {medioPagoCfg[m].label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Descripción" className="sm:col-span-3">
           <Textarea
             value={draft.descripcion}
             onChange={(e) => setDraft({ ...draft, descripcion: e.target.value })}
@@ -1167,7 +1169,7 @@ function CajaDialog({
             rows={2}
           />
         </Field>
-        <label className="flex items-center gap-2 text-sm text-neutral-600">
+        <label className="flex items-center justify-center gap-2 text-sm text-neutral-600 sm:col-span-3">
           <input
             type="checkbox"
             checked={draft.activa}
@@ -1176,7 +1178,7 @@ function CajaDialog({
           />
           Caja activa (disponible para cargar movimientos)
         </label>
-      </div>
+      </GrillaCampos>
     </Dialog>
   );
 }
@@ -1225,6 +1227,7 @@ function ConciliarDialog({
       onClose={onClose}
       size="2xl"
       title="Conciliar cajas"
+      formulario
       description="Contá cada caja y anotá el monto real — la diferencia con el sistema queda guardada."
       footer={
         <>

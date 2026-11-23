@@ -265,6 +265,7 @@ export type Notebook = {
   memoria: string;
   almacenamiento: string;
   pantalla: string;
+  gpu: string;
   color: string;
   idioma: string;
   numeroSerie: string;

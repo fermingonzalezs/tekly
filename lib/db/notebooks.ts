@@ -22,6 +22,7 @@ type NotebookRow = {
   memoria: string | null;
   almacenamiento: string | null;
   pantalla: string | null;
+  gpu: string | null;
   color: string | null;
   idioma: string | null;
   numero_serie: string | null;
@@ -42,6 +43,7 @@ function toNotebook(row: NotebookRow): Notebook {
     memoria: row.memoria ?? "",
     almacenamiento: row.almacenamiento ?? "",
     pantalla: row.pantalla ?? "",
+    gpu: row.gpu ?? "",
     color: row.color ?? "",
     idioma: row.idioma ?? "",
     numeroSerie: row.numero_serie ?? "",
@@ -56,7 +58,7 @@ function toNotebook(row: NotebookRow): Notebook {
 }
 
 const NOTEBOOK_COLS =
-  "id, modelo, cpu, memoria, almacenamiento, pantalla, color, idioma, numero_serie, garantia, notas, costo_usd, precio_usd, estado, condicion, bateria";
+  "id, modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numero_serie, garantia, notas, costo_usd, precio_usd, estado, condicion, bateria";
 
 export async function listNotebooks(): Promise<Notebook[]> {
   const supabase = createServerClient();
@@ -104,6 +106,7 @@ export async function createNotebook(data: NotebookInput): Promise<Notebook> {
       memoria: parsed.memoria || null,
       almacenamiento: parsed.almacenamiento || null,
       pantalla: parsed.pantalla || null,
+      gpu: parsed.gpu || null,
       color: parsed.color || null,
       idioma: parsed.idioma || null,
       numero_serie: parsed.numeroSerie || null,
@@ -140,6 +143,7 @@ export async function updateNotebook(id: string, data: NotebookInput): Promise<N
       memoria: parsed.memoria || null,
       almacenamiento: parsed.almacenamiento || null,
       pantalla: parsed.pantalla || null,
+      gpu: parsed.gpu || null,
       color: parsed.color || null,
       idioma: parsed.idioma || null,
       numero_serie: parsed.numeroSerie || null,
@@ -177,6 +181,7 @@ const CAMPOS_NOTEBOOK: { key: keyof Notebook; label: string }[] = [
   { key: "memoria", label: "memoria" },
   { key: "almacenamiento", label: "almacenamiento" },
   { key: "pantalla", label: "pantalla" },
+  { key: "gpu", label: "placa de video" },
   { key: "color", label: "color" },
   { key: "idioma", label: "idioma" },
   { key: "numeroSerie", label: "N.º de serie" },
@@ -230,6 +235,7 @@ export async function createNotebooksBulk(
         memoria: p.memoria || null,
         almacenamiento: p.almacenamiento || null,
         pantalla: p.pantalla || null,
+        gpu: p.gpu || null,
         color: p.color || null,
         idioma: p.idioma || null,
         numero_serie: p.numeroSerie || null,

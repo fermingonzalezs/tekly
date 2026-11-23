@@ -14,6 +14,9 @@ export function authErrorMessage(rawMessage: string): string {
   if (raw.includes("rate limit")) {
     return "Demasiados intentos, esperá un momento y volvé a intentar";
   }
+  if (raw.includes("captcha")) {
+    return "No se pudo completar la verificación de seguridad. Esperá a que termine y volvé a intentar";
+  }
   if (raw.includes("banned")) {
     return "Esta cuenta fue desactivada";
   }

@@ -8,6 +8,7 @@ import {
   Check,
   FileText,
   ShieldCheck,
+  Printer,
   Search,
   SlidersHorizontal,
   ChevronDown,
@@ -19,7 +20,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button, IconButton } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
 import { SeccionTabla } from "@/components/ui/seccion-tabla";
@@ -28,6 +29,7 @@ import {
   GraficoDona,
 } from "@/components/seccion/graficos";
 import { Pagination } from "@/components/ui/pagination";
+import { MenuAcciones, type AccionMenu } from "@/components/ui/menu-acciones";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ChecklistEditor, CHECKLIST_VACIO } from "@/components/ui/checklist-editor";
 import {
@@ -279,6 +281,7 @@ export function VentasClient({
   const [aviso, setAviso] = useState<string | null>(null);
   const [recibo, setRecibo] = useState<
     | { venta: Venta; tipo: "venta" }
+    | { venta: Venta; tipo: "ambos" }
     | { venta: Venta; tipo: "garantia"; item?: VentaItem }
     | null
   >(null);
@@ -453,10 +456,11 @@ export function VentasClient({
   }
 
   const paginasVenta: ReciboPagina[] | undefined =
-    recibo?.tipo === "venta"
+    recibo?.tipo === "venta" || recibo?.tipo === "ambos"
       ? [
           {
             titulo: "Recibo",
+            sello: "recibo" as const,
             children: (
               <>
                 <ReciboLineas
@@ -485,12 +489,14 @@ export function VentasClient({
               </>
             ),
           },
-          ...(recibo.venta.items.some((i) => i.celularId || i.notebookId)
+          // «Recibo y garantía»: la garantía de toda la venta (una tabla con
+          // todos los productos) en una hoja aparte del mismo documento.
+          ...(recibo.tipo === "ambos"
             ? [
                 {
                   titulo: "Garantía",
                   compacto: true,
-                  sello: true,
+                  sello: "garantia" as const,
                   children: garantiaContenido(recibo.venta.items),
                 },
               ]
@@ -504,7 +510,7 @@ export function VentasClient({
           {
             titulo: "Garantía",
             compacto: true,
-            sello: true,
+            sello: "garantia" as const,
             children: garantiaContenido(recibo.item ? [recibo.item] : recibo.venta.items),
           },
         ]
@@ -762,8 +768,7 @@ export function VentasClient({
               filtros={filtros}
               onSort={toggleSort}
               onOpen={abrirDetalle}
-              onRecibo={(v) => setRecibo({ venta: v, tipo: "venta" })}
-              onGarantia={(v) => setRecibo({ venta: v, tipo: "garantia" })}
+              onImprimir={(v, tipo) => setRecibo({ venta: v, tipo })}
               vacio={totalVentas === 0}
               hayFiltros={hayFiltrosActivos(filtros)}
               onLimpiar={limpiarTodo}
@@ -842,8 +847,7 @@ export function VentasClient({
                 Cerrar
               </Button>
               <ImprimirMenu
-                onComprobante={() => setRecibo({ venta: abierta, tipo: "venta" })}
-                onGarantia={() => setRecibo({ venta: abierta, tipo: "garantia" })}
+                onImprimir={(tipo) => setRecibo({ venta: abierta, tipo })}
               />
             </>
           )
@@ -1029,8 +1033,7 @@ function VentasTabla({
   filtros,
   onSort,
   onOpen,
-  onRecibo,
-  onGarantia,
+  onImprimir,
   vacio,
   hayFiltros,
   onLimpiar,
@@ -1041,8 +1044,7 @@ function VentasTabla({
   filtros: FiltrosVentas;
   onSort: (col: SortVentas) => void;
   onOpen: (id: string) => void;
-  onRecibo: (v: Venta) => void;
-  onGarantia: (v: Venta) => void;
+  onImprimir: (v: Venta, tipo: TipoImpresion) => void;
   vacio: boolean;
   hayFiltros: boolean;
   onLimpiar: () => void;
@@ -1057,8 +1059,7 @@ function VentasTabla({
             key={v.id}
             venta={v}
             onOpen={() => onOpen(v.id)}
-            onRecibo={() => onRecibo(v)}
-            onGarantia={() => onGarantia(v)}
+            onImprimir={(tipo) => onImprimir(v, tipo)}
             puedeVerCosto={puedeVerCosto}
           />
         ))}
@@ -1130,30 +1131,10 @@ function VentasTabla({
                   {fmtUsd(v.totalUsd)}
                 </td>
                 <td className="w-px whitespace-nowrap px-5 py-2 text-center">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRecibo(v);
-                      }}
-                      title="Imprimir recibo"
-                      aria-label={`Imprimir recibo de ${v.id}`}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-accent-soft hover:text-accent"
-                    >
-                      <FileText className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onGarantia(v);
-                      }}
-                      title="Imprimir garantía"
-                      aria-label={`Imprimir garantía de ${v.id}`}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-accent-soft hover:text-accent"
-                    >
-                      <ShieldCheck className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <MenuAcciones
+                    label={`Imprimir documentos de ${v.id}`}
+                    acciones={accionesImpresion((tipo) => onImprimir(v, tipo))}
+                  />
                 </td>
               </tr>
             ))}
@@ -1366,14 +1347,12 @@ function ItemsVendidosTabla({
 function VentaCardMobile({
   venta: v,
   onOpen,
-  onRecibo,
-  onGarantia,
+  onImprimir,
   puedeVerCosto,
 }: {
   venta: Venta;
   onOpen: () => void;
-  onRecibo: () => void;
-  onGarantia: () => void;
+  onImprimir: (tipo: TipoImpresion) => void;
   puedeVerCosto: boolean;
 }) {
   return (
@@ -1382,14 +1361,10 @@ function VentaCardMobile({
         <span className="text-sm font-semibold">{v.id}</span>
         <div className="flex items-center gap-2">
           <span className="text-xs text-white/70">{v.fecha}</span>
-          <IconButton aria-label="Imprimir recibo" icon={FileText} variant="ghost" size="sm" onClick={(e) => {
-              e.stopPropagation();
-              onRecibo();
-            }} title="Imprimir recibo" />
-          <IconButton aria-label="Imprimir garantía" icon={ShieldCheck} variant="ghost" size="sm" onClick={(e) => {
-              e.stopPropagation();
-              onGarantia();
-            }} title="Imprimir garantía" />
+          <MenuAcciones
+            label={`Imprimir documentos de ${v.id}`}
+            acciones={accionesImpresion(onImprimir)}
+          />
         </div>
       </div>
 
@@ -1418,12 +1393,25 @@ function VentaCardMobile({
 
 // ─────────────────────────── Imprimir (menú) ───────────────────────────
 
+/** Tipos de impresión de una venta: el recibo solo, la garantía de toda la
+ * venta (una tabla con todos los productos) sola, o los dos juntos en un
+ * mismo documento (recibo + hoja de garantía). */
+type TipoImpresion = "venta" | "garantia" | "ambos";
+
+function accionesImpresion(
+  onImprimir: (tipo: TipoImpresion) => void,
+): AccionMenu[] {
+  return [
+    { label: "Recibo y garantía (juntos)", icon: Printer, onClick: () => onImprimir("ambos") },
+    { label: "Solo recibo", icon: FileText, onClick: () => onImprimir("venta") },
+    { label: "Solo garantía", icon: ShieldCheck, onClick: () => onImprimir("garantia") },
+  ];
+}
+
 function ImprimirMenu({
-  onComprobante,
-  onGarantia,
+  onImprimir,
 }: {
-  onComprobante: () => void;
-  onGarantia: () => void;
+  onImprimir: (tipo: TipoImpresion) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useOutsideClick<HTMLDivElement>(() => setOpen(false));
@@ -1469,28 +1457,21 @@ function ImprimirMenu({
         <div
           ref={menuRef}
           role="menu"
-          className="animate-fade-in absolute bottom-full right-0 z-10 mb-1 w-56 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg"
+          className="animate-fade-in absolute bottom-full right-0 z-10 mb-1 w-60 rounded-lg border border-neutral-200 bg-white p-1 shadow-lg"
         >
-          <button
-            role="menuitem"
-            onClick={() => {
-              onComprobante();
-              setOpen(false);
-            }}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 focus:bg-neutral-100 focus:outline-none"
-          >
-            <FileText className="h-4 w-4 text-neutral-500" /> Comprobante de venta
-          </button>
-          <button
-            role="menuitem"
-            onClick={() => {
-              onGarantia();
-              setOpen(false);
-            }}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 focus:bg-neutral-100 focus:outline-none"
-          >
-            <ShieldCheck className="h-4 w-4 text-neutral-500" /> Garantía
-          </button>
+          {accionesImpresion(onImprimir).map((a) => (
+            <button
+              key={a.label}
+              role="menuitem"
+              onClick={() => {
+                a.onClick();
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 focus:bg-neutral-100 focus:outline-none"
+            >
+              <a.icon className="h-4 w-4 text-neutral-500" /> {a.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -2263,6 +2244,7 @@ function NuevaVentaDialog({
       onClose={onClose}
       size="4xl"
       title="Nueva venta"
+      formulario
       description="El número de venta se asigna al confirmar"
       footer={
         <>
@@ -2296,7 +2278,7 @@ function NuevaVentaDialog({
 
         <Card className="p-4">
           <Eyebrow>Datos de la venta</Eyebrow>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <GrillaCampos>
             <Field label="Vendedor">
               {esAdmin ? (
                 <Select
@@ -2310,7 +2292,7 @@ function NuevaVentaDialog({
                   ))}
                 </Select>
               ) : (
-                <div className="flex h-9 w-full items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-600">
+                <div className="flex h-9 w-full items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-start text-sm text-neutral-600">
                   {user.nombre}
                 </div>
               )}
@@ -2334,11 +2316,11 @@ function NuevaVentaDialog({
                   <option key={m} value={m}>
                     {MODALIDAD_LABEL[m]}
                   </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-        </Card>
+                    ))}
+                  </Select>
+                </Field>
+              </GrillaCampos>
+            </Card>
 
         <Card className="p-4">
           <Eyebrow>Ítems</Eyebrow>
@@ -2381,7 +2363,7 @@ function NuevaVentaDialog({
                     />
                     <div className="flex items-center gap-2">
                       <Input
-                        className="w-16 text-right tabular-nums sm:w-12"
+                        className="w-16 !text-right tabular-nums sm:w-12"
                         type="number"
                         min={1}
                         value={it.cantidad}
@@ -2390,7 +2372,7 @@ function NuevaVentaDialog({
                         }
                       />
                       <Input
-                        className="flex-1 text-right tabular-nums sm:w-24 sm:flex-none"
+                        className="flex-1 !text-right tabular-nums sm:w-24 sm:flex-none"
                         type="number"
                         min={0}
                         placeholder="U$"
@@ -2414,7 +2396,7 @@ function NuevaVentaDialog({
                           <span className="flex-1 truncate">{r.nombre}</span>
                           <div className="flex items-center gap-2">
                             <Input
-                              className="w-16 text-right tabular-nums"
+                              className="w-16 !text-right tabular-nums"
                               type="number"
                               min={1}
                               value={r.cantidad}
@@ -2524,7 +2506,7 @@ function NuevaVentaDialog({
                             type="text"
                             inputMode="numeric"
                             placeholder="Cobrado $"
-                            className="min-w-0 flex-1 text-right tabular-nums outline-none"
+                            className="min-w-0 flex-1 !text-right tabular-nums outline-none"
                             value={p.montoUsd ? fmtNum(Math.round(p.montoUsd * dolarVenta)) : ""}
                             onChange={(e) => {
                               const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
@@ -2539,7 +2521,7 @@ function NuevaVentaDialog({
                         </div>
                       ) : (
                         <Input
-                          className="flex-1 text-right tabular-nums"
+                          className="flex-1 !text-right tabular-nums"
                           type="text"
                           inputMode="numeric"
                           placeholder="Cobrado U$"
@@ -2688,6 +2670,7 @@ function CanjeModal({
       onClose={onClose}
       size="3xl"
       title="Celular recibido en canje"
+      formulario
       description="Se guarda como una compra al confirmar la venta"
       footer={
         <>
@@ -2712,36 +2695,32 @@ function CanjeModal({
           <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Datos del equipo
           </p>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <Field label="Marca">
-                <Input
-                  value={marca}
-                  onChange={(e) => setMarca(e.target.value)}
-                  placeholder="Apple"
-                />
-              </Field>
-              <Field label="Celular">
-                <Input
-                  value={equipo}
-                  onChange={(e) => setEquipo(e.target.value)}
-                  placeholder="iPhone 13 Pro 128GB"
-                />
-              </Field>
-            </div>
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <Field label="Serial / IMEI (opcional)">
-                <Input value={imei} onChange={(e) => setImei(e.target.value)} />
-              </Field>
-              <Field label="Color (opcional)">
-                <Input
-                  value={checklist.color}
-                  onChange={(e) => setChecklist((c) => ({ ...c, color: e.target.value }))}
-                  placeholder="Ej: Negro"
-                />
-              </Field>
-            </div>
-          </div>
+          <GrillaCampos>
+            <Field label="Marca">
+              <Input
+                value={marca}
+                onChange={(e) => setMarca(e.target.value)}
+                placeholder="Apple"
+              />
+            </Field>
+            <Field label="Celular" className="sm:col-span-2">
+              <Input
+                value={equipo}
+                onChange={(e) => setEquipo(e.target.value)}
+                placeholder="iPhone 13 Pro 128GB"
+              />
+            </Field>
+            <Field label="Serial / IMEI (opcional)">
+              <Input value={imei} onChange={(e) => setImei(e.target.value)} />
+            </Field>
+            <Field label="Color (opcional)" className="sm:col-span-2">
+              <Input
+                value={checklist.color}
+                onChange={(e) => setChecklist((c) => ({ ...c, color: e.target.value }))}
+                placeholder="Ej: Negro"
+              />
+            </Field>
+          </GrillaCampos>
         </div>
 
         <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">

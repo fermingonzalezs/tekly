@@ -119,9 +119,11 @@ export async function nuevoOtroAction(
   cantidad: number,
   categoria: OtroCategoria | undefined,
   unidades: OtroUnidad[] | undefined,
+  precioVenta?: number,
 ) {
   await requireEscritura();
   const otro = await crearOtro({
+    precioVenta,
     nombre,
     precioCompra,
     cantidad,

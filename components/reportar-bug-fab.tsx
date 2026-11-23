@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Textarea } from "@/components/ui/field";
 import { reportarBugAction } from "@/app/(app)/actions";
 
 /** Diálogo de "Reportar un problema". El botón que lo abre vive en `FabDock`. */
@@ -52,6 +52,7 @@ export function ReportarBugFab({
         open={open}
         onClose={() => setOpen(false)}
         title="Reportar un problema"
+        formulario
         description="Contanos qué pasó -- lo revisamos apenas nos llega."
         footer={
           enviado ? (
@@ -85,11 +86,11 @@ export function ReportarBugFab({
             Gracias, ya lo tenemos anotado.
           </p>
         ) : (
-          <div className="space-y-3">
-            <Field label="Sección">
+          <GrillaCampos>
+            <Field label="Sección" className="sm:col-span-3">
               <Input value={pathname ?? ""} disabled />
             </Field>
-            <Field label="¿Qué estabas haciendo?">
+            <Field label="¿Qué estabas haciendo?" className="sm:col-span-3">
               <Input
                 autoFocus
                 value={accion}
@@ -97,7 +98,7 @@ export function ReportarBugFab({
                 placeholder="Ej. Cargando una venta nueva"
               />
             </Field>
-            <Field label="¿Qué pasó?">
+            <Field label="¿Qué pasó?" className="sm:col-span-3">
               <Textarea
                 rows={4}
                 value={descripcion}
@@ -105,8 +106,8 @@ export function ReportarBugFab({
                 placeholder="¿Qué esperabas que pasara y qué pasó en cambio?"
               />
             </Field>
-            {error && <p className="text-xs text-red-600">{error}</p>}
-          </div>
+            {error && <p className="text-xs text-red-600 sm:col-span-3">{error}</p>}
+          </GrillaCampos>
         )}
       </Dialog>
     </>

@@ -13,6 +13,7 @@ import {
   ClipboardCheck,
   Settings,
   Landmark,
+  CalendarRange,
   type LucideIcon,
 } from "lucide-react";
 import type { Rol } from "@/lib/auth/types";
@@ -46,6 +47,7 @@ export const NAV: NavItem[] = [
   { href: "/cajas", label: "Cajas", icon: Wallet, roles: ["admin", "tecnico"] },
   { href: "/analiticas", label: "Analíticas", icon: BarChart3, roles: ["admin"] },
   { href: "/patrimonio", label: "Patrimonio", icon: Landmark, roles: ["admin"] },
+  { href: "/resumenes", label: "Resúmenes", icon: CalendarRange, roles: ["admin"] },
   { href: "/configuracion", label: "Configuración", icon: Settings, roles: ["admin"] },
 ];
 
@@ -65,10 +67,10 @@ type NavGroupDef = { label: string; icon: LucideIcon; hrefs: string[] };
 const NAV_GROUPS: NavGroupDef[] = [
   { label: "Dashboard", icon: LayoutDashboard, hrefs: ["/dashboard"] },
   { label: "Ventas", icon: ShoppingCart, hrefs: ["/ventas", "/turnos", "/difusion"] },
-  { label: "Reparaciones", icon: Wrench, hrefs: ["/reparaciones"] },
   { label: "Stock", icon: Boxes, hrefs: ["/inventario", "/compras", "/recuentos"] },
+  { label: "Reparaciones", icon: Wrench, hrefs: ["/reparaciones"] },
   { label: "Clientes", icon: Users, hrefs: ["/clientes"] },
-  { label: "Finanzas", icon: Wallet, hrefs: ["/cajas", "/analiticas", "/patrimonio", "/cuentas-corrientes"] },
+  { label: "Finanzas", icon: Wallet, hrefs: ["/cajas", "/analiticas", "/patrimonio", "/resumenes", "/cuentas-corrientes"] },
 ];
 
 export type NavCategory = {

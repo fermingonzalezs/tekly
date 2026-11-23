@@ -69,3 +69,21 @@ export function Field({
     </div>
   );
 }
+
+/** Grilla estándar de un formulario: 3 casillas por fila desde `sm`, 1 en
+ * mobile. Un campo largo (nombre, dirección, textarea, buscador) ocupa la fila
+ * entera con `className="sm:col-span-3"`; un par que necesita más aire usa
+ * `sm:col-span-2`. Ver `Dialog` prop `formulario`. */
+export function GrillaCampos({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("grid grid-cols-1 gap-3.5 sm:grid-cols-3", className)}>
+      {children}
+    </div>
+  );
+}

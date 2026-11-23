@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input } from "@/components/ui/field";
+import { Field, GrillaCampos, Input } from "@/components/ui/field";
 import { fmtUsd } from "@/lib/format";
 import type { Servicio } from "@/lib/types";
 
@@ -157,6 +157,7 @@ function ServicioDialog({
       open={!!servicio}
       onClose={onClose}
       title={servicio?.id ? "Editar servicio" : "Nuevo servicio"}
+      formulario
       footer={
         <>
           <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClose}>
@@ -173,37 +174,35 @@ function ServicioDialog({
         </>
       }
     >
-      <div className="space-y-3">
-        <Field label="Nombre">
+      <GrillaCampos>
+        <Field label="Nombre" className="sm:col-span-3">
           <Input
             value={draft.nombre}
             onChange={(e) => setDraft({ ...draft, nombre: e.target.value })}
             placeholder="Cambio de pantalla"
           />
         </Field>
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          <Field label="Precio (U$)">
-            <Input
-              type="number"
-              min={0}
-              value={draft.precioUsd || ""}
-              onChange={(e) =>
-                setDraft({ ...draft, precioUsd: Number(e.target.value) || 0 })
-              }
-            />
-          </Field>
-          <Field label="Garantía (días)">
-            <Input
-              type="number"
-              min={0}
-              value={draft.garantiaDias}
-              onChange={(e) =>
-                setDraft({ ...draft, garantiaDias: Number(e.target.value) || 0 })
-              }
-            />
-          </Field>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-neutral-600">
+        <Field label="Precio (U$)">
+          <Input
+            type="number"
+            min={0}
+            value={draft.precioUsd || ""}
+            onChange={(e) =>
+              setDraft({ ...draft, precioUsd: Number(e.target.value) || 0 })
+            }
+          />
+        </Field>
+        <Field label="Garantía (días)" className="sm:col-span-2">
+          <Input
+            type="number"
+            min={0}
+            value={draft.garantiaDias}
+            onChange={(e) =>
+              setDraft({ ...draft, garantiaDias: Number(e.target.value) || 0 })
+            }
+          />
+        </Field>
+        <label className="flex items-center justify-center gap-2 text-sm text-neutral-600 sm:col-span-3">
           <input
             type="checkbox"
             checked={draft.activo}
@@ -212,7 +211,7 @@ function ServicioDialog({
           />
           Servicio activo (visible al cargar tickets)
         </label>
-      </div>
+      </GrillaCampos>
     </Dialog>
   );
 }

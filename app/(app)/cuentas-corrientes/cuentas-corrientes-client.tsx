@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { SeccionTabla } from "@/components/ui/seccion-tabla";
 import { BarraFiltros } from "@/components/ui/barra-filtros";
@@ -544,6 +544,7 @@ function NuevoMovimientoCCDialog({
       open={open}
       onClose={onClose}
       title="Nuevo movimiento"
+      formulario
       footer={
         <>
           <Button
@@ -562,8 +563,8 @@ function NuevoMovimientoCCDialog({
         </>
       }
     >
-      <div className="space-y-3">
-        <Field label="Cliente">
+      <GrillaCampos>
+        <Field label="Cliente" className="sm:col-span-2">
           <ClientePicker clientes={clientes} value={cliente} onChange={setCliente} />
         </Field>
         <Field label="Tipo">
@@ -572,7 +573,7 @@ function NuevoMovimientoCCDialog({
             <option value="pago">Pago (reduce la deuda)</option>
           </Select>
         </Field>
-        <Field label="Concepto">
+        <Field label="Concepto" className="sm:col-span-2">
           <Input
             value={concepto}
             onChange={(e) => setConcepto(e.target.value)}
@@ -588,10 +589,10 @@ function NuevoMovimientoCCDialog({
             placeholder="0"
           />
         </Field>
-        <p className="text-[11px] text-neutral-500">
+        <p className="text-[11px] text-neutral-500 sm:col-span-3">
           Se registra como <span className="text-neutral-600">{usuarioNombre}</span>.
         </p>
-      </div>
+      </GrillaCampos>
     </Dialog>
   );
 }

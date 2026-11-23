@@ -134,6 +134,7 @@ export function copyNotebook(n: Notebook): string {
     n.modelo,
     n.pantalla,
     n.cpu,
+    n.gpu,
     n.almacenamiento,
     n.memoria,
     n.condicion === "usado"

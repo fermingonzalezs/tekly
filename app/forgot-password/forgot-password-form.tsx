@@ -42,7 +42,7 @@ export function ForgotPasswordForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <TurnstileWidget />
+      <TurnstileWidget resetKey={state} />
       <p className="text-sm text-neutral-500">
         Ingresá tu email y te mandamos un link para elegir una contraseña
         nueva.

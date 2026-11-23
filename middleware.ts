@@ -21,6 +21,9 @@ const ALWAYS_PUBLIC_PATHS = [
   "/ayuda",
   // Demo sin cuenta (plan 014): pública, con o sin sesión.
   "/demo",
+  // Cron del resumen mensual (plan 022): sin sesión, la ruta exige su propio
+  // `Authorization: Bearer <CRON_SECRET>`.
+  "/api/cron",
 ];
 
 // Dominios de marketing (landing en tekly.tech). Si el host es uno de

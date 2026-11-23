@@ -2,7 +2,16 @@
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ShieldCheck, Store } from "lucide-react";
+import {
+  ArrowDownToLine,
+  Calculator,
+  PackageCheck,
+  Receipt,
+  Repeat,
+  ShieldCheck,
+  Store,
+  type LucideIcon,
+} from "lucide-react";
 import { negocio as negocioSeed } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { CHECKLIST_ITEMS, checklistItemLabel, estadoChecklistItem, dotClass } from "@/lib/status";
@@ -29,14 +38,17 @@ export type ReciboPagina = {
    * tarjeta "Información cliente" -- para documentos que no son una
    * factura (Garantía de Ventas, tickets de Reparaciones). */
   compacto?: boolean;
-  /** Sello de garantía superpuesto sobre "Información cliente" -- solo
-   * tiene sentido con `compacto`, y solo lo usa el documento de Garantía
-   * de Ventas (no los tickets de Reparaciones). */
-  sello?: boolean;
+  /** Sello del documento superpuesto sobre la tarjeta del cliente (ver
+   * `SELLOS`: cada tipo de documento tiene su ícono, su texto y su lado,
+   * alternando derecha/izquierda con la inclinación al lado contrario). */
+  sello?: ReciboSelloTipo;
   /** Hoja de continuación: sin banda de título ni datos de cliente, solo
    * el contenido (que trae su propio título de sección) -- ej. la hoja 2
    * del ticket de egreso de Reparaciones (checklist). */
   continuacion?: boolean;
+  /** Mantiene la banda de título pero sin el bloque del cliente -- para
+   * documentos que no son de un cliente (ej. el resumen mensual). */
+  sinCliente?: boolean;
 };
 
 /** Teléfono/email del cliente debajo de su nombre, en "Facturado a" /
@@ -89,9 +101,10 @@ function ReciboHoja({
   clienteEmail,
   negocio,
   compacto = false,
-  sello = false,
+  sello,
   sinFirmas = false,
   continuacion = false,
+  sinCliente = false,
   children,
 }: {
   titulo: string;
@@ -102,7 +115,7 @@ function ReciboHoja({
   clienteEmail?: string;
   negocio: Negocio;
   compacto?: boolean;
-  sello?: boolean;
+  sello?: ReciboSelloTipo;
   /** Sin el bloque de firmas al pie -- para documentos que firman "en el
    * cuerpo" (ej. el ticket de egreso de Reparaciones pone las firmas
    * arriba, en la primera hoja, y el detalle después). */
@@ -110,6 +123,8 @@ function ReciboHoja({
   /** Hoja de continuación: sin banda de título ni datos de cliente, solo
    * el contenido (que trae su propio título de sección). */
   continuacion?: boolean;
+  /** Sin el bloque del cliente (se conserva la banda de título). */
+  sinCliente?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -159,6 +174,7 @@ function ReciboHoja({
 
       <div className="flex flex-1 flex-col px-6 py-5 print:px-[14mm] print:py-8 print:pb-16">
         {!continuacion &&
+        !sinCliente &&
         (compacto ? (
           <div className="relative">
             <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
@@ -168,14 +184,10 @@ function ReciboHoja({
               <p className="font-grotesk text-base font-semibold">{cliente}</p>
               <ReciboClienteContacto telefono={clienteTelefono} email={clienteEmail} />
             </div>
-            {sello && (
-              <div className="absolute -top-4 -right-2">
-                <ReciboSello />
-              </div>
-            )}
+            {sello && <ReciboSello tipo={sello} />}
           </div>
         ) : (
-          <div>
+          <div className="relative">
             <p className="mb-3 border-b border-accent/20 pb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-accent">
               Datos de facturación
             </p>
@@ -202,6 +214,7 @@ function ReciboHoja({
                 </div>
               </div>
             </div>
+            {sello && <ReciboSello tipo={sello} />}
           </div>
         ))}
 
@@ -252,7 +265,7 @@ export function ReciboShell({
   /** Solo aplican al uso de una sola hoja (`titulo`+`children`, sin
    * `paginas`) -- con `paginas`, cada `ReciboPagina` trae los suyos. */
   compacto?: boolean;
-  sello?: boolean;
+  sello?: ReciboSelloTipo;
   /** Se aplica a todas las hojas (ver `ReciboHoja`). */
   sinFirmas?: boolean;
   children?: React.ReactNode;
@@ -280,6 +293,7 @@ export function ReciboShell({
             sello={h.sello}
             sinFirmas={sinFirmas}
             continuacion={h.continuacion}
+            sinCliente={h.sinCliente}
           >
             {h.children}
           </ReciboHoja>
@@ -330,7 +344,7 @@ export function ReciboImprimir({
   clienteEmail?: string;
   negocio?: Negocio;
   compacto?: boolean;
-  sello?: boolean;
+  sello?: ReciboSelloTipo;
   sinFirmas?: boolean;
   paginas?: ReciboPagina[];
   children?: React.ReactNode;
@@ -801,17 +815,54 @@ export function ReciboNotaLista({
   );
 }
 
-/** Sello de garantía -- el único gesto "de más" del recibo de Garantía, a
- * propósito nada más lo tiene: un sello de goma es lo que un cliente
- * reconoce como respaldo real en un papel de garantía. Se superpone (el
- * padre lo posiciona con `absolute`) sobre la tarjeta "Información
- * cliente" en vez de ocupar su propia fila -- fondo blanco para que se
- * note como sello encima, no mezclado con el violeta claro de la tarjeta. */
-export function ReciboSello() {
+/** Sellos de goma de cada tipo de documento -- el único gesto "de más" de
+ * los recibos: un sello es lo que un cliente reconoce como respaldo real en
+ * un papel. Se superponen (`absolute`) sobre la tarjeta del cliente en vez de
+ * ocupar su propia fila, con fondo blanco para que se noten encima del
+ * violeta claro. El lado va alternando entre tipos (derecha con giro a la
+ * derecha, izquierda con giro a la izquierda) para que no se vean todos
+ * iguales cuando se imprimen juntos (ej. recibo + garantía). */
+export type ReciboSelloTipo =
+  | "garantia"
+  | "recibo"
+  | "ingreso"
+  | "egreso"
+  | "presupuesto"
+  | "canje";
+
+const SELLOS: Record<
+  ReciboSelloTipo,
+  { texto: string; icon: LucideIcon; lado: "derecha" | "izquierda" }
+> = {
+  garantia: { texto: "Garantía", icon: ShieldCheck, lado: "derecha" },
+  recibo: { texto: "Recibo", icon: Receipt, lado: "izquierda" },
+  ingreso: { texto: "Ingreso", icon: ArrowDownToLine, lado: "derecha" },
+  egreso: { texto: "Egreso", icon: PackageCheck, lado: "izquierda" },
+  presupuesto: { texto: "Presupuesto", icon: Calculator, lado: "derecha" },
+  canje: { texto: "Canje", icon: Repeat, lado: "izquierda" },
+};
+
+export function ReciboSello({ tipo }: { tipo: ReciboSelloTipo }) {
+  const { texto, icon: Icon, lado } = SELLOS[tipo];
+  const derecha = lado === "derecha";
   return (
-    <div className="flex h-20 w-20 rotate-12 flex-col items-center justify-center rounded-full border-2 border-dashed border-accent/40 bg-white text-accent shadow-sm">
-      <ShieldCheck className="h-5 w-5" />
-      <p className="mt-1 text-[8px] font-bold uppercase tracking-widest">Garantía</p>
+    <div
+      className={cn(
+        "absolute -top-4",
+        derecha ? "-right-2 rotate-12" : "-left-2 -rotate-12",
+      )}
+    >
+      <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-2 border-dashed border-accent/40 bg-white text-accent shadow-sm">
+        <Icon className="h-5 w-5" />
+        <p
+          className={cn(
+            "mt-1 font-bold uppercase",
+            texto.length > 8 ? "text-[7px] tracking-wide" : "text-[8px] tracking-widest",
+          )}
+        >
+          {texto}
+        </p>
+      </div>
     </div>
   );
 }

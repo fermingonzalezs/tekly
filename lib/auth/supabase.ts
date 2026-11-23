@@ -3,6 +3,7 @@ import { createServerClient as createSSRClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
+import { organizacionEnContexto, soloLecturaDeOrganizacion } from "@/lib/auth/scope";
 
 /**
  * Única pieza del repo que importa los SDKs de Supabase. El resto de la app
@@ -42,6 +43,18 @@ async function fetchWithClockSkewRetry(
 /** Cliente para Server Components / Server Actions / Route Handlers --
  * respeta RLS (corre como el usuario autenticado, o como anon sin sesión). */
 export function createServerClient() {
+  // Trabajo sin sesión (cron del resumen mensual): ver `lib/auth/scope.ts`.
+  const organizationId = organizacionEnContexto();
+  if (organizationId) {
+    return soloLecturaDeOrganizacion(
+      createServiceRoleClient(),
+      organizationId,
+    ) as unknown as ReturnType<typeof crearClienteSSR>;
+  }
+  return crearClienteSSR();
+}
+
+function crearClienteSSR() {
   return createSSRClient(url, anonKey, {
     global: { fetch: fetchWithClockSkewRetry },
     cookies: {

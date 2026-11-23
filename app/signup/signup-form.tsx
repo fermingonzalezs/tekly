@@ -43,7 +43,7 @@ export function SignupForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <TurnstileWidget />
+      <TurnstileWidget resetKey={state} />
       <Field label="Nombre de la empresa">
         <Input name="organizacionNombre" required autoFocus />
       </Field>

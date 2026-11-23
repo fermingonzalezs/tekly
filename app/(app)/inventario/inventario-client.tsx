@@ -14,9 +14,10 @@ import { Card } from "@/components/ui/card";
 import { Button, IconButton } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
 import { StatCard } from "@/components/ui/stat-card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmarAltaDialog } from "@/components/ui/confirmar-alta-dialog";
 import { SeccionTabla } from "@/components/ui/seccion-tabla";
 import { BarraFiltros } from "@/components/ui/barra-filtros";
 import { GraficoDona, GraficoRanking } from "@/components/seccion/graficos";
@@ -1107,6 +1108,9 @@ export function InventarioClient({
                       Almacenamiento
                     </th>
                     <th className={cn("px-5 py-3 text-center", thDivider)}>
+                      Placa de video
+                    </th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>
                       Pantalla
                     </th>
                     <th className={cn("px-5 py-3 text-center", thDivider)}>
@@ -1163,6 +1167,9 @@ export function InventarioClient({
                         {n.almacenamiento || "—"}
                       </td>
                       <td className="px-5 py-2 text-center text-neutral-500">
+                        {n.gpu || "—"}
+                      </td>
+                      <td className="px-5 py-2 text-center text-neutral-500">
                         {n.pantalla || "—"}
                       </td>
                       <td className="px-5 py-2 text-center">
@@ -1200,7 +1207,7 @@ export function InventarioClient({
                   {notebooksFiltrados.length === 0 && (
                     <tr>
                       <td
-                        colSpan={puedeVerCosto ? 11 : 10}
+                        colSpan={puedeVerCosto ? 12 : 11}
                         className="px-5 py-10 text-center text-sm text-neutral-400"
                       >
                         Sin notebooks para esta búsqueda.
@@ -1827,7 +1834,6 @@ export function InventarioClient({
         onSubmit={async (data) => {
           const nuevo = await createCelularAction(data);
           setCelulares((p) => [nuevo, ...p]);
-          setAddCelular(false);
         }}
       />
 
@@ -1877,7 +1883,6 @@ export function InventarioClient({
           const res = await createNotebookAction(data);
           if (!res.ok) throw new Error(res.error);
           setNotebooks((p) => [res.notebook, ...p]);
-          setAddNotebook(false);
         }}
       />
 
@@ -1934,8 +1939,6 @@ export function InventarioClient({
         onIngreso={async (id, cantidad, precio) => {
           const actualizado = await ingresoRepuestoAction(id, cantidad, precio);
           setRepuestos((p) => p.map((r) => (r.id === id ? actualizado : r)));
-          setAddRepuesto(false);
-          setReponerId(null);
         }}
         onNuevo={async (nombre, precioCompra, cantidad) => {
           const nuevo = await nuevoRepuestoAction(
@@ -1944,8 +1947,6 @@ export function InventarioClient({
             cantidad,
           );
           setRepuestos((p) => [nuevo, ...p]);
-          setAddRepuesto(false);
-          setReponerId(null);
         }}
       />
 
@@ -1969,18 +1970,24 @@ export function InventarioClient({
             unidades,
           );
           setOtros((p) => p.map((o) => (o.id === id ? actualizado : o)));
-          setAddOtro(false);
         }}
-        onNuevo={async (nombre, precioCompra, cantidad, cat, unidades) => {
+        onNuevo={async (
+          nombre,
+          precioCompra,
+          cantidad,
+          cat,
+          unidades,
+          precioVenta,
+        ) => {
           const nuevo = await nuevoOtroAction(
             nombre,
             precioCompra,
             cantidad,
             cat,
             unidades,
+            precioVenta,
           );
           setOtros((p) => [nuevo, ...p]);
-          setAddOtro(false);
         }}
       />
 
@@ -2489,6 +2496,8 @@ function CelularFormDialog({
   );
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmAlta, setConfirmAlta] = useState(false);
+  const [altaOk, setAltaOk] = useState(false);
   const set = <K extends keyof Celular>(k: K, v: Celular[K]) =>
     setF((p) => ({ ...p, [k]: v }));
   const valid = f.modelo.trim() && f.costoUsd > 0 && f.precioUsd > 0;
@@ -2497,12 +2506,35 @@ function CelularFormDialog({
 
   const movimientos = useMovimientos("celular", edit ? celular!.id : null);
 
+  function guardar() {
+    startTransition(async () => {
+      try {
+        await onSubmit({
+          modelo: f.modelo.trim(),
+          almacenamiento: f.almacenamiento,
+          color: f.color.trim() || "—",
+          imei: f.imei.trim() || "—",
+          bateria: f.bateria,
+          condicion: f.condicion,
+          costoUsd: f.costoUsd,
+          precioUsd: f.precioUsd,
+          estado: f.estado,
+        });
+        if (!edit) setAltaOk(true);
+      } catch (e) {
+        setConfirmAlta(false);
+        throw e;
+      }
+    });
+  }
+
   return (
     <Fragment>
       <Dialog
         open={open}
         onClose={onClose}
         size="3xl"
+        formulario={!edit}
         title={edit ? `Celular · ${celular!.modelo}` : "Agregar celular"}
         description={
           edit
@@ -2532,21 +2564,7 @@ function CelularFormDialog({
             </Button>
             <Button
               disabled={!valid || pending}
-              onClick={() =>
-                startTransition(async () => {
-                  await onSubmit({
-                    modelo: f.modelo.trim(),
-                    almacenamiento: f.almacenamiento,
-                    color: f.color.trim() || "—",
-                    imei: f.imei.trim() || "—",
-                    bateria: f.bateria,
-                    condicion: f.condicion,
-                    costoUsd: f.costoUsd,
-                    precioUsd: f.precioUsd,
-                    estado: f.estado,
-                  });
-                })
-              }
+              onClick={() => (edit ? guardar() : setConfirmAlta(true))}
               variant="primary"
               fullOnMobile
             >
@@ -2560,7 +2578,7 @@ function CelularFormDialog({
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <GrillaCampos>
               <Field label="Modelo">
                 <Input
                   value={f.modelo}
@@ -2647,12 +2665,32 @@ function CelularFormDialog({
                   </Select>
                 </Field>
               )}
-            </div>
+            </GrillaCampos>
           </div>
 
           {edit && <MovimientosLog movimientos={movimientos} />}
         </div>
       </Dialog>
+      {!edit && (
+        <ConfirmarAltaDialog
+          open={confirmAlta}
+          onClose={() => setConfirmAlta(false)}
+          onConfirm={guardar}
+          pending={pending}
+          exito={altaOk}
+          onExitoTerminado={onClose}
+          title="Confirmar ingreso al stock"
+          pregunta="¿Agregar este celular al inventario? Ingresa en estado «En revisión»."
+          confirmLabel="Agregar al stock"
+          filas={[
+            { label: "Modelo", value: `${f.modelo.trim()} ${f.almacenamiento}`.trim() },
+            { label: "Color", value: f.color.trim() || "—" },
+            { label: "IMEI", value: f.imei.trim() || "—" },
+            { label: "Costo", value: fmtUsd(f.costoUsd) },
+            { label: "Precio", value: fmtUsd(f.precioUsd) },
+          ]}
+        />
+      )}
       {onDelete && (
         <ConfirmDialog
           open={confirmDelete}
@@ -2700,6 +2738,7 @@ function NotebookFormDialog({
       memoria: "",
       almacenamiento: "",
       pantalla: "",
+      gpu: "",
       color: "",
       idioma: "",
       numeroSerie: "",
@@ -2715,6 +2754,8 @@ function NotebookFormDialog({
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
+  const [confirmAlta, setConfirmAlta] = useState(false);
+  const [altaOk, setAltaOk] = useState(false);
   const set = <K extends keyof Notebook>(k: K, v: Notebook[K]) =>
     setF((p) => ({ ...p, [k]: v }));
   const usado = f.condicion === "usado";
@@ -2737,6 +2778,7 @@ function NotebookFormDialog({
           memoria: f.memoria,
           almacenamiento: f.almacenamiento,
           pantalla: f.pantalla,
+          gpu: f.gpu,
           color: f.color,
           idioma: f.idioma,
           numeroSerie: f.numeroSerie,
@@ -2748,7 +2790,9 @@ function NotebookFormDialog({
           condicion: f.condicion,
           bateria: usado ? f.bateria : null,
         });
+        if (!edit) setAltaOk(true);
       } catch (e) {
+        setConfirmAlta(false);
         setError(e instanceof Error ? e.message : "No se pudo guardar.");
       }
     });
@@ -2760,6 +2804,7 @@ function NotebookFormDialog({
         open={open}
         onClose={onClose}
         size="3xl"
+        formulario={!edit}
         title={edit ? `Notebook · ${notebook!.modelo}` : "Agregar notebook"}
         description={
           edit
@@ -2791,7 +2836,12 @@ function NotebookFormDialog({
             <Button onClick={onClose} variant="outline" fullOnMobile>
               Cancelar
             </Button>
-            <Button onClick={submit} loading={pending} fullOnMobile>
+            <Button
+              onClick={() => (edit ? submit() : setConfirmAlta(true))}
+              loading={pending}
+              disabled={!edit && !valid}
+              fullOnMobile
+            >
               {edit ? "Guardar cambios" : "Agregar notebook"}
             </Button>
           </>
@@ -2799,7 +2849,7 @@ function NotebookFormDialog({
       >
         <div className="space-y-3">
           {error && <p className="text-sm text-red-500">{error}</p>}
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <GrillaCampos>
             <Field label="Modelo">
               <Input
                 value={f.modelo}
@@ -2832,6 +2882,13 @@ function NotebookFormDialog({
                 value={f.almacenamiento}
                 onChange={(e) => set("almacenamiento", e.target.value)}
                 placeholder="256 GB SSD"
+              />
+            </Field>
+            <Field label="Placa de video">
+              <Input
+                value={f.gpu}
+                onChange={(e) => set("gpu", e.target.value)}
+                placeholder="NVIDIA RTX 4050 6 GB"
               />
             </Field>
             <Field label="Pantalla">
@@ -2925,7 +2982,7 @@ function NotebookFormDialog({
                 onChange={(e) => set("precioUsd", Number(e.target.value))}
               />
             </Field>
-          </div>
+          </GrillaCampos>
           <Field label="Notas">
             <Textarea
               value={f.notas}
@@ -2935,6 +2992,29 @@ function NotebookFormDialog({
           {edit && <MovimientosLog movimientos={movimientos} />}
         </div>
       </Dialog>
+      {!edit && (
+        <ConfirmarAltaDialog
+          open={confirmAlta}
+          onClose={() => setConfirmAlta(false)}
+          onConfirm={submit}
+          pending={pending}
+          exito={altaOk}
+          onExitoTerminado={onClose}
+          title="Confirmar ingreso al stock"
+          pregunta="¿Agregar esta notebook al inventario? Ingresa en estado «En revisión»."
+          confirmLabel="Agregar al stock"
+          filas={[
+            { label: "Modelo", value: f.modelo.trim() },
+            { label: "N.º de serie", value: f.numeroSerie.trim() || "—" },
+            {
+              label: "Condición",
+              value: usado ? `Usada · batería ${f.bateria ?? "—"}%` : "Nueva",
+            },
+            { label: "Costo", value: fmtUsd(f.costoUsd) },
+            { label: "Precio", value: fmtUsd(f.precioUsd) },
+          ]}
+        />
+      )}
       {onDelete && (
         <ConfirmDialog
           open={confirmDelete}
@@ -3540,6 +3620,7 @@ function IngresoDialog({
     cantidad: number,
     cat?: OtroCategoria,
     unidades?: OtroUnidad[],
+    precioVenta?: number,
   ) => void | Promise<void>;
 }) {
   const [modo, setModo] = useState<"nuevo" | "existente">(
@@ -3551,7 +3632,10 @@ function IngresoDialog({
   const [serializadoNuevo, setSerializadoNuevo] = useState(false);
   const [cantidad, setCantidad] = useState(1);
   const [precio, setPrecio] = useState(0);
+  const [precioVenta, setPrecioVenta] = useState(0);
   const [pending, startTransition] = useTransition();
+  const [confirmIngreso, setConfirmIngreso] = useState(false);
+  const [ingresoOk, setIngresoOk] = useState(false);
 
   const [modoCarga, setModoCarga] = useState<"manual" | "bulk">("manual");
   const [unidadesManual, setUnidadesManual] = useState<DraftUnidad[]>([
@@ -3603,35 +3687,55 @@ function IngresoDialog({
 
   const valid =
     (modo === "existente" ? !!sel : !!nombre.trim()) &&
+    (modo === "nuevo" && categoria ? precioVenta > 0 : true) &&
     (esSerializado
       ? unidadesFinal.length > 0 && unidadesFinal.every((u) => u.costoUsd > 0)
       : cantidad > 0 && precio > 0);
 
+  const unidadesTotal = esSerializado ? unidadesFinal.length : cantidad;
+  const costoTotal = esSerializado
+    ? unidadesFinal.reduce((a, u) => a + u.costoUsd, 0)
+    : cantidad * precio;
+
+  async function ingresar() {
+    if (modo === "existente") {
+      await onIngreso(
+        sel,
+        esSerializado ? unidadesFinal.length : cantidad,
+        esSerializado ? costoPromedioNuevos : precio,
+        esSerializado ? unidadesFinal : undefined,
+      );
+    } else {
+      await onNuevo(
+        nombre.trim(),
+        esSerializado ? costoPromedioNuevos : precio,
+        esSerializado ? unidadesFinal.length : cantidad,
+        categoria ? cat : undefined,
+        esSerializado ? unidadesFinal : undefined,
+        categoria ? precioVenta : undefined,
+      );
+    }
+  }
+
   function submit() {
     startTransition(async () => {
-      if (modo === "existente") {
-        await onIngreso(
-          sel,
-          esSerializado ? unidadesFinal.length : cantidad,
-          esSerializado ? costoPromedioNuevos : precio,
-          esSerializado ? unidadesFinal : undefined,
-        );
-      } else {
-        await onNuevo(
-          nombre.trim(),
-          esSerializado ? costoPromedioNuevos : precio,
-          esSerializado ? unidadesFinal.length : cantidad,
-          categoria ? cat : undefined,
-          esSerializado ? unidadesFinal : undefined,
-        );
+      try {
+        await ingresar();
+        setIngresoOk(true);
+      } catch (e) {
+        setConfirmIngreso(false);
+        throw e;
       }
     });
   }
 
   return (
+    <Fragment>
     <Dialog
       open={open}
       onClose={onClose}
+      size="3xl"
+      formulario
       title={locked ? "Reponer stock" : `Agregar / ingresar ${titulo}`}
       description={
         locked
@@ -3645,7 +3749,7 @@ function IngresoDialog({
           </Button>
           <Button
             disabled={!valid || pending}
-            onClick={submit}
+            onClick={() => setConfirmIngreso(true)}
             variant="primary"
             fullOnMobile
           >
@@ -3712,7 +3816,7 @@ function IngresoDialog({
               />
             </Field>
             {categoria && (
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              <GrillaCampos>
                 <Field label="Categoría">
                   <Select
                     value={cat}
@@ -3744,7 +3848,18 @@ function IngresoDialog({
                     ))}
                   </div>
                 </Field>
-              </div>
+                <Field label="Precio de venta (U$)">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={precioVenta || ""}
+                    onChange={(e) =>
+                      setPrecioVenta(Number(e.target.value) || 0)
+                    }
+                    placeholder="Lo que paga el cliente"
+                  />
+                </Field>
+              </GrillaCampos>
             )}
           </>
         )}
@@ -3837,7 +3952,7 @@ function IngresoDialog({
                     placeholder={"IPAD9-010\nIPAD9-011\nIPAD9-012"}
                   />
                 </Field>
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
                   <Field label="Color (para todos)">
                     <Input
                       value={bulkColor}
@@ -3867,7 +3982,7 @@ function IngresoDialog({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
             <Field label="Cantidad">
               <Input
                 type="number"
@@ -3888,5 +4003,36 @@ function IngresoDialog({
         )}
       </div>
     </Dialog>
+    <ConfirmarAltaDialog
+      open={confirmIngreso}
+      onClose={() => setConfirmIngreso(false)}
+      onConfirm={submit}
+      pending={pending}
+      exito={ingresoOk}
+      onExitoTerminado={onClose}
+      title="Confirmar ingreso al stock"
+      pregunta={
+        modo === "existente"
+          ? `¿Sumar ${unidadesTotal} unidad${unidadesTotal === 1 ? "" : "es"} al stock?`
+          : `¿Crear «${nombre.trim()}» y cargar ${unidadesTotal} unidad${unidadesTotal === 1 ? "" : "es"}?`
+      }
+      confirmLabel={locked ? "Reponer" : "Confirmar ingreso"}
+      filas={[
+        {
+          label: titulo.charAt(0).toUpperCase() + titulo.slice(1),
+          value:
+            modo === "existente" ? (existenteSel?.label ?? "—") : nombre.trim(),
+        },
+        ...(modo === "nuevo" && categoria
+          ? [
+              { label: "Categoría", value: otroCategoria[cat].label },
+              { label: "Precio de venta", value: fmtUsd(precioVenta) },
+            ]
+          : []),
+        { label: "Unidades", value: unidadesTotal },
+        { label: "Costo total", value: fmtUsd(costoTotal) },
+      ]}
+    />
+    </Fragment>
   );
 }

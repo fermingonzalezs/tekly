@@ -556,9 +556,14 @@ export async function crearOtro(data: {
   cantidad: number;
   categoria: OtroCategoria;
   unidades?: OtroUnidad[];
+  /** Precio de venta. Sin él (flujos viejos) se sugiere costo + 30 %. */
+  precioVenta?: number;
 }): Promise<OtroItem> {
   const supabase = createServerClient();
-  const precioUsd = Math.round(data.precioCompra * 1.3);
+  const precioUsd =
+    data.precioVenta && data.precioVenta > 0
+      ? data.precioVenta
+      : Math.round(data.precioCompra * 1.3);
   const serializado = !!data.unidades;
   const { data: row, error } = await supabase
     .from("otros_items")

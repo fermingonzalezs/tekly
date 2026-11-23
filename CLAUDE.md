@@ -520,6 +520,44 @@ cálculo de margen.
 - **Leaked password protection** (Authentication → Policies): desactivada
   por default, activar antes de producción.
 
+### Resumen mensual (plan 022)
+
+Una vez por mes se guarda, **congelado**, el resumen del mes que cierra
+(`resumenes_mensuales`: una fila por organización y mes, `datos jsonb`
+versionado por `RESUMEN_VERSION` + columnas sueltas para listar). **Híbrido**:
+ventas/reparaciones/compras/caja salen de las fechas del mes; inventario,
+saldos y patrimonio son una **foto** (no se reconstruye), por eso se guarda al
+cierre y `foto_fiable` dice si se generó dentro de los 3 días posteriores.
+
+- **Cron**: `pg_cron` (`resumen-mensual`, `30 4 1 * *` = 01:30 hora Argentina
+  del día 1) + `pg_net` solo **disparan** `POST /api/cron/resumen-mensual`; el
+  cálculo es TypeScript (`lib/resumen-mensual.ts`, puro y con test, reusa los
+  `resumen*` de Analíticas). La ruta exige `Authorization: Bearer
+  <CRON_SECRET>` (`/api/cron` es público en `middleware.ts`; sin
+  `CRON_SECRET` queda cerrada) y es idempotente (upsert por org+mes).
+- **Secretos fuera del repo**: Vault tiene `cron_app_url` y `cron_secret`; la
+  app necesita `CRON_SECRET` con **el mismo valor** (`select decrypted_secret
+  from vault.decrypted_secrets where name = 'cron_secret'`). Si se cambia el
+  dominio de producción hay que actualizar `cron_app_url`.
+- **Sin sesión de usuario**: `lib/auth/scope.ts` (`conOrganizacion`) hace que
+  `createServerClient()` devuelva un cliente de **service role de solo lectura
+  acotado a la organización** (cada `select` agrega `organization_id`; las
+  escrituras y `rpc` tiran). Es lo que permite reusar todas las `list*` de
+  `lib/db` desde el cron. **No usarlo para nada que escriba**: la escritura va
+  por `createServiceRoleClient()` con el `organization_id` explícito
+  (`lib/db/resumenes.ts`). Un `select` sobre una tabla sin `organization_id`
+  falla fuerte, no filtra mal.
+- **Un resumen con `foto_fiable` nunca se pisa** con uno que no lo es
+  (regenerar a mano un mes viejo perdería la foto real del cierre).
+- Sin cotización real (`getDolarServer().fuente === "fallback"`) el resumen
+  guarda `cotizacion: null` y **no arma el patrimonio**: el valor de respaldo
+  es inventado y no se congela.
+- UI: `/resumenes` (lista + «Generar resumen de un mes», solo admin, Finanzas)
+  y `/resumenes/[periodo]` (detalle + `Imprimir / PDF` con `ReciboImprimir`,
+  `ReciboPagina.sinCliente`). La pantalla y el PDF se dibujan desde la misma
+  `armarSecciones`. Agregar una métrica = sumarla a `ResumenMensual`, a
+  `armarSecciones` y subir `RESUMEN_VERSION` si cambia el shape.
+
 ### Planes y prueba gratis (plan 015)
 
 Cada organización nueva arranca en **`trial` por 14 días sin tarjeta**
@@ -1026,7 +1064,7 @@ falla si aparece uno.
 | `IconButton` | `components/ui/button.tsx` | solo ícono: `{ aria-label (obligatorio), icon, variant: ghost \| outline \| danger-ghost, size: sm \| md \| lg, shape: round \| square }` |
 | `ButtonLink` | `components/ui/button.tsx` | misma apariencia que `Button` pero `next/link`. `MarketingButton` es un envoltorio suyo |
 | `Badge` | `components/ui/badge.tsx` | `{ tone, dot?, className? }` — forma ÚNICA cuadrada (`rounded-md`); no hay prop de forma. Colores por `lib/status.ts` |
-| `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg \| xl \| 2xl \| 3xl \| 4xl }` (anchos `max-w-md/2xl/3xl/4xl/5xl/6xl`; **modal que se acerca a 100vh → ensancharlo y partirlo en columnas en `lg:`**, no alargarlo: Nuevo ticket, Entregar equipo, Nueva venta (`4xl`, 2 columnas), canje, Nueva compra, alta de equipo/repuesto/producto en `3xl`; detalles en `2xl`; `ChecklistEditor` acepta `gridClassName`) — **vidrio único** (plan 011): header oscuro `table-header` con texto blanco, panel traslúcido (`bg-white/80`; `xl`/`2xl` → `bg-white/90`), `border-accent/70`, overlay `bg-neutral-900/[0.07] backdrop-blur-[2px]` (anidado: sin segundo blur). Centrado vertical, scroll propio, `createPortal` a `<body>`, cierra con Esc / click fuera, `role="dialog" aria-modal`. Los campos dentro del body se re-estilan a 42px/radio 14px/blanco 70%. Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
+| `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg \| xl \| 2xl \| 3xl \| 4xl, formulario? }` (anchos `max-w-md/2xl/3xl/4xl/5xl/6xl`; `formulario` = modo formulario: body centrado salvo el contenido de las casillas, ver "`Dialog`: …" abajo; **modal que se acerca a 100vh → ensancharlo y partirlo en columnas en `lg:`**, no alargarlo: Nuevo ticket, Entregar equipo, Nueva venta (`4xl`, 2 columnas), canje, Nueva compra, alta de equipo/repuesto/producto en `3xl`; detalles en `2xl`; `ChecklistEditor` acepta `gridClassName`) — **vidrio único** (plan 011): header oscuro `table-header` con texto blanco, panel traslúcido (`bg-white/80`; `xl`/`2xl` → `bg-white/90`), `border-accent/70`, overlay `bg-neutral-900/[0.07] backdrop-blur-[2px]` (anidado: sin segundo blur). Centrado vertical, scroll propio, `createPortal` a `<body>`, cierra con Esc / click fuera, `role="dialog" aria-modal`. Los campos dentro del body se re-estilan a 42px/radio 14px/blanco 70%. Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
 | `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }], accent? }` — `accent` (hex) para teñir el estado activo con otro color; por defecto usa `accent` |
 | `Pagination` | `components/ui/pagination.tsx` | `{ page, total, pageSize?, onPageChange, className? }` — "Mostrando 1–50 de N" + números de página (‹ Anterior · 1 2 3 … N · Siguiente ›), se oculta con una sola página. `paginasVisibles` (helper puro, con test) en `lib/pagination.ts`; `PAGE_SIZE = 50` |
 | `SeccionTabla` | `components/ui/seccion-tabla.tsx` | Layout estándar de una sección con tabla (ver "Layout estándar de sección con tabla"): fija el orden tabs → visibilidad → gráficos → tarjetas → filtros → tabla. `{ id, tabs?, graficos?, tarjetas?, columnasTarjetas? (4\|5\|8), filtros?, children }` |
@@ -1063,15 +1101,35 @@ acciones extra en secciones que no tienen acción primaria). `fullOnMobile`
 para que en mobile ocupe el ancho. El header es siempre el oscuro del vidrio
 (ya no hay `accent`/blanco, plan 011).
 
-Body: `<div className="space-y-3">` con `Field` + `Input` / `Select` /
-`Textarea` apilados (pares cortos → `grid grid-cols-1 gap-3.5
-sm:grid-cols-2`, campos largos con `sm:col-span-2`); un flag
-booleano tipo "activo" va como checkbox debajo de los campos, **dentro del
-dialog** — no como botón aparte en la fila de la tabla (`ServicioDialog`,
-"Servicio activo", es la referencia). Título: `id ? "Editar X" : "Nuevo X"`.
-Para elegir entre opciones dentro de un form usar **`Select`**, nunca
-`Tabs` — `Tabs` es el pill de navegación/filtro de página (Del
-día/Historial, Celulares/Notebooks/Repuestos/Otros), no un control de formulario.
+**Modo formulario (plan 021).** Todo dialog de **formulario** (alta/edición
+de campos, no de solo vista) pasa la prop `formulario` al `Dialog`. Con
+`formulario` el body queda **centrado entero menos el contenido de las
+casillas**: los labels de `Field`, eyebrows/títulos de sección, textos de
+ayuda, avisos y checkboxes (casilla + texto como bloque) se centran; lo que
+se escribe/elige dentro de un `Input`/`Select`/`Textarea` va a la izquierda
+(la prop aplica `text-center` al body + `text-start` a los inputs/selects y
+`text-align-last: start` a los `select`). Los dialogs de **solo vista/detalle**
+(`VentaDetalle`, ficha de cliente, detalle de ticket/compra, `ConfirmDialog`,
+`ConfirmarAltaDialog`, los modales de recuento) **no** llevan `formulario` y
+mantienen su patrón. El modo edición de Inventario (celular/notebook cargado)
+tampoco: contiene el historial de movimientos. Para un input que **tiene** que
+conservar su alineación (números alineados a la derecha en la tabla de ítems
+de Nueva venta), se le gana con el modificador `!` (`!text-right`) o con
+`style={{ textAlign }}` (el emoji de Difusión).
+
+Body: `Field` + `Input` / `Select` / `Textarea` dentro de **`GrillaCampos`**
+(`components/ui/field.tsx`) — **3 casillas por fila desde `sm`
+(`grid-cols-1 gap-3.5 sm:grid-cols-3`), 1 en mobile**. Un campo largo (nombre,
+dirección, textarea, buscador) ocupa la fila entera con
+`className="sm:col-span-3"`; un par que necesita más aire usa `sm:col-span-2`.
+No repetir el string de la grilla a mano. Un flag booleano tipo "activo" va
+como checkbox debajo de los campos, **dentro del dialog** — no como botón
+aparte en la fila de la tabla (`ServicioDialog`, "Servicio activo", es la
+referencia). Título: `id ? "Editar X" : "Nuevo X"`. Para elegir entre opciones
+dentro de un form usar **`Select`**, nunca `Tabs` — `Tabs` es el pill de
+navegación/filtro de página (Del día/Historial, Celulares/Notebooks/Repuestos/Otros),
+no un control de formulario. El ancho (`size`) no se toca por regla general: si
+con 3 columnas un dialog `md`/`lg` queda apretado, recién ahí subir un escalón.
 
 ## Convenciones al agregar una sección
 
@@ -1300,7 +1358,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   Margen (solo `puedeVerCosto`) y Total; los headers Venta/Total/Margen son
   ordenables. Se sacó la columna Costo de la lista (queda en el detalle).
   El detalle (`VentaDetalle`) tiene footer de **3 botones** (Eliminar
-  admin, Cerrar y un menú **«Imprimir ▾»** con Comprobante/Garantía,
+  admin, Cerrar y un menú **«Imprimir ▾»** con «Recibo y garantía (juntos)» / «Solo recibo» / «Solo garantía» (la garantía de la venta junta todos los ítems en una tabla; `TipoImpresion` en `ventas-client.tsx`),
   navegable con flechas); "Ver compra de canje" pasó al bloque de pagos; el
   viejo "Resumen financiero" se parte en **Pagos** (una fila por pago: chip
   de medio + caja + monto, recargo/cotización, link de canje, total cobrado)
@@ -1308,9 +1366,11 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `puedeVerCosto`). "Ítems vendidos" es una query paginada aparte
   (`listItemsVendidosPagina`, `venta_items` con `ventas!inner`) con 1 fila
   por ítem (Venta/Cliente/Ítem/Serie/Precio/Margen) y abre el mismo
-  `VentaDetalle`. También hay ícono de Garantía en la columna Acciones de
-  Ventas y de "Ítems vendidos" — mismo documento, mismo
-  `garantiaContenido(items)` en `ventas-client.tsx`.
+  `VentaDetalle`. La columna Acciones de Ventas es un menú **⋯**
+  (`MenuAcciones`, `components/ui/menu-acciones.tsx`: portal + `fixed`, porque
+  la tabla recorta con `overflow-x-auto`) con las mismas 3 opciones;
+  "Ítems vendidos" conserva el ícono de Garantía por ítem — mismo diseño,
+  mismo `garantiaContenido(items)` en `ventas-client.tsx`.
   `VentaItem.costoUsd?` y
   `Venta.procedencia?` existen; el costo NO se edita en el modal de
   alta. **Margen**: `margenVenta(items)` (`lib/ventas.ts`, con test) es la
@@ -1621,9 +1681,14 @@ email del cliente si `ReciboImprimir` los recibe, `null` si no hay dato).
 **`compacto`** (Ventas → Garantía, Reparaciones → Ticket de ingreso) — el
 negocio pasa a la banda superior (reemplaza el logo placeholder) y el
 cliente queda en una sola tarjeta "Información cliente"; `sello` (prop
-aparte, solo Ventas → Garantía) agrega `ReciboSello` (insignia rotada,
-`position: absolute` sobre la tarjeta, no ocupa fila propia) superpuesto
-arriba a la derecha.
+aparte, `ReciboSelloTipo`) agrega `ReciboSello` (insignia rotada,
+`position: absolute` sobre la tarjeta del cliente, no ocupa fila propia).
+**Todo documento lleva su sello** (`SELLOS` en `components/recibos/recibo.tsx`,
+ícono + texto + lado, alternando para que no se vean iguales al imprimir
+juntos): Garantía (derecha), Recibo de venta (izquierda), Ticket de ingreso
+(derecha), Ticket de egreso (izquierda), Presupuesto (derecha) y Recibo de
+canje (izquierda); el de la derecha gira a la derecha y el de la izquierda, a
+la izquierda. Un documento nuevo suma su tipo a `SELLOS`.
 
 Helpers para el cuerpo: `ReciboCampos` (pares clave/valor -- `variant="inline"`
 para "Label: valor" compacto en vez de la grilla de dos columnas cuando el

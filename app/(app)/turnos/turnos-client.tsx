@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Link2, X, Smartphone, Plus, Minus, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
@@ -885,6 +885,7 @@ function AgendarDialog({
       onClose={onClose}
       size="2xl"
       title="Agendar turno"
+      formulario
       description={dayLabel}
       footer={
         <>
@@ -909,8 +910,8 @@ function AgendarDialog({
           <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
             Información general
           </p>
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            <Field label="Cliente">
+          <GrillaCampos>
+            <Field label="Cliente" className="sm:col-span-2">
               <ClientePicker
                 clientes={clientesOpciones}
                 value={cliente}
@@ -930,7 +931,7 @@ function AgendarDialog({
                 ))}
               </Select>
             </Field>
-          </div>
+          </GrillaCampos>
         </div>
 
         {(tipo === "cotizar" || tipo === "deja") && (
@@ -1085,7 +1086,7 @@ function AgendarDialog({
             </div>
 
             {hayItems && (
-              <label className="flex items-center gap-2 text-sm text-neutral-600">
+              <label className="flex items-center justify-center gap-2 text-sm text-neutral-600">
                 <input
                   type="checkbox"
                   checked={reservarStock}

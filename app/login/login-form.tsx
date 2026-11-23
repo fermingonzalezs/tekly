@@ -63,7 +63,7 @@ export function LoginForm({ initialError }: { initialError?: string }) {
           Probá la demo sin registrarte
         </Link>
       </p>
-      <TurnstileWidget size="flexible" />
+      <TurnstileWidget size="flexible" resetKey={state} />
     </form>
   );
 }

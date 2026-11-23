@@ -190,6 +190,13 @@ input[type="number"]::-webkit-inner-spin-button {
   .animate-menu-in {
     animation: fade-in 0.18s cubic-bezier(0.23, 1, 0.32, 1);
   }
+  .animate-celebrate-check {
+    animation: none;
+  }
+  .animate-check-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
   .animate-modal-out,
   .animate-drawer-out {
     animation: fade-out 0.18s cubic-bezier(0.23, 1, 0.32, 1) forwards;
