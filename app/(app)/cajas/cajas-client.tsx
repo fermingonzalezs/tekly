@@ -1128,6 +1128,7 @@ function CajaDialog({
       open={!!entry}
       onClose={onClose}
       title={entry?.id ? "Editar caja" : "Nueva caja"}
+      size="lg"
       formulario
       footer={
         <>
