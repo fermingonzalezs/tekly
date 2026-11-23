@@ -860,6 +860,9 @@ Aplica a **toda tabla, presente y futura** (menos los recibos/PDF):
 - **Encabezado (`th`)**: banda **índigo oscuro** (`#352f86`), texto **blanco,
   negrita, MAYÚSCULA**. No hace falta poner clases de estilo en los `th`
   (igual conviene el `<tr>` del thead con `text-xs`).
+- **Separadores**: línea vertical fina blanca (30 %) a media altura entre
+  encabezados (`th + th::before`), salvo antes de una columna vacía
+  (acciones). Global, no hace falta clase.
 - **Filas cebra**: `tr` par en índigo muy claro (`#f0eff9`), impar blanca.
   Regla en `@layer base` para que el `hover:bg-*` de cada fila siga ganando.
   Los `.recibo-print` tienen su propia cebra, en violeta claro (`#edecf8`,

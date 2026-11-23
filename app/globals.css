@@ -112,14 +112,16 @@ td {
   text-align: center;
 }
 
-/* Separadores entre encabezados: línea vertical fina, a media altura, a la
-   izquierda de cada `th` salvo el primero (y salvo columnas vacías, como la
-   de acciones). En prueba en la tabla de Servicios con `.tabla-separadores`;
-   para todas las tablas, sacar el prefijo de clase. */
-.tabla-separadores th {
-  position: relative;
+/* Separadores entre encabezados de toda tabla: línea vertical fina, a media
+   altura, a la izquierda de cada `th` salvo el primero (y salvo columnas
+   vacías, como la de acciones). El `position: relative` va en la capa base
+   para que un `sticky`/`absolute` puesto con Tailwind en un `th` le gane. */
+@layer base {
+  th {
+    position: relative;
+  }
 }
-.tabla-separadores th + th:not(:empty)::before {
+th + th:not(:empty)::before {
   content: "";
   position: absolute;
   left: 0;
