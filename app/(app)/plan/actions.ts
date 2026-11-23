@@ -5,9 +5,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import { aplicarPreapproval, getSuscripcionMp } from "@/lib/db/suscripciones";
-import { referenciaSuscripcion } from "@/lib/mercadopago";
+import { inicioDelCobro, referenciaSuscripcion } from "@/lib/mercadopago";
 import { cancelarPreapproval, crearPreapproval, mercadoPagoConfigurado } from "@/lib/mercadopago-api";
-import { PLANES, PLANES_PAGOS, type PlanId } from "@/lib/planes";
+import { PLANES, PLANES_PAGOS, esCiclo, precioCiclo, type Ciclo, type PlanId } from "@/lib/planes";
 
 async function origen(): Promise<string> {
   const configurado = process.env.NEXT_PUBLIC_SITE_URL;
@@ -23,20 +23,28 @@ async function origen(): Promise<string> {
  * cuando llega el aviso de Mercado Pago (`/api/webhooks/mercadopago`). */
 export async function suscribirseAction(
   plan: PlanId,
+  ciclo: Ciclo,
   email: string,
 ): Promise<{ url: string } | { error: string }> {
   const user = await requireRole("admin");
   if (!mercadoPagoConfigurado()) return { error: "El pago con Mercado Pago todavía no está disponible." };
-  if (!PLANES_PAGOS.includes(plan)) return { error: "Plan inválido." };
+  if (!PLANES_PAGOS.includes(plan) || !esCiclo(ciclo)) return { error: "Plan inválido." };
   const emailOk = z.string().trim().email().safeParse(email);
   if (!emailOk.success) return { error: "Ingresá un email válido." };
 
   try {
     const pre = await crearPreapproval({
-      motivo: `Tekly ${PLANES[plan].label} - ${user.organizationNombre}`,
-      referencia: referenciaSuscripcion(user.organizationId, plan),
+      motivo: `Tekly ${PLANES[plan].label} ${ciclo} - ${user.organizationNombre}`,
+      referencia: referenciaSuscripcion(user.organizationId, plan, ciclo),
       payerEmail: emailOk.data,
-      montoArs: PLANES[plan].precioArs!,
+      montoArs: precioCiclo(plan, ciclo)!,
+      meses: ciclo === "anual" ? 12 : 1,
+      // Durante la prueba el primer cobro arranca cuando termina.
+      inicio: inicioDelCobro(
+        user.suscripcion.trialTerminaAt,
+        user.suscripcion.estado === "trial",
+        new Date(),
+      ),
       volverA: `${await origen()}/plan?mp=volver`,
     });
     if (!pre.init_point) return { error: "Mercado Pago no devolvió el link de pago. Probá de nuevo." };

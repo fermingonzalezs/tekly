@@ -13,16 +13,39 @@ export type PlanId = "trial" | "starter" | "business" | "business_plus";
 export type PlanEstado = "trial" | "activo" | "vencido" | "cancelado";
 
 export const TRIAL_DIAS = 30;
-/** Días de gracia después de `periodo_termina_at`: el cobro es por
- * transferencia y no siempre se acredita el mismo día. */
-export const GRACIA_DIAS = 3;
+/** Días de gracia después de `periodo_termina_at`: cubre los reintentos de
+ * Mercado Pago cuando falla un débito (y las transferencias manuales, que no
+ * siempre se acreditan el mismo día). */
+export const GRACIA_DIAS = 7;
 
 export const PLANES: Record<PlanId, { label: string; maxUsuarios: number; precioArs: number | null }> = {
-  trial: { label: "Prueba gratis", maxUsuarios: 3, precioArs: null },
+  // La prueba es el plan Starter gratis: mismo cupo de usuarios.
+  trial: { label: "Prueba gratis", maxUsuarios: 1, precioArs: null },
   starter: { label: "Starter", maxUsuarios: 1, precioArs: 29990 },
   business: { label: "Business", maxUsuarios: 3, precioArs: 49990 },
   business_plus: { label: "Business+", maxUsuarios: 10, precioArs: 99990 },
 };
+
+/** Ciclo de cobro: mensual o anual. El anual cobra 10 meses y regala 2. */
+export type Ciclo = "mensual" | "anual";
+export const MESES_PAGOS_ANUAL = 10;
+
+export function esCiclo(v: unknown): v is Ciclo {
+  return v === "mensual" || v === "anual";
+}
+
+/** Lo que se cobra por ciclo (null en la prueba). */
+export function precioCiclo(plan: PlanId, ciclo: Ciclo): number | null {
+  const mensual = PLANES[plan].precioArs;
+  if (mensual === null) return null;
+  return ciclo === "anual" ? mensual * MESES_PAGOS_ANUAL : mensual;
+}
+
+/** Cuánto se ahorra al año pagando anual. */
+export function ahorroAnual(plan: PlanId): number {
+  const mensual = PLANES[plan].precioArs ?? 0;
+  return mensual * (12 - MESES_PAGOS_ANUAL);
+}
 
 /** Planes que se pueden contratar (todos menos la prueba). */
 export const PLANES_PAGOS: PlanId[] = ["starter", "business", "business_plus"];

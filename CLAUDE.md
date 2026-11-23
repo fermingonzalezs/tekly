@@ -114,7 +114,7 @@ decide por **host** (tekly.tech indexable; sistema.tekly.tech y cualquier otro
 `Disallow: /`); `middleware.ts` deja pasar `/robots.txt` y `/sitemap.xml` sin
 sesión y redirige `www.tekly.tech` → `tekly.tech` (308). `lib/marketing/seo.ts`
 tiene `SITE_URL` y el JSON-LD (Organization + WebSite + SoftwareApplication) —
-**sin `offers`** mientras los precios de la landing sean provisorios.
+con `offers` (precios mensuales de `lib/planes.ts`).
 
 **Legales** (plan 012): `/terminos`, `/privacidad` y `/cookies` viven en
 `app/(legal)/` (TSX con `LegalLayout`/`Seccion`/`Lista`, sin dependencias),
@@ -576,9 +576,12 @@ Pago), su webhook escribe esas mismas columnas.
   `periodo_termina_at`. Las orgs previas al plan quedaron en `business_plus`
   / `activo` sin vencimiento. Solo service role las escribe.
 - **Reglas puras** en `lib/planes.ts` (con test): `PLANES` (límites y precios
-  de referencia), `estadoDeAcceso` (`ok | trial | solo_lectura`, 3 días de
+  de referencia), `estadoDeAcceso` (`ok | trial | solo_lectura`, 7 días de
   gracia sobre `periodo_termina_at`), `puedeEscribir`, `cupoUsuarios`. Límites:
-  **Starter 1, Business 3, Business+ 10 usuarios**; la prueba permite 3.
+  **Starter 1, Business 3, Business+ 10 usuarios**; la prueba es el plan
+  Starter (1 usuario). Gracia: **7 días** (cubre los reintentos de Mercado Pago).
+  **Ciclo mensual o anual** (`Ciclo`, `precioCiclo`: el anual cobra
+  `MESES_PAGOS_ANUAL` = 10 meses), guardado en `organizations.plan_ciclo`.
 - **Gating**: `SessionUser.suscripcion` viene de `getSession`.
   `requireEscritura()` / `requireRoleEscritura(...)` (`lib/auth`) reemplazan a
   `requireUser`/`requireRole` en **toda server action que muta** (redirigen a
@@ -591,12 +594,15 @@ Pago), su webhook escribe esas mismas columnas.
   lectura), `/plan` (plan actual, uso, planes; link "Plan y facturación" en
   `UserMenu` para admin). `NEXT_PUBLIC_CONTACTO_EMAIL` (opcional) arma el
   mailto de "escribinos para activar".
-- Los montos de `PLANES` y de `components/marketing/pricing.tsx` son
-  provisorios: mantenerlos alineados.
+- Los montos viven solo en `PLANES` (`lib/planes.ts`): la landing
+  (`components/marketing/pricing.tsx`, con selector mensual/anual) y el
+  JSON-LD los leen de ahí.
 - **Mercado Pago (suscripciones)**: con `MERCADOPAGO_ACCESS_TOKEN`, `/plan`
   muestra «Suscribirme» por plan (`suscribirseAction` → `POST /preapproval`
   sin plan asociado, `status: pending`, `external_reference =
-  <orgId>:<plan>` → redirige al `init_point`). Sin token, queda el aviso de
+  <orgId>:<plan>:<ciclo>`, `frequency` 1 o 12 meses → redirige al
+  `init_point`; durante la prueba `start_date` = fin de la prueba,
+  `inicioDelCobro`, así no pierde días). Sin token, queda el aviso de
   transferencia. El webhook `/api/webhooks/mercadopago` (público en el
   middleware) **no confía en el aviso**: toma el id, vuelve a pedir el
   preapproval/authorized_payment a la API y `aplicarPreapproval`
@@ -604,7 +610,8 @@ Pago), su webhook escribe esas mismas columnas.
   `periodo_termina_at` (= próximo cobro) + `mp_preapproval_id`/`mp_estado`/
   `mp_payer_email`. Cambio de plan: la suscripción vieja se cancela recién
   cuando la nueva queda `authorized`. Cancelar/pausar respeta el período ya
-  pago. Firma (`MERCADOPAGO_WEBHOOK_SECRET`, `firmaWebhookValida` en
+  pago. Para cancelar la API exige `cancelled` (doble L, la doc dice
+  `canceled`); `normalizarEstadoMp` acepta las dos. Firma (`MERCADOPAGO_WEBHOOK_SECRET`, `firmaWebhookValida` en
   `lib/mercadopago.ts`, puro con test) se valida y una inválida solo se
   loguea. Suscribirse usa `requireRole` (no `requireRoleEscritura`): una
   cuenta vencida tiene que poder pagar.

@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   firmaWebhookValida,
+  inicioDelCobro,
   normalizarEstadoMp,
   leerReferenciaSuscripcion,
   periodoHasta,
@@ -12,10 +13,16 @@ const ORG = "b2175a9f-964f-45c3-838d-524187aa3296";
 
 describe("referencia de suscripción", () => {
   it("ida y vuelta", () => {
-    expect(leerReferenciaSuscripcion(referenciaSuscripcion(ORG, "business"))).toEqual({
+    expect(leerReferenciaSuscripcion(referenciaSuscripcion(ORG, "business", "anual"))).toEqual({
       orgId: ORG,
       plan: "business",
+      ciclo: "anual",
     });
+  });
+
+  it("las referencias viejas sin ciclo son mensuales", () => {
+    expect(leerReferenciaSuscripcion(`${ORG}:starter`)).toEqual({ orgId: ORG, plan: "starter", ciclo: "mensual" });
+    expect(leerReferenciaSuscripcion(`${ORG}:starter:semanal`)).toBeNull();
   });
 
   it("rechaza referencias ajenas o con plan inválido", () => {
@@ -59,6 +66,12 @@ describe("periodoHasta", () => {
     expect(periodoHasta({ proximoCobro: null, periodoActual: null, ahora })).toBe("2026-12-23T12:00:00.000Z");
   });
 
+  it("anual sin fecha de cobro: 12 meses", () => {
+    expect(periodoHasta({ proximoCobro: null, periodoActual: null, ahora, ciclo: "anual" })).toBe(
+      "2027-11-23T12:00:00.000Z",
+    );
+  });
+
   it("nunca acorta un período ya pago", () => {
     expect(
       periodoHasta({ proximoCobro: "2026-12-23T12:00:00Z", periodoActual: "2027-01-10T00:00:00.000Z", ahora }),
@@ -72,5 +85,17 @@ describe("normalizarEstadoMp", () => {
     expect(normalizarEstadoMp("canceled")).toBe("canceled");
     expect(normalizarEstadoMp("authorized")).toBe("authorized");
     expect(normalizarEstadoMp("finished")).toBeNull();
+  });
+});
+
+describe("inicioDelCobro", () => {
+  const ahora = new Date("2026-11-23T12:00:00Z");
+  it("en prueba, el primer cobro es al terminarla", () => {
+    expect(inicioDelCobro("2026-12-20T12:00:00Z", true, ahora)).toBe("2026-12-20T12:00:00.000Z");
+  });
+  it("sin prueba, prueba vencida o a menos de un día: cobra ya", () => {
+    expect(inicioDelCobro("2026-12-20T12:00:00Z", false, ahora)).toBeNull();
+    expect(inicioDelCobro("2026-11-20T12:00:00Z", true, ahora)).toBeNull();
+    expect(inicioDelCobro("2026-11-24T06:00:00Z", true, ahora)).toBeNull();
   });
 });

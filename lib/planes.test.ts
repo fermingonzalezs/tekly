@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ahorroAnual,
+  precioCiclo,
   cupoUsuarios,
   estadoDeAcceso,
   puedeEscribir,
@@ -35,15 +37,15 @@ describe("estadoDeAcceso", () => {
     expect(estadoDeAcceso(s, AHORA)).toEqual({ modo: "ok", diasRestantes: null });
   });
 
-  it("plan activo vencido tiene 3 días de gracia", () => {
+  it("plan activo vencido tiene 7 días de gracia (reintentos de Mercado Pago)", () => {
     const s: Suscripcion = {
       ...base,
       plan: "business",
       estado: "activo",
-      periodoTerminaAt: "2026-10-09T12:00:00Z",
+      periodoTerminaAt: "2026-10-05T12:00:00Z",
     };
     expect(puedeEscribir(s, AHORA)).toBe(true);
-    const viejo = { ...s, periodoTerminaAt: "2026-10-07T11:00:00Z" };
+    const viejo = { ...s, periodoTerminaAt: "2026-10-03T11:00:00Z" };
     expect(estadoDeAcceso(viejo, AHORA)).toEqual({
       modo: "solo_lectura",
       motivo: "periodo_vencido",
@@ -69,5 +71,18 @@ describe("cupoUsuarios", () => {
   it("lleno cuando usados alcanza el máximo", () => {
     expect(cupoUsuarios("business", 3)).toEqual({ max: 3, usados: 3, disponibles: 0, lleno: true });
     expect(cupoUsuarios("business", 2).lleno).toBe(false);
+  });
+});
+
+describe("ciclo de cobro", () => {
+  it("el anual cobra 10 meses y ahorra 2", () => {
+    expect(precioCiclo("starter", "mensual")).toBe(29990);
+    expect(precioCiclo("starter", "anual")).toBe(299900);
+    expect(ahorroAnual("starter")).toBe(59980);
+    expect(precioCiclo("trial", "anual")).toBeNull();
+  });
+
+  it("la prueba tiene el mismo cupo que Starter", () => {
+    expect(cupoUsuarios("trial", 1).lleno).toBe(true);
   });
 });

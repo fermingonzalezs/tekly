@@ -8,9 +8,11 @@ import {
   type EstadoMp,
 } from "@/lib/mercadopago";
 import { cancelarPreapproval, type Preapproval } from "@/lib/mercadopago-api";
+import { esCiclo, type Ciclo } from "@/lib/planes";
 
 export type SuscripcionMp = {
   preapprovalId: string | null;
+  ciclo: Ciclo;
   estado: EstadoMp | null;
   payerEmail: string | null;
 };
@@ -20,11 +22,12 @@ export async function getSuscripcionMp(): Promise<SuscripcionMp> {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("organizations")
-    .select("mp_preapproval_id, mp_estado, mp_payer_email")
+    .select("mp_preapproval_id, mp_estado, mp_payer_email, plan_ciclo")
     .single();
   if (error) throw error;
   return {
     preapprovalId: data.mp_preapproval_id,
+    ciclo: esCiclo(data.plan_ciclo) ? data.plan_ciclo : "mensual",
     estado: esEstadoMp(data.mp_estado) ? data.mp_estado : null,
     payerEmail: data.mp_payer_email,
   };
@@ -72,7 +75,9 @@ export async function aplicarPreapproval(pre: Preapproval, ahora = new Date()): 
           proximoCobro: pre.next_payment_date,
           periodoActual: esLaVigente ? org.periodo_termina_at : null,
           ahora,
+          ciclo: ref.ciclo,
         }),
+        plan_ciclo: ref.ciclo,
         mp_preapproval_id: pre.id,
         mp_estado: "authorized",
         mp_payer_email: pre.payer_email ?? null,

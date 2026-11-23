@@ -3,6 +3,8 @@
  * arma el JSON-LD. La app de gestión (sistema.tekly.tech) no se indexa.
  */
 
+import { PLANES, PLANES_PAGOS } from "@/lib/planes";
+
 export const SITE_URL = "https://tekly.tech";
 
 export const NOMBRE = "Tekly";
@@ -10,9 +12,8 @@ export const NOMBRE = "Tekly";
 export const DESCRIPCION_LARGA =
   "Tekly es un sistema de gestión en la nube para locales de venta y reparación de celulares: stock por IMEI, ventas con pago dividido, reparaciones con checklist, turnos, cajas con conciliación y analíticas, con acceso por rol para todo el equipo.";
 
-/** Datos estructurados (schema.org) de la home. Sin `offers`: los precios de
- * la landing son provisorios (ver components/marketing/pricing.tsx) y no
- * deben publicarse a Google como oferta real hasta definir el pricing. */
+/** Datos estructurados (schema.org) de la home. `offers` sale de
+ * `lib/planes.ts` (precios mensuales, los mismos que cobra Mercado Pago). */
 export function jsonLdLanding() {
   return {
     "@context": "https://schema.org",
@@ -42,6 +43,13 @@ export function jsonLdLanding() {
         operatingSystem: "Web",
         inLanguage: "es-AR",
         publisher: { "@id": `${SITE_URL}/#organization` },
+        offers: PLANES_PAGOS.map((id) => ({
+          "@type": "Offer",
+          name: PLANES[id].label,
+          price: PLANES[id].precioArs,
+          priceCurrency: "ARS",
+          url: `${SITE_URL}/#precios`,
+        })),
         featureList: [
           "Inventario con stock por IMEI",
           "Ventas con pago dividido y cuenta corriente",

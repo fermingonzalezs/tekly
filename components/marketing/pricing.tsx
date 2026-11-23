@@ -1,4 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import { Check } from "lucide-react";
+import { Tabs } from "@/components/ui/tabs";
+import { MESES_PAGOS_ANUAL, precioCiclo, type Ciclo, type PlanId } from "@/lib/planes";
 import { RevealItem, RevealStagger } from "./ui/reveal";
 import { GLASS } from "./ui/glass";
 import { SectionHeading, SECTION_WRAP } from "./ui/section-heading";
@@ -6,26 +11,25 @@ import { signupUrl } from "@/lib/marketing/app-url";
 import { cn } from "@/lib/utils";
 
 /**
- * Precios: los límites de usuarios y la prueba de 30 días sin tarjeta son
- * reales (`lib/planes.ts`, plan 015). Los montos siguen siendo provisorios
- * (aviso debajo) y el cobro es por transferencia, sin checkout. Mantener
- * `PLANES` de acá alineado con `lib/planes.ts`. No prometer nada que el
+ * Precios: montos, ciclo mensual/anual, límites de usuarios y la prueba de 30
+ * días sin tarjeta salen de `lib/planes.ts` (los mismos que cobra Mercado Pago
+ * en /plan); acá solo van los textos de cada plan. No prometer nada que el
  * producto no soporte hoy (ej. multi-local: un usuario pertenece a una sola
  * organización).
  */
 
-const PLANES = [
+const PLANES_LANDING: { id: PlanId; nombre: string; resumen: string; features: string[]; cta: string; destacado: boolean }[] = [
   {
+    id: "starter",
     nombre: "Starter",
-    precio: "29.990",
     resumen: "Para quien arranca solo y quiere ordenarse.",
     features: ["1 usuario", "Los 6 módulos", "Soporte por email"],
     cta: "Probar gratis",
     destacado: false,
   },
   {
+    id: "business",
     nombre: "Business",
-    precio: "49.990",
     resumen: "Para celulares que trabajan todo el día en el local.",
     features: [
       "Hasta 3 usuarios",
@@ -37,8 +41,8 @@ const PLANES = [
     destacado: true,
   },
   {
+    id: "business_plus",
     nombre: "Business+",
-    precio: "99.990",
     resumen: "Para celulares grandes que necesitan acompañamiento cercano.",
     features: [
       "Hasta 10 usuarios",
@@ -51,7 +55,10 @@ const PLANES = [
   },
 ];
 
+const fmtPrecio = (n: number) => n.toLocaleString("es-AR");
+
 export function MarketingPricing() {
+  const [ciclo, setCiclo] = useState<Ciclo>("mensual");
   return (
     <section id="precios" className={`${SECTION_WRAP} flex scroll-mt-20 flex-col gap-12 pb-20 sm:pb-36`}>
       <SectionHeading
@@ -61,8 +68,19 @@ export function MarketingPricing() {
         lead="Los seis módulos en todos los planes. Cambiás de plan cuando tu negocio crece."
       />
 
+      <div className="-mt-4 flex justify-center">
+        <Tabs
+          value={ciclo}
+          onChange={setCiclo}
+          options={[
+            { value: "mensual", label: "Mensual" },
+            { value: "anual", label: `Anual · ${12 - MESES_PAGOS_ANUAL} meses gratis` },
+          ]}
+        />
+      </div>
+
       <RevealStagger className="grid items-stretch gap-[18px] lg:grid-cols-3">
-        {PLANES.map((plan) => (
+        {PLANES_LANDING.map((plan) => (
           <RevealItem key={plan.nombre} className="h-full">
             <div
               className={cn(
@@ -86,17 +104,29 @@ export function MarketingPricing() {
                 </p>
               </div>
 
-              <p className="flex items-baseline justify-center gap-1.5">
-                <span className={cn("text-base", plan.destacado ? "text-white/60" : "text-neutral-500")}>
-                  ARS
-                </span>
-                <span className="font-display text-6xl font-extrabold tabular-nums tracking-[-0.03em] sm:text-7xl">
-                  {plan.precio}
-                </span>
-                <span className={cn("text-base", plan.destacado ? "text-white/60" : "text-neutral-500")}>
-                  /mes
-                </span>
-              </p>
+              <div className="flex flex-col items-center gap-1">
+                <p className="flex items-baseline justify-center gap-1.5">
+                  <span className={cn("text-base", plan.destacado ? "text-white/60" : "text-neutral-500")}>
+                    ARS
+                  </span>
+                  <span
+                    className={cn(
+                      "font-display font-extrabold tabular-nums tracking-[-0.03em]",
+                      ciclo === "anual" ? "text-5xl sm:text-6xl" : "text-6xl sm:text-7xl",
+                    )}
+                  >
+                    {fmtPrecio(precioCiclo(plan.id, ciclo)!)}
+                  </span>
+                  <span className={cn("text-base", plan.destacado ? "text-white/60" : "text-neutral-500")}>
+                    {ciclo === "anual" ? "/año" : "/mes"}
+                  </span>
+                </p>
+                {ciclo === "anual" && (
+                  <p className={cn("text-sm", plan.destacado ? "text-white/70" : "text-neutral-600")}>
+                    Equivale a ARS {fmtPrecio(Math.round(precioCiclo(plan.id, "anual")! / 12))}/mes
+                  </p>
+                )}
+              </div>
 
               <hr className={cn("border-0 border-t", plan.destacado ? "border-white/15" : "border-neutral-900/10")} />
 
@@ -134,7 +164,7 @@ export function MarketingPricing() {
       </RevealStagger>
 
       <p className="text-center text-[13px] text-neutral-500">
-        30 días de prueba gratis, sin tarjeta. Precios de referencia, se confirman antes del lanzamiento.
+        30 días de prueba gratis con el plan Starter, sin tarjeta. Pagás con Mercado Pago, mensual o anual.
       </p>
     </section>
   );

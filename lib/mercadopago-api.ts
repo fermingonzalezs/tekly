@@ -61,6 +61,10 @@ export function crearPreapproval(params: {
   referencia: string;
   payerEmail: string;
   montoArs: number;
+  /** 1 = mensual, 12 = anual. */
+  meses: 1 | 12;
+  /** Primer cobro (fin de la prueba); sin él, cobra al autorizar. */
+  inicio: string | null;
   volverA: string;
 }): Promise<Preapproval> {
   return mp<Preapproval>("POST", "/preapproval", {
@@ -68,10 +72,11 @@ export function crearPreapproval(params: {
     external_reference: params.referencia,
     payer_email: params.payerEmail,
     auto_recurring: {
-      frequency: 1,
+      frequency: params.meses,
       frequency_type: "months",
       transaction_amount: params.montoArs,
       currency_id: "ARS",
+      ...(params.inicio ? { start_date: params.inicio } : {}),
     },
     back_url: params.volverA,
     status: "pending",

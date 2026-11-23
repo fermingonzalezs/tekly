@@ -10,21 +10,22 @@
  * como capa extra.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { esPlanId, type PlanId } from "@/lib/planes";
+import { esCiclo, esPlanId, type Ciclo, type PlanId } from "@/lib/planes";
 
-/** `external_reference` del preapproval: organización + plan contratado. */
-export function referenciaSuscripcion(orgId: string, plan: PlanId): string {
-  return `${orgId}:${plan}`;
+/** `external_reference` del preapproval: organización + plan + ciclo. */
+export function referenciaSuscripcion(orgId: string, plan: PlanId, ciclo: Ciclo): string {
+  return `${orgId}:${plan}:${ciclo}`;
 }
 
+/** Las referencias sin ciclo (las primeras, antes del anual) son mensuales. */
 export function leerReferenciaSuscripcion(
   ref: string | null | undefined,
-): { orgId: string; plan: PlanId } | null {
+): { orgId: string; plan: PlanId; ciclo: Ciclo } | null {
   if (!ref) return null;
-  const [orgId, plan, ...resto] = ref.split(":");
-  if (resto.length || !orgId || !esPlanId(plan) || plan === "trial") return null;
+  const [orgId, plan, ciclo = "mensual", ...resto] = ref.split(":");
+  if (resto.length || !orgId || !esPlanId(plan) || plan === "trial" || !esCiclo(ciclo)) return null;
   if (!/^[0-9a-f-]{36}$/i.test(orgId)) return null;
-  return { orgId, plan };
+  return { orgId, plan, ciclo };
 }
 
 /** Valida `x-signature` (`ts=...,v1=...`): HMAC SHA256 con la clave secreta
@@ -57,19 +58,21 @@ export function firmaWebhookValida(params: {
 }
 
 /** Hasta cuándo queda pago el plan: la próxima fecha de cobro de Mercado
- * Pago; si no viene, un mes desde ahora. Nunca acorta un período ya pago. */
+ * Pago; si no viene, un ciclo (1 o 12 meses) desde ahora. Nunca acorta un
+ * período ya pago. */
 export function periodoHasta(params: {
   proximoCobro: string | null | undefined;
   periodoActual: string | null;
   ahora: Date;
+  ciclo?: Ciclo;
 }): string {
-  const { proximoCobro, periodoActual, ahora } = params;
+  const { proximoCobro, periodoActual, ahora, ciclo = "mensual" } = params;
   let hasta: Date;
   if (proximoCobro && !Number.isNaN(Date.parse(proximoCobro))) {
     hasta = new Date(proximoCobro);
   } else {
     hasta = new Date(ahora);
-    hasta.setUTCMonth(hasta.getUTCMonth() + 1);
+    hasta.setUTCMonth(hasta.getUTCMonth() + (ciclo === "anual" ? 12 : 1));
   }
   if (periodoActual && Date.parse(periodoActual) > hasta.getTime()) return periodoActual;
   return hasta.toISOString();
@@ -77,6 +80,16 @@ export function periodoHasta(params: {
 
 /** Estado de un preapproval tal como lo guarda `organizations.mp_estado`. */
 export type EstadoMp = "pending" | "authorized" | "paused" | "canceled";
+
+/** Fecha del primer cobro: si la prueba gratis sigue vigente (al menos un
+ * día más), arranca cuando termina, así suscribirse antes no hace perder días
+ * de prueba. Mercado Pago lo convierte en días gratis del lado del cobro. */
+export function inicioDelCobro(trialTerminaAt: string | null, enPrueba: boolean, ahora: Date): string | null {
+  if (!enPrueba || !trialTerminaAt) return null;
+  const fin = Date.parse(trialTerminaAt);
+  if (Number.isNaN(fin) || fin - ahora.getTime() < 86_400_000) return null;
+  return new Date(fin).toISOString();
+}
 
 export function esEstadoMp(v: unknown): v is EstadoMp {
   return v === "pending" || v === "authorized" || v === "paused" || v === "canceled";
