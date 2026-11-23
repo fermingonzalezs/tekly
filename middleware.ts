@@ -24,6 +24,9 @@ const ALWAYS_PUBLIC_PATHS = [
   // Cron del resumen mensual (plan 022): sin sesión, la ruta exige su propio
   // `Authorization: Bearer <CRON_SECRET>`.
   "/api/cron",
+  // Avisos de Mercado Pago (suscripciones): sin sesión; la ruta no confía en
+  // el contenido del aviso, vuelve a pedir el recurso a la API con el token.
+  "/api/webhooks",
 ];
 
 // Dominios de marketing (landing en tekly.tech). Si el host es uno de

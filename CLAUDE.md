@@ -593,6 +593,21 @@ Pago), su webhook escribe esas mismas columnas.
   mailto de "escribinos para activar".
 - Los montos de `PLANES` y de `components/marketing/pricing.tsx` son
   provisorios: mantenerlos alineados.
+- **Mercado Pago (suscripciones)**: con `MERCADOPAGO_ACCESS_TOKEN`, `/plan`
+  muestra «Suscribirme» por plan (`suscribirseAction` → `POST /preapproval`
+  sin plan asociado, `status: pending`, `external_reference =
+  <orgId>:<plan>` → redirige al `init_point`). Sin token, queda el aviso de
+  transferencia. El webhook `/api/webhooks/mercadopago` (público en el
+  middleware) **no confía en el aviso**: toma el id, vuelve a pedir el
+  preapproval/authorized_payment a la API y `aplicarPreapproval`
+  (`lib/db/suscripciones.ts`) escribe `plan`/`plan_estado`/
+  `periodo_termina_at` (= próximo cobro) + `mp_preapproval_id`/`mp_estado`/
+  `mp_payer_email`. Cambio de plan: la suscripción vieja se cancela recién
+  cuando la nueva queda `authorized`. Cancelar/pausar respeta el período ya
+  pago. Firma (`MERCADOPAGO_WEBHOOK_SECRET`, `firmaWebhookValida` en
+  `lib/mercadopago.ts`, puro con test) se valida y una inválida solo se
+  loguea. Suscribirse usa `requireRole` (no `requireRoleEscritura`): una
+  cuenta vencida tiene que poder pagar.
 
 ## Sistema de diseño
 

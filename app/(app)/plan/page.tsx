@@ -1,6 +1,9 @@
 import { Check } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { listMiembros } from "@/lib/db/configuracion";
+import { getSuscripcionMp } from "@/lib/db/suscripciones";
+import { mercadoPagoConfigurado } from "@/lib/mercadopago-api";
+import { BotonSuscribirse, CancelarSuscripcion } from "./suscripcion-client";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
@@ -15,13 +18,22 @@ import {
 } from "@/lib/planes";
 import { cn } from "@/lib/utils";
 
-/** Plan actual, uso y planes disponibles. El cobro es por transferencia: no
- * hay checkout todavía, el admin de plataforma asigna el plan desde /admin. */
-export default async function PlanPage() {
+/** Plan actual, uso y planes disponibles. Con `MERCADOPAGO_ACCESS_TOKEN` el
+ * admin se suscribe con débito automático (Mercado Pago); sin él, queda el
+ * aviso de pago por transferencia y el admin de plataforma asigna el plan. */
+export default async function PlanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mp?: string }>;
+}) {
+  const { mp: mpParam } = await searchParams;
   const user = await requireUser();
   const s = user.suscripcion;
   const acceso = estadoDeAcceso(s);
   const miembros = user.rol === "admin" ? await listMiembros() : [];
+  const conMp = user.rol === "admin" && mercadoPagoConfigurado();
+  const mp = conMp ? await getSuscripcionMp() : null;
+  const debitoActivo = mp?.estado === "authorized";
   const cupo = cupoUsuarios(s.plan, miembros.filter((m) => m.activo).length);
   const contacto = process.env.NEXT_PUBLIC_CONTACTO_EMAIL;
 
@@ -90,24 +102,55 @@ export default async function PlanPage() {
                         Tu plan actual
                       </p>
                     )}
+                    {conMp && !(actual && debitoActivo) && (
+                      <BotonSuscribirse
+                        plan={id}
+                        emailInicial={mp?.payerEmail ?? user.email}
+                        label={debitoActivo ? "Cambiar a este plan" : "Suscribirme"}
+                      />
+                    )}
                   </div>
                 );
               })}
             </div>
-            <p className="mt-5 text-[13px] text-neutral-600">
-              Por ahora el pago es por transferencia: elegí un plan y escribinos para activarlo.
-              {contacto ? (
-                <>
-                  {" "}
-                  <a
-                    href={`mailto:${contacto}?subject=${encodeURIComponent(`Activar plan — ${user.organizationNombre}`)}`}
-                    className="font-semibold text-accent underline underline-offset-2"
-                  >
-                    {contacto}
-                  </a>
-                </>
-              ) : null}
-            </p>
+            {mpParam === "volver" && !debitoActivo && (
+              <p className="mt-5 rounded-lg bg-accent-soft px-3 py-2 text-[13px] text-neutral-700">
+                Estamos esperando la confirmación de Mercado Pago. Puede tardar unos minutos: recargá
+                esta página en un rato.
+              </p>
+            )}
+            {debitoActivo && (
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-200 px-4 py-3">
+                <p className="text-[13px] text-neutral-700">
+                  Débito automático activo con Mercado Pago
+                  {mp?.payerEmail ? ` (${mp.payerEmail})` : ""}.
+                </p>
+                <CancelarSuscripcion
+                  hasta={s.periodoTerminaAt ? fmtDayMonth(s.periodoTerminaAt) : null}
+                />
+              </div>
+            )}
+            {mp?.estado === "canceled" && (
+              <p className="mt-5 text-[13px] text-neutral-600">
+                Cancelaste el débito automático. Podés volver a suscribirte cuando quieras.
+              </p>
+            )}
+            {!conMp && (
+              <p className="mt-5 text-[13px] text-neutral-600">
+                Por ahora el pago es por transferencia: elegí un plan y escribinos para activarlo.
+                {contacto ? (
+                  <>
+                    {" "}
+                    <a
+                      href={`mailto:${contacto}?subject=${encodeURIComponent(`Activar plan — ${user.organizationNombre}`)}`}
+                      className="font-semibold text-accent underline underline-offset-2"
+                    >
+                      {contacto}
+                    </a>
+                  </>
+                ) : null}
+              </p>
+            )}
             <p className="mt-1 text-[11px] text-neutral-500">
               Precios de referencia en pesos argentinos, sujetos a confirmación.
             </p>
