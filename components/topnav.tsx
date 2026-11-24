@@ -110,7 +110,11 @@ export function TopNav({
                 </button>
 
                 {open && (
-                  <div className="animate-menu-in origin-top absolute left-1/2 top-full z-50 mt-2 w-52 -translate-x-1/2 overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl">
+                  // El centrado (translate) va en el contenedor y la animación
+                  // (scale) en el panel: si comparten elemento, el `transform` de
+                  // la animación pisa el `-translate-x-1/2` y el panel se corre.
+                  <div className="absolute left-1/2 top-full z-50 mt-2 w-52 -translate-x-1/2">
+                  <div className="animate-menu-in origin-top overflow-hidden rounded-xl border border-neutral-200 bg-white py-1 shadow-xl">
                     {children.map((c) => {
                       const childActive =
                         pathname === c.href || pathname.startsWith(c.href + "/");
@@ -131,6 +135,7 @@ export function TopNav({
                         </Link>
                       );
                     })}
+                  </div>
                   </div>
                 )}
               </div>

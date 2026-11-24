@@ -12,6 +12,8 @@ import {
   ventaGananciaPorPeriodo,
   ventasPorRubro,
   ventasRecientes,
+  avanceObjetivo,
+  agendaDelLocal,
 } from "@/lib/dashboard";
 import type { Ticket, Turno, Venta, VentaItem } from "@/lib/types";
 
@@ -56,6 +58,10 @@ function ticket(fechaISO: string, extra?: Partial<Ticket>): Ticket {
 function turno(dayOffset: number, extra?: Partial<Turno>): Turno {
   return {
     id: "t-1",
+    fecha: "2026-11-24",
+    duracionMin: 30,
+    atiendeId: null,
+    atiende: null,
     dayOffset,
     hora: "10:00",
     cliente: "Cliente",
@@ -331,5 +337,91 @@ describe("ritmoDelMes", () => {
     expect(r.anterior).toEqual([0, 10, 10]);
     expect(r.daysInMonth).toBe(31);
     expect(r.esActual).toBe(true);
+  });
+});
+
+describe("ventasRecientes · rubro", () => {
+  it("toma el rubro del ítem de mayor importe", () => {
+    const v = venta("2026-10-10", 1010, 20, {
+      items: [
+        { detalle: "Funda", cantidad: 1, precioUsd: 10, categoria: "otro" },
+        { detalle: "iPhone 14", cantidad: 1, precioUsd: 1000, categoria: "celular" },
+      ],
+    });
+    const [r] = ventasRecientes([v], 8, new Date(2026, 9, 10));
+    expect(r.rubro).toBe("Celulares");
+    expect(r.rubroIdx).toBe(0);
+  });
+});
+
+describe("avanceObjetivo", () => {
+  it("compara lo cumplido con el ritmo ideal lineal", () => {
+    const a = avanceObjetivo({ current: 18420, target: 25000, dayOfMonth: 24, daysInMonth: 30 });
+    expect(a.pct).toBe(74);
+    expect(a.ideal).toBe(80);
+    expect(a.diffPts).toBe(-6);
+    expect(a.falta).toBe(6580);
+    expect(a.daysLeft).toBe(6);
+    expect(a.perDay).toBe(1097);
+    expect(a.projected).toBe(23025);
+    expect(a.projectedPct).toBe(92);
+  });
+  it("meta cumplida: falta 0 y ritmo necesario 0", () => {
+    const a = avanceObjetivo({ current: 30000, target: 25000, dayOfMonth: 30, daysInMonth: 30 });
+    expect(a.pct).toBe(100);
+    expect(a.falta).toBe(0);
+    expect(a.perDay).toBe(0);
+  });
+  it("sin meta cargada no divide por cero", () => {
+    const a = avanceObjetivo({ current: 500, target: 0, dayOfMonth: 10, daysInMonth: 30 });
+    expect(a.pct).toBe(0);
+    expect(a.ideal).toBe(0);
+    expect(a.projectedPct).toBe(0);
+  });
+});
+
+describe("agendaDelLocal", () => {
+  const hoy = new Date(2026, 10, 24); // martes 24/11/2026
+  const ticket = (id: number, estado: Ticket["estado"], fechaISO: string): Ticket => ({
+    id, clienteId: "c", cliente: `Cliente ${id}`, equipo: "iPhone 12", imei: "", falla: "pantalla",
+    tecnicoId: null, tecnico: "Nico", estado, ingreso: "", fechaISO, presupuestoUsd: 0, servicios: [],
+  });
+  const turno = (id: string, dayOffset: number, hora: string, extra?: Partial<Turno>): Turno => ({
+    id, fecha: "2026-11-24", duracionMin: 30, atiendeId: null, atiende: null, dayOffset, hora, cliente: `T ${id}`, clienteId: null, tipo: "compra",
+    estado: "pendiente", ticketId: null, ...extra,
+  });
+
+  it("listos más viejos primero, después los próximos turnos en orden", () => {
+    const out = agendaDelLocal(
+      [ticket(1, "listo", "2026-11-21"), ticket(2, "listo", "2026-11-23"), ticket(3, "en_reparacion", "2026-11-20")],
+      [
+        turno("b", 1, "10:00"),
+        turno("a", 0, "16:00", { tipo: "deja" }),
+        turno("x", 0, "09:00", { estado: "cancelado" }),
+        turno("viejo", -1, "09:00"),
+      ],
+      hoy,
+    );
+    expect(out.items.map((i) => i.key)).toEqual(["t-1", "t-2", "u-a", "u-b"]);
+    expect(out.items[0].banda).toBe("Listo · ingresó hace 3 días");
+    expect(out.items[0].ref).toBe("1");
+    expect(out.items[2].banda).toBe("Deja reparación · hoy 16:00");
+    expect(out.items[3].banda).toBe("Compra equipo · mañana 10:00");
+    expect(out).toMatchObject({ turnosHoy: 1, ticketsAbiertos: 3, listos: 2 });
+  });
+
+  it("sin turnos, llena con listos; sin listos, con turnos", () => {
+    const listos = [1, 2, 3, 4, 5].map((i) => ticket(i, "listo", "2026-11-20"));
+    expect(agendaDelLocal(listos, [], hoy).items).toHaveLength(4);
+    const turnos = ["a", "b", "c", "d", "e"].map((id) => turno(id, 2, "10:00"));
+    const out = agendaDelLocal([], turnos, hoy);
+    expect(out.items).toHaveLength(4);
+    expect(out.items[0].banda).toBe("Compra equipo · jueves 10:00");
+  });
+
+  it("con muchos listos deja lugar para los turnos", () => {
+    const listos = [1, 2, 3, 4, 5].map((i) => ticket(i, "listo", "2026-11-20"));
+    const out = agendaDelLocal(listos, [turno("a", 0, "10:00")], hoy);
+    expect(out.items.map((i) => i.accion)).toEqual(["ticket", "ticket", "turno", "ticket"]);
   });
 });

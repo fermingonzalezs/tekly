@@ -20,7 +20,7 @@ export const TABS_ANALITICAS: { value: TabAnaliticas; label: string }[] = [
   { value: "finanzas", label: "Finanzas" },
   { value: "inventario", label: "Inventario" },
   { value: "clientes", label: "Clientes" },
-  { value: "turnos", label: "Turnos" },
+  { value: "turnos", label: "Agenda" },
 ];
 
 const TAB_VALUES = TABS_ANALITICAS.map((t) => t.value) as [

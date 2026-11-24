@@ -33,7 +33,7 @@ export const NAV: NavItem[] = [
   { href: "/ventas", label: "Ventas", icon: ShoppingCart },
   { href: "/compras", label: "Compras", icon: ShoppingBag, roles: ["admin", "tecnico"] },
   { href: "/reparaciones", label: "Reparaciones", icon: Wrench },
-  { href: "/turnos", label: "Turnos", icon: CalendarClock },
+  { href: "/agenda", label: "Agenda", icon: CalendarClock },
   { href: "/inventario", label: "Inventario", icon: Boxes },
   { href: "/recuentos", label: "Recuentos", icon: ClipboardCheck },
   { href: "/clientes", label: "Clientes", icon: Users },
@@ -66,7 +66,7 @@ type NavGroupDef = { label: string; icon: LucideIcon; hrefs: string[] };
 
 const NAV_GROUPS: NavGroupDef[] = [
   { label: "Dashboard", icon: LayoutDashboard, hrefs: ["/dashboard"] },
-  { label: "Ventas", icon: ShoppingCart, hrefs: ["/ventas", "/turnos", "/difusion"] },
+  { label: "Ventas", icon: ShoppingCart, hrefs: ["/ventas", "/agenda", "/difusion"] },
   { label: "Stock", icon: Boxes, hrefs: ["/inventario", "/compras", "/recuentos"] },
   { label: "Reparaciones", icon: Wrench, hrefs: ["/reparaciones"] },
   { label: "Clientes", icon: Users, hrefs: ["/clientes"] },

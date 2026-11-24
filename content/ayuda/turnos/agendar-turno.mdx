@@ -4,10 +4,10 @@ resumen: "Cómo cargar un turno en el calendario: cliente (o sin registrar), mot
 seccion: turnos
 roles: []
 orden: 2
-actualizado: 2026-10-17
+actualizado: 2026-11-24
 ---
 
-Se agenda tocando el **«+»** de un hueco libre del calendario, o con el botón de acción. El diálogo se titula **«Agendar turno»**.
+Se agenda tocando un hueco libre del calendario o con el botón **«Agendar turno»**. El diálogo se titula **«Agendar turno»**.
 
 <Paso n={1} titulo="Cliente">
 Elegí uno existente, creá uno nuevo, o usá **«usar sin registrar»** para alguien que todavía no es cliente. En ese caso el turno guarda sólo el nombre.
@@ -17,12 +17,16 @@ Elegí uno existente, creá uno nuevo, o usá **«usar sin registrar»** para al
 Elegí el **tipo**: Compra equipo, Deja reparación, Retira reparación o Cotizar. El formulario cambia según el tipo (ver [Tipos de turno](/ayuda/turnos/tipos-de-turno)).
 </Paso>
 
-<Paso n={3} titulo="Fecha y hora">
-El turno se crea en el hueco que tocaste. Nace en estado **«Confirmado»**.
+<Paso n={3} titulo="Fecha, hora y duración">
+Vienen precargadas con el hueco que tocaste y se pueden cambiar. La duración va de 15 a 90 minutos (30 por defecto). Nace en estado **«Confirmado»**.
+</Paso>
+
+<Paso n={4} titulo="Quién atiende">
+Opcional. Si esa persona ya tiene otro turno que se pisa, se muestra un aviso, pero igual podés agendarlo.
 </Paso>
 
 <Aviso titulo="El horario" tono="info">
-El calendario va de 9 a 20 h, cada media hora, y sólo dentro de los próximos 7 días.
+El calendario va de 9 a 20 h, cada media hora. Se puede agendar en cualquier fecha.
 </Aviso>
 
 ## Qué pasa después
@@ -33,12 +37,11 @@ El calendario va de 9 a 20 h, cada media hora, y sólo dentro de los próximos 7
 
 ## Qué no se puede
 
-- No se puede agendar fuera de los 7 días o fuera de 9–20 h.
 - Un turno **«Retira reparación»** necesita elegir un ticket en estado «Listo».
 - No se crea sin cliente (aunque sea «sin registrar») ni sin motivo.
-- No hay reprogramación: para moverlo, cancelá y agendá de nuevo.
+- Para moverlo usá **«Editar»** desde el detalle del turno.
 
 ## Relacionados
 
 - [Tipos de turno](/ayuda/turnos/tipos-de-turno)
-- [Módulo Turnos](/ayuda/turnos/guia)
+- [Módulo Agenda](/ayuda/turnos/guia)

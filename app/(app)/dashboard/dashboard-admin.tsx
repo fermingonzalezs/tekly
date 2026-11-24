@@ -6,28 +6,33 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/button";
-import { MetricCards } from "@/components/dashboard/metric-cards";
+import { KpisAdmin } from "@/components/dashboard/kpis-admin";
+import { AgendaLocalCard } from "@/components/dashboard/agenda-local";
 import { RitmoChart } from "@/components/dashboard/ritmo-chart";
 import { RubrosPie } from "@/components/dashboard/rubros-pie";
-import { ObjetivoPanel } from "@/components/dashboard/objetivo-panel";
-import { TurnosHeatmap } from "@/components/dashboard/turnos-heatmap";
-import { RecentSales } from "@/components/dashboard/recent-sales";
+import { ObjetivoMes as ObjetivoMesCard } from "@/components/dashboard/objetivo-mes";
+import { VentasRecientesTabla } from "@/components/dashboard/ventas-recientes-tabla";
 import { useRefrescoEnVivo } from "@/components/dashboard/use-refresco-en-vivo";
 import {
   etiquetaMes,
   moverMes,
+  type AgendaLocal,
   type MesDashboard,
   type MetricaDashboard,
   type ObjetivoMes,
   type RitmoMes,
   type VentaReciente,
 } from "@/lib/dashboard";
-import type { Turno } from "@/lib/types";
 
-/** Dashboard de admin: KPIs con "Ventas del mes" destacada, ritmo del mes
- * (acumulado vs mes anterior vs ritmo ideal), mix de rubros, objetivo del mes y, a la derecha,
- * turnos agendados + ventas recientes. Se actualiza solo ante eventos de la
- * org (`useRefrescoEnVivo`). */
+/** KPIs que muestra la fila de arriba (tickets abiertos / turnos hoy pasaron
+ * a los contadores de "Agenda del local"). */
+const KPIS = ["ventas", "ganancia", "margen", "ticket"];
+
+/** Dashboard de admin, de arriba abajo: 4 KPIs ("Ventas del mes"
+ * destacada), agenda del local (tickets listos + próximos turnos), objetivo
+ * del mes, ritmo del mes + vendido por rubro y ventas recientes en tabla. La
+ * página scrollea. Se actualiza sola ante eventos de la org
+ * (`useRefrescoEnVivo`). */
 export function DashboardAdmin({
   metrics,
   objetivo,
@@ -37,8 +42,9 @@ export function DashboardAdmin({
   mes,
   onMesChange,
   recentSales,
-  turnos,
+  agenda,
   ventasHref,
+  demo = false,
 }: {
   metrics: MetricaDashboard[];
   objetivo: ObjetivoMes;
@@ -50,9 +56,11 @@ export function DashboardAdmin({
    * demo lo pasa para llevar el mes en estado local. */
   onMesChange?: (clave: string) => void;
   recentSales: VentaReciente[];
-  turnos: Turno[];
+  agenda: AgendaLocal;
   /** Base del link de "Ventas recientes" (en demo `/demo/ventas`). */
   ventasHref?: string;
+  /** Demo sin cuenta: sin links a secciones que no existen ahí. */
+  demo?: boolean;
 }) {
   useRefrescoEnVivo();
   const router = useRouter();
@@ -89,54 +97,41 @@ export function DashboardAdmin({
           />
         </div>
       }
-      // En pantallas xl el dashboard entra completo en el viewport: alto =
-      // 100dvh menos TopNav (h-16) + Topbar (h-14), sin scroll de página.
-      // Debajo de xl las columnas se apilan y se deja scrollear con normalidad
-      // -- ahí el `p-4` no alcanza como margen inferior real (la tarjeta de
-      // Ventas recientes termina pegada al borde de la pantalla), así que
-      // solo debajo de xl se suma `pb-8`.
-      mainClassName="flex flex-col p-4 pb-8 xl:pb-4 xl:h-[calc(100dvh-7.5rem)] xl:overflow-hidden"
     >
-      <div
-        className={`flex min-h-0 flex-1 flex-col gap-3 transition-opacity ${pendiente ? "opacity-60" : ""}`}
-      >
-        <MetricCards metrics={metrics} />
-
-        {/* Grilla 2×2 en xl: fila de arriba a su alto natural (rubros/objetivo |
-            turnos), fila de abajo reparte el resto -- así tendencia y ventas
-            recientes miden siempre lo mismo. */}
-        <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:grid-rows-[auto_minmax(0,1fr)]">
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:col-start-1 xl:row-start-1">
-            <Card className="flex min-w-0 flex-col p-4">
-              <RubrosPie
-                data={rubros}
-                totalFacturado={objetivo.current}
-              />
-            </Card>
-            <ObjetivoPanel
-              current={objetivo.current}
-              dayOfMonth={objetivo.dayOfMonth}
-              daysInMonth={objetivo.daysInMonth}
-              prevMes={objetivo.prevMes}
-              prevTotal={objetivo.prevTotal}
-              target={objetivoTarget}
-            />
-          </div>
-          <RitmoChart
-            className="min-h-[260px] min-w-0 xl:col-start-1 xl:row-start-2 xl:min-h-0"
-            ritmo={ritmo}
-            target={objetivoTarget}
-          />
-          <TurnosHeatmap
-            className="min-w-0 xl:col-start-2 xl:row-start-1"
-            turnos={turnos}
-          />
-          <RecentSales
-            className="min-h-[150px] min-w-0 xl:col-start-2 xl:row-start-2 xl:min-h-0"
-            sales={recentSales}
-            ventasHref={ventasHref}
-          />
+      <div className={`mx-auto max-w-[1400px] space-y-4 transition-opacity ${pendiente ? "opacity-60" : ""}`}>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-lg font-semibold text-neutral-900">
+            Resumen de {etiquetaMes(mes.anio, mes.mes0).toLowerCase()}
+          </h1>
+          {mes.esActual && (
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-neutral-500">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#12a383]" aria-hidden="true" />
+              actualizado en vivo
+            </span>
+          )}
         </div>
+
+        <KpisAdmin metrics={metrics.filter((m) => KPIS.includes(m.key))} />
+
+        <AgendaLocalCard agenda={agenda} enlaces={!demo} />
+
+        <ObjetivoMesCard
+          current={objetivo.current}
+          dayOfMonth={objetivo.dayOfMonth}
+          daysInMonth={objetivo.daysInMonth}
+          target={objetivoTarget}
+          esActual={mes.esActual}
+          configurarHref={demo ? null : "/configuracion?tab=negocio"}
+        />
+
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <RitmoChart className="min-h-[340px] min-w-0" ritmo={ritmo} target={objetivoTarget} />
+          <Card className="flex min-w-0 flex-col p-5">
+            <RubrosPie data={rubros} totalFacturado={objetivo.current} />
+          </Card>
+        </div>
+
+        <VentasRecientesTabla sales={recentSales} ventasHref={ventasHref} />
       </div>
     </Section>
   );

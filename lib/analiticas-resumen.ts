@@ -50,7 +50,15 @@ import {
   type VentaDia,
 } from "@/lib/analiticas";
 import { enRango, hoyISO, sumarDias, type Rango } from "@/lib/date-presets";
-import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, margenPonderado, type Rubro } from "@/lib/ventas";
+import {
+  RUBRO_LABEL,
+  RUBRO_ORDEN,
+  categoriaDe,
+  margenPonderado,
+  resumenPorModalidad,
+  type ResumenModalidad,
+  type Rubro,
+} from "@/lib/ventas";
 import { chartColor } from "@/lib/chart";
 import { fmtNum } from "@/lib/format";
 import { medioPago as medioPagoCfg, categoriaGasto as categoriaGastoCfg } from "@/lib/status";
@@ -108,6 +116,8 @@ export type ResumenVentasAnaliticas = {
   margenPct: number | null;
   deltas: Deltas;
   porCanal: Row[];
+  /** Minorista vs mayorista del período (siempre las dos). */
+  porModalidad: ResumenModalidad[];
   porVendedor: { label: string; value: number; operaciones: number; pct: number }[];
   rubroTreemap: { label: string; value: number; color: string }[];
   margenPorTipo: MargenPorTipo[];
@@ -254,6 +264,7 @@ export function resumenVentas(
     margenPct,
     deltas,
     porCanal,
+    porModalidad: resumenPorModalidad(filtradas),
     porVendedor,
     rubroTreemap,
     margenPorTipo: margenTipo,
@@ -678,6 +689,11 @@ export type ResumenTurnos = {
   confirmados: number;
   cancelados: number;
   pendientes: number;
+  atendidos: number;
+  noVino: number;
+  /** Atendidos sobre (atendidos + no vino); `null` si todavía no se marcó ninguno. */
+  tasaAsistencia: number | null;
+  /** Pasados que siguen pendientes/confirmados (nadie los marcó). */
   sinConfirmarPasados: number;
   tasaConfirmacion: number;
   porTipo: Row[];
@@ -689,13 +705,16 @@ export function resumenTurnos(turnos: Turno[]): ResumenTurnos {
   const confirmados = turnos.filter((t) => t.estado === "confirmado").length;
   const cancelados = turnos.filter((t) => t.estado === "cancelado").length;
   const pendientes = turnos.filter((t) => t.estado === "pendiente").length;
-  // `dayOffset` negativo = turno pasado (ver `listTurnosRango`).
+  const atendidos = turnos.filter((t) => t.estado === "atendido").length;
+  const noVino = turnos.filter((t) => t.estado === "no_vino").length;
+  // `dayOffset` negativo = turno pasado (ver `listTurnosRango`). Los vencidos
+  // son los que nadie marcó como atendido / no vino / cancelado.
   const sinConfirmarPasados = turnos.filter(
-    (t) => t.estado === "pendiente" && t.dayOffset < 0,
+    (t) => (t.estado === "pendiente" || t.estado === "confirmado") && t.dayOffset < 0,
   ).length;
 
   const tipos = ["compra", "deja", "retira", "cotizar"] as const;
-  const estados = ["pendiente", "confirmado", "cancelado"] as const;
+  const estados = ["pendiente", "confirmado", "atendido", "no_vino", "cancelado"] as const;
   const TIPO_LABEL: Record<(typeof tipos)[number], string> = {
     compra: "Compra equipo",
     deja: "Deja reparación",
@@ -703,14 +722,16 @@ export function resumenTurnos(turnos: Turno[]): ResumenTurnos {
     cotizar: "Cotizar",
   };
   const ESTADO_LABEL: Record<(typeof estados)[number], string> = {
-    pendiente: "Pendiente",
+    pendiente: "Sin confirmar",
     confirmado: "Confirmado",
+    atendido: "Atendido",
+    no_vino: "No vino",
     cancelado: "Cancelado",
   };
 
   const porHora: Row[] = Array.from({ length: 12 }, (_, i) => {
     const h = `${String(i + 9).padStart(2, "0")}:00`;
-    return { label: h, value: turnos.filter((t) => t.hora === h).length };
+    return { label: h, value: turnos.filter((t) => t.hora.slice(0, 2) === h.slice(0, 2)).length };
   });
 
   return {
@@ -718,6 +739,9 @@ export function resumenTurnos(turnos: Turno[]): ResumenTurnos {
     confirmados,
     cancelados,
     pendientes,
+    atendidos,
+    noVino,
+    tasaAsistencia: atendidos + noVino > 0 ? (atendidos / (atendidos + noVino)) * 100 : null,
     sinConfirmarPasados,
     tasaConfirmacion: turnos.length > 0 ? (confirmados / turnos.length) * 100 : 0,
     porTipo: tipos.map((t) => ({

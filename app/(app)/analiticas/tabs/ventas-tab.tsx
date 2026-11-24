@@ -8,6 +8,7 @@ import { fmtUsd } from "@/lib/format";
 import { Treemap } from "@/components/analiticas/treemap";
 import { TendenciaRubros } from "@/components/analiticas/tendencia-rubros";
 import { PeriodoChip } from "@/components/analiticas/periodo-chip";
+import { ModalidadSplit } from "@/components/analiticas/modalidad-split";
 import { BarRows, BarColumns } from "../bar-rows";
 import type { ResumenVentasAnaliticas } from "@/lib/analiticas-resumen";
 
@@ -141,15 +142,18 @@ export function VentasTab({ resumen }: { resumen: ResumenVentasAnaliticas }) {
         </Card>
       </div>
 
-      <Card className="p-5">
-        <ChartTitle align="left" divider sub="promedio facturado, por día de la semana">
-          Venta promedio por día de la semana
-        </ChartTitle>
-        <BarColumns
-          rows={resumen.porDiaSemana.map((d) => ({ label: d.dia, value: d.promedioUsd }))}
-          fmt={fmtUsd}
-        />
-      </Card>
+      <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+        <ModalidadSplit data={resumen.porModalidad} />
+        <Card className="p-5">
+          <ChartTitle align="left" divider sub="promedio facturado, por día de la semana">
+            Venta promedio por día de la semana
+          </ChartTitle>
+          <BarColumns
+            rows={resumen.porDiaSemana.map((d) => ({ label: d.dia, value: d.promedioUsd }))}
+            fmt={fmtUsd}
+          />
+        </Card>
+      </div>
 
       <TendenciaRubros data={resumen.rubroMes} className="min-h-[340px]" />
       {resumen.rubroMesChip && (

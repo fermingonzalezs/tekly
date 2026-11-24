@@ -2,7 +2,7 @@ import type { Celular, Ticket, TicketStatus, Turno, Venta } from "@/lib/types";
 import type { DashPeriodo } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, margenPonderado, margenVenta } from "@/lib/ventas";
-import { TICKET_FLOW } from "@/lib/status";
+import { TICKET_FLOW, turnoTipo, type Tone } from "@/lib/status";
 
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",
@@ -300,6 +300,10 @@ export type VentaReciente = {
    * contra el `hoy` del server para que SSR e hidratación coincidan. */
   hace: string;
   vendedor: string;
+  /** Rubro del ítem de mayor importe ("Celulares", "Reparaciones", …). */
+  rubro: string;
+  /** Posición del rubro en `RUBRO_ORDEN` -- para el color (`chartColor`). */
+  rubroIdx: number;
 };
 
 /** Últimas `n` ventas reales para el widget "Ventas recientes". `hace` se
@@ -320,7 +324,16 @@ export function ventasRecientes(
       monto: v.totalUsd,
       hace: tiempoRelativo(v.fechaISO, hoy),
       vendedor: v.vendedor,
+      ...rubroPrincipal(v),
     }));
+}
+
+function rubroPrincipal(v: Venta): { rubro: string; rubroIdx: number } {
+  const principal = [...v.items].sort(
+    (a, b) => b.precioUsd * b.cantidad - a.precioUsd * a.cantidad,
+  )[0];
+  const cat = principal ? categoriaDe(principal) : "libre";
+  return { rubro: RUBRO_LABEL[cat], rubroIdx: RUBRO_ORDEN.indexOf(cat) };
 }
 
 /** "hoy" / "ayer" / "hace 3 d" / "4 oct" -- `fechaISO` parseado con `.slice()`
@@ -453,5 +466,146 @@ export function ritmoDelMes(ventas: Venta[], ref: Date, hoy: Date): RitmoMes {
     daysInMonth,
     dayOfMonth,
     esActual: anio === hoy.getFullYear() && mes0 === hoy.getMonth(),
+  };
+}
+
+// ─────────────────────────── Objetivo: avance ───────────────────────────
+
+export type AvanceObjetivo = {
+  /** % cumplido de la meta (0..100, tope 100). */
+  pct: number;
+  /** % de la meta que "debería" llevar a esta altura del mes (lineal). */
+  ideal: number;
+  /** pct - ideal, en puntos (negativo = atrás del ritmo). */
+  diffPts: number;
+  falta: number;
+  daysLeft: number;
+  /** Proyección lineal al cierre según el ritmo de lo que va del mes. */
+  projected: number;
+  projectedPct: number;
+  /** U$/día que hacen falta para llegar (0 si ya se llegó). */
+  perDay: number;
+};
+
+/** Avance del objetivo del mes contra el ritmo ideal (lineal por día). Con
+ * `target` 0 (meta sin cargar) los % quedan en 0. */
+export function avanceObjetivo(p: {
+  current: number;
+  target: number;
+  dayOfMonth: number;
+  daysInMonth: number;
+}): AvanceObjetivo {
+  const { current, target, dayOfMonth, daysInMonth } = p;
+  const conMeta = target > 0;
+  const pct = conMeta ? Math.round(Math.min(1, current / target) * 100) : 0;
+  const ideal = conMeta ? Math.round((dayOfMonth / Math.max(1, daysInMonth)) * 100) : 0;
+  const falta = Math.max(0, target - current);
+  const daysLeft = Math.max(0, daysInMonth - dayOfMonth);
+  const projected = dayOfMonth > 0 ? Math.round((current / dayOfMonth) * daysInMonth) : 0;
+  return {
+    pct,
+    ideal,
+    diffPts: pct - ideal,
+    falta,
+    daysLeft,
+    projected,
+    projectedPct: conMeta ? Math.round((projected / target) * 100) : 0,
+    perDay: falta === 0 ? 0 : daysLeft > 0 ? Math.ceil(falta / daysLeft) : falta,
+  };
+}
+
+// ─────────────────────────── Agenda del local ───────────────────────────
+
+export type AgendaItem = {
+  key: string;
+  /** Texto de la banda: "Listo · sin retirar hace 3 días", "Compra equipo · hoy 11:30". */
+  banda: string;
+  tone: Tone;
+  cliente: string;
+  detalle: string;
+  sub: string;
+  accion: "ticket" | "turno";
+  /** Ticket: su id (`/reparaciones?q=<id>`). Turno: id del turno. */
+  ref: string;
+};
+
+export type AgendaLocal = {
+  items: AgendaItem[];
+  turnosHoy: number;
+  ticketsAbiertos: number;
+  listos: number;
+};
+
+const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+function cuandoTurno(dayOffset: number, hora: string, hoy: Date): string {
+  if (dayOffset === 0) return `hoy ${hora}`;
+  if (dayOffset === 1) return `mañana ${hora}`;
+  const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + dayOffset);
+  return `${DIAS_SEMANA[d.getDay()]} ${hora}`;
+}
+
+function diasDesde(fechaISO: string, hoy: Date): number {
+  const f = Date.UTC(+fechaISO.slice(0, 4), +fechaISO.slice(5, 7) - 1, +fechaISO.slice(8, 10));
+  const h = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  return Math.max(0, Math.round((h - f) / 86_400_000));
+}
+
+/** Lo que espera algo del local: tickets `listo` sin retirar (los más viejos
+ * primero) y los próximos turnos no cancelados. No hay timestamp de "pasó a
+ * listo", así que la antigüedad del ticket se mide desde su ingreso. */
+export function agendaDelLocal(
+  tickets: Ticket[],
+  turnos: Turno[],
+  hoy: Date,
+  n = 4,
+): AgendaLocal {
+  const listos = tickets
+    .filter((t) => t.estado === "listo")
+    .sort((a, b) => a.fechaISO.localeCompare(b.fechaISO));
+  const ticketPorId = new Map(tickets.map((t) => [t.id, t]));
+
+  const deTickets: AgendaItem[] = listos.map((t) => {
+    const dias = diasDesde(t.fechaISO, hoy);
+    return {
+      key: `t-${t.id}`,
+      banda: `Listo · ingresó ${dias === 0 ? "hoy" : dias === 1 ? "hace 1 día" : `hace ${dias} días`}`,
+      tone: "red",
+      cliente: t.cliente,
+      detalle: [t.equipo, t.reparacionSolicitada ?? t.falla].filter(Boolean).join(" · "),
+      sub: `Ticket #${t.id}${t.tecnico ? ` · ${t.tecnico}` : ""}`,
+      accion: "ticket",
+      ref: String(t.id),
+    };
+  });
+
+  const proximos = turnos
+    .filter((t) => t.dayOffset >= 0 && (t.estado === "pendiente" || t.estado === "confirmado"))
+    .sort((a, b) => a.dayOffset - b.dayOffset || a.hora.localeCompare(b.hora));
+  const deTurnos: AgendaItem[] = proximos.map((t) => {
+    const cfg = turnoTipo[t.tipo];
+    const ticket = t.ticketId !== null ? ticketPorId.get(t.ticketId) : undefined;
+    return {
+      key: `u-${t.id}`,
+      banda: `${cfg.label} · ${cuandoTurno(t.dayOffset, t.hora, hoy)}`,
+      tone: cfg.tone,
+      cliente: t.cliente,
+      detalle: ticket?.equipo ?? t.nota ?? cfg.label,
+      sub: ticket ? `Ticket #${ticket.id}${t.nota ? ` · ${t.nota}` : ""}` : "",
+      accion: "turno",
+      ref: t.id,
+    };
+  });
+
+  // Hasta la mitad de los lugares para listos (si hay turnos), el resto turnos.
+  const cupoListos = deTurnos.length ? Math.min(deTickets.length, Math.ceil(n / 2)) : n;
+  const items = [...deTickets.slice(0, cupoListos), ...deTurnos].slice(0, n);
+  if (items.length < n) items.push(...deTickets.slice(cupoListos, cupoListos + n - items.length));
+
+  return {
+    items,
+    turnosHoy: turnos.filter((t) => t.dayOffset === 0 && t.estado !== "cancelado").length,
+    ticketsAbiertos: tickets.filter((t) => t.estado !== "entregado").length,
+    listos: listos.length,
   };
 }

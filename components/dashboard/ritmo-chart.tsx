@@ -71,10 +71,10 @@ export function RitmoChart({
   const xLabels = dias.filter((d) => d === 1 || d % 2 === 1 || d === daysInMonth);
 
   return (
-    <Card className={cn("flex flex-col p-4", className)}>
+    <Card className={cn("flex flex-col p-5", className)}>
       <ChartTitle
         align="left"
-        sub="Cómo se fue acumulando la venta día a día, comparada con el mes anterior y el ritmo ideal para llegar al objetivo"
+        sub="Venta acumulada día a día contra el ritmo de la meta y el mes anterior"
       >
         Ritmo del mes
       </ChartTitle>

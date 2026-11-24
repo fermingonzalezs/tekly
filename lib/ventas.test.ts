@@ -8,6 +8,7 @@ import {
   montoPagoLabel,
   margenVenta,
   margenPonderado,
+  resumenPorModalidad,
   motivoNoConfirmable,
   resumenDeVentas,
   graficosDeVentas,
@@ -291,5 +292,36 @@ describe("plan 020 — canje sin caja", () => {
   it("el canje ya no es un medio de caja", () => {
     expect(MEDIOS_CAJA).not.toContain("canje");
     expect(MEDIOS_VENTA).toContain("canje");
+  });
+});
+
+describe("resumenPorModalidad", () => {
+  const v = (modalidad: "minorista" | "mayorista", precioUsd: number, costoUsd?: number) => ({
+    modalidad,
+    totalUsd: precioUsd,
+    items: [{ cantidad: 1, precioUsd, costoUsd }],
+  });
+
+  it("devuelve siempre las dos modalidades, minorista primero", () => {
+    const out = resumenPorModalidad([]);
+    expect(out.map((r) => r.modalidad)).toEqual(["minorista", "mayorista"]);
+    expect(out.every((r) => r.facturacion === 0 && r.pct === 0 && r.margenPct === null)).toBe(true);
+  });
+
+  it("separa facturación, operaciones, ticket y % por modalidad", () => {
+    const [min, may] = resumenPorModalidad([
+      v("minorista", 100, 60),
+      v("minorista", 300, 200),
+      v("mayorista", 1600, 1400),
+    ]);
+    expect(min).toMatchObject({ facturacion: 400, operaciones: 2, ticketPromedio: 200, pct: 20 });
+    expect(may).toMatchObject({ facturacion: 1600, operaciones: 1, ticketPromedio: 1600, pct: 80 });
+    expect(min.margenPct).toBeCloseTo(35, 5); // (40 + 100) / 400
+    expect(may.margenPct).toBeCloseTo(12.5, 5);
+  });
+
+  it("margen null si la modalidad no tiene costos cargados", () => {
+    const [, may] = resumenPorModalidad([v("minorista", 100, 50), v("mayorista", 500)]);
+    expect(may.margenPct).toBeNull();
   });
 });

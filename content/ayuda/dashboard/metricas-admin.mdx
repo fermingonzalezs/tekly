@@ -4,7 +4,7 @@ resumen: "Qué mide cada tarjeta y cada panel del Dashboard del administrador, y
 seccion: dashboard
 roles: [admin]
 orden: 2
-actualizado: 2026-10-17
+actualizado: 2026-11-24
 ---
 
 El Dashboard del admin muestra el negocio del **mes** elegido. En la toolbar hay un navegador de mes (**‹ Octubre de 2026 ›**) que guarda el mes en la URL (`?mes=YYYY-MM`).
@@ -14,37 +14,34 @@ El Dashboard del admin muestra el negocio del **mes** elegido. En la toolbar hay
 - **Ventas del mes** (destacada) — suma facturada del mes, con variación vs el mes anterior.
 - **Ganancia del mes** — ganancia real de las ventas del mes (sólo ítems con costo cargado).
 - **Margen promedio** — margen ponderado; «—» si no hay costos cargados.
-- **Tickets abiertos** — tickets sin entregar (sin variación).
 - **Ticket promedio** — facturación del mes dividida por cantidad de ventas.
-- **Turnos hoy** — turnos de hoy sin cancelar (sin variación).
 
 ## Paneles
 
-<Paso n={1} titulo="Ritmo del mes">
-Cómo se fue acumulando la venta día a día, comparada con el mes anterior y con el ritmo ideal para llegar al objetivo. Ver [Objetivo y ritmo](/ayuda/dashboard/objetivo-y-ritmo).
+<Paso n={1} titulo="Agenda del local">
+Hasta 4 tarjetas con lo que espera algo del local: equipos **listos** sin retirar (los más viejos primero; la antigüedad se cuenta desde que ingresó el ticket) y los **próximos turnos**. Cada una lleva al ticket o a Turnos. Al costado: **turnos hoy**, **tickets abiertos** y **listos para retirar**.
 </Paso>
 
 <Paso n={2} titulo="Objetivo del mes">
-El avance sobre la meta (`organizations.objetivo_mes_usd`), con proyección, ritmo necesario y comparación con el mes anterior.
+El avance sobre la meta (se carga en Configuración → Datos del negocio): facturado, proyección al cierre, ritmo necesario por día y cuánto falta. La barra marca con una línea dónde deberías estar hoy si vendieras parejo todo el mes, y abajo dice cuántos puntos vas adelante o atrás. Ver [Objetivo y ritmo](/ayuda/dashboard/objetivo-y-ritmo).
 </Paso>
 
-<Paso n={3} titulo="Categorías más vendidas">
+<Paso n={3} titulo="Ritmo del mes">
+Cómo se fue acumulando la venta día a día, comparada con el mes anterior y con el ritmo ideal para llegar al objetivo.
+</Paso>
+
+<Paso n={4} titulo="Vendido por rubro">
 Donut con la facturación del mes por rubro (Celulares, Notebooks, Reparaciones, Accesorios, Otros).
 </Paso>
 
-<Paso n={4} titulo="Turnos agendados">
-Heatmap de la próxima semana; tocá una celda para ir a Turnos.
-</Paso>
-
 <Paso n={5} titulo="Ventas recientes">
-Las últimas ventas; tocá una para abrirla en Ventas.
+Tabla con las últimas ventas (cliente, producto, rubro, vendedor, monto y cuándo); tocá una para abrirla en Ventas.
 </Paso>
 
 ## Qué no se puede
 
 - No se pueden ver meses **futuros**: el navegador te deja avanzar sólo hasta el mes actual.
 - La meta del mes se edita en Configuración, no acá.
-- Las tarjetas de conteo no traen variación porcentual.
 
 ## Relacionados
 

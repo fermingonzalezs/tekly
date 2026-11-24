@@ -1,15 +1,17 @@
 ---
-titulo: "Módulo Turnos"
-resumen: "Calendario de los próximos 7 días para agendar entregas, retiros, cotizaciones y compras."
+titulo: "Módulo Agenda"
+resumen: "Agenda con vistas Día, Semana y Mes para agendar entregas, retiros, cotizaciones y compras."
 seccion: turnos
 roles: []
 orden: 1
-actualizado: 2026-10-17
+actualizado: 2026-11-24
 ---
 
-El calendario muestra los **próximos 7 días** (columnas) por franjas de **9 a 20 h** (cada media hora). Es una agenda: lo que pasó antes de hoy no se muestra.
+La **Agenda** tiene tres vistas: **Día**, **Semana** (lunes a sábado) y **Mes**. Se navega con **‹ Hoy ›**. La grilla va de **9 a 20 h** en pasos de media hora; tocá un hueco libre para agendar en ese horario. A la derecha está el panel **Próximos** con los turnos de hoy en adelante y los **vencidos** (pasaron y nadie los marcó). Arriba hay cuatro tarjetas: turnos de hoy, sin confirmar, esta semana y vencidos.
 
-<Captura alt="Calendario semanal de turnos con bloques de colores por tipo." caption="Turnos · semana (datos demo)." />
+En la Semana, si tres o más turnos se pisan se juntan en un bloque «N turnos» que abre ese día. En el celular la vista arranca en Día.
+
+<Captura alt="Calendario semanal de turnos con bloques de colores por tipo." caption="Agenda · semana (datos demo)." />
 
 ## Operaciones
 
@@ -45,7 +47,7 @@ Hoy no: hay que cancelarlo y agendar uno nuevo.
 Compra (verde), Deja reparación (azul), Retira reparación (violeta) y Cotizar (ámbar).
 
 **¿Un vendedor puede agendar?**
-Sí: Turnos lo ven y lo usan los tres roles.
+Sí: la Agenda la ven y la usan los tres roles.
 
 **¿Se puede reservar un repuesto en un turno?**
 La reserva de stock del turno aplica a equipos y «Otros», no a repuestos.

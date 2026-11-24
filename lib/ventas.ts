@@ -2,7 +2,7 @@
  * red. Extraída de `app/ventas/page.tsx` (antes vivía inline en el
  * componente del modal). */
 
-import type { CelularStatus, MedioPagoVenta, Pago, Venta, VentaItem } from "@/lib/types";
+import type { CelularStatus, MedioPagoVenta, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
 import { fmtArs, fmtUsd } from "@/lib/format";
 import { hoyISO } from "@/lib/date-presets";
 
@@ -127,6 +127,54 @@ export function margenPonderado(
   }
   if (!conCosto) return null;
   return precio > 0 ? (ganancia / precio) * 100 : 0;
+}
+
+// ───────────────────── Minorista / mayorista ─────────────────────
+
+export const MODALIDAD_LABEL: Record<ModalidadVenta, string> = {
+  minorista: "Minorista",
+  mayorista: "Mayorista",
+};
+
+/** Orden fijo de las modalidades (minorista primero: es el default). */
+export const MODALIDADES: ModalidadVenta[] = ["minorista", "mayorista"];
+
+export type ResumenModalidad = {
+  modalidad: ModalidadVenta;
+  label: string;
+  facturacion: number;
+  operaciones: number;
+  ticketPromedio: number;
+  /** Ponderado por facturación (`margenPonderado`); null = sin costos cargados. */
+  margenPct: number | null;
+  /** % de la facturación total del conjunto (0 si no hay facturación). */
+  pct: number;
+};
+
+/** Facturación, operaciones, ticket promedio y margen por modalidad. Siempre
+ * devuelve las dos modalidades (en `MODALIDADES`), aunque una no tenga ventas. */
+export function resumenPorModalidad(
+  ventas: {
+    modalidad: ModalidadVenta;
+    totalUsd: number;
+    items: { cantidad: number; precioUsd: number; costoUsd?: number }[];
+  }[],
+): ResumenModalidad[] {
+  const total = ventas.reduce((a, v) => a + v.totalUsd, 0);
+  return MODALIDADES.map((modalidad) => {
+    const deEsta = ventas.filter((v) => v.modalidad === modalidad);
+    const facturacion = deEsta.reduce((a, v) => a + v.totalUsd, 0);
+    const operaciones = deEsta.length;
+    return {
+      modalidad,
+      label: MODALIDAD_LABEL[modalidad],
+      facturacion,
+      operaciones,
+      ticketPromedio: operaciones > 0 ? facturacion / operaciones : 0,
+      margenPct: margenPonderado(deEsta),
+      pct: total > 0 ? (facturacion / total) * 100 : 0,
+    };
+  });
 }
 
 // ───────────────────────── Resumen (KPIs) ─────────────────────────

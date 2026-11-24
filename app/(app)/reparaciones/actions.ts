@@ -111,7 +111,7 @@ export async function deleteTicketAction(id: number) {
   await requireRoleEscritura("admin");
   await deleteTicket(id);
   revalidatePath("/reparaciones");
-  revalidatePath("/turnos");
+  revalidatePath("/agenda");
   revalidatePath("/dashboard");
 }
 

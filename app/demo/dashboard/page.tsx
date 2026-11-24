@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { DashboardAdmin } from "@/app/(app)/dashboard/dashboard-admin";
 import { useDemo } from "@/lib/demo/store";
 import {
+  agendaDelLocal,
   mesDashboard,
   metricasDashboard,
   objetivoDelMes,
@@ -19,19 +20,14 @@ export default function DemoDashboardPage() {
   const [claveMes, setClaveMes] = useState<string | null>(null);
   const mes = mesDashboard(claveMes, hoy);
 
-  const turnosHoy = state.turnos.filter(
-    (t) => t.dayOffset === 0 && t.estado !== "cancelado",
-  ).length;
-  const ticketsAbiertos = state.tickets.filter(
-    (t) => t.estado !== "entregado",
-  ).length;
+  const agenda = agendaDelLocal(state.tickets, state.turnos, hoy);
 
   return (
     <DashboardAdmin
       metrics={metricasDashboard({
         ventas: state.ventas,
-        ticketsAbiertos,
-        turnosHoy,
+        ticketsAbiertos: agenda.ticketsAbiertos,
+        turnosHoy: agenda.turnosHoy,
         hoy: mes.ref,
       })}
       objetivo={objetivoDelMes(state.ventas, mes.ref)}
@@ -41,8 +37,9 @@ export default function DemoDashboardPage() {
       mes={mes}
       onMesChange={setClaveMes}
       recentSales={ventasRecientes(state.ventas, 6, hoy)}
-      turnos={state.turnos}
+      agenda={agenda}
       ventasHref="/demo/ventas"
+      demo
     />
   );
 }

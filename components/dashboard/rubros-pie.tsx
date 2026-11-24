@@ -27,8 +27,8 @@ export function RubrosPie({
 
   return (
     <div className="w-full">
-      <ChartTitle align="left" sub="Facturación del mes por categoría">
-        Categorías más vendidas
+      <ChartTitle align="left" sub="Cómo se reparte la venta del mes">
+        Vendido por rubro
       </ChartTitle>
       <div className="mt-3 border-t border-neutral-100 pt-3">
         <DonutChart slices={slices} />

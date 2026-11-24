@@ -14,6 +14,14 @@ const nextConfig = {
   // La app usa <img> (logos de organizaciones, SVG del kit): no necesita el
   // optimizador de imágenes de Next, que además es superficie de ataque.
   images: { unoptimized: true },
+  // La sección Turnos pasó a llamarse Agenda (plan 023): los links viejos
+  // (favoritos, mails) siguen andando. La query (`?accion=…`) se conserva sola.
+  async redirects() {
+    return [
+      { source: "/turnos", destination: "/agenda", permanent: true },
+      { source: "/turnos/:path*", destination: "/agenda/:path*", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

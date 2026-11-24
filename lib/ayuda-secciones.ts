@@ -36,7 +36,7 @@ export const SECCION_LABEL: Record<SeccionAyuda, string> = {
   inventario: "Inventario",
   recuentos: "Recuentos",
   reparaciones: "Reparaciones",
-  turnos: "Turnos",
+  turnos: "Agenda",
   cajas: "Cajas",
   compras: "Compras",
   "cuentas-corrientes": "Cuentas corrientes",

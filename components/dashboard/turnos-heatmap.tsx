@@ -137,7 +137,7 @@ export function TurnosHeatmap({
                       className="relative flex aspect-square cursor-pointer items-center justify-center rounded-md text-[11px] font-semibold tabular-nums text-white"
                       style={{ background: bg }}
                       onMouseEnter={() => setHover({ fi, di })}
-                      onClick={() => router.push("/turnos")}
+                      onClick={() => router.push("/agenda")}
                     >
                       {count > 0 ? count : ""}
 

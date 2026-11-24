@@ -17,3 +17,4 @@ Verificación).
 | [020](020-canje-sin-caja.md) | Canje sin caja: medio de pago que ingresa el equipo al inventario | HECHO en código — falta verificación manual y limpieza de datos (Parte D) al desplegar |
 | [021](021-modales-formularios-centrados.md) | Modales de formulario: todo centrado menos las casillas, 3 casillas por fila | HECHO en código — falta verificación visual (`/qa/dialog` + cada modal con sesión) |
 | [022](022-resumen-mensual.md) | Resumen mensual guardado (pg_cron + tabla + pantalla/PDF) | HECHO en código y migraciones aplicadas — falta `CRON_SECRET` en producción y verificación con sesión admin |
+| [023](023-agenda-turnos.md) | Turnos → Agenda estilo sistema-update (Día/Semana/Mes, próximos, estados atendido/no vino) | HECHO en código — falta aplicar la migración `20261124120000_turnos_agenda` (Supabase por autorizar) y verificar en navegador |

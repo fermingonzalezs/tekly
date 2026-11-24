@@ -31,9 +31,11 @@ export function isNested(): boolean {
 
 /** Re-estilado de campos dentro del modal: en el vidrio un `Input`/`Select`
  * blanco opaco se ve "pegado"; alto 42px, radio 14px y blanco al 70% para que
- * respire el fondo. Se aplica siempre al body. */
+ * respire el fondo, con borde gris fino (`neutral-300`) para que la casilla se
+ * distinga del panel. El `focus:border-accent` del campo sigue ganando (más
+ * específico). Se aplica siempre al body. */
 const CAMPOS_VIDRIO =
-  "[&_input]:h-[42px] [&_select]:h-[42px] [&_textarea]:rounded-[14px] [&_input]:rounded-[14px] [&_select]:rounded-[14px] [&_input]:bg-white/70 [&_select]:bg-white/70 [&_textarea]:bg-white/70 [&_input]:border-white/80 [&_select]:border-white/80 [&_textarea]:border-white/80";
+  "[&_input]:h-[42px] [&_select]:h-[42px] [&_textarea]:rounded-[14px] [&_input]:rounded-[14px] [&_select]:rounded-[14px] [&_input]:bg-white/70 [&_select]:bg-white/70 [&_textarea]:bg-white/70 [&_input]:border-neutral-300 [&_select]:border-neutral-300 [&_textarea]:border-neutral-300";
 
 /** Modales de formulario: todo el cuerpo centrado, salvo el contenido de las
  * casillas (`Input`/`Select`/`Textarea`), que va a la izquierda. Se aplica con

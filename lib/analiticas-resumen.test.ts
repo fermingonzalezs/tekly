@@ -265,17 +265,26 @@ describe("resumenClientes", () => {
 describe("resumenTurnos", () => {
   function turno(estado: Turno["estado"], dayOffset: number): Turno {
     return {
-      id: `t-${estado}-${dayOffset}`, dayOffset, hora: "10:00", cliente: "",
+      id: `t-${estado}-${dayOffset}`, fecha: "2026-11-24", dayOffset, hora: "10:00", duracionMin: 30, atiendeId: null, atiende: null, cliente: "",
       clienteId: null, tipo: "deja", estado, ticketId: null,
     };
   }
-  it("no inventa 'asistió' y cuenta sin-confirmar ya pasados", () => {
-    const turnos = [turno("confirmado", -1), turno("pendiente", -2), turno("pendiente", 2), turno("cancelado", 0)];
+  it("mide asistencia real y cuenta vencidos (pasados abiertos)", () => {
+    const turnos = [
+      turno("confirmado", -1), turno("pendiente", -2), turno("pendiente", 2), turno("cancelado", 0),
+      turno("atendido", -3), turno("atendido", -4), turno("no_vino", -5),
+    ];
     const r = resumenTurnos(turnos);
-    expect(r.total).toBe(4);
+    expect(r.total).toBe(7);
     expect(r.confirmados).toBe(1);
     expect(r.cancelados).toBe(1);
-    expect(r.sinConfirmarPasados).toBe(1);
-    expect(r.porEstado).toHaveLength(3);
+    expect(r.atendidos).toBe(2);
+    expect(r.noVino).toBe(1);
+    expect(r.tasaAsistencia).toBeCloseTo(66.67, 1);
+    expect(r.sinConfirmarPasados).toBe(2);
+    expect(r.porEstado).toHaveLength(5);
+  });
+  it("sin turnos marcados no hay tasa de asistencia", () => {
+    expect(resumenTurnos([turno("confirmado", 1)]).tasaAsistencia).toBeNull();
   });
 });

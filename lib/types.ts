@@ -81,7 +81,7 @@ export type CategoriaGasto =
   | "mantenimiento"
   | "otros";
 
-export type TurnoEstado = "pendiente" | "confirmado" | "cancelado";
+export type TurnoEstado = "pendiente" | "confirmado" | "atendido" | "no_vino" | "cancelado";
 
 /** Qué viene a hacer el cliente — define el color en el calendario. */
 export type TurnoTipo = "compra" | "deja" | "retira" | "cotizar";
@@ -207,9 +207,17 @@ export type Ticket = {
 
 export type Turno = {
   id: string;
-  /** 0 = hoy … 6 = dentro de una semana. */
+  /** Fecha real `YYYY-MM-DD` (hora argentina). */
+  fecha: string;
+  /** Calculado contra hoy: 0 = hoy, negativo = pasado. Lo consumen el
+   * dashboard, analíticas y la demo -- no se persiste. */
   dayOffset: number;
-  hora: string; // "HH:00", entre 09:00 y 20:00
+  hora: string; // "HH:MM", de a 30 min, entre 09:00 y 20:00
+  /** Duración en minutos (default 30). */
+  duracionMin: number;
+  /** Quién atiende (`profiles`); `null` = sin asignar. */
+  atiendeId: string | null;
+  atiende: string | null;
   cliente: string;
   /** `null` si se agendó "sin registrar" (`ClientePicker` con `allowLibre`) --
    * `cliente` (el nombre) sigue completo igual, solo no hay fila real en

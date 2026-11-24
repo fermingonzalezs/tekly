@@ -53,6 +53,8 @@ import {
   categoriaDe,
   motivoNoConfirmable,
   RUBRO_LABEL,
+  MODALIDAD_LABEL,
+  MODALIDADES,
   type ResumenVentas,
   type GraficosVentas,
 } from "@/lib/ventas";
@@ -103,11 +105,6 @@ const PROCEDENCIAS = [
   "Referido",
   "Otro",
 ];
-
-const MODALIDAD_LABEL: Record<ModalidadVenta, string> = {
-  minorista: "Minorista",
-  mayorista: "Mayorista",
-};
 
 /** Costo/ganancia/margen de una venta ya guardada, sobre los ítems con costo
  * cargado (`margenVenta`). "—" cuando ningún ítem tiene costo. */
@@ -2312,7 +2309,7 @@ function NuevaVentaDialog({
                 value={modalidad}
                 onChange={(e) => setModalidad(e.target.value as ModalidadVenta)}
               >
-                {(Object.keys(MODALIDAD_LABEL) as ModalidadVenta[]).map((m) => (
+                {MODALIDADES.map((m) => (
                   <option key={m} value={m}>
                     {MODALIDAD_LABEL[m]}
                   </option>

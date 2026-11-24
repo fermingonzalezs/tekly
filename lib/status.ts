@@ -25,6 +25,17 @@ export const toneClass: Record<Tone, string> = {
   violet: "bg-violet-50 text-violet-700 ring-violet-600/20",
 };
 
+/** Banda de color lleno con texto blanco (encabezado de las tarjetas de
+ * "Agenda del local" del dashboard). */
+export const bandClass: Record<Tone, string> = {
+  blue: "bg-blue-600",
+  amber: "bg-amber-600",
+  green: "bg-emerald-700",
+  gray: "bg-neutral-500",
+  red: "bg-red-700",
+  violet: "bg-violet-600",
+};
+
 export const dotClass: Record<Tone, string> = {
   blue: "bg-blue-500",
   amber: "bg-amber-500",
@@ -157,9 +168,35 @@ export const turnoStatus: Record<
   TurnoEstado,
   { label: string; tone: Tone }
 > = {
-  pendiente: { label: "Pendiente", tone: "gray" },
+  pendiente: { label: "Sin confirmar", tone: "gray" },
   confirmado: { label: "Confirmado", tone: "blue" },
+  atendido: { label: "Atendido", tone: "green" },
+  no_vino: { label: "No vino", tone: "amber" },
   cancelado: { label: "Cancelado", tone: "red" },
+};
+
+/** Fondo/borde/texto del bloque del calendario por tipo de turno (el estado
+ * cambia la forma, ver `components/agenda/evento-bloque.tsx`). */
+export const turnoBlockClass: Record<
+  TurnoTipo,
+  { solid: string; soft: string }
+> = {
+  compra: {
+    solid: "border-emerald-600 bg-emerald-600 text-white",
+    soft: "border-emerald-500 bg-emerald-50 text-neutral-900",
+  },
+  deja: {
+    solid: "border-blue-600 bg-blue-600 text-white",
+    soft: "border-blue-500 bg-blue-50 text-neutral-900",
+  },
+  retira: {
+    solid: "border-violet-600 bg-violet-600 text-white",
+    soft: "border-violet-500 bg-violet-50 text-neutral-900",
+  },
+  cotizar: {
+    solid: "border-amber-500 bg-amber-500 text-white",
+    soft: "border-amber-500 bg-amber-50 text-neutral-900",
+  },
 };
 
 /** Motivo del turno → color en el calendario. */

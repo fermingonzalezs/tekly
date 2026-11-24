@@ -1091,7 +1091,7 @@ falla si aparece uno.
 | `IconButton` | `components/ui/button.tsx` | solo ícono: `{ aria-label (obligatorio), icon, variant: ghost \| outline \| danger-ghost, size: sm \| md \| lg, shape: round \| square }` |
 | `ButtonLink` | `components/ui/button.tsx` | misma apariencia que `Button` pero `next/link`. `MarketingButton` es un envoltorio suyo |
 | `Badge` | `components/ui/badge.tsx` | `{ tone, dot?, className? }` — forma ÚNICA cuadrada (`rounded-md`); no hay prop de forma. Colores por `lib/status.ts` |
-| `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg \| xl \| 2xl \| 3xl \| 4xl, formulario? }` (anchos `max-w-md/2xl/3xl/4xl/5xl/6xl`; `formulario` = modo formulario: body centrado salvo el contenido de las casillas, ver "`Dialog`: …" abajo; **modal que se acerca a 100vh → ensancharlo y partirlo en columnas en `lg:`**, no alargarlo: Nuevo ticket, Entregar equipo, Nueva venta (`4xl`, 2 columnas), canje, Nueva compra, alta de equipo/repuesto/producto en `3xl`; detalles en `2xl`; `ChecklistEditor` acepta `gridClassName`) — **vidrio único** (plan 011): header oscuro `table-header` con texto blanco, panel traslúcido (`bg-white/80`; `xl`/`2xl` → `bg-white/90`), `border-accent/70`, overlay `bg-neutral-900/[0.07] backdrop-blur-[2px]` (anidado: sin segundo blur). Centrado vertical, scroll propio, `createPortal` a `<body>`, cierra con Esc / click fuera, `role="dialog" aria-modal`. Los campos dentro del body se re-estilan a 42px/radio 14px/blanco 70%. Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
+| `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg \| xl \| 2xl \| 3xl \| 4xl, formulario? }` (anchos `max-w-md/2xl/3xl/4xl/5xl/6xl`; `formulario` = modo formulario: body centrado salvo el contenido de las casillas, ver "`Dialog`: …" abajo; **modal que se acerca a 100vh → ensancharlo y partirlo en columnas en `lg:`**, no alargarlo: Nuevo ticket, Entregar equipo, Nueva venta (`4xl`, 2 columnas), canje, Nueva compra, alta de equipo/repuesto/producto en `3xl`; detalles en `2xl`; `ChecklistEditor` acepta `gridClassName`) — **vidrio único** (plan 011): header oscuro `table-header` con texto blanco, panel traslúcido (`bg-white/80`; `xl`/`2xl` → `bg-white/90`), `border-accent/70`, overlay `bg-neutral-900/[0.07] backdrop-blur-[2px]` (anidado: sin segundo blur). Centrado vertical, scroll propio, `createPortal` a `<body>`, cierra con Esc / click fuera, `role="dialog" aria-modal`. Los campos dentro del body se re-estilan a 42px/radio 14px/blanco 70% con borde gris fino `neutral-300` (para que la casilla se distinga del vidrio). Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
 | `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }], accent? }` — `accent` (hex) para teñir el estado activo con otro color; por defecto usa `accent` |
 | `Pagination` | `components/ui/pagination.tsx` | `{ page, total, pageSize?, onPageChange, className? }` — "Mostrando 1–50 de N" + números de página (‹ Anterior · 1 2 3 … N · Siguiente ›), se oculta con una sola página. `paginasVisibles` (helper puro, con test) en `lib/pagination.ts`; `PAGE_SIZE = 50` |
 | `SeccionTabla` | `components/ui/seccion-tabla.tsx` | Layout estándar de una sección con tabla (ver "Layout estándar de sección con tabla"): fija el orden tabs → visibilidad → gráficos → tarjetas → filtros → tabla. `{ id, tabs?, graficos?, tarjetas?, columnasTarjetas? (4\|5\|8), filtros?, children }` |
@@ -1254,20 +1254,35 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
 
 ### Notas por sección
 
-- **Turnos** (`app/(app)/turnos/`, migrado): calendario de los **próximos 7
-  días** (columnas) × **09–20 h** (filas). `Turno.dayOffset` (0 = hoy) es
-  calculado por `lib/db/turnos.ts` a partir de la `fecha`/`hora` reales de la
-  tabla (no persistido) — el contrato del tipo hacia el client component no
-  cambió. El color del bloque = `turnoTipo[t.tipo]` (`compra` / `deja` /
-  `retira` / `cotizar`). Click en bloque → detalle (+ «Cliente llegó» dispara
-  `appointment_arrived`); click en hueco → agendar. Agendar con celulares
-  vinculados actualiza `celulares.estado` (`retira` → vendido, resto →
-  reservado), igual criterio que Ventas. `Turno.clienteId` (columna
-  `cliente_id`, ya existía en la tabla desde el schema inicial, sin
-  usarse) es nullable a propósito: el `ClientePicker` de "Agendar turno"
-  tiene `allowLibre`, para turnos de alguien que todavía no está
-  registrado como cliente — en ese caso `clienteId` queda `null` y
-  `cliente` (el nombre, siempre se completa) es lo único que hay.
+- **Agenda** (ex Turnos; `app/(app)/agenda/`, migrado, plan 023): la sección
+  se llama «Agenda» en todos lados y vive en `/agenda` (`/turnos` redirige ahí
+  con un 308 en `next.config.mjs`, query incluida). La entidad sigue siendo
+  «turno» (tabla `turnos`, `lib/db/turnos.ts`, `Turno`) y la ayuda sigue en
+  `/ayuda/turnos`. Vistas **Día /
+  Semana / Mes** (Semana = lunes a sábado, `DIAS_SEMANA_AGENDA`; en mobile
+  arranca en Día) con grilla por **media hora** 09–20 h (`PX_POR_HORA` 56);
+  **la URL manda** (`?vista=dia|semana|mes&fecha=YYYY-MM-DD`,
+  `parseFiltrosAgenda` en `lib/agenda.ts`). Toda la lógica pura (semanas,
+  rangos, solapes, `agruparProximos`, `turnosSuperpuestos`, `kpisAgenda`) está
+  en `lib/agenda.ts` con test; fechas siempre como string ISO, hora argentina
+  (`hoyISO`/`sumarDias` de `lib/date-presets.ts`, nunca `toISOString()`).
+  `page.tsx` trae el rango visible (`listTurnosRango`) + `listTurnosProximos`
+  (últimos 30 y próximos 14 días, para «Próximos» y KPIs). UI en
+  `components/agenda/` (`calendario-grilla` = Día y Semana, `calendario-mes`,
+  `evento-bloque`, `proximos`, `turno-detalle`, `agendar-dialog` con modo
+  edición). `Turno` suma `fecha`, `duracionMin`, `atiendeId`/`atiende`
+  (columnas `duracion_min`, `atiende_id`); `dayOffset` **sigue existiendo**
+  (calculado, lo usan dashboard, analíticas, command palette y demo). Estados:
+  `pendiente` («Sin confirmar»), `confirmado`, `atendido`, `no_vino`,
+  `cancelado`; un turno pasado en `pendiente|confirmado` es **vencido**. El
+  color del bloque lo da el tipo (`turnoBlockClass` en `lib/status.ts`) y el
+  estado la forma (lleno / borde / apagado / tachado). Click en hueco →
+  alta con fecha/hora precargadas; «Editar» reusa `AgendarDialog` (al
+  editar, los celulares/ítems quitados vuelven al stock si estaban
+  reservados). Agendar con celulares vinculados los reserva si
+  `reservarStock`. `Turno.clienteId` es nullable a propósito (`ClientePicker`
+  con `allowLibre`): turnos de gente aún no registrada. Fuera de alcance
+  (fases siguientes): reservas/señas y pedidos/encargos.
 - **Inventario** (`app/(app)/inventario/`, migrado): 4 tabs — **Celulares**
   (unidades únicas por IMEI, con `Celular.almacenamiento`), **Notebooks**
   (unidades únicas por `Notebook.numeroSerie`, con CPU/memoria/pantalla/
@@ -1577,16 +1592,14 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   día), no el total. **Facturación acumulada** respeta el período (con
   "Todas las fechas", agrupado por mes). **Turnos** = historial del período
   (`listTurnosRango`, hasta hoy), no la semana próxima; "Estado de los
-  turnos" (no "Asistencia": no existe ese estado, no se inventa) + "Sin
-  confirmar (ya pasaron)" = `pendiente` con `dayOffset < 0` (proxy honesto de
-  "no se sabe si vino"; medir asistencia real requeriría persistir el
-  "Cliente llegó", decisión de producto fuera de alcance).
+  turnos" + **asistencia real** (`atendido` vs `no_vino`, plan 023) y
+  "Vencidos sin marcar" = `pendiente|confirmado` con `dayOffset < 0`.
   Gráficos que **no** dependen del período llevan un chip
   `components/analiticas/periodo-chip.tsx` ("Estado actual") en el `sub` del
   `ChartTitle`; Inventario deshabilita el selector de período (solo el
   "Flujo de inventario" filtra). Duplicados quitados: "Ingresos por medio de
   pago" queda **solo en Finanzas**, el treemap de rubros **solo en Ventas**.
-  "Facturación por vendedor" es ranking `BarRows` (sin límite de colores).
+  **Minorista vs mayorista** (`ModalidadSplit`, `components/analiticas/modalidad-split.tsx`) sale de `resumenPorModalidad` (`lib/ventas.ts`, con test) sobre `Venta.modalidad` (columna `ventas.modalidad`, se elige en Nueva venta; `MODALIDAD_LABEL`/`MODALIDADES` también viven ahí). "Facturación por vendedor" es ranking `BarRows` (sin límite de colores).
   Colores: rojo/verde solo como estado/signo (`flujo-caja`,
   `waterfall-resultado`, ratio de compras/ventas ≥1×/<1×); series
   categóricas usan `CHART_COLORS`/`CHART_ACCENT` ("Compras vs ventas",
@@ -1606,6 +1619,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `/clientes?open=<id>`. `margenPorTipo` (`lib/analiticas.ts`, con test) es
   real desde que `VentaItem` tiene tabla propia (`venta_items`). Helper
   `BarRows`/`BarColumns` (`app/(app)/analiticas/bar-rows.tsx`).
+- **Dashboard admin · layout (rediseño estilo sistema-update)**: de arriba abajo `KpisAdmin` (4: ventas destacada sobre `bg-table-header`, ganancia, margen, ticket), `AgendaLocalCard` (`agendaDelLocal` en `lib/dashboard.ts`: listos sin retirar + próximos turnos, bandas con `bandClass` de `lib/status.ts`; tickets abiertos/turnos hoy pasaron a sus contadores), `ObjetivoMes` (`components/dashboard/objetivo-mes.tsx`, cálculos en `avanceObjetivo`; `ObjetivoPanel` queda solo para la landing), `RitmoChart` + `RubrosPie` y `VentasRecientesTabla`. La página scrollea (ya no entra fija en el viewport). La demo pasa `demo` (sin links a Turnos/Reparaciones).
 - **Dashboard · mes** (admin): el selector es un navegador de mes (`‹ Octubre de 2026 ›`, `?mes=YYYY-MM`, `mesDashboard` en `lib/dashboard.ts`; mes pasado = calculado al último día del mes). "Ritmo del mes" (`RitmoChart`, `ritmoDelMes`) reemplazó a "Tendencia de ventas" (`TrendChart` queda solo para el vendedor); hay card "Ganancia del mes" (`margenVenta`). La demo lleva el mes en estado local (`onMesChange`).
 - **Dashboard** (`app/(app)/dashboard/`, migrado): **dos dashboards por
   rol, la ramificación vive en el server** (`page.tsx`, ver plan 005) —

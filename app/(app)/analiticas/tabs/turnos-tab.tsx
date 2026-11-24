@@ -9,7 +9,7 @@ import type { ResumenTurnos } from "@/lib/analiticas-resumen";
 export function TurnosTab({ resumen }: { resumen: ResumenTurnos }) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Turnos" value={resumen.total} hint="del período" />
         <StatCard label="Confirmados" value={resumen.confirmados} />
         <StatCard
@@ -18,9 +18,14 @@ export function TurnosTab({ resumen }: { resumen: ResumenTurnos }) {
           valueClassName={resumen.cancelados > 0 ? "text-red-500" : undefined}
         />
         <StatCard
-          label="Sin confirmar (ya pasaron)"
+          label="Asistencia"
+          value={resumen.tasaAsistencia === null ? "—" : `${resumen.tasaAsistencia.toFixed(0)}%`}
+          hint={`${resumen.atendidos} atendidos · ${resumen.noVino} no vinieron`}
+        />
+        <StatCard
+          label="Vencidos sin marcar"
           value={resumen.sinConfirmarPasados}
-          hint="quedaron en pendiente con la fecha pasada · no se sabe si vinieron"
+          hint="ya pasaron y nadie marcó atendido / no vino"
         />
       </div>
 
@@ -35,7 +40,9 @@ export function TurnosTab({ resumen }: { resumen: ResumenTurnos }) {
           <BarRows
             rows={[
               { label: "Confirmados", value: resumen.confirmados },
-              { label: "Pendientes", value: resumen.pendientes },
+              { label: "Sin confirmar", value: resumen.pendientes },
+              { label: "Atendidos", value: resumen.atendidos },
+              { label: "No vino", value: resumen.noVino },
               { label: "Cancelados", value: resumen.cancelados },
             ]}
           />

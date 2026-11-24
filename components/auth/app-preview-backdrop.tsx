@@ -9,7 +9,7 @@ const NAV_DECOR = [
   { label: "Dashboard", icon: Smartphone },
   { label: "Ventas", icon: ShoppingCart, active: true },
   { label: "Reparaciones", icon: Wrench },
-  { label: "Turnos", icon: CalendarClock },
+  { label: "Agenda", icon: CalendarClock },
   { label: "Inventario", icon: Boxes },
 ];
 

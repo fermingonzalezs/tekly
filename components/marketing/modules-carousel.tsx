@@ -86,7 +86,7 @@ const MODULOS: Modulo[] = [
   {
     key: "turnos",
     icon: CalendarClock,
-    title: "Turnos",
+    title: "Agenda",
     detail:
       "Agenda semanal de compras, entregas, retiros y cotizaciones — todo el equipo sabe quién llega y para qué.",
     Mockup: TurnosCapture,

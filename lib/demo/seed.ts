@@ -497,8 +497,12 @@ export function crearSeedDemo(hoy: Date): DemoState {
     const cli = clientes[(i + 2) % clientes.length];
     return {
       id: `demo-turno-${i + 1}`,
+      fecha: sumarDias(isoHoy, t.dayOffset),
       dayOffset: t.dayOffset,
       hora: t.hora,
+      duracionMin: t.tipo === "compra" ? 60 : 30,
+      atiendeId: null,
+      atiende: null,
       cliente: cli.nombre,
       clienteId: cli.id,
       tipo: t.tipo,

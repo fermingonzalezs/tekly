@@ -58,7 +58,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     label: "Agendar turno",
     keywords: ["cita", "agenda"],
     icon: CalendarClock,
-    href: "/turnos?accion=agendar-turno",
+    href: "/agenda?accion=agendar-turno",
   },
   {
     id: "nueva-compra",

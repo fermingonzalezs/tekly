@@ -5,6 +5,7 @@ import { listTurnosSemana } from "@/lib/db/turnos";
 import { getNegocio, pasosOnboardingDesdeDatos } from "@/lib/db/configuracion";
 import { combinarPasosOnboarding, onboardingCompleto } from "@/lib/onboarding";
 import {
+  agendaDelLocal,
   mesDashboard,
   metricasDashboard,
   metricasEmpleado,
@@ -96,19 +97,18 @@ export default async function DashboardPage({
 
   // Admin
   const mes = mesDashboard(mesParam, hoy);
-  const turnosHoy = turnos.filter((t) => t.dayOffset === 0 && t.estado !== "cancelado").length;
-  const ticketsAbiertos = tickets.filter((t) => t.estado !== "entregado").length;
+  const agenda = agendaDelLocal(tickets, turnos, hoy);
 
   return (
     <DashboardAdmin
-      metrics={metricasDashboard({ ventas, ticketsAbiertos, turnosHoy, hoy: mes.ref })}
+      metrics={metricasDashboard({ ventas, ticketsAbiertos: agenda.ticketsAbiertos, turnosHoy: agenda.turnosHoy, hoy: mes.ref })}
       objetivo={objetivoDelMes(ventas, mes.ref)}
       objetivoTarget={negocio.objetivoMesUsd}
       ritmo={ritmoDelMes(ventas, mes.ref, hoy)}
       rubros={ventasPorRubro(ventas, mes.ref).mes}
       mes={mes}
       recentSales={ventasRecientes(ventas, 6, hoy)}
-      turnos={turnos}
+      agenda={agenda}
     />
   );
 }

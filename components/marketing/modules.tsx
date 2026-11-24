@@ -322,7 +322,7 @@ const MODULOS: {
     vista: <ReparacionesVista />,
   },
   {
-    titulo: "Turnos",
+    titulo: "Agenda",
     detalle: "Agenda semanal compartida: quién viene, a qué y quién lo atiende.",
     vista: <TurnosVista />,
   },

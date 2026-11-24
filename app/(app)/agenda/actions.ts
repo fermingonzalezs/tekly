@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
-import { createTurno, setTurnoEstado, deleteTurno } from "@/lib/db/turnos";
+import { createTurno, updateTurno, setTurnoEstado, deleteTurno } from "@/lib/db/turnos";
 import type {
   ClienteSeleccion,
   Pago,
@@ -12,9 +12,11 @@ import type {
   TurnoTipo,
 } from "@/lib/types";
 
-export async function createTurnoAction(data: {
-  dayOffset: number;
+export type TurnoInput = {
+  fecha: string;
   hora: string;
+  duracionMin: number;
+  atiendeId: string | null;
   cliente: ClienteSeleccion;
   tipo: TurnoTipo;
   /** Solo "retira": ticket listo que se viene a retirar. */
@@ -25,15 +27,18 @@ export async function createTurnoAction(data: {
   pagos: Pago[];
   reservarStock: boolean;
   nota: string;
-}) {
-  await requireEscritura();
+};
+
+async function datosDe(data: TurnoInput) {
   const cliente =
     data.cliente.tipo === "libre"
       ? { id: null, nombre: data.cliente.nombre }
       : await resolveCliente(data.cliente);
-  const turno = await createTurno({
-    dayOffset: data.dayOffset,
+  return {
+    fecha: data.fecha,
     hora: data.hora,
+    duracionMin: data.duracionMin,
+    atiendeId: data.atiendeId,
     cliente: cliente.nombre,
     clienteId: cliente.id,
     tipo: data.tipo,
@@ -43,17 +48,33 @@ export async function createTurnoAction(data: {
     pagos: data.pagos,
     reservarStock: data.reservarStock,
     nota: data.nota,
-  });
-  revalidatePath("/turnos");
+  };
+}
+
+function revalidar() {
+  revalidatePath("/agenda");
   revalidatePath("/inventario");
   revalidatePath("/dashboard");
+}
+
+export async function createTurnoAction(data: TurnoInput) {
+  await requireEscritura();
+  const turno = await createTurno(await datosDe(data));
+  revalidar();
+  return turno;
+}
+
+export async function updateTurnoAction(id: string, data: TurnoInput) {
+  await requireEscritura();
+  const turno = await updateTurno(id, await datosDe(data));
+  revalidar();
   return turno;
 }
 
 export async function setTurnoEstadoAction(id: string, estado: TurnoEstado) {
   await requireEscritura();
   const turno = await setTurnoEstado(id, estado);
-  revalidatePath("/turnos");
+  revalidatePath("/agenda");
   revalidatePath("/dashboard");
   return turno;
 }
@@ -61,6 +82,6 @@ export async function setTurnoEstadoAction(id: string, estado: TurnoEstado) {
 export async function deleteTurnoAction(id: string) {
   await requireRoleEscritura("admin");
   await deleteTurno(id);
-  revalidatePath("/turnos");
+  revalidatePath("/agenda");
   revalidatePath("/dashboard");
 }

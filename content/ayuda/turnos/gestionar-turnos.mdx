@@ -1,41 +1,46 @@
 ---
 titulo: "Gestionar un turno"
-resumen: "Ver el detalle, cancelar o eliminar un turno, y qué pasa con el stock reservado."
+resumen: "Ver el detalle, marcar atendido o no vino, editar, cancelar o eliminar un turno."
 seccion: turnos
 roles: []
 orden: 4
-actualizado: 2026-10-17
+actualizado: 2026-11-24
 ---
 
 Tocá un bloque del calendario para abrir su detalle.
 
 ## El detalle
 
-Muestra el tipo y el estado, el ticket vinculado (si es «Retira reparación»), los equipos vinculados (con su estado y precio en vivo), los pagos esperados y las observaciones.
+Muestra el tipo, el estado, quién atiende, la duración, el ticket vinculado (si es «Retira reparación»), los equipos vinculados (con su estado y precio en vivo), los pagos esperados y las observaciones.
 
-## Cancelar
+## Marcar el resultado
 
-El botón **«Cancelar turno»** deja el turno en estado **«Cancelado»**. El bloque sigue en el calendario, marcado como cancelado.
+- **Atendido**: el cliente vino y se lo atendió.
+- **No vino**: no se presentó.
+- **Confirmar**: pasa un turno «Sin confirmar» a confirmado.
+- **Cancelar turno**: lo deja «Cancelado» (queda tachado en el calendario).
+- **Volver a confirmado**: reabre un turno ya marcado.
+
+Un turno que ya pasó y sigue «Sin confirmar» o «Confirmado» figura como **vencido** en el panel Próximos, en rojo, hasta que lo marques. Analíticas → Agenda usa Atendido / No vino para medir la asistencia.
+
+## Editar
+
+**«Editar»** abre el mismo formulario del alta con los datos cargados: cambiá fecha, hora, duración, quién atiende, ítems o notas. Los equipos que quites vuelven al stock.
 
 ## Eliminar
 
-Sólo el **admin** ve el botón de eliminar (menú rojo del detalle). Pide confirmación («¿Eliminar turno?») y es definitivo.
+Sólo el **admin** ve el botón de eliminar. Pide confirmación y es definitivo.
 
 ## Estados
 
-- **Pendiente** (gris), **Confirmado** (azul) y **Cancelado** (rojo). Los turnos nuevos nacen **Confirmados**.
-
-## Filtrar
-
-Los chips de la barra de tipos ciclan entre mostrar, resaltar y **ocultar** cada tipo en el calendario.
+- **Sin confirmar** (borde suave), **Confirmado** (lleno), **Atendido** y **No vino** (apagados) y **Cancelado** (punteado y tachado). Los turnos nuevos nacen **Confirmados**.
 
 ## Qué no se puede
 
-- No hay **reprogramación**: cancelá y agendá de nuevo.
 - Cancelar un turno **no revierte** el stock que se había reservado al agendarlo.
 - Sólo el admin elimina turnos.
 
 ## Relacionados
 
 - [Tipos de turno](/ayuda/turnos/tipos-de-turno)
-- [Módulo Turnos](/ayuda/turnos/guia)
+- [Módulo Agenda](/ayuda/turnos/guia)

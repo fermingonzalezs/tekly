@@ -1,5 +1,6 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
+import { diasEntre, hoyISO, sumarDias } from "@/lib/date-presets";
 import type {
   CelularStatus,
   OtroUnidad,
@@ -10,34 +11,15 @@ import type {
   TurnoTipo,
 } from "@/lib/types";
 
-/** El mock usaba `dayOffset` (0 = hoy) calculado en el cliente con
- * `new Date()`. La tabla real guarda `fecha` (date real) -- acá se
- * recalcula `dayOffset` server-side para no tocar el contrato de `Turno`
- * que ya consume el client component (la grilla semanal indexa por
- * `dayOffset`, no por fecha). */
-function isoHoy(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().slice(0, 10);
-}
-
-function isoMasDias(dias: number): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + dias);
-  return d.toISOString().slice(0, 10);
-}
-
 function dayOffsetDe(fecha: string): number {
-  const hoy = new Date(isoHoy() + "T00:00:00");
-  const dia = new Date(fecha + "T00:00:00");
-  return Math.round((dia.getTime() - hoy.getTime()) / 86_400_000);
+  return diasEntre(hoyISO(), fecha);
 }
 
 type TurnoRow = {
   id: string;
   fecha: string;
   hora: string;
+  duracion_min: number;
   cliente: string;
   cliente_id: string | null;
   tipo: TurnoTipo;
@@ -47,16 +29,22 @@ type TurnoRow = {
   items_otros: TurnoOtroItem[] | null;
   pagos: Pago[] | null;
   nota: string | null;
+  atiende_id: string | null;
+  atiende: { nombre: string } | null;
 };
 
 const TURNO_COLS =
-  "id, fecha, hora, cliente, cliente_id, tipo, estado, ticket_id, celular_ids, items_otros, pagos, nota";
+  "id, fecha, hora, duracion_min, cliente, cliente_id, tipo, estado, ticket_id, celular_ids, items_otros, pagos, nota, atiende_id, atiende:profiles!atiende_id(nombre)";
 
 function toTurno(row: TurnoRow): Turno {
   return {
     id: row.id,
+    fecha: row.fecha,
+    // `dayOffset` no se persiste: se calcula contra hoy (hora argentina) para
+    // los consumidores que ya lo usan (dashboard, analíticas, demo).
     dayOffset: dayOffsetDe(row.fecha),
     hora: row.hora.slice(0, 5),
+    duracionMin: row.duracion_min ?? 30,
     cliente: row.cliente,
     clienteId: row.cliente_id,
     tipo: row.tipo,
@@ -66,32 +54,17 @@ function toTurno(row: TurnoRow): Turno {
     itemsOtros: row.items_otros ?? undefined,
     pagos: row.pagos ?? undefined,
     nota: row.nota ?? undefined,
+    atiendeId: row.atiende_id,
+    atiende: row.atiende?.nombre ?? null,
   };
 }
 
-/** Turnos de los próximos 7 días (hoy a hoy+6), con `dayOffset` calculado
- * para que la grilla semanal del client component funcione sin cambios. */
-export async function listTurnosSemana(): Promise<Turno[]> {
-  const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("turnos")
-    .select(TURNO_COLS)
-    .gte("fecha", isoHoy())
-    .lte("fecha", isoMasDias(6))
-    .order("fecha")
-    .order("hora");
-  if (error) throw error;
-  return (data as unknown as TurnoRow[]).map(toTurno);
-}
-
 /** Turnos de un rango de fechas (`YYYY-MM-DD`, ambos extremos incluidos; un
- * lado vacío es abierto). Es lo que usa Analíticas > Turnos para medir el
- * historial del período -- `listTurnosSemana` solo mira los próximos 7 días,
- * que todavía no pasaron. Ojo: `dayOffset` sale negativo para turnos
- * pasados (el contrato original de 0..6 es solo de la grilla semanal), así
- * que quien consuma este listado no debe indexar nada por `dayOffset`.
+ * lado vacío es abierto). Lo usan la Agenda (rango visible) y Analíticas >
+ * Turnos (historial del período). `dayOffset` sale negativo para turnos
+ * pasados, así que quien consuma este listado no debe indexar nada por él.
  * Las fechas del rango las calcula quien llama, en hora argentina (ver
- * `presetRange` en lib/date-presets.ts). */
+ * `hoyISO`/`presetRange` en lib/date-presets.ts). */
 export async function listTurnosRango(desde: string, hasta: string): Promise<Turno[]> {
   const supabase = createServerClient();
   let query = supabase.from("turnos").select(TURNO_COLS).order("fecha").order("hora");
@@ -102,9 +75,25 @@ export async function listTurnosRango(desde: string, hasta: string): Promise<Tur
   return (data as unknown as TurnoRow[]).map(toTurno);
 }
 
-export async function createTurno(data: {
-  dayOffset: number;
+/** Turnos de los próximos 7 días (hoy a hoy+6): lo que consume el Dashboard. */
+export async function listTurnosSemana(): Promise<Turno[]> {
+  const hoy = hoyISO();
+  return listTurnosRango(hoy, sumarDias(hoy, 6));
+}
+
+/** Para el panel «Próximos» y los KPIs de la Agenda: los últimos 30 días
+ * (para detectar vencidos) más los próximos 14, sin importar la vista que se
+ * esté mirando. Quien consume filtra por estado (ver `agruparProximos`). */
+export async function listTurnosProximos(): Promise<Turno[]> {
+  const hoy = hoyISO();
+  return listTurnosRango(sumarDias(hoy, -30), sumarDias(hoy, 14));
+}
+
+type TurnoDatos = {
+  fecha: string;
   hora: string;
+  duracionMin: number;
+  atiendeId: string | null;
   cliente: string;
   clienteId: string | null;
   tipo: TurnoTipo;
@@ -120,74 +109,134 @@ export async function createTurno(data: {
    * al agendar (antes era obligatorio, ahora es opcional). */
   reservarStock: boolean;
   nota: string;
-}): Promise<Turno> {
+};
+
+function columnas(data: TurnoDatos) {
+  return {
+    fecha: data.fecha,
+    hora: data.hora,
+    duracion_min: data.duracionMin,
+    atiende_id: data.atiendeId,
+    cliente: data.cliente,
+    cliente_id: data.clienteId,
+    tipo: data.tipo,
+    ticket_id: data.ticketId,
+    celular_ids: data.celularIds.length ? data.celularIds : null,
+    items_otros: data.itemsOtros.length ? data.itemsOtros : null,
+    pagos: data.pagos.length ? data.pagos : null,
+    nota: data.nota.trim() || null,
+  };
+}
+
+async function setEstadoCelulares(ids: string[], estado: CelularStatus, soloDesde?: CelularStatus) {
+  if (!ids.length) return;
+  const supabase = createServerClient();
+  let q = supabase.from("celulares").update({ estado }).in("id", ids);
+  if (soloDesde) q = q.eq("estado", soloDesde);
+  const { error } = await q;
+  if (error) throw error;
+}
+
+/** Reserva (`reservar = true`) o libera los ítems de "Otros" de un turno. */
+async function moverStockOtros(items: TurnoOtroItem[], reservar: boolean) {
+  const supabase = createServerClient();
+  for (const item of items) {
+    const { data: otroRow, error: readError } = await supabase
+      .from("otros_items")
+      .select("serializado, cantidad, unidades")
+      .eq("id", item.otroId)
+      .single();
+    if (readError) throw readError;
+
+    if (item.serial) {
+      // Unidad puntual de un "Otro" serializado: se marca `estado` dentro
+      // del jsonb `unidades` (no hay tabla de unidades sueltas).
+      const unidades = (otroRow.unidades ?? []) as OtroUnidad[];
+      const patched = unidades.map((u) =>
+        u.serial === item.serial
+          ? { ...u, estado: (reservar ? "reservado" : "disponible") as "reservado" | "disponible" }
+          : u,
+      );
+      const { error } = await supabase
+        .from("otros_items")
+        .update({ unidades: patched })
+        .eq("id", item.otroId);
+      if (error) throw error;
+    } else if (item.cantidad) {
+      // "Otro" no serializado: se descuenta (o repone) de la cantidad total.
+      const nueva = reservar
+        ? Math.max(0, (otroRow.cantidad ?? 0) - item.cantidad)
+        : (otroRow.cantidad ?? 0) + item.cantidad;
+      const { error } = await supabase
+        .from("otros_items")
+        .update({ cantidad: nueva })
+        .eq("id", item.otroId);
+      if (error) throw error;
+    }
+  }
+}
+
+export async function createTurno(data: TurnoDatos): Promise<Turno> {
   const supabase = createServerClient();
   const { data: row, error } = await supabase
     .from("turnos")
-    .insert({
-      fecha: isoMasDias(data.dayOffset),
-      hora: data.hora,
-      cliente: data.cliente,
-      cliente_id: data.clienteId,
-      tipo: data.tipo,
-      estado: "confirmado" satisfies TurnoEstado,
-      ticket_id: data.ticketId,
-      celular_ids: data.celularIds.length ? data.celularIds : null,
-      items_otros: data.itemsOtros.length ? data.itemsOtros : null,
-      pagos: data.pagos.length ? data.pagos : null,
-      nota: data.nota.trim() || null,
-    })
+    .insert({ ...columnas(data), estado: "confirmado" satisfies TurnoEstado })
     .select(TURNO_COLS)
     .single();
   if (error) throw error;
 
   // "retira" ya no toca celulares -- se vincula a un ticket (`Turno.ticketId`)
-  // en vez de marcar un equipo "vendido" sin una Venta real detrás (bug que
-  // tenía este flujo). Reservar solo aplica a "compra", y es opcional.
-  // Igual que el resto de estos flujos multi-paso (ver nota equivalente en
-  // `lib/db/ventas.ts`), no es una transacción real -- aceptable a esta
-  // escala. Tampoco hay reversión automática al cancelar/eliminar un turno
-  // (gap preexistente: los ítems reservados se quedan reservados).
-  if (data.reservarStock && data.celularIds.length) {
-    const { error: updError } = await supabase
-      .from("celulares")
-      .update({ estado: "reservado" satisfies CelularStatus })
-      .in("id", data.celularIds);
-    if (updError) throw updError;
+  // en vez de marcar un equipo "vendido" sin una Venta real detrás. Reservar
+  // solo aplica a "compra", y es opcional. Igual que el resto de estos flujos
+  // multi-paso (ver `lib/db/ventas.ts`), no es una transacción real.
+  if (data.reservarStock) {
+    await setEstadoCelulares(data.celularIds, "reservado");
+    await moverStockOtros(data.itemsOtros, true);
   }
 
-  if (data.reservarStock && data.itemsOtros.length) {
-    for (const item of data.itemsOtros) {
-      const { data: otroRow, error: readError } = await supabase
-        .from("otros_items")
-        .select("serializado, cantidad, unidades")
-        .eq("id", item.otroId)
-        .single();
-      if (readError) throw readError;
+  return toTurno(row as unknown as TurnoRow);
+}
 
-      if (item.serial) {
-        // Unidad puntual de un "Otro" serializado: se marca `estado` dentro
-        // del jsonb `unidades` (no hay tabla de unidades sueltas).
-        const unidades = (otroRow.unidades ?? []) as OtroUnidad[];
-        const patched = unidades.map((u) =>
-          u.serial === item.serial ? { ...u, estado: "reservado" as const } : u,
-        );
-        const { error: updError } = await supabase
-          .from("otros_items")
-          .update({ unidades: patched })
-          .eq("id", item.otroId);
-        if (updError) throw updError;
-      } else if (item.cantidad) {
-        // "Otro" no serializado: se descuenta de la cantidad total.
-        const nuevaCantidad = Math.max(0, (otroRow.cantidad ?? 0) - item.cantidad);
-        const { error: updError } = await supabase
-          .from("otros_items")
-          .update({ cantidad: nuevaCantidad })
-          .eq("id", item.otroId);
-        if (updError) throw updError;
-      }
-    }
+/** Edita un turno. Los celulares/ítems que se quitan vuelven al stock (solo
+ * si el turno los había reservado: un celular que ya no está `reservado`
+ * -- p. ej. se vendió -- no se toca); los que se suman se reservan si
+ * `reservarStock`. */
+export async function updateTurno(id: string, data: TurnoDatos): Promise<Turno> {
+  const supabase = createServerClient();
+  const { data: previo, error: readError } = await supabase
+    .from("turnos")
+    .select("celular_ids, items_otros")
+    .eq("id", id)
+    .single();
+  if (readError) throw readError;
+
+  const { data: row, error } = await supabase
+    .from("turnos")
+    .update(columnas(data))
+    .eq("id", id)
+    .select(TURNO_COLS)
+    .single();
+  if (error) throw error;
+
+  const antesCel = (previo.celular_ids ?? []) as string[];
+  await setEstadoCelulares(
+    antesCel.filter((c) => !data.celularIds.includes(c)),
+    "disponible",
+    "reservado",
+  );
+  if (data.reservarStock) {
+    await setEstadoCelulares(
+      data.celularIds.filter((c) => !antesCel.includes(c)),
+      "reservado",
+    );
   }
+
+  const clave = (i: TurnoOtroItem) => `${i.otroId}|${i.serial ?? ""}`;
+  const antesOtros = (previo.items_otros ?? []) as TurnoOtroItem[];
+  const quitados = antesOtros.filter((a) => !data.itemsOtros.some((d) => clave(d) === clave(a)));
+  const nuevos = data.itemsOtros.filter((d) => !antesOtros.some((a) => clave(a) === clave(d)));
+  await moverStockOtros(quitados, false);
+  if (data.reservarStock) await moverStockOtros(nuevos, true);
 
   return toTurno(row as unknown as TurnoRow);
 }
