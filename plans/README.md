@@ -18,3 +18,4 @@ Verificación).
 | [021](021-modales-formularios-centrados.md) | Modales de formulario: todo centrado menos las casillas, 3 casillas por fila | HECHO en código — falta verificación visual (`/qa/dialog` + cada modal con sesión) |
 | [022](022-resumen-mensual.md) | Resumen mensual guardado (pg_cron + tabla + pantalla/PDF) | HECHO en código y migraciones aplicadas — falta `CRON_SECRET` en producción y verificación con sesión admin |
 | [023](023-agenda-turnos.md) | Turnos → Agenda estilo sistema-update (Día/Semana/Mes, próximos, estados atendido/no vino) | HECHO en código — falta aplicar la migración `20261124120000_turnos_agenda` (Supabase por autorizar) y verificar en navegador |
+| [024](024-variantes-celulares.md) | Celulares: grupo › variante › unidad (estilo sistema-update) | PENDIENTE — plan listo para otro agente |

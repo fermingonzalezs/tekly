@@ -2,7 +2,7 @@
 // aritmética de calendario (nunca `new Date(iso)` ni `toISOString()` sobre
 // una fecha local). Portado de `agendaUtils.js` de sistema-update.
 import { sumarDias } from "@/lib/date-presets";
-import type { Turno, TurnoTipo } from "@/lib/types";
+import type { Pedido, Turno, TurnoTipo } from "@/lib/types";
 
 export type VistaAgenda = "dia" | "semana" | "mes";
 export const VISTAS_AGENDA: VistaAgenda[] = ["dia", "semana", "mes"];
@@ -287,4 +287,36 @@ export function kpisAgenda(turnos: Turno[], hoy: string): KpisAgenda {
     semana: unicos.filter((t) => t.fecha >= d && t.fecha <= h && t.estado !== "cancelado").length,
     vencidos: unicos.filter((t) => esVencido(t, hoy)).length,
   };
+}
+
+// ── Pedidos (fila «Todo el día») ────────────────────────────────
+
+/** Un pedido sigue abierto mientras no se entregó ni se canceló. */
+export const pedidoAbierto = (p: Pedido): boolean =>
+  p.estado === "pedido" || p.estado === "llego";
+
+/** Abierto con la fecha de entrega ya pasada. */
+export const pedidoVencido = (p: Pedido, hoy: string): boolean =>
+  pedidoAbierto(p) && p.fechaEntrega < hoy;
+
+const ORDEN_PEDIDO: Record<Pedido["estado"], number> = {
+  llego: 0,
+  pedido: 1,
+  entregado: 2,
+  cancelado: 3,
+};
+
+/** Pedidos con entrega en `fecha`: primero los que llegaron (listos para
+ * entregar), después los pedidos, y al final entregados/cancelados. */
+export function pedidosDelDia(
+  pedidos: Pedido[],
+  fecha: string,
+  { conCancelados = true }: { conCancelados?: boolean } = {},
+): Pedido[] {
+  return pedidos
+    .filter((p) => p.fechaEntrega === fecha && (conCancelados || p.estado !== "cancelado"))
+    .sort(
+      (a, b) =>
+        ORDEN_PEDIDO[a.estado] - ORDEN_PEDIDO[b.estado] || a.cliente.localeCompare(b.cliente),
+    );
 }

@@ -1281,8 +1281,16 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   editar, los celulares/ítems quitados vuelven al stock si estaban
   reservados). Agendar con celulares vinculados los reserva si
   `reservarStock`. `Turno.clienteId` es nullable a propósito (`ClientePicker`
-  con `allowLibre`): turnos de gente aún no registrada. Fuera de alcance
-  (fases siguientes): reservas/señas y pedidos/encargos.
+  con `allowLibre`): turnos de gente aún no registrada. **Pedidos**
+  (encargos, versión simple): tabla `pedidos` (`cliente`/`cliente_id`,
+  `descripcion`, `fecha_entrega`, `estado` `pedido|llego|entregado|cancelado`,
+  `nota`; `lib/db/pedidos.ts`, `Pedido`/`pedidoEstado`), sin hora: se dibujan
+  en la fila **«Todo el día»** de Día/Semana (`CalendarioGrilla`, el hueco
+  libre carga uno con esa fecha) y arriba de cada día en Mes (sin
+  cancelados). `PedidoChip` (forma por estado, borde rojo si vencido) y
+  `PedidoDialog`/`PedidoDetalle` en `components/agenda/`; lógica pura
+  `pedidosDelDia`/`pedidoVencido` en `lib/agenda.ts`. No mueven caja ni
+  stock (la seña va en la nota). Fuera de alcance: reservas/señas.
 - **Inventario** (`app/(app)/inventario/`, migrado): 4 tabs — **Celulares**
   (unidades únicas por IMEI, con `Celular.almacenamiento`), **Notebooks**
   (unidades únicas por `Notebook.numeroSerie`, con CPU/memoria/pantalla/
@@ -1658,22 +1666,28 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   Clientes/Compras) y búsqueda por `#id` de ticket en Reparaciones
   (desde "Mis tickets" del técnico).
 - **Configuración** (`app/(app)/configuracion/`, migrado): admin-only salvo
-  la tab "Mi cuenta" (visible a cualquier rol, ya era real desde antes vía
-  `updateOwnProfile`). "Usuarios y roles" lista `profiles` reales de la org
+  la pestaña **«Cuenta y negocio»** (`?tab=cuenta-negocio`), que cualquier rol
+  ve en su parte «Mi cuenta» (un vendedor/técnico ve la sección titulada «Mi
+  cuenta» con una sola tarjeta; el admin ve las dos, lado a lado en `lg`). Los
+  valores viejos `?tab=negocio` y `?tab=cuenta` se siguen aceptando como alias
+  (`tabDeParam`) por los links de la ayuda, el onboarding y los bookmarks.
+  "Usuarios y roles" lista `profiles` reales de la org
   y conecta por primera vez `inviteMember`/`setMemberRole` de `lib/auth`
   (existían desde la Fase 0, ninguna UI los llamaba) — "Invitar usuario" y
   el pill de rol por fila (abre `CambiarRolDialog`), ambos validan admin
-  server-side adentro de esas funciones. "Datos del negocio" es 1:1
+  server-side adentro de esas funciones. "Datos del negocio" (tarjeta dentro
+  de «Cuenta y negocio») es 1:1
   con la organización — no es una tabla aparte, son columnas nuevas en
   `organizations` (`direccion`/`telefono`/`cuit`/`horario`, además del
   `nombre` que ya existía); sin policy de `update` para `authenticated` (a
   propósito), el guardado va por `createServiceRoleClient()` +
   `requireRole("admin")` en `lib/db/configuracion.ts`, mismo criterio que
-  `signUp`/`inviteMember`. "Recibos" (`RecibosForm`) es el mismo patrón
+  `signUp`/`inviteMember`. `MiCuenta` (nombre/alias/email, vía
+  `updateOwnProfile`) es la otra tarjeta de la misma pestaña. "Recibos" (`RecibosForm`) es el mismo patrón
   (columnas `garantia_*` en `organizations`, mismo `updateNegocioAction`)
   con preview en vivo del recibo de Garantía al lado del form — ver "Recibos
   / PDFs". "Importar datos" (`importar-datos.tsx`) es un
-  alta masiva vía CSV de celulares, notebooks (dedupe por número de serie; `bateria` obligatoria si es usado; la columna `observaciones` va a `Notebook.notas`) y clientes **existentes** (no ventas
+  alta masiva vía CSV de celulares, notebooks (dedupe por número de serie; `bateria` obligatoria si es usado; la columna `observaciones` va a `Notebook.notas`). La `condicion` de celulares es obligatoria y cerrada a `CONDICIONES_CELULAR` (`lib/status.ts`, misma lista que el alta manual) y clientes **existentes** (no ventas
   históricas — se descartó a propósito para no lidiar con fechas
   retroactivas ni con celulares "vendido" que ya no están en stock): parseo
   y validación con zod puros en `lib/importacion.ts` (con test, sin
@@ -1683,8 +1697,15 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   dentro del archivo subido como contra lo ya existente en la org, y un
   solo insert bulk por entidad (`createCelularesBulk`/`createClientesBulk`)
   en vez de un loop llamando a `createCelular`/`createCliente` fila por
-  fila. `estado` vacío en el CSV de celulares default a `en_revision`
-  (mismo criterio que el alta manual). Admin-only vía `requireRole` en
+  fila. `estado` vacío en el CSV de celulares/notebooks default a
+  `disponible` (`ESTADO_IMPORT_DEFAULT`; el alta manual sigue en
+  `en_revision`); batería obligatoria en usados, ignorada (100) en `NUEVO`;
+  montos aceptan `U$ 1.300` (`normalizarMonto`). La tabla de revisión se
+  configura por columna con `COLUMNAS_CELULAR`/`_NOTEBOOK`/`_CLIENTE`
+  (`lib/importacion.ts`: título, desplegable, monto `U$`, "no aplica"):
+  `estado` va primero, la validez de la fila es un punto junto al número +
+  línea de detalle debajo, todo centrado; `completarFila` aplica defaults en
+  cada cambio. Admin-only vía `requireRole` en
   `importCelularesAction`/`importClientesAction` — el server revalida cada
   fila con el mismo schema que usa el preview del navegador, nunca confía
   en esa validación client-side. **Leer con IA** (misma pantalla): el admin
@@ -1696,10 +1717,15 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   estado se recalcula con `evaluarFilas`, pura y con test; filas se pueden
   quitar). Cupo en `lib/ia-lecturas.ts` (puro, con test): **una lectura por
   tipo** (celulares/notebooks/clientes) por org, sin renovación, y 20.000
-  caracteres; solo cuenta una lectura exitosa. Tabla `ia_lecturas` (escribe
+  caracteres; solo cuenta una lectura exitosa. `organizations.ia_lecturas_ilimitadas` (default `false`, solo service role/SQL lo prende, a pedido) saca el cupo para esa org (`lecturasRestantes(usadas, ilimitadas)` → `Infinity`, la UI dice «Lecturas sin límite»); hoy activo solo para Mundo Phone. Tabla `ia_lecturas` (escribe
   solo service role): guarda tokens y `filas_resultado`, que permite
-  «Retomar la lectura con IA» si se recarga antes de importar. El botón «Google Sheets» copia la plantilla como TSV y abre
-  `sheets.new` (no hay plantillas en ningún Drive).
+  «Retomar la lectura con IA» si se recarga antes de importar. Los dos botones
+  de la plantilla abren el mismo modal de ayuda (`AyudaPlanillaDialog`):
+  «Google Sheets» copia la plantilla como TSV y explica cómo pegarla en A1;
+  «CSV» descarga el archivo y explica cómo importarlo. La pestaña de
+  `sheets.new` la abre el botón «Abrir planilla» del modal, no el click
+  original: el navegador la trae al frente y taparía los pasos (no hay forma
+  confiable de abrir una pestaña en el fondo).
 - **Cotización del dólar**: `lib/dolar.ts` (`useDolar()` → blue de
   `dolarapi.com`, cache en memoria, fallback `1465`). Se muestra en el
   `Topbar` vía `components/dolar-navbar.tsx`. **No está en Configuración.**

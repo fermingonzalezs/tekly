@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import { createTurno, updateTurno, setTurnoEstado, deleteTurno } from "@/lib/db/turnos";
+import { createPedido, deletePedido, setPedidoEstado, updatePedido } from "@/lib/db/pedidos";
 import type {
   ClienteSeleccion,
   Pago,
+  PedidoEstado,
   TurnoEstado,
   TurnoOtroItem,
   TurnoTipo,
@@ -84,4 +86,58 @@ export async function deleteTurnoAction(id: string) {
   await deleteTurno(id);
   revalidatePath("/agenda");
   revalidatePath("/dashboard");
+}
+
+// ── Pedidos ─────────────────────────────────────────────────────
+
+export type PedidoInput = {
+  cliente: ClienteSeleccion;
+  descripcion: string;
+  fechaEntrega: string;
+  nota: string;
+};
+
+const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+async function pedidoDatosDe(data: PedidoInput) {
+  if (!data.descripcion.trim()) throw new Error("Falta qué se pidió.");
+  if (!FECHA_RE.test(data.fechaEntrega)) throw new Error("Fecha de entrega inválida.");
+  const cliente =
+    data.cliente.tipo === "libre"
+      ? { id: null, nombre: data.cliente.nombre.trim() }
+      : await resolveCliente(data.cliente);
+  if (!cliente.nombre) throw new Error("Falta el cliente.");
+  return {
+    cliente: cliente.nombre,
+    clienteId: cliente.id,
+    descripcion: data.descripcion,
+    fechaEntrega: data.fechaEntrega,
+    nota: data.nota,
+  };
+}
+
+export async function createPedidoAction(data: PedidoInput) {
+  await requireEscritura();
+  const pedido = await createPedido(await pedidoDatosDe(data));
+  revalidatePath("/agenda");
+  return pedido;
+}
+
+export async function updatePedidoAction(id: string, data: PedidoInput) {
+  await requireEscritura();
+  const pedido = await updatePedido(id, await pedidoDatosDe(data));
+  revalidatePath("/agenda");
+  return pedido;
+}
+
+export async function setPedidoEstadoAction(id: string, estado: PedidoEstado) {
+  await requireEscritura();
+  await setPedidoEstado(id, estado);
+  revalidatePath("/agenda");
+}
+
+export async function deletePedidoAction(id: string) {
+  await requireRoleEscritura("admin");
+  await deletePedido(id);
+  revalidatePath("/agenda");
 }

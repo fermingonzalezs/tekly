@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { CelularInput } from "@/lib/db/inventario";
 import type { NotebookInput } from "@/lib/notebooks";
 import type { CelularStatus, NotebookCondicion } from "@/lib/types";
+import { CONDICIONES_CELULAR, celularStatus } from "@/lib/status";
+import { fmtUsd } from "@/lib/format";
 
 // ─────────────────────── Celulares ───────────────────────
 
@@ -49,26 +51,69 @@ export function remapFilas(
 
 // El schema opera sobre strings crudas del CSV (vía Papa.parse header:true)
 // -- coerciona números, valida el enum de estado, y deja todo lo demás
-// opcional. `estado` vacío se completa a "en_revision" en `parseCelularRow`,
-// mismo default que el alta manual en `CelularFormDialog`.
+// opcional. `estado` vacío se completa a `ESTADO_IMPORT_DEFAULT`
+// (`disponible`) en `parseCelularRow`.
+/** Estado de stock de una fila importada: vacío → `disponible` (lo que se
+ * importa suele ser stock a la venta; antes era `en_revision`). */
+export const ESTADO_IMPORT_DEFAULT: CelularStatus = "disponible";
+
+const estadoSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .refine((v) => v === "" || ESTADOS_CELULAR.includes(v as CelularStatus), {
+    message: `estado debe ser una de: ${ESTADOS_CELULAR.join(", ")} (o vacío)`,
+  })
+  .optional()
+  .default("");
+
+/** Monto en dólares escrito como venga ("1300", "1.300", "U$ 1.300",
+ * "1,300.50") → número como string ("1300", "1300.5"); "" si no hay dígitos.
+ * Un separador seguido de 1-2 dígitos al final es decimal; si no, de miles. */
+export function normalizarMonto(v: string): string {
+  const sinMoneda = (v ?? "").replace(/u\$s|usd|u\$|\$|\s/gi, "");
+  if (sinMoneda === "") return "";
+  // Algo que no es un monto ("abc", "a consultar"): se deja tal cual para que
+  // la validación lo marque, en vez de convertirlo en 0 sin avisar.
+  if (/[^\d.,]/.test(sinMoneda) || !/\d/.test(sinMoneda)) return (v ?? "").trim();
+  const limpio = sinMoneda;
+  const m = limpio.match(/^(.*?)[.,](\d{1,2})$/);
+  const entero = (m ? m[1] : limpio).replace(/[.,]/g, "");
+  const n = Number(`${entero || "0"}${m ? `.${m[2]}` : ""}`);
+  return String(n);
+}
+
+const montoSchema = (campo: string) =>
+  z
+    .string()
+    .optional()
+    .default("")
+    .transform((v) => Number(normalizarMonto(v) || "0"))
+    .pipe(z.number({ error: `${campo} debe ser un monto en dólares (ej. 1300)` }).min(0, `${campo} debe ser un número >= 0`));
+
+/** Batería de un equipo usado: obligatoria, entero 0-100. `null` si no vale. */
+function bateriaUsado(v: string): number | null {
+  const n = Number(v.replace("%", "").trim());
+  return v.trim() !== "" && Number.isInteger(n) && n >= 0 && n <= 100 ? n : null;
+}
+
 const celularCsvSchema = z.object({
   modelo: z.string().trim().min(1, "modelo es obligatorio"),
   almacenamiento: z.string().trim().optional().default(""),
   color: z.string().trim().optional().default(""),
   imei: z.string().trim().optional().default(""),
-  bateria: z.coerce.number().int().min(0).max(100).optional().default(100),
-  condicion: z.string().trim().optional().default(""),
-  costoUsd: z.coerce.number().min(0, "costoUsd debe ser un número >= 0"),
-  precioUsd: z.coerce.number().min(0, "precioUsd debe ser un número >= 0"),
-  estado: z
+  bateria: z.string().trim().optional().default(""),
+  // Uno de los grados reales (`CONDICIONES_CELULAR`), sin importar mayúsculas.
+  condicion: z
     .string()
     .trim()
-    .toLowerCase()
-    .refine((v) => v === "" || ESTADOS_CELULAR.includes(v as CelularStatus), {
-      message: `estado debe ser una de: ${ESTADOS_CELULAR.join(", ")} (o vacío)`,
-    })
-    .optional()
-    .default(""),
+    .toUpperCase()
+    .refine((v) => (CONDICIONES_CELULAR as readonly string[]).includes(v), {
+      message: `condicion debe ser una de: ${CONDICIONES_CELULAR.join(", ")}`,
+    }),
+  costoUsd: montoSchema("costoUsd"),
+  precioUsd: montoSchema("precioUsd"),
+  estado: estadoSchema,
 });
 
 export type ParseResult<T> =
@@ -83,6 +128,15 @@ export function parseCelularRow(raw: Record<string, string>, rowNum: number): Pa
     return { ok: false, rowNum, error: parsed.error.issues[0].message };
   }
   const d = parsed.data;
+  // NUEVO: la batería no aplica (va al 100 %). Usado: obligatoria.
+  let bateria = 100;
+  if (d.condicion !== "NUEVO") {
+    const b = bateriaUsado(d.bateria);
+    if (b === null) {
+      return { ok: false, rowNum, error: "bateria es obligatoria en los usados (entero de 0 a 100)" };
+    }
+    bateria = b;
+  }
   return {
     ok: true,
     rowNum,
@@ -91,11 +145,11 @@ export function parseCelularRow(raw: Record<string, string>, rowNum: number): Pa
       almacenamiento: d.almacenamiento,
       color: d.color,
       imei: d.imei,
-      bateria: d.bateria,
+      bateria,
       condicion: d.condicion,
       costoUsd: d.costoUsd,
       precioUsd: d.precioUsd,
-      estado: (d.estado || "en_revision") as CelularStatus,
+      estado: (d.estado || ESTADO_IMPORT_DEFAULT) as CelularStatus,
     },
   };
 }
@@ -137,15 +191,16 @@ export function celularTemplateCsv(): string {
     "A",
     "300",
     "450",
-    "en_revision",
+    "disponible",
     "Fila de ejemplo -- borrala junto con las filas de notas de abajo antes de importar",
   ];
   const notas = [
-    "estado: en_revision / disponible / reservado / vendido -- vacío se completa como en_revision",
-    "condicion: texto libre (ej. A / B / C) -- usá tu propia escala de grados",
+    "estado: en_revision / disponible / reservado / vendido -- vacío se completa como disponible",
+    `condicion: una de ${CONDICIONES_CELULAR.join(" / ")} (obligatoria)`,
     "imei: no repetir -- si dos filas tienen el mismo IMEI (o ya existe en el inventario) esa fila se marca como duplicada y no se importa",
-    "bateria: número entero de 0 a 100 -- vacío se completa como 100",
-    "costoUsd / precioUsd: números en dólares sin símbolo ni puntos de miles (ej. 300)",
+    "bateria: entero de 0 a 100 sin % -- obligatoria en los usados; en NUEVO dejala vacía",
+    "color: el color del equipo si figura en el texto (en español: Negro / Blanco / Azul / Titanio natural...) -- vacío si no figura",
+    "costoUsd / precioUsd: números en dólares sin símbolo ni puntos de miles (ej. 300) -- costoUsd es lo que costó y precioUsd el precio de venta",
   ].map((nota) => [...Array(CELULAR_CSV_HEADERS.length).fill(""), nota].join(","));
 
   return [headers.join(","), ejemplo.join(","), ...notas].join("\n");
@@ -278,7 +333,7 @@ export const NOTEBOOK_CSV_HEADERS = [
   "estado",
 ] as const;
 
-const CONDICIONES_NOTEBOOK: NotebookCondicion[] = ["nuevo", "usado"];
+export const CONDICIONES_NOTEBOOK: NotebookCondicion[] = ["nuevo", "usado"];
 
 // `observaciones` se mapea a `Notebook.notas` (el header "notas" queda libre
 // para la columna de instrucciones de la plantilla). `bateria` solo cuenta en
@@ -303,17 +358,9 @@ const notebookCsvSchema = z.object({
       message: `condicion debe ser una de: ${CONDICIONES_NOTEBOOK.join(", ")}`,
     }),
   bateria: z.string().trim().optional().default(""),
-  costoUsd: z.coerce.number().min(0, "costoUsd debe ser un número >= 0"),
-  precioUsd: z.coerce.number().min(0, "precioUsd debe ser un número >= 0"),
-  estado: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .refine((v) => v === "" || ESTADOS_CELULAR.includes(v as CelularStatus), {
-      message: `estado debe ser una de: ${ESTADOS_CELULAR.join(", ")} (o vacío)`,
-    })
-    .optional()
-    .default(""),
+  costoUsd: montoSchema("costoUsd"),
+  precioUsd: montoSchema("precioUsd"),
+  estado: estadoSchema,
 });
 
 export function parseNotebookRow(
@@ -328,8 +375,8 @@ export function parseNotebookRow(
   const condicion = d.condicion as NotebookCondicion;
   let bateria: number | null = null;
   if (condicion === "usado") {
-    const n = Number(d.bateria);
-    if (d.bateria === "" || !Number.isInteger(n) || n < 0 || n > 100) {
+    const n = bateriaUsado(d.bateria);
+    if (n === null) {
       return {
         ok: false,
         rowNum,
@@ -355,7 +402,7 @@ export function parseNotebookRow(
       notas: d.observaciones,
       costoUsd: d.costoUsd,
       precioUsd: d.precioUsd,
-      estado: (d.estado || "en_revision") as CelularStatus,
+      estado: (d.estado || ESTADO_IMPORT_DEFAULT) as CelularStatus,
       condicion,
       bateria,
     },
@@ -402,14 +449,14 @@ export function notebookTemplateCsv(): string {
     "95",
     "800",
     "1000",
-    "en_revision",
+    "disponible",
     "Fila de ejemplo -- borrala junto con las filas de notas de abajo antes de importar",
   ];
   const notas = [
     "condicion: nuevo o usado (obligatoria)",
     "bateria: entero de 0 a 100 -- obligatoria si es usado; en las nuevas se ignora",
     "numeroSerie: no repetir -- si ya existe en el inventario (o se repite en el archivo) la fila se marca como duplicada y no se importa",
-    "estado: en_revision / disponible / reservado / vendido -- vacío se completa como en_revision",
+    "estado: en_revision / disponible / reservado / vendido -- vacío se completa como disponible",
     "costoUsd / precioUsd: números en dólares sin símbolo ni puntos de miles (ej. 800)",
     "observaciones: texto libre sin comas",
   ].map((nota) => [...Array(NOTEBOOK_CSV_HEADERS.length).fill(""), nota].join(","));
@@ -447,4 +494,115 @@ export function evaluarFilas<T>(
     estados.set(rowNum, detail ? { rowNum, status: "duplicate", detail } : { rowNum, status: "ok" });
   }
   return filas.map((f) => estados.get(f.rowNum)!);
+}
+
+// ─────────────────── Columnas de la tabla de revisión ───────────────────
+
+/** Cómo se muestra/edita cada columna en la tabla editable de Importar datos
+ * (la de después de subir un CSV o leer con IA). */
+export type ColumnaImport = {
+  label: string;
+  /** Valores cerrados → desplegable en vez de texto libre. */
+  opciones?: readonly { value: string; label: string }[];
+  /** Valor que toma la celda si viene vacía. */
+  porDefecto?: string;
+  /** Monto en dólares: se muestra como `U$ 1.300`. */
+  monto?: boolean;
+  /** La celda no aplica para esta fila (se deshabilita y se vacía). */
+  deshabilitada?: (fila: Record<string, string>) => boolean;
+};
+
+const OPCIONES_ESTADO = ESTADOS_CELULAR.map((e) => ({ value: e, label: celularStatus[e].label }));
+
+const COL_ESTADO: ColumnaImport = {
+  label: "Estado",
+  opciones: OPCIONES_ESTADO,
+  porDefecto: ESTADO_IMPORT_DEFAULT,
+};
+
+export const COLUMNAS_CELULAR: Record<string, ColumnaImport> = {
+  estado: COL_ESTADO,
+  modelo: { label: "Modelo" },
+  almacenamiento: { label: "Almacenamiento" },
+  color: { label: "Color" },
+  imei: { label: "IMEI" },
+  condicion: {
+    label: "Condición",
+    opciones: CONDICIONES_CELULAR.map((c) => ({ value: c, label: c })),
+  },
+  bateria: {
+    label: "Batería",
+    deshabilitada: (f) => (f.condicion ?? "").trim().toUpperCase() === "NUEVO",
+  },
+  costoUsd: { label: "Costo USD", monto: true },
+  precioUsd: { label: "Precio USD", monto: true },
+};
+
+export const COLUMNAS_NOTEBOOK: Record<string, ColumnaImport> = {
+  estado: COL_ESTADO,
+  modelo: { label: "Modelo" },
+  cpu: { label: "CPU" },
+  memoria: { label: "Memoria" },
+  almacenamiento: { label: "Almacenamiento" },
+  pantalla: { label: "Pantalla" },
+  gpu: { label: "GPU" },
+  color: { label: "Color" },
+  idioma: { label: "Idioma" },
+  numeroSerie: { label: "N° de serie" },
+  garantia: { label: "Garantía" },
+  observaciones: { label: "Observaciones" },
+  condicion: {
+    label: "Condición",
+    opciones: CONDICIONES_NOTEBOOK.map((c) => ({ value: c, label: c === "nuevo" ? "Nueva" : "Usada" })),
+  },
+  bateria: {
+    label: "Batería",
+    deshabilitada: (f) => (f.condicion ?? "").trim().toLowerCase() !== "usado",
+  },
+  costoUsd: { label: "Costo USD", monto: true },
+  precioUsd: { label: "Precio USD", monto: true },
+};
+
+export const COLUMNAS_CLIENTE: Record<string, ColumnaImport> = {
+  nombre: { label: "Nombre" },
+  telefono: { label: "Teléfono" },
+  email: { label: "Email" },
+  fechaNacimiento: { label: "Nacimiento" },
+};
+
+/** Orden de la tabla: `estado` (si la entidad lo tiene) va primero. */
+export function ordenColumnas(headers: readonly string[]): string[] {
+  return headers.includes("estado") ? ["estado", ...headers.filter((h) => h !== "estado")] : [...headers];
+}
+
+/** Completa defaults, vacía las celdas que no aplican y normaliza montos.
+ * Se aplica al armar la tabla y después de cada cambio de celda. */
+export function completarFila(
+  fila: Record<string, string>,
+  columnas: Record<string, ColumnaImport>,
+): Record<string, string> {
+  const out = { ...fila };
+  for (const [campo, col] of Object.entries(columnas)) {
+    const v = out[campo] ?? "";
+    if (col.porDefecto && !v.trim()) out[campo] = col.porDefecto;
+    else if (col.opciones) out[campo] = opcionDe(col, v)?.value ?? v;
+    if (col.monto) out[campo] = normalizarMonto(v);
+    if (col.deshabilitada?.(out)) out[campo] = "";
+  }
+  return out;
+}
+
+/** Opción que corresponde a un valor crudo (sin mayúsculas ni espacios). */
+export function opcionDe(
+  col: ColumnaImport,
+  valor: string,
+): { value: string; label: string } | undefined {
+  const v = (valor ?? "").trim().toLowerCase();
+  return col.opciones?.find((o) => o.value.toLowerCase() === v || o.label.toLowerCase() === v);
+}
+
+/** Monto crudo → "U$ 1.300" para mostrar en la celda (vacío si no hay). */
+export function montoParaMostrar(valor: string): string {
+  const n = normalizarMonto(valor);
+  return n === "" ? "" : fmtUsd(Number(n));
 }

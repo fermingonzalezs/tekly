@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  COLUMNAS_CELULAR,
+  completarFila,
+  montoParaMostrar,
+  normalizarMonto,
+  ordenColumnas,
   CLIENTE_CSV_HEADERS,
   CELULAR_CSV_HEADERS,
   clienteTemplateCsv,
@@ -29,6 +34,13 @@ describe("parseCelularRow", () => {
     estado: "disponible",
   };
 
+  it("condicion: solo los grados reales, sin importar mayúsculas", () => {
+    const ok = parseCelularRow({ ...filaValida, condicion: " a+ " }, 1);
+    expect(ok.ok && ok.data.condicion).toBe("A+");
+    expect(parseCelularRow({ ...filaValida, condicion: "Excelente" }, 1).ok).toBe(false);
+    expect(parseCelularRow({ ...filaValida, condicion: "" }, 1).ok).toBe(false);
+  });
+
   it("parsea una fila válida", () => {
     const out = parseCelularRow(filaValida, 1);
     expect(out.ok).toBe(true);
@@ -55,10 +67,10 @@ describe("parseCelularRow", () => {
     expect(out.ok).toBe(false);
   });
 
-  it("estado vacío se completa a en_revision", () => {
+  it("estado vacío se completa a disponible", () => {
     const out = parseCelularRow({ ...filaValida, estado: "" }, 5);
     expect(out.ok).toBe(true);
-    if (out.ok) expect(out.data.estado).toBe("en_revision");
+    if (out.ok) expect(out.data.estado).toBe("disponible");
   });
 });
 
@@ -226,7 +238,7 @@ describe("importación de notebooks", () => {
     if (out.ok) {
       expect(out.data.notas).toBe("ok");
       expect(out.data.bateria).toBe(95);
-      expect(out.data.estado).toBe("en_revision");
+      expect(out.data.estado).toBe("disponible");
     }
   });
 
@@ -271,7 +283,7 @@ describe("importación de notebooks", () => {
 describe("evaluarFilas", () => {
   const fila = (rowNum: number, imei: string, modelo = "iPhone 13") => ({
     rowNum,
-    raw: { modelo, almacenamiento: "", color: "", imei, bateria: "", condicion: "", costoUsd: "300", precioUsd: "450", estado: "" },
+    raw: { modelo, almacenamiento: "", color: "", imei, bateria: "90", condicion: "A", costoUsd: "300", precioUsd: "450", estado: "" },
   });
   const dedupe = (validos: { rowNum: number; data: { imei: string } }[]) =>
     marcarImeiDuplicadoEnArchivo(validos.map((v) => ({ rowNum: v.rowNum, imei: v.data.imei })));
@@ -288,5 +300,43 @@ describe("evaluarFilas", () => {
   it("corregir la fila la vuelve válida (la tabla editable recalcula así)", () => {
     const estados = evaluarFilas([fila(1, "111"), fila(2, "333")], parseCelularRow, dedupe);
     expect(estados.every((e) => e.status === "ok")).toBe(true);
+  });
+});
+
+describe("tabla de revisión", () => {
+  it("normalizarMonto entiende U$, puntos de miles y decimales", () => {
+    expect(normalizarMonto("1300")).toBe("1300");
+    expect(normalizarMonto("U$ 1.300")).toBe("1300");
+    expect(normalizarMonto("USD 1,300.50")).toBe("1300.5");
+    expect(normalizarMonto("1.300,5")).toBe("1300.5");
+    expect(normalizarMonto("")).toBe("");
+    expect(normalizarMonto("a consultar")).toBe("a consultar");
+  });
+
+  it("celular: NUEVO no pide batería; usado sí", () => {
+    const base = { modelo: "iPhone 15", almacenamiento: "", color: "", imei: "", costoUsd: "1", precioUsd: "2", estado: "" };
+    const nuevo = parseCelularRow({ ...base, condicion: "nuevo", bateria: "" }, 1);
+    expect(nuevo.ok && nuevo.data.bateria).toBe(100);
+    expect(parseCelularRow({ ...base, condicion: "A", bateria: "" }, 1).ok).toBe(false);
+    const usado = parseCelularRow({ ...base, condicion: "A", bateria: "87%" }, 1);
+    expect(usado.ok && usado.data.bateria).toBe(87);
+  });
+
+  it("completarFila: estado por defecto, opciones canónicas, batería vacía en NUEVO", () => {
+    const f = completarFila(
+      { estado: "", condicion: "nuevo", bateria: "90", costoUsd: "U$ 1.200", precioUsd: "1300" },
+      COLUMNAS_CELULAR,
+    );
+    expect(f).toMatchObject({ estado: "disponible", condicion: "NUEVO", bateria: "", costoUsd: "1200" });
+  });
+
+  it("ordenColumnas pone estado primero", () => {
+    expect(ordenColumnas(["modelo", "imei", "estado"])).toEqual(["estado", "modelo", "imei"]);
+    expect(ordenColumnas(["nombre"])).toEqual(["nombre"]);
+  });
+
+  it("montoParaMostrar usa el formato U$ con puntos", () => {
+    expect(montoParaMostrar("1300")).toBe("U$ 1.300");
+    expect(montoParaMostrar("")).toBe("");
   });
 });

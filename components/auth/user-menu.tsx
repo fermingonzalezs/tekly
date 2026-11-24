@@ -90,7 +90,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
               </Link>
             )}
             <Link
-              href={user.rol === "admin" ? "/configuracion?tab=cuenta" : "/configuracion"}
+              href={user.rol === "admin" ? "/configuracion?tab=cuenta-negocio" : "/configuracion"}
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
             >

@@ -22,6 +22,7 @@ import { SeccionTabla } from "@/components/ui/seccion-tabla";
 import { BarraFiltros } from "@/components/ui/barra-filtros";
 import { GraficoDona, GraficoRanking } from "@/components/seccion/graficos";
 import {
+  CONDICIONES_CELULAR,
   celularStatus,
   otroCategoria,
   repuestoEstado,
@@ -2622,7 +2623,7 @@ function CelularFormDialog({
                   value={f.condicion}
                   onChange={(e) => set("condicion", e.target.value)}
                 >
-                  {["NUEVO", "A+", "A", "B+", "B", "C"].map((c) => (
+                  {CONDICIONES_CELULAR.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </Select>

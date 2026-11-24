@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { listMiembros, getNegocio } from "@/lib/db/configuracion";
-import { lecturasIaUsadas } from "@/lib/db/ia-lecturas";
+import { lecturasIaIlimitadas, lecturasIaUsadas } from "@/lib/db/ia-lecturas";
 import { ENTIDADES_IMPORTACION, lecturasRestantes, type EntidadImportacion } from "@/lib/ia-lecturas";
 import { ConfiguracionClient } from "./configuracion-client";
 
@@ -22,10 +22,11 @@ export default async function ConfiguracionPage() {
     );
   }
 
-  const [miembros, negocio, lecturasIa] = await Promise.all([
+  const [miembros, negocio, lecturasIa, iaIlimitadas] = await Promise.all([
     listMiembros(),
     getNegocio(),
     lecturasIaUsadas(),
+    lecturasIaIlimitadas(),
   ]);
 
   return (
@@ -36,7 +37,7 @@ export default async function ConfiguracionPage() {
         negocio={negocio}
         iaRestantes={
           Object.fromEntries(
-            ENTIDADES_IMPORTACION.map((e) => [e, lecturasRestantes(lecturasIa[e])]),
+            ENTIDADES_IMPORTACION.map((e) => [e, lecturasRestantes(lecturasIa[e], iaIlimitadas)]),
           ) as Record<EntidadImportacion, number>
         }
       />

@@ -16,9 +16,11 @@ import {
   horaAMinutos,
   minutosAHora,
   etiquetaDia,
+  pedidosDelDia,
 } from "@/lib/agenda";
 import { EventoBloque } from "./evento-bloque";
-import type { Turno } from "@/lib/types";
+import { PedidoChip } from "./pedido-chip";
+import type { Pedido, Turno } from "@/lib/types";
 
 const ALTO_DIA = (HORA_FIN - HORA_INICIO) * PX_POR_HORA;
 const ALTO_SLOT = PX_POR_HORA / 2;
@@ -43,20 +45,27 @@ function minutosAhora(): number {
 export function CalendarioGrilla({
   dias,
   turnos,
+  pedidos,
   hoy,
   compacta,
   onAgendar,
   onAbrirTurno,
   onAbrirDia,
+  onNuevoPedido,
+  onAbrirPedido,
 }: {
   dias: string[];
   turnos: Turno[];
+  /** Pedidos del rango: van en la fila «Todo el día», no tienen hora. */
+  pedidos: Pedido[];
   hoy: string;
   /** Semana: agrupa 3+ solapados y muestra menos detalle. */
   compacta: boolean;
   onAgendar: (fecha: string, hora: string) => void;
   onAbrirTurno: (id: string) => void;
   onAbrirDia: (fecha: string) => void;
+  onNuevoPedido: (fecha: string) => void;
+  onAbrirPedido: (id: string) => void;
 }) {
   const [ahora, setAhora] = useState<number | null>(null);
   useEffect(() => {
@@ -94,6 +103,44 @@ export function CalendarioGrilla({
               <span className="block text-sm font-semibold text-white">{fechaCorta(d)}</span>
             </button>
           ))}
+        </div>
+
+        {/* Todo el día: pedidos con entrega ese día. El hueco libre de cada
+            celda carga un pedido nuevo con esa fecha. */}
+        <div
+          className="grid border-b border-neutral-200 bg-neutral-50"
+          style={{ gridTemplateColumns: cols }}
+        >
+          <div className="flex items-start justify-end px-1.5 py-1.5 text-right text-[10px] font-semibold uppercase leading-tight tracking-wide text-neutral-500">
+            Todo el día
+          </div>
+          {dias.map((fecha) => {
+            const delDia = pedidosDelDia(pedidos, fecha);
+            return (
+              <div
+                key={fecha}
+                className="group relative flex min-h-9 flex-col gap-0.5 border-l border-neutral-100 p-1"
+              >
+                {delDia.map((p) => (
+                  <PedidoChip
+                    key={p.id}
+                    pedido={p}
+                    hoy={hoy}
+                    conDescripcion={!compacta}
+                    onClick={() => onAbrirPedido(p.id)}
+                  />
+                ))}
+                <button
+                  type="button"
+                  aria-label={`Nuevo pedido para el ${fechaCorta(fecha)}`}
+                  onClick={() => onNuevoPedido(fecha)}
+                  className="min-h-5 flex-1 rounded text-left text-[10px] font-medium text-accent opacity-0 transition-opacity hover:bg-accent-soft hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none"
+                >
+                  <span className="px-1">+ Pedido</span>
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         <div className="grid" style={{ gridTemplateColumns: cols }}>

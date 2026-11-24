@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, Plus } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
@@ -13,6 +13,7 @@ import { TurnoDetalle } from "@/components/agenda/turno-detalle";
 import { CalendarioGrilla } from "@/components/agenda/calendario-grilla";
 import { CalendarioMes } from "@/components/agenda/calendario-mes";
 import { Proximos } from "@/components/agenda/proximos";
+import { PedidoDetalle, PedidoDialog } from "@/components/agenda/pedido-dialog";
 import {
   etiquetaDia,
   etiquetaRango,
@@ -25,26 +26,43 @@ import { sumarDias } from "@/lib/date-presets";
 import { defaultTurnoSlot } from "@/lib/command-palette";
 import { dotClass, turnoTipo } from "@/lib/status";
 import { cn } from "@/lib/utils";
-import type { Celular, ClienteOpcion, OtroItem, Ticket, Turno, TurnoEstado, TurnoTipo } from "@/lib/types";
+import type {
+  Celular,
+  ClienteOpcion,
+  OtroItem,
+  Pedido,
+  PedidoEstado,
+  Ticket,
+  Turno,
+  TurnoEstado,
+  TurnoTipo,
+} from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
 import type { Negocio } from "@/lib/db/configuracion";
 import {
+  createPedidoAction,
   createTurnoAction,
+  deletePedidoAction,
   deleteTurnoAction,
+  setPedidoEstadoAction,
   setTurnoEstadoAction,
+  updatePedidoAction,
   updateTurnoAction,
+  type PedidoInput,
   type TurnoInput,
 } from "./actions";
 
 const TIPOS: TurnoTipo[] = ["compra", "deja", "retira", "cotizar"];
 
 type Dialogo = { modo: "nuevo"; fecha: string; hora: string } | { modo: "editar"; id: string };
+type DialogoPedido = { modo: "nuevo"; fecha: string } | { modo: "editar"; id: string };
 
 export function AgendaClient({
   vista,
   fecha,
   hoy,
   turnos,
+  pedidos,
   proximos,
   celulares,
   otros,
@@ -59,6 +77,8 @@ export function AgendaClient({
   hoy: string;
   /** Turnos del rango visible. */
   turnos: Turno[];
+  /** Pedidos con entrega en el rango visible (fila «Todo el día»). */
+  pedidos: Pedido[];
   /** Vencidos + próximos 14 días (panel «Próximos» y KPIs). */
   proximos: Turno[];
   celulares: Celular[];
@@ -78,6 +98,14 @@ export function AgendaClient({
   const [selId, setSelId] = useState<string | null>(null);
   const [dialogo, setDialogo] = useState<Dialogo | null>(null);
   const [eliminando, setEliminando] = useState<Turno | null>(null);
+  const [pedidoSelId, setPedidoSelId] = useState<string | null>(null);
+  const [dialogoPedido, setDialogoPedido] = useState<DialogoPedido | null>(null);
+  const [errorPedido, setErrorPedido] = useState<string | null>(null);
+  const [guardandoPedido, setGuardandoPedido] = useState(false);
+  const [eliminandoPedido, setEliminandoPedido] = useState<Pedido | null>(null);
+  const pedidoSel = pedidoSelId ? (pedidos.find((p) => p.id === pedidoSelId) ?? null) : null;
+  const pedidoEditando =
+    dialogoPedido?.modo === "editar" ? (pedidos.find((p) => p.id === dialogoPedido.id) ?? null) : null;
 
   // Todo lo conocido, sin duplicados (un turno puede estar en el rango y en próximos).
   const todos = useMemo(
@@ -147,6 +175,41 @@ export function AgendaClient({
     });
   }
 
+  async function guardarPedido(data: PedidoInput) {
+    const edit = dialogoPedido?.modo === "editar" ? dialogoPedido.id : null;
+    setGuardandoPedido(true);
+    setErrorPedido(null);
+    try {
+      if (edit) await updatePedidoAction(edit, data);
+      else await createPedidoAction(data);
+      setDialogoPedido(null);
+      startTransition(() => router.refresh());
+    } catch (e) {
+      setErrorPedido(e instanceof Error ? e.message : "No se pudo guardar el pedido.");
+    } finally {
+      setGuardandoPedido(false);
+    }
+  }
+
+  function cambiarEstadoPedido(p: Pedido, estado: PedidoEstado) {
+    startTransition(async () => {
+      await setPedidoEstadoAction(p.id, estado);
+    });
+  }
+
+  function eliminarPedido(p: Pedido) {
+    setEliminandoPedido(null);
+    setPedidoSelId(null);
+    startTransition(async () => {
+      await deletePedidoAction(p.id);
+    });
+  }
+
+  const nuevoPedido = (f: string) => {
+    setErrorPedido(null);
+    setDialogoPedido({ modo: "nuevo", fecha: f });
+  };
+
   const abrirDia = (f: string) => navegar("dia", f);
   const agendar = (f: string, h: string) => setDialogo({ modo: "nuevo", fecha: f, hora: h });
 
@@ -195,9 +258,16 @@ export function AgendaClient({
           ]}
         />
         <Button
+          icon={Package}
+          variant="tonal"
+          className="ml-auto"
+          onClick={() => nuevoPedido(vista === "dia" ? fecha : hoy)}
+        >
+          Nuevo pedido
+        </Button>
+        <Button
           icon={Plus}
           variant="primary"
-          className="ml-auto"
           onClick={() => setDialogo({ modo: "nuevo", fecha: vista === "dia" ? fecha : hoy, hora: "09:00" })}
         >
           Agendar turno
@@ -212,6 +282,7 @@ export function AgendaClient({
           </span>
         ))}
         <span className="text-neutral-500">
+          · <Package aria-hidden className="inline h-3 w-3" /> Pedido (todo el día)
           · Lleno: confirmado · Borde: sin confirmar · Apagado: atendido / no vino · Tachado: cancelado
         </span>
       </div>
@@ -222,9 +293,11 @@ export function AgendaClient({
             <CalendarioMes
               fecha={fecha}
               turnos={turnos}
+              pedidos={pedidos}
               hoy={hoy}
               onAbrirTurno={setSelId}
               onAbrirDia={abrirDia}
+              onAbrirPedido={setPedidoSelId}
             />
           ) : (
             <CalendarioGrilla
@@ -232,9 +305,12 @@ export function AgendaClient({
               turnos={turnos}
               hoy={hoy}
               compacta={vista === "semana"}
+              pedidos={pedidos}
               onAgendar={agendar}
               onAbrirTurno={setSelId}
               onAbrirDia={abrirDia}
+              onNuevoPedido={nuevoPedido}
+              onAbrirPedido={setPedidoSelId}
             />
           )}
         </div>
@@ -266,6 +342,50 @@ export function AgendaClient({
         {eliminando &&
           `Se eliminará el turno de «${eliminando.cliente}» (${etiquetaDia(eliminando.fecha)} · ${eliminando.hora}). Esta acción no se puede deshacer.`}
       </ConfirmDialog>
+
+      <PedidoDetalle
+        pedido={pedidoSel}
+        hoy={hoy}
+        clientes={clientesOpciones}
+        esAdmin={esAdmin}
+        onClose={() => setPedidoSelId(null)}
+        onEstado={cambiarEstadoPedido}
+        onEditar={(p) => {
+          setPedidoSelId(null);
+          setErrorPedido(null);
+          setDialogoPedido({ modo: "editar", id: p.id });
+        }}
+        onEliminar={setEliminandoPedido}
+      />
+
+      <ConfirmDialog
+        open={!!eliminandoPedido}
+        onClose={() => setEliminandoPedido(null)}
+        onConfirm={() => eliminandoPedido && eliminarPedido(eliminandoPedido)}
+        title="¿Eliminar pedido?"
+        confirmLabel="Eliminar pedido"
+      >
+        {eliminandoPedido &&
+          `Se eliminará el pedido de «${eliminandoPedido.cliente}» (${eliminandoPedido.descripcion}). Esta acción no se puede deshacer.`}
+      </ConfirmDialog>
+
+      <PedidoDialog
+        key={
+          dialogoPedido?.modo === "editar"
+            ? `pedido-editar-${dialogoPedido.id}`
+            : dialogoPedido?.modo === "nuevo"
+              ? `pedido-nuevo-${dialogoPedido.fecha}`
+              : "pedido-none"
+        }
+        open={!!dialogoPedido && (dialogoPedido.modo === "nuevo" || !!pedidoEditando)}
+        pedido={pedidoEditando}
+        fechaInicial={dialogoPedido?.modo === "nuevo" ? dialogoPedido.fecha : hoy}
+        clientesOpciones={clientesOpciones}
+        error={errorPedido}
+        guardando={guardandoPedido}
+        onClose={() => setDialogoPedido(null)}
+        onSubmit={guardarPedido}
+      />
 
       <AgendarDialog
         key={

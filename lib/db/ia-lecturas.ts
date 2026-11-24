@@ -15,6 +15,18 @@ export async function lecturasIaUsadas(): Promise<Record<EntidadImportacion, num
   return usadas;
 }
 
+/** Si la organización tiene "Leer con IA" sin cupo
+ * (`organizations.ia_lecturas_ilimitadas`, RLS acota a la propia org). */
+export async function lecturasIaIlimitadas(): Promise<boolean> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("ia_lecturas_ilimitadas")
+    .maybeSingle();
+  if (error) throw error;
+  return data?.ia_lecturas_ilimitadas === true;
+}
+
 /** Filas que devolvió la última lectura de ese tipo, para retomarla. */
 export async function ultimaLecturaIa(
   entidad: EntidadImportacion,

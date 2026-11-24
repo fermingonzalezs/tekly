@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import Papa from "papaparse";
 import {
   CheckCircle2,
   Download,
+  ExternalLink,
   RotateCcw,
   Trash2,
   FileSpreadsheet,
@@ -16,13 +17,22 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button, IconButton } from "@/components/ui/button";
-import { Input, Textarea } from "@/components/ui/field";
-import { IA_MAX_CARACTERES, type EntidadImportacion } from "@/lib/ia-lecturas";
+import { Dialog } from "@/components/ui/dialog";
+import { Input, Select, Textarea } from "@/components/ui/field";
+import { IA_MAX_CARACTERES, etiquetaLecturasRestantes, type EntidadImportacion } from "@/lib/ia-lecturas";
 import { useVolverAlOnboarding } from "@/components/onboarding/volver-al-onboarding";
 import { dotClass, type Tone } from "@/lib/status";
 import {
   CLIENTE_CSV_HEADERS,
   CELULAR_CSV_HEADERS,
+  COLUMNAS_CELULAR,
+  COLUMNAS_CLIENTE,
+  COLUMNAS_NOTEBOOK,
+  completarFila,
+  montoParaMostrar,
+  opcionDe,
+  ordenColumnas,
+  type ColumnaImport,
   NOTEBOOK_CSV_HEADERS,
   notebookTemplateCsv,
   parseNotebookRow,
@@ -51,6 +61,7 @@ import {
   type ImportResult,
 } from "./actions";
 import type { ComponentType } from "react";
+import { tablaAHtml, tablaATsv } from "@/lib/portapapeles";
 
 function descargar(contenido: string, filename: string) {
   const blob = new Blob([contenido], { type: "text/csv;charset=utf-8" });
@@ -60,6 +71,38 @@ function descargar(contenido: string, filename: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/** Copia una tabla al portapapeles como HTML + TSV, **sincrónico** dentro del
+ * click (`execCommand("copy")` + evento `copy`), así no depende de que la
+ * página conserve el foco. Devuelve si se pudo copiar. */
+function copiarTabla(filas: string[][]): boolean {
+  const tsv = tablaATsv(filas);
+  const html = tablaAHtml(filas);
+  const alCopiar = (e: ClipboardEvent) => {
+    e.preventDefault();
+    e.clipboardData?.setData("text/plain", tsv);
+    e.clipboardData?.setData("text/html", html);
+  };
+  document.addEventListener("copy", alCopiar);
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    document.removeEventListener("copy", alCopiar);
+  }
+}
+
+/** Abre una planilla nueva de Google Sheets. No se abre sola al copiar la
+ * plantilla: el navegador traería la pestaña nueva al frente y taparía el
+ * modal con los pasos (no hay forma confiable de abrir una pestaña en el
+ * fondo desde JS). Se abre desde el botón del modal, cuando ya se leyó.
+ * `opener = null` corta el acceso de la planilla a esta ventana (mismo
+ * resguardo que `noopener`, pero sin perder el handle). */
+function abrirPlanillaNueva() {
+  const ventana = window.open("https://sheets.new", "_blank");
+  if (ventana) ventana.opener = null;
 }
 
 function Chip({ tone, label }: { tone: Tone; label: string }) {
@@ -95,31 +138,62 @@ const TONO_ESTADO: Record<EstadoFilaPreview["status"], { tone: Tone; label: stri
   duplicate: { tone: "amber", label: "Duplicada" },
 };
 
+const CELDA = "h-8 min-w-[7.5rem] px-2 text-center text-xs";
+
+/** Monto en dólares: `U$ 1.300` a la vista; al editar, solo dígitos. */
+function MontoCelda({
+  valor,
+  onChange,
+  ariaLabel,
+}: {
+  valor: string;
+  onChange: (v: string) => void;
+  ariaLabel: string;
+}) {
+  const [editando, setEditando] = useState(false);
+  return (
+    <Input
+      inputMode="numeric"
+      value={editando ? valor : montoParaMostrar(valor)}
+      placeholder="U$ 0"
+      onFocus={() => setEditando(true)}
+      onBlur={() => setEditando(false)}
+      onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+      aria-label={ariaLabel}
+      className={`${CELDA} tabular-nums`}
+    />
+  );
+}
+
 /** Preview editable: una fila por equipo/cliente, una columna por campo de la
- * plantilla. Cada cambio recalcula el estado de las filas (`evaluarFilas`). */
+ * plantilla (`estado` primero). La validez de cada fila no ocupa una columna:
+ * va como un punto al lado del número y, si hay problema, en una línea debajo.
+ * Cada cambio recalcula el estado de las filas (`evaluarFilas`). */
 function TablaEditable({
   headers,
+  columnas,
   filas,
   estados,
   onCambiar,
   onQuitar,
 }: {
   headers: readonly string[];
+  columnas: Record<string, ColumnaImport>;
   filas: FilaCruda[];
   estados: EstadoFilaPreview[];
   onCambiar: (rowNum: number, campo: string, valor: string) => void;
   onQuitar: (rowNum: number) => void;
 }) {
+  const orden = ordenColumnas(headers);
   return (
     <div className="max-h-[28rem] overflow-auto rounded-xl border border-neutral-200">
-      <table className="w-full text-xs">
+      <table className="w-full text-center text-xs">
         <thead className="sticky top-0 z-10">
           <tr className="text-xs">
             <th className="px-2 py-2">#</th>
-            <th className="px-2 py-2">Estado</th>
-            {headers.map((h) => (
-              <th key={h} className="px-2 py-2">
-                {h}
+            {orden.map((h) => (
+              <th key={h} className="whitespace-nowrap px-2 py-2">
+                {columnas[h]?.label ?? h}
               </th>
             ))}
             <th className="px-2 py-2">
@@ -132,38 +206,91 @@ function TablaEditable({
             const estado = estados[i];
             const tono = TONO_ESTADO[estado.status];
             return (
-              <tr key={fila.rowNum}>
-                <td className="px-2 py-1.5 tabular-nums text-neutral-500">{fila.rowNum}</td>
-                <td className="min-w-[9rem] px-2 py-1.5 text-start">
-                  <Chip tone={tono.tone} label={tono.label} />
-                  {estado.detail && (
-                    <p
-                      className={`mt-1 text-[11px] leading-tight ${estado.status === "error" ? "text-red-600" : "text-amber-700"}`}
+              <Fragment key={fila.rowNum}>
+                <tr>
+                  <td className="px-2 py-1.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 tabular-nums text-neutral-500"
+                      title={estado.detail ?? tono.label}
                     >
-                      {estado.detail}
-                    </p>
-                  )}
-                </td>
-                {headers.map((h) => (
-                  <td key={h} className="px-1 py-1.5">
-                    <Input
-                      value={fila.raw[h] ?? ""}
-                      onChange={(e) => onCambiar(fila.rowNum, h, e.target.value)}
-                      aria-label={`${h}, fila ${fila.rowNum}`}
-                      className="h-8 min-w-[7.5rem] px-2 text-xs"
+                      <span className={`h-1.5 w-1.5 rounded-full ${dotClass[tono.tone]}`} />
+                      {fila.rowNum}
+                      <span className="sr-only">{tono.label}</span>
+                    </span>
+                  </td>
+                  {orden.map((h) => {
+                    const col = columnas[h] ?? { label: h };
+                    const valor = fila.raw[h] ?? "";
+                    const label = `${col.label}, fila ${fila.rowNum}`;
+                    const cambiar = (v: string) => onCambiar(fila.rowNum, h, v);
+                    if (col.monto) {
+                      return (
+                        <td key={h} className="px-1 py-1.5">
+                          <MontoCelda valor={valor} onChange={cambiar} ariaLabel={label} />
+                        </td>
+                      );
+                    }
+                    if (col.opciones) {
+                      // Si lo que vino no es ninguna opción, queda a la vista como
+                      // «valor» para que se vea qué había, y la fila marca el error.
+                      const elegida = opcionDe(col, valor);
+                      return (
+                        <td key={h} className="px-1 py-1.5">
+                          <Select
+                            value={elegida?.value ?? ""}
+                            onChange={(e) => cambiar(e.target.value)}
+                            aria-label={label}
+                            className={`${CELDA} [text-align-last:center]`}
+                          >
+                            {!elegida && (
+                              <option value="" disabled>
+                                {valor.trim() ? `«${valor.trim()}» · elegí` : "Elegí…"}
+                              </option>
+                            )}
+                            {col.opciones.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </Select>
+                        </td>
+                      );
+                    }
+                    const noAplica = col.deshabilitada?.(fila.raw) ?? false;
+                    return (
+                      <td key={h} className="px-1 py-1.5">
+                        <Input
+                          value={noAplica ? "" : valor}
+                          disabled={noAplica}
+                          placeholder={noAplica ? "No aplica" : undefined}
+                          onChange={(e) => cambiar(e.target.value)}
+                          aria-label={label}
+                          className={CELDA}
+                        />
+                      </td>
+                    );
+                  })}
+                  <td className="px-1 py-1.5">
+                    <IconButton
+                      aria-label={`Quitar fila ${fila.rowNum}`}
+                      icon={Trash2}
+                      variant="danger-ghost"
+                      size="sm"
+                      onClick={() => onQuitar(fila.rowNum)}
                     />
                   </td>
-                ))}
-                <td className="px-1 py-1.5">
-                  <IconButton
-                    aria-label={`Quitar fila ${fila.rowNum}`}
-                    icon={Trash2}
-                    variant="danger-ghost"
-                    size="sm"
-                    onClick={() => onQuitar(fila.rowNum)}
-                  />
-                </td>
-              </tr>
+                </tr>
+                {estado.detail && (
+                  <tr>
+                    <td
+                      colSpan={orden.length + 2}
+                      className={`px-2 pb-2 pt-0 text-[11px] leading-tight ${estado.status === "error" ? "text-red-600" : "text-amber-700"}`}
+                    >
+                      Fila {fila.rowNum} · {tono.label}: {estado.detail}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             );
           })}
         </tbody>
@@ -182,6 +309,7 @@ function ImportCard<T>({
   descripcion,
   icon: Icon,
   headers,
+  columnas,
   templateCsv,
   templateFilename,
   parseRow,
@@ -198,6 +326,8 @@ function ImportCard<T>({
   descripcion: string;
   icon: ComponentType<{ className?: string }>;
   headers: readonly string[];
+  /** Título, desplegable, monto y "no aplica" de cada columna. */
+  columnas: Record<string, ColumnaImport>;
   templateCsv: () => string;
   templateFilename: string;
   parseRow: (raw: Record<string, string>, rowNum: number) => ParseResult<T>;
@@ -213,7 +343,7 @@ function ImportCard<T>({
   const [modoIa, setModoIa] = useState(false);
   const [textoIa, setTextoIa] = useState("");
   const [leyendo, startLectura] = useTransition();
-  const [avisoSheets, setAvisoSheets] = useState(false);
+  const [ayudaPlanilla, setAyudaPlanilla] = useState<"pegar" | "csv" | null>(null);
   const volverAlOnboarding = useVolverAlOnboarding();
 
   const estados = useMemo(
@@ -242,7 +372,7 @@ function ImportCard<T>({
     setFilas(
       filasRaw.map((raw, i) => ({
         rowNum: i + 1,
-        raw: Object.fromEntries(headers.map((h) => [h, raw[h] ?? ""])),
+        raw: completarFila(Object.fromEntries(headers.map((h) => [h, raw[h] ?? ""])), columnas),
       })),
     );
     setOrigen(desde);
@@ -251,7 +381,9 @@ function ImportCard<T>({
 
   function cambiarCelda(rowNum: number, campo: string, valor: string) {
     setFilas((prev) =>
-      prev.map((f) => (f.rowNum === rowNum ? { ...f, raw: { ...f.raw, [campo]: valor } } : f)),
+      prev.map((f) =>
+        f.rowNum === rowNum ? { ...f, raw: completarFila({ ...f.raw, [campo]: valor }, columnas) } : f,
+      ),
     );
   }
 
@@ -286,16 +418,29 @@ function ImportCard<T>({
     });
   }
 
-  /** Sin Drive: copia la plantilla como TSV (Sheets la pega en columnas) y abre
-   * una planilla nueva en la cuenta de Google del usuario. `window.open` va
-   * primero, sincrónico con el click, para que no lo bloquee el navegador. */
+  /** Copia la plantilla al portapapeles y explica en un modal cómo cargarla
+   * en una planilla nueva. Sheets no acepta datos por URL: la planilla nace
+   * vacía y se pega a mano. La pestaña de Sheets la abre el botón del modal
+   * (`abrirPlanillaNueva`), no este click: si se abriera acá, el navegador la
+   * traería al frente y el modal quedaría detrás. La copia es sincrónica y
+   * sale dentro del click; si falla no se abre el modal y se avisa. */
   function abrirEnSheets() {
-    window.open("https://sheets.new", "_blank", "noopener");
-    const csv = Papa.parse<string[]>(templateCsv(), { skipEmptyLines: true });
-    navigator.clipboard
-      .writeText(Papa.unparse(csv.data, { delimiter: "\t" }))
-      .then(() => setAvisoSheets(true))
-      .catch(() => setErrorArchivo("No se pudo copiar la plantilla. Descargá el CSV y abrilo en Google Sheets."));
+    setErrorArchivo(null);
+    const filas = Papa.parse<string[]>(templateCsv(), { skipEmptyLines: true }).data;
+    if (!copiarTabla(filas)) {
+      setErrorArchivo(
+        "No se pudo copiar la plantilla. Descargá el CSV y abrilo en Google Sheets (Archivo → Importar).",
+      );
+      return;
+    }
+    setAyudaPlanilla("pegar");
+  }
+
+  /** Descarga el CSV y abre el mismo modal de ayuda, con los pasos para
+   * importarlo en una planilla (Google Sheets, Excel o Numbers). */
+  function descargarPlantilla() {
+    descargar(templateCsv(), templateFilename);
+    setAyudaPlanilla("csv");
   }
 
   function confirmar() {
@@ -336,24 +481,11 @@ function ImportCard<T>({
             <Button variant="outline" size="sm" icon={FileSpreadsheet} onClick={abrirEnSheets}>
               Google Sheets
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={Download}
-              onClick={() => descargar(templateCsv(), templateFilename)}
-            >
+            <Button variant="outline" size="sm" icon={Download} onClick={descargarPlantilla}>
               CSV
             </Button>
           </div>
         </div>
-
-        {avisoSheets && (
-          <p className="rounded-lg bg-accent-soft px-3 py-2 text-[13px] text-neutral-700">
-            Copiamos la plantilla. En la planilla nueva tocá la celda A1 y pegá con{" "}
-            <strong>Ctrl+V</strong>. Cuando la completes, bajala con Archivo → Descargar → CSV y
-            subila acá.
-          </p>
-        )}
 
         {estado === "idle" && modoIa && (
           <div className="space-y-2">
@@ -414,7 +546,7 @@ function ImportCard<T>({
                   >
                     Pegar texto y leer con IA
                   </Button>
-                  <span className="text-xs text-neutral-500">1 lectura disponible</span>
+                  <span className="text-xs text-neutral-500">{etiquetaLecturasRestantes(iaRestantes)}</span>
                 </>
               ) : (
                 <>
@@ -442,6 +574,7 @@ function ImportCard<T>({
             </div>
             <TablaEditable
               headers={headers}
+              columnas={columnas}
               filas={filas}
               estados={estados}
               onCambiar={cambiarCelda}
@@ -481,7 +614,99 @@ function ImportCard<T>({
           </div>
         )}
       </div>
+
+      <AyudaPlanillaDialog
+        modo={ayudaPlanilla ?? "pegar"}
+        abierto={ayudaPlanilla !== null}
+        filename={templateFilename}
+        onClose={() => setAyudaPlanilla(null)}
+      />
     </Card>
+  );
+}
+
+/** Ayuda de la plantilla: un solo modal para las dos vías. `pegar` explica
+ * cómo pegar lo que quedó en el portapapeles en una planilla nueva; `csv`
+ * explica cómo importar el archivo descargado. El cierre del flujo
+ * (completar, descargar CSV, subirlo acá) es el mismo en los dos. */
+function AyudaPlanillaDialog({
+  abierto,
+  modo,
+  filename,
+  onClose,
+}: {
+  abierto: boolean;
+  modo: "pegar" | "csv";
+  filename: string;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog
+      open={abierto}
+      onClose={onClose}
+      title="Cómo cargar la planilla"
+      description={
+        modo === "pegar"
+          ? "Copiamos la plantilla: creá una planilla nueva y pegala en A1."
+          : `Descargamos ${filename} con las columnas de la plantilla.`
+      }
+      size="lg"
+      footer={
+        <>
+          <Button variant="outline" fullOnMobile onClick={onClose} className="sm:ml-auto">
+            Cerrar
+          </Button>
+          <Button variant="primary" fullOnMobile icon={ExternalLink} onClick={abrirPlanillaNueva}>
+            Abrir planilla
+          </Button>
+        </>
+      }
+    >
+      <ol className="list-decimal space-y-2.5 pl-5 text-start text-[13px] text-neutral-700">
+        {modo === "pegar" ? (
+          <li>
+            Tocá <strong>Abrir planilla</strong> acá abajo: se crea una planilla nueva de Google
+            Sheets en otra pestaña.
+          </li>
+        ) : (
+          <>
+            <li>
+              Tocá <strong>Abrir planilla</strong> acá abajo y andá a{" "}
+              <strong>Archivo → Importar</strong>.
+            </li>
+            <li>
+              Elegí <strong>Subir</strong> y seleccioná{" "}
+              <code className="font-mono">{filename}</code>.
+            </li>
+            <li>
+              Dejá el separador en <strong>Detectar automáticamente</strong> y elegí{" "}
+              <strong>Reemplazar hoja de cálculo</strong>.
+            </li>
+          </>
+        )}
+        {modo === "pegar" && (
+          <li>
+            En la planilla, tocá la celda <strong>A1</strong> y pegá con <strong>Ctrl+V</strong> (
+            <strong>⌘V</strong> en Mac): la plantilla entra en columnas.
+          </li>
+        )}
+        <li>
+          Cargá una fila por equipo (o cliente). Borrá la fila de ejemplo y las filas de notas de
+          abajo.
+        </li>
+        <li>
+          Bajala con <strong>Archivo → Descargar → CSV</strong> (en Excel o Numbers, «Guardar
+          como» CSV).
+        </li>
+        <li>
+          Volvé acá y subila con <strong>Elegir archivo CSV</strong>.
+        </li>
+      </ol>
+      <p className="mt-3 text-xs text-neutral-500">
+        Las columnas tienen que quedar como en la plantilla: la importación lee cada dato por
+        nombre de columna, no por posición.
+      </p>
+    </Dialog>
   );
 }
 
@@ -503,6 +728,7 @@ export function ImportarDatos({
         descripcion="Alta masiva de celulares existentes por IMEI"
         icon={Smartphone}
         headers={CELULAR_CSV_HEADERS}
+        columnas={COLUMNAS_CELULAR}
         templateCsv={celularTemplateCsv}
         entidad="celulares"
         {...ia("celulares")}
@@ -518,6 +744,7 @@ export function ImportarDatos({
         descripcion="Alta masiva de notebooks existentes por número de serie"
         icon={Laptop}
         headers={NOTEBOOK_CSV_HEADERS}
+        columnas={COLUMNAS_NOTEBOOK}
         templateCsv={notebookTemplateCsv}
         entidad="notebooks"
         {...ia("notebooks")}
@@ -535,6 +762,7 @@ export function ImportarDatos({
         descripcion="Alta masiva de clientes existentes"
         icon={Users}
         headers={CLIENTE_CSV_HEADERS}
+        columnas={COLUMNAS_CLIENTE}
         templateCsv={clienteTemplateCsv}
         entidad="clientes"
         {...ia("clientes")}

@@ -10,11 +10,11 @@ actualizado: 2026-11-23
 La importación es una **alta masiva** de **celulares**, **notebooks** y **clientes** existentes (no de ventas históricas). Vive en **Configuración → Importar datos** y es **solo para el admin**.
 
 <Paso n={1} titulo="Prepará la planilla">
-Cada tarjeta tiene dos botones. **«Google Sheets»** abre una planilla nueva en tu cuenta de Google y copia la plantilla: tocá la celda A1 y pegá con **Ctrl+V**. Cuando la completes, bajala con *Archivo → Descargar → CSV*. **«CSV»** descarga la plantilla para abrirla en Excel u otro programa.
+Cada tarjeta tiene dos botones. **«Google Sheets»** abre una planilla nueva en tu cuenta de Google y copia la plantilla: se abre vacía (Google no deja precargarla): tocá la celda A1 y pegá con **Ctrl+V** (**⌘V** en Mac). Cuando la completes, bajala con *Archivo → Descargar → CSV*. **«CSV»** descarga la plantilla para abrirla en Excel u otro programa.
 </Paso>
 
 <Paso n={2} titulo="Elegí el archivo y revisá">
-Se abre una **tabla editable** con todos los datos, cada fila marcada como lista, duplicada o con error. Podés **corregir cualquier celda** (el estado se actualiza al instante) o **quitar** filas con el tacho.
+Se abre una **tabla editable** con todos los datos. La primera columna es el **Estado** del equipo (por defecto **Disponible**, se puede cambiar); el punto al lado del número de fila indica si está lista (verde), duplicada (ámbar) o con error (rojo), y el motivo aparece debajo de la fila. **Condición** y **Estado** se eligen de un desplegable; costo y precio se ven como `U$ 1.300`; la **Batería** se deshabilita en los equipos nuevos. Podés **corregir cualquier celda** (todo se revalida al instante) o **quitar** filas con el tacho.
 </Paso>
 
 <Paso n={3} titulo="Confirmá">
@@ -33,10 +33,10 @@ Si tu lista está en WhatsApp, en notas o en un Excel con otras columnas, tocá 
 ## Columnas
 
 **Celulares**: `modelo, almacenamiento, color, imei, bateria, condicion, costoUsd, precioUsd, estado`.
-- `modelo`, `costoUsd` y `precioUsd` son obligatorios. `bateria` va de 0 a 100. `estado` admite `en_revision/disponible/reservado/vendido`; si va vacío, se completa como **«En revisión»**.
+- `modelo`, `condicion`, `costoUsd` y `precioUsd` son obligatorios. `condicion` es uno de los grados del sistema: `NUEVO`, `A+`, `A`, `B+`, `B` o `C` (en la tabla de revisión se elige de un desplegable). `bateria` (0 a 100) es obligatoria en los usados y no aplica a los `NUEVO`. `estado` admite `en_revision/disponible/reservado/vendido`; si va vacío, se completa como **«Disponible»**.
 
 **Notebooks**: `modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numeroSerie, garantia, observaciones, condicion, bateria, costoUsd, precioUsd, estado`.
-- `modelo`, `condicion` (`nuevo` o `usado`), `costoUsd` y `precioUsd` son obligatorios. `bateria` es obligatoria si es usada. Se deduplica por **número de serie**.
+- `modelo`, `condicion` (`nuevo` o `usado`), `costoUsd` y `precioUsd` son obligatorios. `bateria` es obligatoria si es usada. `estado` vacío se completa como **«Disponible»**. Se deduplica por **número de serie**.
 
 **Clientes**: `nombre, telefono, email, fechaNacimiento`.
 - `nombre` obligatorio. `fechaNacimiento` acepta `DD/MM/AAAA` o `AAAA-MM-DD`.

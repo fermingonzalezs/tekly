@@ -8,6 +8,7 @@ import type { EntidadImportacion } from "@/lib/ia-lecturas";
 import { Plus, Store, Trash2 } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
+import { ChartTitle } from "@/components/ui/chart-title";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -31,9 +32,21 @@ import { PALETAS } from "@/lib/theme-presets";
 import type { SessionUser, Rol } from "@/lib/auth/types";
 import type { Miembro, Negocio } from "@/lib/db/configuracion";
 
-type Tab = "usuarios" | "negocio" | "preferencias" | "recibos" | "importar" | "cuenta";
+type Tab = "usuarios" | "cuenta-negocio" | "preferencias" | "recibos" | "importar";
 
 const ROLES: Rol[] = ["admin", "vendedor", "tecnico"];
+
+/** Tabs válidos para `?tab=`. `negocio` y `cuenta` eran dos pestañas antes de
+ * unificarse en `cuenta-negocio`; se siguen aceptando por los links viejos
+ * (mails, ayuda, bookmarks). Un valor desconocido cae al default. */
+const TABS_VALIDAS: Tab[] = ["usuarios", "cuenta-negocio", "preferencias", "recibos", "importar"];
+const TABS_VIEJAS: Record<string, Tab> = { negocio: "cuenta-negocio", cuenta: "cuenta-negocio" };
+
+function tabDeParam(valor: string | null): Tab | null {
+  if (!valor) return null;
+  if (valor in TABS_VIEJAS) return TABS_VIEJAS[valor];
+  return TABS_VALIDAS.includes(valor as Tab) ? (valor as Tab) : null;
+}
 
 export function ConfiguracionClient({
   user,
@@ -49,9 +62,9 @@ export function ConfiguracionClient({
 }) {
   const esAdmin = user.rol === "admin";
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab") as Tab | null;
+  const tabParam = tabDeParam(searchParams.get("tab"));
   const [tab, setTab] = useState<Tab>(
-    esAdmin && tabParam ? tabParam : esAdmin ? "usuarios" : "cuenta",
+    esAdmin && tabParam ? tabParam : esAdmin ? "usuarios" : "cuenta-negocio",
   );
 
   const [invitando, setInvitando] = useState(false);
@@ -60,7 +73,7 @@ export function ConfiguracionClient({
   if (!esAdmin) {
     return (
       <Section title="Mi cuenta">
-        <MiCuenta user={user} />
+        <MiCuenta user={user} conTitulo={false} />
       </Section>
     );
   }
@@ -73,11 +86,10 @@ export function ConfiguracionClient({
           onChange={setTab}
           options={[
             { value: "usuarios", label: "Usuarios y roles" },
-            { value: "negocio", label: "Datos del negocio" },
+            { value: "cuenta-negocio", label: "Cuenta y negocio" },
             { value: "preferencias", label: "Preferencias" },
             { value: "recibos", label: "Recibos" },
             { value: "importar", label: "Importar datos" },
-            { value: "cuenta", label: "Mi cuenta" },
           ]}
         />
 
@@ -147,8 +159,8 @@ export function ConfiguracionClient({
                       onClick={() => setEditandoMiembro(u)}
                       className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                     >
-                      <td className="px-5 py-2 text-start font-medium">{u.nombre}</td>
-                      <td className="px-5 py-2 text-start text-neutral-500">{u.email}</td>
+                      <td className="px-5 py-2 text-center font-medium">{u.nombre}</td>
+                      <td className="px-5 py-2 text-center text-neutral-500">{u.email}</td>
                       <td className="px-5 py-2 text-center">
                         <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                           <span
@@ -183,14 +195,18 @@ export function ConfiguracionClient({
           </div>
         )}
 
-        {tab === "negocio" && negocio && <NegocioForm negocio={negocio} />}
+        {tab === "cuenta-negocio" && (
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+            <MiCuenta user={user} />
+            {negocio && <NegocioForm negocio={negocio} />}
+          </div>
+        )}
+
         {tab === "preferencias" && negocio && <PreferenciasForm negocio={negocio} />}
 
         {tab === "recibos" && negocio && <RecibosForm negocio={negocio} />}
 
         {tab === "importar" && <ImportarDatos iaRestantes={iaRestantes} />}
-
-        {tab === "cuenta" && <MiCuenta user={user} />}
       </div>
 
       <InvitarUsuarioDialog open={invitando} onClose={() => setInvitando(false)} />
@@ -444,54 +460,51 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
   }
 
   return (
-    <div className="max-w-lg space-y-5">
-      <Card className="p-5">
-        <div className="space-y-3">
-          <Field label="Nombre">
+    <Card className="max-w-lg p-5">
+      <ChartTitle align="left" divider>
+        Datos del negocio
+      </ChartTitle>
+      <div className="space-y-3">
+        <Field label="Nombre">
+          <Input
+            value={form.nombre}
+            onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+          />
+        </Field>
+        <Field label="Dirección">
+          <Input
+            value={form.direccion}
+            onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
+          />
+        </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Teléfono">
             <Input
-              value={form.nombre}
-              onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+              value={form.telefono}
+              onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
             />
           </Field>
-          <Field label="Dirección">
+          <Field label="CUIT">
             <Input
-              value={form.direccion}
-              onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
-            />
-          </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Teléfono">
-              <Input
-                value={form.telefono}
-                onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
-              />
-            </Field>
-            <Field label="CUIT">
-              <Input
-                value={form.cuit}
-                onChange={(e) => setForm((f) => ({ ...f, cuit: e.target.value }))}
-              />
-            </Field>
-          </div>
-          <Field label="Horario de atención">
-            <Input
-              value={form.horario}
-              onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))}
+              value={form.cuit}
+              onChange={(e) => setForm((f) => ({ ...f, cuit: e.target.value }))}
             />
           </Field>
         </div>
-      </Card>
-      <div className="flex items-center gap-3">
-        <Button
-          onClick={guardar}
-          disabled={pending}
-          variant="primary"
-        >
+        <Field label="Horario de atención">
+          <Input
+            value={form.horario}
+            onChange={(e) => setForm((f) => ({ ...f, horario: e.target.value }))}
+          />
+        </Field>
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <Button onClick={guardar} disabled={pending} variant="primary">
           {pending ? "Guardando…" : "Guardar cambios"}
         </Button>
         {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -844,7 +857,7 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
   );
 }
 
-function MiCuenta({ user }: { user: SessionUser }) {
+function MiCuenta({ user, conTitulo = true }: { user: SessionUser; conTitulo?: boolean }) {
   const router = useRouter();
   const [nombre, setNombre] = useState(user.nombre);
   const [alias, setAlias] = useState(user.alias ?? "");
@@ -868,6 +881,11 @@ function MiCuenta({ user }: { user: SessionUser }) {
 
   return (
     <Card className="max-w-lg p-5">
+      {conTitulo && (
+        <ChartTitle align="left" divider>
+          Mi cuenta
+        </ChartTitle>
+      )}
       <div className="space-y-3">
         <Field label="Nombre">
           <Input value={nombre} onChange={(e) => setNombre(e.target.value)} />

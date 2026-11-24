@@ -13,7 +13,7 @@ export const PASOS_ONBOARDING: {
     id: "negocio",
     titulo: "Completá los datos de tu negocio",
     descripcion: "Nombre, dirección, CUIT y horario -- aparecen en recibos y comprobantes.",
-    href: "/configuracion?tab=negocio",
+    href: "/configuracion?tab=cuenta-negocio",
     icon: Building2,
   },
   {

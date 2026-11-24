@@ -3,8 +3,8 @@ import { combinarPasosOnboarding, hrefDesdeOnboarding, pasoOnboardingDesdeParam 
 
 describe("hrefDesdeOnboarding", () => {
   it("agrega el paso como param, respetando un query existente", () => {
-    expect(hrefDesdeOnboarding({ id: "negocio", href: "/configuracion?tab=negocio" })).toBe(
-      "/configuracion?tab=negocio&onboarding=negocio",
+    expect(hrefDesdeOnboarding({ id: "negocio", href: "/configuracion?tab=cuenta-negocio" })).toBe(
+      "/configuracion?tab=cuenta-negocio&onboarding=negocio",
     );
     expect(hrefDesdeOnboarding({ id: "cajas", href: "/cajas" })).toBe("/cajas?onboarding=cajas");
   });

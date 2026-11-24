@@ -121,7 +121,7 @@ export function DashboardAdmin({
           daysInMonth={objetivo.daysInMonth}
           target={objetivoTarget}
           esActual={mes.esActual}
-          configurarHref={demo ? null : "/configuracion?tab=negocio"}
+          configurarHref={demo ? null : "/configuracion?tab=cuenta-negocio"}
         />
 
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">

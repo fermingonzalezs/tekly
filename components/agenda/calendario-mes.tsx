@@ -3,25 +3,31 @@
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { thDivider } from "@/lib/ui-styles";
-import { diaCorto, semanasDelMes } from "@/lib/agenda";
+import { diaCorto, pedidosDelDia, semanasDelMes } from "@/lib/agenda";
+import { PedidoChip } from "./pedido-chip";
 import { turnoBlockClass } from "@/lib/status";
-import type { Turno } from "@/lib/types";
+import type { Pedido, Turno } from "@/lib/types";
 
 const MAX_POR_DIA = 3;
 
-/** Vista Mes: semanas lunes a sábado, hasta 3 turnos por día y «+N más». */
+/** Vista Mes: semanas lunes a sábado. Arriba de cada día van los pedidos
+ * (todo el día) y debajo hasta 3 turnos y «+N más». */
 export function CalendarioMes({
   fecha,
   turnos,
+  pedidos,
   hoy,
   onAbrirTurno,
   onAbrirDia,
+  onAbrirPedido,
 }: {
   fecha: string;
   turnos: Turno[];
+  pedidos: Pedido[];
   hoy: string;
   onAbrirTurno: (id: string) => void;
   onAbrirDia: (fecha: string) => void;
+  onAbrirPedido: (id: string) => void;
 }) {
   const semanas = semanasDelMes(fecha);
   const mes = fecha.slice(0, 7);
@@ -68,6 +74,15 @@ export function CalendarioMes({
                     {Number(d.slice(8, 10))}
                   </button>
                   <div className="space-y-0.5">
+                    {pedidosDelDia(pedidos, d, { conCancelados: false }).map((p) => (
+                      <PedidoChip
+                        key={p.id}
+                        pedido={p}
+                        hoy={hoy}
+                        conDescripcion={false}
+                        onClick={() => onAbrirPedido(p.id)}
+                      />
+                    ))}
                     {delDia.slice(0, MAX_POR_DIA).map((t) => (
                       <button
                         key={t.id}

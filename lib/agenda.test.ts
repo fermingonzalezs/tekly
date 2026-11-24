@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  pedidoVencido,
+  pedidosDelDia,
   agruparProximos,
   agruparSolapados,
   calcularSolapes,
@@ -15,7 +17,7 @@ import {
   semanasDelMes,
   turnosSuperpuestos,
 } from "./agenda";
-import type { Turno } from "./types";
+import type { Pedido, Turno } from "./types";
 
 const t = (p: Partial<Turno>): Turno => ({
   id: "x",
@@ -180,5 +182,38 @@ describe("kpisAgenda", () => {
       hoy,
     );
     expect(k).toEqual({ hoy: 1, sinConfirmar: 1, semana: 2, vencidos: 1 });
+  });
+});
+
+describe("pedidos", () => {
+  const p = (o: Partial<Pedido>): Pedido => ({
+    id: "p",
+    cliente: "Ana",
+    clienteId: null,
+    descripcion: "iPhone 15",
+    fechaEntrega: "2026-11-24",
+    estado: "pedido",
+    ...o,
+  });
+  it("pedidosDelDia filtra por fecha y ordena llegó → pedido → cerrados", () => {
+    const lista = [
+      p({ id: "a", estado: "entregado" }),
+      p({ id: "b", estado: "pedido", cliente: "Zoe" }),
+      p({ id: "c", estado: "llego" }),
+      p({ id: "d", estado: "cancelado" }),
+      p({ id: "e", fechaEntrega: "2026-11-25" }),
+    ];
+    expect(pedidosDelDia(lista, "2026-11-24").map((x) => x.id)).toEqual(["c", "b", "a", "d"]);
+    expect(pedidosDelDia(lista, "2026-11-24", { conCancelados: false }).map((x) => x.id)).toEqual([
+      "c",
+      "b",
+      "a",
+    ]);
+  });
+  it("pedidoVencido: abierto y con fecha pasada", () => {
+    expect(pedidoVencido(p({ fechaEntrega: "2026-11-20" }), "2026-11-24")).toBe(true);
+    expect(pedidoVencido(p({ fechaEntrega: "2026-11-20", estado: "llego" }), "2026-11-24")).toBe(true);
+    expect(pedidoVencido(p({ fechaEntrega: "2026-11-20", estado: "entregado" }), "2026-11-24")).toBe(false);
+    expect(pedidoVencido(p({ fechaEntrega: "2026-11-24" }), "2026-11-24")).toBe(false);
   });
 });

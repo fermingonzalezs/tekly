@@ -205,6 +205,23 @@ export type Ticket = {
   nota?: string;
 };
 
+/** Pedido (encargo) de la Agenda: algo que no está en stock y se le entrega
+ * a un cliente en `fechaEntrega`. Se dibuja en la fila «Todo el día» del
+ * calendario. Tabla `pedidos` (`lib/db/pedidos.ts`). */
+export type PedidoEstado = "pedido" | "llego" | "entregado" | "cancelado";
+
+export type Pedido = {
+  id: string;
+  cliente: string;
+  /** `null` si se cargó "sin registrar" (`ClientePicker` con `allowLibre`). */
+  clienteId: string | null;
+  descripcion: string;
+  /** `YYYY-MM-DD`. */
+  fechaEntrega: string;
+  estado: PedidoEstado;
+  nota?: string;
+};
+
 export type Turno = {
   id: string;
   /** Fecha real `YYYY-MM-DD` (hora argentina). */

@@ -15,7 +15,12 @@ import { createCelularesBulk, listImeisExistentes, type CelularInput } from "@/l
 import { createNotebooksBulk, listSeriesExistentes } from "@/lib/db/notebooks";
 import type { NotebookInput } from "@/lib/notebooks";
 import { createClientesBulk, listClientesContacto } from "@/lib/db/clientes";
-import { lecturasIaUsadas, registrarLecturaIa, ultimaLecturaIa } from "@/lib/db/ia-lecturas";
+import {
+  lecturasIaIlimitadas,
+  lecturasIaUsadas,
+  registrarLecturaIa,
+  ultimaLecturaIa,
+} from "@/lib/db/ia-lecturas";
 import { estructurarTextoConIa } from "@/lib/ia/importacion";
 import {
   ENTIDADES_IMPORTACION,
@@ -287,7 +292,8 @@ export async function leerConIaAction(
   if (!ENTIDADES_IMPORTACION.includes(entidad)) {
     return { ok: false, error: "Tipo de importación inválido.", restantes: 0 };
   }
-  const restantes = lecturasRestantes((await lecturasIaUsadas())[entidad]);
+  const [usadas, iaIlimitadas] = await Promise.all([lecturasIaUsadas(), lecturasIaIlimitadas()]);
+  const restantes = lecturasRestantes(usadas[entidad], iaIlimitadas);
   if (restantes === 0) {
     return {
       ok: false,

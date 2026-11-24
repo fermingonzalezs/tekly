@@ -8,6 +8,7 @@ import type {
   MedioPagoVenta,
   MovimientoTipo,
   OtroCategoria,
+  PedidoEstado,
   Role,
   TicketStatus,
   TurnoEstado,
@@ -162,6 +163,11 @@ export const celularStatus: Record<
   extraviado: { label: "Extraviado", tone: "red" },
 };
 
+/** Grados de condición de un celular (alta manual e importación). Fuente
+ * única: el `Select` de `CelularFormDialog` y el desplegable de la tabla
+ * editable de Importar datos leen de acá. */
+export const CONDICIONES_CELULAR = ["NUEVO", "A+", "A", "B+", "B", "C"] as const;
+
 // ── Turnos ─────────────────────────────────────────────────────
 
 export const turnoStatus: Record<
@@ -172,6 +178,15 @@ export const turnoStatus: Record<
   confirmado: { label: "Confirmado", tone: "blue" },
   atendido: { label: "Atendido", tone: "green" },
   no_vino: { label: "No vino", tone: "amber" },
+  cancelado: { label: "Cancelado", tone: "red" },
+};
+
+// ── Pedidos (Agenda) ───────────────────────────────────────────
+
+export const pedidoEstado: Record<PedidoEstado, { label: string; tone: Tone }> = {
+  pedido: { label: "Pedido", tone: "amber" },
+  llego: { label: "Llegó", tone: "blue" },
+  entregado: { label: "Entregado", tone: "green" },
   cancelado: { label: "Cancelado", tone: "red" },
 };
 
