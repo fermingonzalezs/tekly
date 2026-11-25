@@ -101,6 +101,7 @@ import { CopiarSeleccion } from "@/components/copiar-texto";
 import { CheckSeleccion } from "@/components/ui/check-seleccion";
 import type { MovimientoStockBulk } from "@/lib/db/inventario";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 
 type Tab = "celulares" | "notebooks" | "repuestos" | "otros";
 const CATS: OtroCategoria[] = [
@@ -234,11 +235,11 @@ export function InventarioClient({
 }) {
   const { publish } = useRealtime();
   const router = useRouter();
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   // Vendedor no ve precios de compra de ítems ya cargados (Costo, Margen,
   // "Valor de stock") -- sí puede seguir cargando un costo al dar de alta
   // o ingresar stock nuevo, porque ahí es él quien lo escribe.
-  const puedeVerCosto = user.rol !== "vendedor";
+  const puedeVerCosto = tieneRol(user, "admin", "tecnico");
   const [, startDeleteTransition] = useTransition();
   // ?tab=/?q= (búsqueda global de la CommandPalette): la tab inicial y el
   // prefill del buscador se leen de la URL (un resultado de "Celulares" linkea
@@ -1596,13 +1597,13 @@ export function InventarioClient({
                                   "bg-amber-50/40",
                               )}
                             >
-                              <td className="max-w-[160px] truncate px-5 py-2 text-start">
+                              <td className="max-w-[160px] truncate px-5 py-2 text-center">
                                 <span className="font-medium">{r.nombre}</span>
                                 <span className="block truncate text-xs text-neutral-400">
                                   {r.sku}
                                 </span>
                               </td>
-                              <td className="max-w-[120px] truncate px-5 py-2 text-start text-neutral-500">
+                              <td className="max-w-[120px] truncate px-5 py-2 text-center text-neutral-500">
                                 {r.modelo}
                               </td>
                               <td className="px-5 py-2 text-center">
@@ -2692,6 +2693,8 @@ export function CelularFormDialog({
   onVarianteCreada,
   puedeVerCosto,
   modoCompra = false,
+  inicial,
+  textos,
 }: {
   celular: Celular | null;
   variantes: Variante[];
@@ -2711,6 +2714,10 @@ export function CelularFormDialog({
    * `onSubmit` solo agrega el ítem (no guarda) y el dialog se cierra, sin el
    * paso de «Confirmar ingreso al stock». */
   modoCompra?: boolean;
+  /** Precarga del alta (ej. «Pasar al stock» un canje con sus datos). */
+  inicial?: Partial<Celular>;
+  /** Pisa título, descripción y botón del alta (con `modoCompra`). */
+  textos?: { titulo: string; descripcion: string; boton: string };
 }) {
   const edit = !!celular;
   const [f, setF] = useState<Celular>(
@@ -2727,6 +2734,7 @@ export function CelularFormDialog({
       estado: "en_revision",
       varianteId: varianteInicialId ?? "",
       precioPropio: false,
+      ...inicial,
     },
   );
   const [pending, startTransition] = useTransition();
@@ -2789,15 +2797,17 @@ export function CelularFormDialog({
         onClose={onClose}
         size="3xl"
         formulario={!edit}
-        title={edit ? `Celular · ${celular!.modelo}` : modoCompra ? "Agregar celular a la compra" : "Agregar celular"}
+        title={edit ? `Celular · ${celular!.modelo}` : textos?.titulo ?? (modoCompra ? "Agregar celular a la compra" : "Agregar celular")}
         description={
           edit
             ? puedeVerCosto
               ? `Margen ${margen.toFixed(0)}%`
               : undefined
-            : modoCompra
-              ? "Entra al stock «En revisión» al guardar la compra. El costo es el unitario, antes de los costos adicionales."
-              : "Ingresa en estado «En revisión»."
+            : textos
+              ? textos.descripcion
+              : modoCompra
+                ? "Entra al stock «En revisión» al guardar la compra. El costo es el unitario, antes de los costos adicionales."
+                : "Ingresa en estado «En revisión»."
         }
         footer={
           <>
@@ -2824,7 +2834,7 @@ export function CelularFormDialog({
               variant="primary"
               fullOnMobile
             >
-              {pending ? "Guardando…" : edit ? "Guardar" : modoCompra ? "Agregar a la compra" : "Agregar"}
+              {pending ? "Guardando…" : edit ? "Guardar" : textos?.boton ?? (modoCompra ? "Agregar a la compra" : "Agregar")}
             </Button>
           </>
         }

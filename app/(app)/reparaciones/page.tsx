@@ -24,7 +24,7 @@ export default async function ReparacionesPage() {
   return (
     <Section title="Reparaciones" ayuda="reparaciones">
       <ReparacionesClient
-        initialTickets={tickets.map((t) => ticketParaRol(t, user.rol))}
+        initialTickets={tickets.map((t) => ticketParaRol(t, user.roles))}
         initialServicios={servicios}
         repuestos={repuestos}
         tecnicos={tecnicos}

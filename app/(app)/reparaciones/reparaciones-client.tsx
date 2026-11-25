@@ -61,6 +61,7 @@ import type {
 } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import { DATE_PRESETS, presetRange, type DatePreset } from "@/lib/date-presets";
@@ -209,9 +210,9 @@ export function ReparacionesClient({
 }) {
   const { publish } = useRealtime();
   const actor = user.nombre;
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   // Costo y ganancia: admin y técnico (al vendedor ni le viaja el costo).
-  const puedeVerCosto = user.rol !== "vendedor";
+  const puedeVerCosto = tieneRol(user, "admin", "tecnico");
   const [list, setList] = useState<Ticket[]>(initialTickets);
   const [tecFilter, setTecFilter] = useState("todos");
   const [estFilter, setEstFilter] = useState<"todos" | TicketStatus>("todos");
@@ -1797,7 +1798,7 @@ function EntregarEquipoDialog({
       medio: caja?.medioPago ?? "transferencia",
       cajaId: caja?.id,
       caja: caja?.moneda ?? "usd",
-      recargoPct: caja ? negocio.recargosMediosPago[caja.medioPago] : undefined,
+      recargoPct: caja?.recargoPct || undefined,
     };
   };
   const destinoDe = (p: DraftPago) => p.cajaId ?? p.medio;
@@ -1821,7 +1822,7 @@ function EntregarEquipoDialog({
       medio,
       cajaId: caja?.id,
       caja: caja?.moneda ?? "usd",
-      recargoPct: negocio.recargosMediosPago[medio],
+      recargoPct: caja?.recargoPct || undefined,
     };
   };
 
@@ -1971,7 +1972,12 @@ function EntregarEquipoDialog({
                           value={p.cajaId}
                           onChange={(e) => {
                             const caja = cajasMedio.find((c) => c.id === e.target.value);
-                            if (caja) updPago(p._k, { cajaId: caja.id, caja: caja.moneda });
+                            if (caja)
+                              updPago(p._k, {
+                                cajaId: caja.id,
+                                caja: caja.moneda,
+                                recargoPct: caja.recargoPct || undefined,
+                              });
                           }}
                           className="w-full text-center sm:w-36"
                         >

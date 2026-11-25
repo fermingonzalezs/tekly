@@ -9,6 +9,7 @@ export async function createClienteAction(data: {
   nombre: string;
   telefono?: string;
   email?: string;
+  instagram?: string;
   fechaNacimiento?: string;
 }): Promise<Cliente> {
   await requireEscritura();
@@ -23,6 +24,7 @@ export async function updateClienteAction(
     nombre: string;
     telefono?: string;
     email?: string;
+    instagram?: string;
     fechaNacimiento?: string;
   },
 ): Promise<Cliente> {

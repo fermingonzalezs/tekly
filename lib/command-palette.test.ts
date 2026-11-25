@@ -75,7 +75,7 @@ describe("filterNavItems", () => {
 
 describe("quickActionsForRole", () => {
   it("vendedor no ve las acciones restringidas (cajas, compras, cuentas corrientes)", () => {
-    const ids = quickActionsForRole("vendedor").map((a) => a.id);
+    const ids = quickActionsForRole(["vendedor"]).map((a) => a.id);
     expect(ids).not.toContain("nuevo-movimiento-caja");
     expect(ids).not.toContain("nueva-compra");
     expect(ids).not.toContain("registrar-pago");
@@ -83,8 +83,12 @@ describe("quickActionsForRole", () => {
   });
 
   it("admin y técnico ven las 7", () => {
-    expect(quickActionsForRole("admin")).toHaveLength(7);
-    expect(quickActionsForRole("tecnico")).toHaveLength(7);
+    expect(quickActionsForRole(["admin"])).toHaveLength(7);
+    expect(quickActionsForRole(["tecnico"])).toHaveLength(7);
+  });
+
+  it("Vendedor + Técnico ve la unión (las 7)", () => {
+    expect(quickActionsForRole(["vendedor", "tecnico"])).toHaveLength(7);
   });
 });
 

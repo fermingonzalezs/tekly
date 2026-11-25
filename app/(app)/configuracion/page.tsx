@@ -4,6 +4,7 @@ import { listMiembros, getNegocio } from "@/lib/db/configuracion";
 import { listVariantes } from "@/lib/db/variantes";
 import { lecturasIaIlimitadas, lecturasIaUsadas } from "@/lib/db/ia-lecturas";
 import { ENTIDADES_IMPORTACION, lecturasRestantes, type EntidadImportacion } from "@/lib/ia-lecturas";
+import { tieneRol } from "@/lib/roles";
 import { ConfiguracionClient } from "./configuracion-client";
 
 // La lectura con IA de "Importar datos" corre como server action de esta
@@ -15,7 +16,7 @@ const IA_SIN_CUPO: Record<EntidadImportacion, number> = { celulares: 0, notebook
 export default async function ConfiguracionPage() {
   const user = await requireUser();
 
-  if (user.rol !== "admin") {
+  if (!tieneRol(user, "admin")) {
     return (
       <Suspense>
         <ConfiguracionClient

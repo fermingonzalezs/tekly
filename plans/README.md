@@ -20,4 +20,7 @@ Verificación).
 | [023](023-agenda-turnos.md) | Turnos → Agenda estilo sistema-update (Día/Semana/Mes, próximos, estados atendido/no vino) | HECHO en código — falta aplicar la migración `20261124120000_turnos_agenda` (Supabase por autorizar) y verificar en navegador |
 | [024](024-variantes-celulares.md) | Celulares: grupo › variante › unidad (estilo sistema-update) | HECHO en código — falta aplicar la migración y verificar en el navegador |
 | [025](025-compras-ingresos.md) | Compras / Ingresos: toda entrada de stock por compra, con IA (texto, fotos/PDF, QR) y variantes | Fase 1 HECHA en código, migración aplicada — falta verificar en el navegador; fases 2–4 pendientes |
-| [026](026-descuentos-regalos-venta.md) | Ventas: descuento sobre el total e ítems de regalo | Pendiente |
+| [026](026-descuentos-regalos-venta.md) | Ventas: diferencia sobre el total (descuento/recargo) y venta de regalo | HECHO en código (revisado 25/11), migraciones aplicadas — falta verificar en el navegador |
+| [027](027-recargo-por-caja.md) | Recargo por caja en vez de por medio de pago (Configuración → Cajas) | HECHO en código — migración `20261125210000_cajas_recargo` aplicada; falta verificar en el navegador |
+| [028](028-pedidos-items-sena.md) | Agenda → Pedidos: varios productos con precio, seña y saldo por abonar | HECHO en código — falta aplicar la migración `20261126100000_pedidos_items_sena` y verificar en el navegador |
+| [029](029-invitar-sin-instagram-roles-multiples.md) | Configuración: invitar sin Instagram + varios roles por usuario (ej. Vendedor y Técnico) | HECHO en código — migración `20261126110000_profiles_roles_multiples` aplicada (25/11); falta verificar en el navegador |

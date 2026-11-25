@@ -73,9 +73,10 @@ export function VariantesTabla({
   onEliminar: (variante: Variante) => void;
   onReactivar: (variante: Variante) => void;
 }) {
-  // Los grupos arrancan abiertos (se ve el SKU de cada variante); el usuario
-  // los pliega con el chevron.
-  const [gruposCerrados, setGruposCerrados] = useState<Set<string>>(new Set());
+  // Los grupos arrancan plegados (se ve el resumen de cada uno); con una
+  // búsqueda o filtro activos arrancan abiertos, para ver qué coincidió. El
+  // set guarda los grupos que el usuario invirtió con el chevron.
+  const [gruposInvertidos, setGruposInvertidos] = useState<Set<string>>(new Set());
   const [variantesAbiertas, setVariantesAbiertas] = useState<Set<string>>(new Set());
 
   const esNotebook = categoria === "notebook";
@@ -136,9 +137,20 @@ export function VariantesTabla({
         </thead>
         <tbody>
           {grupos.map((grupo) => {
-            const abierto = !gruposCerrados.has(grupo.clave);
+            const abierto = hayFiltro !== gruposInvertidos.has(grupo.clave);
             const unidadesGrupo = grupo.variantes.flatMap((v) => unidadesDe(v.id));
             const disponiblesGrupo = unidadesGrupo.filter((u) => u.estado === "disponible").length;
+            // Alerta del grupo: sin stock (rojo) o alguna variante activa por
+            // debajo de su stock mínimo (ámbar). Mismo criterio que el chip
+            // «Stock bajo» de cada variante, con el stock real (sin filtros).
+            const variantesBajas = grupo.variantes.filter(
+              (v) =>
+                v.activa &&
+                v.stockMinimo > 0 &&
+                stockDeVariante(v, unidades).disponibles < v.stockMinimo,
+            ).length;
+            const alertaGrupo: "red" | "amber" | null =
+              disponiblesGrupo === 0 ? "red" : variantesBajas > 0 ? "amber" : null;
             const precios = grupo.variantes.map((v) => rangoPrecio(v, unidades));
             const min = Math.min(...precios.map((p) => p[0]));
             const max = Math.max(...precios.map((p) => p[1]));
@@ -149,7 +161,7 @@ export function VariantesTabla({
               <Fragment key={grupo.clave}>
                 <tr
                   className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
-                  onClick={() => setGruposCerrados((s) => toggle(s, grupo.clave))}
+                  onClick={() => setGruposInvertidos((s) => toggle(s, grupo.clave))}
                 >
                   <td className="px-4 py-2.5 text-start">
                     <span className="flex items-center gap-2 font-semibold text-neutral-900">
@@ -164,7 +176,28 @@ export function VariantesTabla({
                   <td className="px-4 py-2.5 tabular-nums text-neutral-600">
                     {grupo.variantes.length}
                   </td>
-                  <td className="px-4 py-2.5 tabular-nums">{disponiblesGrupo}</td>
+                  <td className="px-4 py-2.5 tabular-nums">
+                    {alertaGrupo ? (
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-semibold",
+                          alertaGrupo === "red" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800",
+                        )}
+                        title={
+                          alertaGrupo === "red"
+                            ? "Sin stock disponible"
+                            : variantesBajas === 1
+                              ? "1 variante con stock bajo"
+                              : variantesBajas + " variantes con stock bajo"
+                        }
+                      >
+                        <span className={cn("h-1.5 w-1.5 rounded-full", dotClass[alertaGrupo])} />
+                        {disponiblesGrupo}
+                      </span>
+                    ) : (
+                      disponiblesGrupo
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 tabular-nums">
                     {min === max ? fmtUsd(min) : `${fmtUsd(min)} – ${fmtUsd(max)}`}
                   </td>
@@ -324,8 +357,26 @@ function VarianteRows({
         )}
         <td className="px-4 py-2">
           <span className="inline-flex flex-wrap items-center justify-center gap-1">
-            <span className={cn(chip, "font-medium")} title="Disponibles">
-              <span className={cn("h-1.5 w-1.5 rounded-full", dotClass.green)} />
+            <span
+              className={cn(
+                chip,
+                "font-medium",
+                stock.disponibles === 0 && variante.activa
+                  ? "bg-red-50 text-red-700"
+                  : bajoMinimo && "bg-amber-50 text-amber-800",
+              )}
+              title="Disponibles"
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  stock.disponibles === 0 && variante.activa
+                    ? dotClass.red
+                    : bajoMinimo
+                      ? dotClass.amber
+                      : dotClass.green,
+                )}
+              />
               {stock.disponibles}
             </span>
             {stock.reservadas > 0 && (

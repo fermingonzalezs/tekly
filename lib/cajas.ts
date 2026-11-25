@@ -14,6 +14,13 @@ import { movimientoEnUsd } from "@/lib/analiticas";
 
 export type Moneda = "usd" | "ars";
 
+/** `null` si el recargo de una caja es válido (0–100 %). */
+export function errorRecargo(pct: number): string | null {
+  if (!Number.isFinite(pct)) return "El recargo tiene que ser un número";
+  if (pct < 0 || pct > 100) return "El recargo tiene que estar entre 0 y 100 %";
+  return null;
+}
+
 export type MovimientoSigno = { tipo: "ingreso" | "egreso"; monto: number };
 
 /** Monto con signo: ingreso suma, egreso resta. */
@@ -246,4 +253,29 @@ export function diferenciaPorCaja(
     }
   }
   return [...acc.values()].filter((d) => d.conciliaciones > 0);
+}
+
+// ───────────────────── Medio de una caja (formulario) ─────────────────────
+
+/** Lo que se elige en el formulario de una caja. «Efectivo» se guarda como
+ * `pesos` o `dolares` según la moneda (los valores de siempre en la base). */
+export type TipoMedioCaja = "efectivo" | "transferencia" | "cripto" | "tarjeta" | "otro";
+
+export const TIPOS_MEDIO_CAJA: { value: TipoMedioCaja; label: string }[] = [
+  { value: "efectivo", label: "Efectivo" },
+  { value: "transferencia", label: "Transferencia" },
+  { value: "cripto", label: "Cripto" },
+  { value: "tarjeta", label: "Tarjeta" },
+  { value: "otro", label: "Otro" },
+];
+
+export function tipoDeMedioCaja(medio: MedioPago): TipoMedioCaja {
+  if (medio === "pesos" || medio === "dolares") return "efectivo";
+  if (medio === "canje") return "otro";
+  return medio;
+}
+
+export function medioDeCaja(tipo: TipoMedioCaja, moneda: "usd" | "ars"): MedioPago {
+  if (tipo === "efectivo") return moneda === "usd" ? "dolares" : "pesos";
+  return tipo;
 }

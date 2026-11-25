@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient, createServiceRoleClient } from "@/lib/auth/supabase";
 import { requireUser } from "@/lib/auth";
 import { notifyTelegram } from "@/lib/telegram";
+import { etiquetaRoles } from "@/lib/roles";
 import type { ResolucionReporte } from "@/lib/types";
 
 const MAX_DESCRIPCION = 2000;
@@ -52,7 +53,7 @@ export async function crearReporteBug(
     [
       "🐛 Nuevo reporte de bug",
       `Organización: ${user.organizationNombre}`,
-      `Usuario: ${user.nombre} (${user.rol}) · ${user.email}`,
+      `Usuario: ${user.nombre} (${etiquetaRoles(user.roles)}) · ${user.email}`,
       `Página: ${ruta}`,
       `Estaba haciendo: ${accion}`,
       "",

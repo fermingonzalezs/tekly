@@ -21,6 +21,7 @@ import {
 } from "@/lib/agenda";
 import { TicketResumen } from "./ticket-resumen";
 import type {
+  Caja,
   Celular,
   ClienteOpcion,
   ClienteSeleccion,
@@ -58,6 +59,7 @@ export function AgendarDialog({
   atendientes,
   turnosAgenda,
   negocio,
+  cajas,
   onClose,
   onSubmit,
 }: {
@@ -74,6 +76,9 @@ export function AgendarDialog({
   /** Turnos conocidos, para avisar si quien atiende ya tiene otro a esa hora. */
   turnosAgenda: Turno[];
   negocio: Negocio;
+  /** Los turnos no eligen caja: el recargo informativo sale de la primera
+   * caja activa del medio (0 si no hay). */
+  cajas: Caja[];
   onClose: () => void;
   onSubmit: (d: TurnoInput) => void;
 }) {
@@ -410,7 +415,8 @@ export function AgendarDialog({
               </div>
               <div className="space-y-2">
                 {pagos.map((p) => {
-                  const recargoPct = negocio.recargosMediosPago[p.medio] ?? 0;
+                  const recargoPct =
+                    cajas.find((c) => c.activa && c.medioPago === p.medio)?.recargoPct ?? 0;
                   return (
                     <div key={p._k} className="space-y-1">
                       <div className="flex items-center gap-2">

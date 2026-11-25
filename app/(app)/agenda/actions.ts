@@ -5,10 +5,12 @@ import { requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import { createTurno, updateTurno, setTurnoEstado, deleteTurno } from "@/lib/db/turnos";
 import { createPedido, deletePedido, setPedidoEstado, updatePedido } from "@/lib/db/pedidos";
+import { errorPedido, limpiarItems, normalizarItems, redondearUsd } from "@/lib/pedidos";
 import type {
   ClienteSeleccion,
   Pago,
   PedidoEstado,
+  PedidoItem,
   TurnoEstado,
   TurnoOtroItem,
   TurnoTipo,
@@ -92,7 +94,9 @@ export async function deleteTurnoAction(id: string) {
 
 export type PedidoInput = {
   cliente: ClienteSeleccion;
-  descripcion: string;
+  items: PedidoItem[];
+  /** `0` = no abonó seña. */
+  senaUsd: number;
   fechaEntrega: string;
   nota: string;
 };
@@ -100,7 +104,11 @@ export type PedidoInput = {
 const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 async function pedidoDatosDe(data: PedidoInput) {
-  if (!data.descripcion.trim()) throw new Error("Falta qué se pidió.");
+  // El server nunca confía en el cliente: limpia filas vacías, revalida con la
+  // misma lógica pura que el dialog y recién ahí normaliza.
+  const items = limpiarItems(data.items);
+  const error = errorPedido({ items, senaUsd: data.senaUsd });
+  if (error) throw new Error(error);
   if (!FECHA_RE.test(data.fechaEntrega)) throw new Error("Fecha de entrega inválida.");
   const cliente =
     data.cliente.tipo === "libre"
@@ -110,7 +118,8 @@ async function pedidoDatosDe(data: PedidoInput) {
   return {
     cliente: cliente.nombre,
     clienteId: cliente.id,
-    descripcion: data.descripcion,
+    items: normalizarItems(items),
+    senaUsd: redondearUsd(data.senaUsd),
     fechaEntrega: data.fechaEntrega,
     nota: data.nota,
   };

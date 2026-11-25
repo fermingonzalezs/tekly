@@ -15,6 +15,7 @@ import { DolarNavbar } from "@/components/dolar-navbar";
 import { UserMenu } from "@/components/auth/user-menu";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 
 export function TopNav({
   user,
@@ -34,8 +35,8 @@ export function TopNav({
   nombre?: string;
 }) {
   const pathname = usePathname();
-  const items = navForRole(user.rol).filter((n) => n.href !== "/configuracion");
-  const categories = navCategoriesForRole(user.rol);
+  const items = navForRole(user.roles).filter((n) => n.href !== "/configuracion");
+  const categories = navCategoriesForRole(user.roles);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const navRef = useOutsideClick<HTMLElement>(() => setOpenCategory(null));
@@ -152,7 +153,7 @@ export function TopNav({
 
         <div className="ml-auto flex shrink-0 items-center gap-2.5">
           <DolarNavbar />
-          <NotificationsBell esAdmin={user.rol === "admin"} resoluciones={resoluciones} />
+          <NotificationsBell esAdmin={tieneRol(user, "admin")} resoluciones={resoluciones} />
           <UserMenu user={user} adminPlataforma={adminPlataforma} />
         </div>
       </header>

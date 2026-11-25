@@ -13,7 +13,7 @@ import type { Rol } from "@/lib/auth/types";
  * hermanos del wrapper fixed -- anidados quedarían atrapados en su stacking
  * context y pintarían debajo de otros fixed z-50. El reporte se oculta en
  * mobile: ahí compite con los demás controles fixed (nav, toasts). */
-export function FabDock({ rol }: { rol: Rol }) {
+export function FabDock({ roles }: { roles: Rol[] }) {
   const [paletaAbierta, setPaletaAbierta] = useState(false);
   const [bugAbierto, setBugAbierto] = useState(false);
 
@@ -40,7 +40,7 @@ export function FabDock({ rol }: { rol: Rol }) {
       </div>
 
       <ReportarBugFab open={bugAbierto} onOpenChange={setBugAbierto} />
-      <CommandPalette rol={rol} open={paletaAbierta} onOpenChange={setPaletaAbierta} />
+      <CommandPalette roles={roles} open={paletaAbierta} onOpenChange={setPaletaAbierta} />
     </>
   );
 }

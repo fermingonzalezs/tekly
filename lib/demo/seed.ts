@@ -347,6 +347,7 @@ export function crearSeedDemo(hoy: Date): DemoState {
       descripcion: "Efectivo en pesos",
       creadaEl: "ene 2026",
       medioPago: "pesos",
+      recargoPct: 0,
     },
     {
       id: "demo-caja-2",
@@ -356,6 +357,7 @@ export function crearSeedDemo(hoy: Date): DemoState {
       descripcion: "Transferencias",
       creadaEl: "ene 2026",
       medioPago: "transferencia",
+      recargoPct: 5,
     },
     {
       id: "demo-caja-3",
@@ -365,6 +367,7 @@ export function crearSeedDemo(hoy: Date): DemoState {
       descripcion: "Dólares y billeteras",
       creadaEl: "ene 2026",
       medioPago: "dolares",
+      recargoPct: 0,
     },
   ];
 

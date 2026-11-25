@@ -58,11 +58,22 @@ export function calcularRestante(totalPrecio: number, pagos: PagoDraft[]): numbe
 
 /** Ajusta el último pago para que la suma cierre exacto con el total
  * (botón "Saldar"). No deja el monto negativo. */
-export function saldarUltimoPago<T extends PagoDraft>(pagos: T[], restante: number): T[] {
-  if (pagos.length === 0) return pagos;
-  const last = pagos[pagos.length - 1];
-  const monto = Math.max(0, Math.round((last.montoUsd + restante) * 100) / 100);
-  return pagos.map((p, i) => (i === pagos.length - 1 ? { ...p, montoUsd: monto } : p));
+export function saldarUltimoPago<T extends PagoDraft & { medio?: string }>(
+  pagos: T[],
+  restante: number,
+): T[] {
+  // El pago en canje no se ajusta: su monto es el precio de compra del
+  // equipo recibido (se edita en su modal). Se salda el último de los otros.
+  let idx = -1;
+  for (let i = pagos.length - 1; i >= 0; i--) {
+    if (pagos[i].medio !== "canje") {
+      idx = i;
+      break;
+    }
+  }
+  if (idx === -1) return pagos;
+  const monto = Math.max(0, Math.round((pagos[idx].montoUsd + restante) * 100) / 100);
+  return pagos.map((p, i) => (i === idx ? { ...p, montoUsd: monto } : p));
 }
 
 /** Monto real cobrado/movido por un pago con recargo -- `montoUsd` sigue
@@ -307,8 +318,14 @@ export type MotivoInput = {
   /** Nombre de una tienda nueva escrita a mano; omitido = no se valida. */
   tiendaNueva?: string;
   clienteNombre: string;
-  items: { detalle?: string; precioUsd: number }[];
+  items: { detalle?: string; precioUsd: number; regalo?: boolean }[];
   pagos: { montoUsd: number; medio: MedioPagoVenta; canjeEquipo?: string }[];
+  /** Ajuste firmado sobre el total: >0 descuenta, <0 recarga. Con
+   * `subtotalUsd` se valida antes de conciliar los pagos. */
+  ajusteUsd?: number;
+  subtotalUsd?: number;
+  /** La venta entera es un regalo: total 0, sin pagos. */
+  regalo?: boolean;
   totalPrecio: number;
 };
 
@@ -324,7 +341,22 @@ export function motivoNoConfirmable(i: MotivoInput): string | null {
   if (i.items.length === 0) return "Agregá al menos un ítem";
   if (i.items.some((it) => !(it.detalle ?? "").trim()))
     return "Hay un ítem sin nombre";
-  if (i.items.some((it) => it.precioUsd <= 0)) return "Hay un ítem sin precio";
+  if (i.regalo) {
+    // El regalo es de la venta entera: no se cobra nada.
+    if (i.pagos.some((p) => p.montoUsd > 0)) return "Un regalo no lleva pagos";
+    return null;
+  }
+  // Los regalos van en 0 a propósito; el resto necesita precio. Si todo es
+  // regalo, la venta es «Regalo»: no se cobra nada.
+  if (i.items.every((it) => it.regalo)) {
+    if (i.pagos.some((p) => p.montoUsd > 0)) return "Un regalo no lleva pagos";
+    return null;
+  }
+  if (i.items.some((it) => !it.regalo && it.precioUsd <= 0)) return "Hay un ítem sin precio";
+  if (i.subtotalUsd !== undefined && i.ajusteUsd !== undefined) {
+    const err = errorAjuste(i.subtotalUsd, i.ajusteUsd);
+    if (err) return err;
+  }
 
   const restante = calcularRestante(i.totalPrecio, i.pagos);
   if (restante > 0.005) return `Faltan ${fmtUsd(restante)} por cobrar`;
@@ -446,4 +478,168 @@ export function aplicarDescuentoVenta(
     descuentoUsd: aplicado / 100,
     totalUsd: (subtotal - aplicado) / 100,
   };
+}
+
+export type ResultadoAjuste = {
+  /** Mismo orden que la entrada: precio efectivo + precio de lista si cambió. */
+  items: { precioUsd: number; precioListaUsd?: number }[];
+  subtotalUsd: number;
+  /** Firmado: >0 descuento, <0 recargo. Ya prorrateado en los ítems. */
+  ajusteUsd: number;
+  totalUsd: number;
+};
+
+/** Diferencia en USD a partir de un % firmado (positivo descuenta, negativo
+ * recarga), redondeado a centavos. */
+export function ajusteDesdePct(subtotalUsd: number, pct: number): number {
+  if (!Number.isFinite(pct) || pct === 0) return 0;
+  const monto = aCentavos((subtotalUsd * Math.abs(pct)) / 100) / 100;
+  return pct > 0 ? monto : -monto;
+}
+
+/** `null` si la diferencia es válida. Un descuento no puede dejar el total en
+ * 0 o menos; un recargo (negativo) no tiene tope. */
+export function errorAjuste(subtotalUsd: number, ajusteUsd: number): string | null {
+  if (!Number.isFinite(ajusteUsd)) return "El descuento no es un monto válido";
+  if (ajusteUsd < 0) return "El descuento no puede ser negativo";
+  if (ajusteUsd > 0 && aCentavos(ajusteUsd) >= aCentavos(subtotalUsd)) {
+    return "El descuento no puede cubrir todo el subtotal";
+  }
+  return null;
+}
+
+/** Ajuste firmado sobre el total (plan 026 revisado): >0 descuenta (mismo
+ * prorrateo que `aplicarDescuentoVenta`), <0 recarga proporcional. En ambos
+ * casos Σ precio × cantidad = total. */
+export function aplicarAjusteVenta(
+  items: ItemParaDescuento[],
+  ajusteUsd: number,
+): ResultadoAjuste {
+  const monto = Number.isFinite(ajusteUsd) ? ajusteUsd : 0;
+  if (monto >= 0) {
+    const r = aplicarDescuentoVenta(items, monto);
+    return {
+      items: r.items,
+      subtotalUsd: r.subtotalUsd,
+      ajusteUsd: r.descuentoUsd,
+      totalUsd: r.totalUsd,
+    };
+  }
+
+  // Recargo: espejo del descuento, sumando centavos proporcionalmente.
+  const precios = items.map((i) => (i.regalo ? 0 : Math.max(0, aCentavos(i.precioUsd))));
+  const cant = items.map((i) => Math.max(1, Math.round(i.cantidad)));
+  const subs = precios.map((p, k) => p * cant[k]);
+  const subtotal = subs.reduce((a, s) => a + s, 0);
+  const totalRecargo = aCentavos(-monto);
+
+  const porUnidad = subs.map(() => 0);
+  let resto = totalRecargo;
+  if (subtotal > 0) {
+    for (let k = 0; k < subs.length; k += 1) {
+      porUnidad[k] = Math.floor((totalRecargo * subs[k]) / subtotal / cant[k]);
+    }
+    resto = totalRecargo - porUnidad.reduce((a, u, k) => a + u * cant[k], 0);
+    const orden = subs
+      .map((s, k) => k)
+      .filter((k) => subs[k] > 0)
+      .sort((a, b) => subs[b] - subs[a]);
+    for (const k of orden) {
+      if (resto <= 0) break;
+      const extra = Math.floor(resto / cant[k]);
+      if (extra > 0) {
+        porUnidad[k] += extra;
+        resto -= extra * cant[k];
+      }
+    }
+  } else {
+    // Sin subtotal (ítems en 0): todo el recargo va al primer ítem que no
+    // sea regalo.
+    const k = items.findIndex((i) => !i.regalo);
+    if (k >= 0) {
+      porUnidad[k] = Math.floor(totalRecargo / cant[k]);
+      resto = totalRecargo - porUnidad[k] * cant[k];
+    }
+  }
+  if (resto > 0) {
+    const k = items.findIndex((it, idx) => !it.regalo && cant[idx] === 1);
+    if (k >= 0) {
+      porUnidad[k] += resto;
+      resto = 0;
+    }
+  }
+  const aplicado = totalRecargo - resto;
+
+  return {
+    items: items.map((it, k) => {
+      const efectivo = (precios[k] + porUnidad[k]) / 100;
+      const lista = it.regalo ? 0 : precios[k] / 100;
+      return porUnidad[k] > 0
+        ? { precioUsd: efectivo, precioListaUsd: lista }
+        : { precioUsd: efectivo };
+    }),
+    subtotalUsd: subtotal / 100,
+    ajusteUsd: -aplicado / 100,
+    totalUsd: (subtotal + aplicado) / 100,
+  };
+}
+
+/**
+ * Precios finales de una venta nueva (plan 026, regalos por ítem): los ítems
+ * de regalo quedan en 0 (conservan su costo) y el descuento se prorratea en
+ * el resto. La usan `createVenta`, la demo y Nueva venta: misma cuenta en
+ * los tres lados. `ajusteUsd` es el descuento ≥ 0.
+ */
+export function preciosDeVenta<T extends Pick<VentaItem, "cantidad" | "precioUsd" | "regalo">>(
+  items: T[],
+  ajusteUsd: number,
+): { items: (T & { precioListaUsd?: number })[]; totalUsd: number; ajusteUsd: number } {
+  const base = items.map((i) => ({ ...i, regalo: i.regalo || undefined, precioUsd: i.regalo ? 0 : i.precioUsd }));
+  const r = aplicarAjusteVenta(
+    base.map((i) => ({ cantidad: i.cantidad, precioUsd: i.precioUsd, regalo: !!i.regalo })),
+    ajusteUsd,
+  );
+  return {
+    items: base.map((it, k) => ({
+      ...it,
+      precioUsd: r.items[k].precioUsd,
+      precioListaUsd: r.items[k].precioListaUsd,
+    })),
+    totalUsd: r.totalUsd,
+    ajusteUsd: r.ajusteUsd,
+  };
+}
+
+/** Reglas de los ítems de una venta nueva que el server no delega a la UI:
+ * solo se vende stock (celular, notebook, producto de «Otros») o servicios
+ * del catálogo -- no hay ítems libres --, y los regalos son repuestos o
+ * productos de «Otros».
+ * Una venta toda de regalo es válida (total 0, sin pagos: «Regalo»). */
+export function errorItemsVenta(
+  items: Pick<VentaItem, "regalo" | "celularId" | "notebookId" | "otroId" | "categoria" | "repuestos">[],
+  ajusteUsd: number,
+): string | null {
+  if (items.length === 0) return "La venta necesita al menos un ítem.";
+  for (const i of items) {
+    // Regalo de un repuesto: ítem «otro» con el repuesto vinculado (descuenta
+    // su stock por `venta_item_repuestos`).
+    const repuestoRegalado = !!i.regalo && i.categoria === "otro" && (i.repuestos?.length ?? 0) > 0;
+    const delStock =
+      (i.categoria === "celular" && !!i.celularId) ||
+      (i.categoria === "notebook" && !!i.notebookId) ||
+      (i.categoria === "otro" && !!i.otroId) ||
+      repuestoRegalado ||
+      i.categoria === "servicio";
+    if (!delStock) return "Solo se pueden vender ítems del stock o servicios del catálogo.";
+    if (i.regalo && i.categoria !== "otro") {
+      return "Los regalos son repuestos o productos de «Otros».";
+    }
+  }
+  if (!Number.isFinite(ajusteUsd) || ajusteUsd < 0) return "El descuento no puede ser negativo.";
+  return null;
+}
+
+/** Una venta es «Regalo» (total 0, sin pagos) cuando todos sus ítems lo son. */
+export function esVentaRegalo(items: Pick<VentaItem, "regalo">[]): boolean {
+  return items.length > 0 && items.every((i) => i.regalo);
 }

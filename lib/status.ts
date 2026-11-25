@@ -287,10 +287,11 @@ export const compraEstado: Record<
  * comparta label/tone/emoji. */
 export const medioPago: Record<MedioPagoVenta, { label: string; tone: Tone; emoji: string }> = {
   pesos: { label: "Efectivo (pesos)", tone: "green", emoji: "💵" },
-  dolares: { label: "Dólares", tone: "green", emoji: "💲" },
+  dolares: { label: "Efectivo (dólares)", tone: "green", emoji: "💲" },
   transferencia: { label: "Transferencia", tone: "blue", emoji: "🏦" },
   cripto: { label: "Cripto", tone: "violet", emoji: "🪙" },
   tarjeta: { label: "Tarjeta de crédito", tone: "amber", emoji: "💳" },
+  otro: { label: "Otro", tone: "gray", emoji: "🧾" },
   canje: { label: "Mercadería", tone: "gray", emoji: "📦" },
   cuenta_corriente: { label: "Cuenta corriente", tone: "gray", emoji: "📒" },
 };
@@ -307,6 +308,7 @@ export const MEDIOS_CAJA: MedioPago[] = [
   "transferencia",
   "cripto",
   "tarjeta",
+  "otro",
 ];
 
 /** `MEDIOS_CAJA` + "cuenta corriente" + "canje" -- para los lugares que

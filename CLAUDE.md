@@ -211,10 +211,18 @@ Acceso vía MCP con las tools `mcp__plugin_supabase_supabase__*` (el conector
 ### Modelo de datos
 
 - `organizations (id, nombre, plan, created_at)`.
-- `profiles (id → auth.users, organization_id, rol, nombre, alias, email,
-  activo)` — una fila por usuario. **Un usuario pertenece a una sola
-  organización** (no hay tabla de membresías N:M; si hiciera falta multi-org
-  el día de mañana, es una migración de datos acotada).
+- `profiles (id → auth.users, organization_id, roles text[], rol, nombre,
+  alias, email, activo)` — una fila por usuario. **Un usuario pertenece a una
+  sola organización** (no hay tabla de membresías N:M; si hiciera falta
+  multi-org el día de mañana, es una migración de datos acotada).
+  **`roles` es la fuente de verdad de los permisos** (1 a 3: `admin`,
+  `vendedor`, `tecnico`; `admin` absorbe al resto → `['admin']`). Los
+  permisos de la app son la **unión** (`tieneRol` en `lib/roles.ts`).
+  **`rol` se conserva como rol principal derivado** por el trigger
+  `profiles_normalizar_roles` (`admin` > `tecnico` > `vendedor`): existe
+  porque `current_user_rol() = 'admin'` está en ~15 policies y en el panel de
+  plataforma, y como solo se compara contra `admin` sigue siendo correcto.
+  El código de la app **no** usa `rol` para decidir permisos.
 - Una tabla por dominio de negocio (`clientes`, `celulares`, `notebooks`, `repuestos`,
   `otros_items`, `movimientos_stock`, `proveedores`, `tickets`, `servicios`,
   `turnos`, `ventas`, `venta_items`, `cajas`, `movimientos_caja`,
@@ -250,9 +258,12 @@ Acceso vía MCP con las tools `mcp__plugin_supabase_supabase__*` (el conector
 Todas las tablas de negocio tienen RLS habilitado, 4 policies
 (`select`/`insert`/`update`/`delete`) `to authenticated using/with check
 (organization_id = current_user_org_id())`. `organizations`/`profiles` solo
-tienen policy de `select` — altas y cambios de rol van por `service role`
-(signup/invite) o por las RPC `update_own_profile`/`set_member_role`
+tienen policy de `select` — altas y cambios de roles van por `service role`
+(signup/invite) o por las RPC `update_own_profile`/`set_member_roles`
 (`security definer`, cada una valida `auth.uid()`/rol adentro).
+`set_member_roles` valida además que no quede la organización **sin ningún
+admin activo**; `current_user_tiene_rol(r)` queda para policies nuevas que
+pregunten por un rol puntual (no reemplaza a `current_user_rol`).
 
 Errores reales que ya nos mordieron una vez — no repetirlos:
 
@@ -305,8 +316,10 @@ Components/Actions, `createMiddlewareClient` para `middleware.ts`,
 en un componente cliente), `index.ts` (`requireUser()`, `requireRole(...)`,
 `signIn`/`signUp`/`signOut`/`inviteMember`, `requestPasswordReset`/
 `verifyEmailLink`/`updatePassword` para el flujo de mail,
-`updateOwnProfile`/`setMemberRole`), `validation.ts` (schemas de `zod` para
-los forms de auth).
+`updateOwnProfile`/`setMemberRoles`), `validation.ts` (schemas de `zod` para
+los forms de auth). `requireRole(...)` / `requireRoleEscritura(...)` aceptan
+**cualquiera** de los roles dados: usan `tieneRol` (`lib/roles.ts`), que
+devuelve true si el usuario tiene alguno (y siempre true para `admin`).
 
 `requireUser()` en `app/(app)/layout.tsx` protege todo lo que cuelga de ese
 grupo; `middleware.ts` además redirige a `/login` antes de que la página
@@ -396,6 +409,16 @@ las tres formas en las que puede volver la credencial:
    redirige a `app/auth/confirm/hash/` (página cliente) que lee el fragmento,
    lo borra de la barra de direcciones y le pasa los tokens a
    `setSessionFromTokens` por server action.
+
+**Invitados → `/bienvenida`**: `inviteMember`/`resendInvite` mandan
+`user_metadata.debe_crear_contrasena = true` y `redirectTo` a `/bienvenida`
+(también es el default de `type=invite` en la ruta y en `hash-callback`). El
+invitado entra con la sesión del link y nunca eligió contraseña: ahí confirma
+su nombre y crea la contraseña (`crearContrasenaInvitado`, `bienvenidaSchema`),
+que baja el flag en el mismo `updateUser`. `SessionUser.debeCrearContrasena`
+hace que el layout `(app)` lo mande a `/bienvenida` hasta que la cree.
+Invitados anteriores a este flag no lo tienen: si se quedan sin sesión, usan
+«¿Olvidaste tu contraseña?».
 
 Lo que **sí** hay que configurar a mano (es gratis, Authentication → URL
 Configuration): Site URL y Redirect URLs con el origen de la app
@@ -912,7 +935,11 @@ Aplica a **toda tabla, presente y futura** (menos los recibos/PDF):
   `font-semibold` solo para el dato que tiene que destacar, ej. Total).
 - Fuera de tablas, alinear a la izquierda con `text-start`.
 - **Decisión vigente (reemplaza al plan 007): centrado salvo texto largo,
-  montos también centrados.** Los recibos/PDF (`.recibo-print`) conservan su
+  montos también centrados.** Excepciones pedidas por el usuario (25/11):
+  la tabla de **Ventas** e **Ítems vendidos** y la de **Repuestos** van
+  **todo centrado**, cliente/detalle/nombre incluidos. Los encabezados
+  ordenables (`ThSort`) llevan `uppercase` en su `<button>`: un botón no
+  hereda el `text-transform` del `th`. Los recibos/PDF (`.recibo-print`) conservan su
   propio criterio.
 
 ## Componentes reutilizables — usar SIEMPRE estos
@@ -1110,7 +1137,7 @@ falla si aparece uno.
 | `IconButton` | `components/ui/button.tsx` | solo ícono: `{ aria-label (obligatorio), icon, variant: ghost \| outline \| danger-ghost, size: sm \| md \| lg, shape: round \| square }` |
 | `ButtonLink` | `components/ui/button.tsx` | misma apariencia que `Button` pero `next/link`. `MarketingButton` es un envoltorio suyo |
 | `Badge` | `components/ui/badge.tsx` | `{ tone, dot?, className? }` — forma ÚNICA cuadrada (`rounded-md`); no hay prop de forma. Colores por `lib/status.ts` |
-| `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg \| xl \| 2xl \| 3xl \| 4xl, formulario? }` (anchos `max-w-md/2xl/3xl/4xl/5xl/6xl`; `formulario` = modo formulario: body centrado salvo el contenido de las casillas, ver "`Dialog`: …" abajo; **modal que se acerca a 100vh → ensancharlo y partirlo en columnas en `lg:`**, no alargarlo: Nuevo ticket, Entregar equipo, Nueva venta (`4xl`, 2 columnas), canje, Nueva compra, alta de equipo/repuesto/producto en `3xl`; detalles en `2xl`; `ChecklistEditor` acepta `gridClassName`) — **vidrio único** (plan 011): header oscuro `table-header` con texto blanco, panel traslúcido (`bg-white/80`; `xl`/`2xl` → `bg-white/90`), `border-accent/70`, overlay `bg-neutral-900/[0.07] backdrop-blur-[2px]` (anidado: sin segundo blur). Centrado vertical, scroll propio, `createPortal` a `<body>`, cierra con Esc / click fuera, `role="dialog" aria-modal`. Los campos dentro del body se re-estilan a 42px/radio 14px/blanco 70% con borde gris fino `neutral-300` (para que la casilla se distinga del vidrio). Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
+| `Dialog` | `components/ui/dialog.tsx` | `{ open, onClose, title, description?, footer?, size: md \| lg \| xl \| 2xl \| 3xl \| 4xl, formulario? }` (anchos `max-w-md/2xl/3xl/4xl/5xl/6xl`; `formulario` = modo formulario: body centrado salvo el contenido de las casillas, ver "`Dialog`: …" abajo; **modal que se acerca a 100vh → ensancharlo y partirlo en columnas en `lg:`**, no alargarlo: Nuevo ticket, Entregar equipo, Nueva venta (`4xl`, 2 columnas), canje, Nueva compra, alta de equipo/repuesto/producto en `3xl`; detalles en `2xl`; `ChecklistEditor` acepta `gridClassName`) — **vidrio único** (plan 011): header oscuro `table-header` con texto blanco, panel traslúcido (`bg-white/80`; `xl`/`2xl` → `bg-white/90`), `border-accent/70`, overlay `bg-neutral-900/[0.07] backdrop-blur-[2px]` (anidado: sin segundo blur). Centrado vertical, scroll propio, `createPortal` a `<body>`, cierra con Esc (solo el de arriba si hay dialogs anidados: pila `pilaDialogs`) / click fuera, `role="dialog" aria-modal`. Los campos dentro del body se re-estilan a 42px/radio 14px/blanco 70% con borde gris fino `neutral-300` (para que la casilla se distinga del vidrio). Para resetear el estado interno al reabrir: `key={abierto ? "a" : "b"}` en el uso |
 | `Tabs` | `components/ui/tabs.tsx` | `{ value, onChange, options: [{ value, label, count? }], accent? }` — `accent` (hex) para teñir el estado activo con otro color; por defecto usa `accent` |
 | `Pagination` | `components/ui/pagination.tsx` | `{ page, total, pageSize?, onPageChange, className? }` — "Mostrando 1–50 de N" + números de página (‹ Anterior · 1 2 3 … N · Siguiente ›), se oculta con una sola página. `paginasVisibles` (helper puro, con test) en `lib/pagination.ts`; `PAGE_SIZE = 50` |
 | `SeccionTabla` | `components/ui/seccion-tabla.tsx` | Layout estándar de una sección con tabla (ver "Layout estándar de sección con tabla"): fija el orden tabs → visibilidad → gráficos → tarjetas → filtros → tabla. `{ id, tabs?, graficos?, tarjetas?, columnasTarjetas? (4\|5\|8), filtros?, children }` |
@@ -1119,7 +1146,7 @@ falla si aparece uno.
 | `useVisibilidadBloques` | `components/ui/use-visibilidad-bloques.ts` | Hook `{ graficos, tarjetas, toggle }` que persiste la visibilidad de los bloques en `localStorage` (`tekly:ui:<id>`). Lógica pura testeable en `lib/visibilidad-bloques.ts`; visible en SSR/primer render para no romper la hidratación |
 | Gráficos genéricos | `components/seccion/graficos.tsx` | `GraficoBarrasVerticales`, `GraficoRanking` (con `suffix`), `GraficoDona` y `GraficoBarrasAgrupadas` — cada uno ya envuelto en `GraficoCard` y con empty state. Reusar antes de crear un gráfico nuevo |
 | `Field` / `Input` / `Select` / `Textarea` / `Label` | `components/ui/field.tsx` | inputs con estilo consistente; `Field` = `Label` + control |
-| `ClientePicker` | `components/ui/cliente-picker.tsx` | `{ clientes: ClienteOpcion[], value: ClienteSeleccion \| null, onChange, allowLibre?, placeholder?, className? }` — desplegable con buscador para elegir cliente. **Usar SIEMPRE este en vez de un `<Select>`/`Input` a mano** en cualquier form que necesite un cliente (Ventas, Reparaciones, Cuentas corrientes, Turnos son los 4 casos hoy). `ClienteSeleccion` (`lib/types.ts`) = `{tipo:"existente",id,nombre} \| {tipo:"nuevo",nombre,telefono?} \| {tipo:"libre",nombre}`. La creación queda **diferida**: elegir "Crear cliente nuevo" solo arma el borrador, recién se persiste (`resolveCliente` en `lib/db/clientes.ts`) cuando la action del formulario confirma — cancelar el diálogo no deja un cliente fantasma. `allowLibre` agrega "usar sin registrar" (`tipo:"libre"`, sin fila en `clientes`) — solo Turnos lo usa (`Turno.clienteId` es nullable a propósito, para turnos de gente que aún no es cliente registrado); las acciones que sí requieren un cliente real (`createVentaAction`/`createTicketAction`/`createMovimientoCCAction`) tipan su input como `Exclude<ClienteSeleccion, {tipo:"libre"}>` y llaman `resolveCliente`. Comparte `useOutsideClick` (`components/ui/use-outside-click.ts`) con el buscador de ítems de Nueva venta (`ItemBuscador`, en `ventas-client.tsx`, que sigue siendo su propio combobox porque busca sobre equipos/repuestos/otros/servicios, no clientes; el plan 007 le agregó flechas/Enter/Esc y devolver el foco al buscador tras agregar). |
+| `ClientePicker` | `components/ui/cliente-picker.tsx` | `{ clientes: ClienteOpcion[], value: ClienteSeleccion \| null, onChange, allowLibre?, placeholder?, className? }` — desplegable con buscador para elegir cliente. **Usar SIEMPRE este en vez de un `<Select>`/`Input` a mano** en cualquier form que necesite un cliente (Ventas, Reparaciones, Cuentas corrientes, Turnos son los 4 casos hoy). `ClienteSeleccion` (`lib/types.ts`) = `{tipo:"existente",id,nombre} \| {tipo:"nuevo",nombre,telefono?,email?,fechaNacimiento?} \| {tipo:"libre",nombre}` (+ `instagram?`). «Crear cliente nuevo» abre un **`Dialog` encima** del formulario que usa el picker, con `CamposCliente` (`components/clientes/campos-cliente.tsx`) — el mismo set de campos que «Nuevo cliente» de la sección Clientes (nombre, teléfono, email, Instagram, nacimiento); validación pura `validarBorradorCliente`/`datosDeBorrador` en `lib/clientes.ts`, con test. `clientes.instagram` usa `normalizarInstagram` (CHECK espejo en la base). «Editar datos» reabre el borrador. La creación queda **diferida**: elegir "Crear cliente nuevo" solo arma el borrador, recién se persiste (`resolveCliente` en `lib/db/clientes.ts`) cuando la action del formulario confirma — cancelar el diálogo no deja un cliente fantasma. `allowLibre` agrega "usar sin registrar" (`tipo:"libre"`, sin fila en `clientes`) — solo Turnos lo usa (`Turno.clienteId` es nullable a propósito, para turnos de gente que aún no es cliente registrado); las acciones que sí requieren un cliente real (`createVentaAction`/`createTicketAction`/`createMovimientoCCAction`) tipan su input como `Exclude<ClienteSeleccion, {tipo:"libre"}>` y llaman `resolveCliente`. Comparte `useOutsideClick` (`components/ui/use-outside-click.ts`) con el buscador de ítems de Nueva venta (`ItemBuscador`, en `ventas-client.tsx`, que sigue siendo su propio combobox porque busca sobre equipos/repuestos/otros/servicios, no clientes; el plan 007 le agregó flechas/Enter/Esc y devolver el foco al buscador tras agregar). |
 
 ### Estados de elementos interactivos
 
@@ -1223,15 +1250,20 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
    medio, montoUsd, caja, cajaId?, recargoPct?, compraId?, celularId? }[]`
    (1+ medios, pago dividido; la suma de `montoUsd` cubre `totalUsd`, sin
    importar el recargo — ver abajo). Un pago `canje`: no pide caja (`caja`
-   queda `"usd"`), abre `CanjeModal` (mismo archivo) para cargar el equipo
-   recibido + un checklist de ingreso (`ChecklistEditor`,
-   `components/ui/checklist-editor.tsx` — compartido con Reparaciones, ver
-   esa sección) + aclaraciones; al confirmar la venta, `createVenta`
-   (`lib/db/ventas.ts`) crea una `Compra` `origen: "canje"` (ver "Compras"
-   más abajo) **y un celular `en_revision`** (costo = valor del canje,
-   precio 0) y guarda `compraId` + `celularId` en el pago — el detalle
-   completo vive en la compra, no en `Venta.pagos`. Si el IMEI ya existe, el
-   celular se carga **sin IMEI** y se avisa (nunca aborta la venta).
+   queda `"usd"`) y abre `CanjeModal` (mismo archivo): **modelo, IMEI y
+   color obligatorios, estado (condición de `CONDICIONES_CELULAR`),
+   batería % (no aplica en NUEVO), detalles, testeo opcional
+   (`ChecklistEditor`, compartido con Reparaciones) y precio de compra**,
+   que ES el `montoUsd` del pago (el campo del pago queda de solo lectura y
+   `saldarUltimoPago` saltea los pagos en canje). Sin variante ni marca.
+   Validación pura en `lib/canje.ts` (`erroresCanje`, con test), que
+   `createVenta` vuelve a correr. Al confirmar, `createVenta` crea **solo**
+   la `Compra` `origen: "canje"` (columnas `canje_modelo/color/condicion/
+   bateria/testeado` + `imei`, `checklist` si hubo testeo y `aclaraciones`
+   = detalles) y guarda `compraId` en el pago: **el equipo no entra al
+   stock al vender**, se pasa después desde Compras («Pasar al stock», ver
+   "Compras"). Canjes viejos (plan 020) sí crearon el celular `en_revision`
+   y tienen `Pago.celularId`.
    Formularios → `Dialog` + `Field`.
    El modal de **Nueva venta** (`app/(app)/ventas/ventas-client.tsx`) es la
    referencia de form completo: eyebrows en mayúscula, cliente existente/
@@ -1301,15 +1333,27 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   reservados). Agendar con celulares vinculados los reserva si
   `reservarStock`. `Turno.clienteId` es nullable a propósito (`ClientePicker`
   con `allowLibre`): turnos de gente aún no registrada. **Pedidos**
-  (encargos, versión simple): tabla `pedidos` (`cliente`/`cliente_id`,
-  `descripcion`, `fecha_entrega`, `estado` `pedido|llego|entregado|cancelado`,
-  `nota`; `lib/db/pedidos.ts`, `Pedido`/`pedidoEstado`), sin hora: se dibujan
-  en la fila **«Todo el día»** de Día/Semana (`CalendarioGrilla`, el hueco
-  libre carga uno con esa fecha) y arriba de cada día en Mes (sin
-  cancelados). `PedidoChip` (forma por estado, borde rojo si vencido) y
-  `PedidoDialog`/`PedidoDetalle` en `components/agenda/`; lógica pura
-  `pedidosDelDia`/`pedidoVencido` en `lib/agenda.ts`. No mueven caja ni
-  stock (la seña va en la nota). Fuera de alcance: reservas/señas.
+  (encargos): tabla `pedidos` (`cliente`/`cliente_id`, `descripcion`,
+  `items` jsonb, `sena_usd`, `fecha_entrega`, `estado`
+  `pedido|llego|entregado|cancelado`, `nota`; `lib/db/pedidos.ts`,
+  `Pedido`/`pedidoEstado`), sin hora: se dibujan en la fila **«Todo el día»**
+  de Día/Semana (`CalendarioGrilla`, el hueco libre carga uno con esa fecha)
+  y arriba de cada día en Mes (sin cancelados). `PedidoChip` (forma por
+  estado, borde rojo si vencido) y `PedidoDialog`/`PedidoDetalle` en
+  `components/agenda/`; lógica pura `pedidosDelDia`/`pedidoVencido` en
+  `lib/agenda.ts`. **Productos, seña y saldo (plan 028)**: `items` es un
+  snapshot `PedidoItem[]` (`detalle`/`cantidad`/`precioUsd`) en jsonb, como
+  `Turno.pagos`; el dialog es una tabla editable de productos con precio
+  unitario en U$, checkbox «Abonó seña» + `sena_usd` (0 = sin seña) y un
+  resumen Total/Seña/Saldo. **Total y saldo no se guardan**: se calculan en
+  `lib/pedidos.ts` (`totalPedido`/`saldoPedido`, con test), y `descripcion`
+  se **deriva** de los ítems (`descripcionPedido`) en el server — el usuario
+  ya no la escribe, pero la columna sigue (`not null`) para el chip, el
+  confirm de borrar y los pedidos viejos (`items = []`, se editan con una
+  fila precargada y el precio vacío). Validación `errorPedido` reusada por el
+  dialog y la action. No mueven caja ni stock (la seña no genera movimiento).
+  Fuera de alcance: reservas, convertir el pedido en venta y registrar la
+  seña en una caja.
 - **Inventario** (`app/(app)/inventario/`, migrado): 4 tabs — **Celulares**
   (unidades únicas por IMEI, con `Celular.almacenamiento`), **Notebooks**
   (unidades únicas por `Notebook.numeroSerie`, con CPU/memoria/pantalla/
@@ -1341,7 +1385,10 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `condicionSku`; la clave sí lleva el grado), stock/rango de precio, `cruzoMinimo`;
   con test). Inventario → Celulares abre en vista **Agrupada** (grupo ›
   variante › unidad, `components/inventario/variantes-tabla.tsx`, toggle
-  «Agrupado / Unidades» persistido en `localStorage`); herramientas:
+  «Agrupado / Unidades» persistido en `localStorage`; los grupos arrancan
+  **plegados**, y abiertos si hay búsqueda/filtro; «Disponibles» del grupo
+  y de cada variante se tiñen: rojo sin stock, ámbar si alguna variante
+  activa está bajo su `stock_minimo`); herramientas:
   renombrar grupo, editar variante, unir, desactivar/reactivar («Ver
   desactivadas»), eliminar (solo sin unidades) y **stock mínimo** con chip
   «Stock bajo» + evento `low_stock`. El selector
@@ -1523,6 +1570,44 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   blue en vivo (`useDolar()`) solo se usa dentro de `NuevaVentaDialog`
   (operación todavía no persistida). El recargo se muestra en el detalle
   ("+ 10 % recargo") cuando el pago lo tiene.
+  **Descuento y regalos (plan 026, revisado 25/11)**: en «Nueva venta» los
+  **ítems no se editan** (cantidad, costo y precio salen del catálogo) y se
+  listan como «1x NOMBRE … U$850» (`usdPegado`, sin espacio). Para cobrar
+  menos hay un **descuento** en U$ o % (`ventas.ajuste_usd` ≥ 0; la columna
+  admite signo por historia, pero `errorAjuste`/`errorItemsVenta` rechazan
+  negativos: no hay recargo). Los **regalos son por ítem**: un segundo
+  buscador «Agregar regalo» (**repuestos u Otros** con stock) agrega el ítem
+  con `regalo = true`, precio 0 y **su costo** (baja la ganancia). Un
+  repuesto regalado es un ítem `categoria: "otro"` con el repuesto en
+  `VentaItem.repuestos` (mismo circuito que los repuestos usados de un
+  servicio: `venta_item_repuestos`, descuenta stock, se devuelve con
+  «Devolver los repuestos»; costo vía `costoUnitarioItem`). **Solo se
+  vende stock** (celular, notebook, producto de Otros) o servicios del
+  catálogo — no hay ítems libres (`errorItemsVenta`). Vender o regalar un
+  producto de Otros **descuenta su stock** (`venta_items.otro_id`/
+  `otro_serial`, `moverStockOtro` en `lib/db/inventario.ts` con la regla
+  pura `movimientoStockOtro` de `lib/otros.ts`: por cantidad resta,
+  serializado marca la unidad `vendido`; borrar la venta con «Devolver al
+  inventario» lo repone). Si **todos** los ítems son regalo
+  (`esVentaRegalo`), la venta es «Regalo»: `ventas.regalo = true`, total 0
+  y sin pagos. En el pago, los medios sin caja activa salen «(sin caja)»
+  deshabilitados con un aviso que linkea a Cajas (cada forma de cobro =
+  una caja con su medio y moneda).
+  `preciosDeVenta` (`lib/ventas.ts`, con tests) es la única cuenta, usada
+  por `createVenta`, la demo y el modal: regalos en 0 y descuento
+  prorrateado en el resto (`aplicarAjusteVenta`) → `venta_items.precio_usd`
+  queda **efectivo** (Σ precio × cantidad = `total_usd`) y
+  `precio_lista_usd` guarda el de lista en las líneas tocadas, así margen,
+  Analíticas, dashboard y resumen mensual siguen correctos. **El server
+  recalcula** todo (`errorItemsVenta`: al menos un ítem que no sea regalo,
+  un celular/notebook no se regala). `ventas.regalo` (venta entera) quedó
+  por compatibilidad: la UI ya no lo ofrece. En lista/detalle «−U$ X desc.»;
+  el recibo imprime precios de lista con el descuento como ajuste
+  (`ReciboLineas.ajustes`). En el modal, el **vendedor** se elige de la lista
+  de usuarios del sistema o «Otro (escribir a mano)», y en ese caso el nombre
+  se escribe **en la misma casilla** (con un botón para volver a la lista);
+  «Nueva tienda» abre un `Dialog` y queda seleccionada, y cada pago es **una
+  sola fila** (scroll horizontal en mobile, sin apilar).
   **Vendedor de la venta**: cualquier rol elige a cualquier usuario
   **activo** de la organización (`listUsuariosVenta`, todos los roles) o
   «Otro (escribir a mano)» (`vendedorId` vacío + nombre; columna
@@ -1551,6 +1636,10 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `RUBRO_LABEL` compartido en `lib/ventas.ts`; es opcional porque ventas
   creadas antes de este campo no lo tienen. Persistencia: tabla propia
   `venta_items` (ver "Backend y multi-tenancy"), no `jsonb` en `ventas`.
+  Al confirmar una venta aparece **`VentaConfirmada`**
+  (`components/ui/venta-confirmada.tsx`): check verde grande + «Venta
+  confirmada» + «V-1042 · cliente · U$850» a pantalla completa; se cierra
+  sola (~2 s), con click o Esc.
   «Eliminar venta» (admin-only) abre un `ConfirmDialog` con hasta 5
   checkboxes independientes, cada uno visible solo si aplica: devolver los
   celulares/notebooks vendidos a `disponible`, devolver los repuestos usados al stock,
@@ -1576,17 +1665,27 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   único que alimenta el widget de demografía por edad (`fecha_nacimiento`
   en la tabla, `lib/clientes.ts` para el cálculo puro).
 - **Cajas** (`app/(app)/cajas/`, migrado): `Caja` (`lib/types.ts`) = `{ id, nombre,
-  moneda: "usd" | "ars", activa, descripcion, creadaEl, medioPago }` — puede
+  moneda: "usd" | "ars", activa, descripcion, creadaEl, medioPago, recargoPct }` — puede
   haber varias por moneda (Mostrador/Taller en ARS, Caja USD/Bóveda USD en
   USD) y varias cajas pueden compartir el mismo `medioPago` (ej. Mostrador y
   Taller son las dos "pesos"). Cada caja tiene **un** medio de pago fijo
-  (se configura en `CajaDialog` al crearla/editarla) — en «Nuevo movimiento»
+  (se configura en `CajaDialog` al crearla/editarla: **Moneda ARS/USD** +
+  **Efectivo · Transferencia · Cripto · Tarjeta · Otro**; «Efectivo» se
+  guarda como `pesos`/`dolares` según la moneda — `medioDeCaja`/
+  `tipoDeMedioCaja` en `lib/cajas.ts`, con test —, y `otro` es un medio
+  nuevo, migración `20261125200000_medio_pago_otro.sql`) y un **Recargo %**
+  (0–100, plan 027; `errorRecargo` en `lib/cajas.ts`, con test) que se suma a
+  lo que se cobra en esa caja — es la fuente del recargo de los pagos de
+  Ventas/Reparaciones (`conRecargoDeCaja` en `lib/db/cajas.ts`) y se ve en la
+  columna «Recargo». En «Nuevo movimiento»
   no se elige medio de pago por separado, se completa solo al elegir la
   caja. `MovimientoCaja.monto` está en la moneda de su `cajaId`. Arriba, un
-  `StatCard` por medio de pago (`transferencia`, `pesos`, `tarjeta`,
-  consolidados en ARS) + **Total (ARS)**; los de medio de pago funcionan como
-  filtro de la tabla (igual que el pipeline de Reparaciones). Debajo, toolbar
-  con **«Nuevo movimiento»** y **«Conciliar cajas»**.
+  `StatCard` por medio de pago (`transferencia`, `pesos`, `tarjeta`, …;
+  el monto grande va en la moneda de sus cajas —U$ si todas son en dólares,
+  `monedaDeMedio`— y la conversión a la otra moneda abajo) + **Total (ARS)**; los de medio de pago funcionan como
+  filtro de la tabla (igual que el pipeline de Reparaciones). Debajo, toolbar:
+  **«Nuevo movimiento»** y **«Nueva caja»** van en las tres pestañas
+  (`accionesCajas`); Conciliaciones suma **«Conciliar cajas»**.
   **No hay "cerrar caja del día"**: el modelo es de conciliación con ventana
   flexible ("desde la última conciliación", no obligatoria por día) — si no
   se concilia un día, los movimientos simplemente se acumulan, nada se
@@ -1629,7 +1728,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `deleteCompra` saca del stock solo celulares/notebooks `en_revision`/
   `disponible` y resta repuestos/otros sin bajar de 0; devuelve
   `conservados`. Sin subir al stock, la compra es la de siempre (gasto,
-  texto libre). «Sin caja» = no mueve plata. «Importar datos» sigue siendo la
+  texto libre). Medio y caja salen de las cajas activas (medios sin caja «(sin caja)» deshabilitados + link a Cajas); el checkbox «Registrar movimiento» decide si se manda `cajaId` (egreso en esa caja) o la compra no mueve plata. «Importar datos» sigue siendo la
   carga inicial. Pendiente (fases 2–3): Leer con IA (texto/foto/PDF), lote y
   QR.
 - **Compras** (detalle de siempre): espejo de Ventas del lado del
@@ -1649,9 +1748,16 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   documentan el equipo recibido — `checklist` es el mismo shape que
   `Ticket.checklistIngreso` de Reparaciones; el celular que entró al
   inventario se linkea desde `Compra.celularId` (resuelto de `Pago.celularId`
-  de la venta, no es columna). El detalle de una compra
-  `canje` muestra ese bloque ("Información del equipo" + checklist +
-  aclaraciones) y un botón **«Imprimir recibo de canje»**
+  de la venta, no es columna) o, desde que el canje no crea stock, el
+  celular con `compra_id` = la compra: lo crea **«Pasar al stock»**
+  (`pasarCanjeAlStock` en `lib/db/compras.ts`; la variante se elige recién
+  ahí con `CelularFormDialog` precargado vía sus props `inicial`/`textos`;
+  costo = `total_usd` de la compra, nunca el del form; suma una fila a
+  `compra_items` → aparece en Ingresos y «Eliminar compra» lo puede sacar
+  del stock). Filtro «Canjes sin ingresar al stock» en la lista. El detalle
+  de una compra `canje` muestra ese bloque ("Información del equipo":
+  modelo, IMEI, color, estado, batería, precio, testeo + checklist +
+  detalles) y un botón **«Imprimir recibo de canje»**
   (`ReciboImprimir`/`ReciboChecklist` reusados de `components/recibos/recibo`,
   con la firma del cliente y de la empresa que ya trae todo recibo de la
   app) — es el único lugar donde se ve/imprime ese PDF, por eso Ventas solo
@@ -1760,7 +1866,9 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   agendados + ventas recientes). Cálculo en `lib/dashboard.ts` (con tests):
   `metricasDashboard` (5 métricas, `delta` **opcional** — los conteos
   puntuales no van con el chip "+0.0%"; `destacada` = la principal sobre
-  `bg-accent` ocupando 2 columnas), `metricasEmpleado` (4 por rol),
+  `bg-accent` ocupando 2 columnas), `metricasEmpleado` (recibe `roles[]` y
+  concatena las métricas de cada rol sin duplicar «Turnos hoy»; Vendedor +
+  Técnico muestra **sus ventas y sus tickets** en el mismo dashboard),
   `objetivoDelMes` (`target` = `organizations.objetivo_mes_usd`),
   `ventaGananciaPorPeriodo` (venta/ganancia/**fechas** ISO por día para los
   3 períodos), `ventasPorRubro` (mix del donut `RubrosPie` desde
@@ -1788,16 +1896,30 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   valores viejos `?tab=negocio` y `?tab=cuenta` se siguen aceptando como alias
   (`tabDeParam`) por los links de la ayuda, el onboarding y los bookmarks.
   "Usuarios y roles" lista `profiles` reales de la org
-  y conecta por primera vez `inviteMember`/`setMemberRole` de `lib/auth`
-  (existían desde la Fase 0, ninguna UI los llamaba) — "Invitar usuario" y
-  el pill de rol por fila (abre `CambiarRolDialog`), ambos validan admin
-  server-side adentro de esas funciones. **Instagram** de cada usuario
+  y conecta `inviteMember`/`setMemberRoles` de `lib/auth` — "Invitar usuario"
+  y la edición del miembro, ambos validan admin server-side adentro de esas
+  funciones. **Varios roles por usuario (plan 029)**: se eligen con
+  checkboxes (`CampoRoles`), Admin absorbe al resto, la tabla muestra un chip
+  por rol y el error de la RPC («La organización necesita al menos un admin
+  activo») se muestra dentro del dialog. **Baja de usuarios**: con historial
+  (`HISTORIAL_USUARIO` en `lib/miembros.ts`: las FK a `profiles` sin
+  cascada) solo se **desactiva** (`deactivateMember`: ban de Auth +
+  `activo = false`) y se deshace con **«Reactivar»** (`reactivateMember`,
+  respeta el cupo); sin historial se **elimina** de verdad (`deleteMember`:
+  borra el usuario de Auth, el perfil cae por cascada, el email queda libre;
+  recuenta el historial en el server). «Invitación pendiente» =
+  `Miembro.pendiente` (Auth sin `email_confirmed_at`) → **«Reenviar
+  invitación»** (`resendInvite`, `inviteUserByEmail` de nuevo). Qué botón se
+  ofrece lo decide `accionesMiembro` (puro, con test); `inviteMember` avisa si
+  el email ya es de un usuario de la org. Una FK nueva a `profiles` sin
+  cascada se suma a `HISTORIAL_USUARIO`. **El alta ya no pide Instagram**
+  (se carga después, editando el miembro o en Mi cuenta). **Instagram** de cada usuario
   (`profiles.instagram`, opcional, **solo texto**: Instagram no tiene API
   pública para buscar cuentas personales): `normalizarInstagram`
   (`lib/instagram.ts`, con test) acepta `@usuario`/link y guarda el nombre en
-  minúscula; CHECK espejo en la base. Se carga al invitar (`inviteMember`),
-  lo edita el admin (`setMemberInstagram`, service role) o cada uno en Mi
-  cuenta (RPC `set_own_instagram`; `update_own_profile` no deja vaciar).
+  minúscula; CHECK espejo en la base. Lo edita el admin (`setMemberInstagram`,
+  service role) o cada uno en Mi cuenta (RPC `set_own_instagram`;
+  `update_own_profile` no deja vaciar).
   "Datos del negocio" (tarjeta dentro
   de «Cuenta y negocio») es 1:1
   con la organización — no es una tabla aparte, son columnas nuevas en

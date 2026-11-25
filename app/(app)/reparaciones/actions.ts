@@ -52,14 +52,14 @@ export async function createTicketAction(data: {
   });
   revalidatePath("/reparaciones");
   revalidatePath("/dashboard");
-  return ticketParaRol(ticket, user.rol);
+  return ticketParaRol(ticket, user.roles);
 }
 
 export async function setChecklistEgresoAction(id: number, checklist: Checklist) {
   const user = await requireEscritura();
   const ticket = await setChecklistEgreso(id, checklist);
   revalidatePath("/reparaciones");
-  return ticketParaRol(ticket, user.rol);
+  return ticketParaRol(ticket, user.roles);
 }
 
 export async function entregarTicketAction(
@@ -72,21 +72,21 @@ export async function entregarTicketAction(
   revalidatePath("/cajas");
   revalidatePath("/cuentas-corrientes");
   revalidatePath("/dashboard");
-  return ticketParaRol(ticket, user.rol);
+  return ticketParaRol(ticket, user.roles);
 }
 
 export async function addTicketItemAction(ticketId: number, item: TicketServicio) {
   const user = await requireEscritura();
   const ticket = await addTicketItem(ticketId, item);
   revalidatePath("/reparaciones");
-  return ticketParaRol(ticket, user.rol);
+  return ticketParaRol(ticket, user.roles);
 }
 
 export async function removeTicketItemAction(ticketId: number, index: number) {
   const user = await requireEscritura();
   const ticket = await removeTicketItem(ticketId, index);
   revalidatePath("/reparaciones");
-  return ticketParaRol(ticket, user.rol);
+  return ticketParaRol(ticket, user.roles);
 }
 
 export async function updateTicketItemPrecioAction(
@@ -97,7 +97,7 @@ export async function updateTicketItemPrecioAction(
   const user = await requireEscritura();
   const ticket = await updateTicketItemPrecio(ticketId, index, precioUsd);
   revalidatePath("/reparaciones");
-  return ticketParaRol(ticket, user.rol);
+  return ticketParaRol(ticket, user.roles);
 }
 
 export async function setTicketEstadoAction(id: number, estado: TicketStatus) {
@@ -105,7 +105,7 @@ export async function setTicketEstadoAction(id: number, estado: TicketStatus) {
   const ticket = await setTicketEstado(id, estado);
   revalidatePath("/reparaciones");
   revalidatePath("/dashboard");
-  return ticketParaRol(ticket, user.rol);
+  return ticketParaRol(ticket, user.roles);
 }
 
 export async function deleteTicketAction(id: number) {

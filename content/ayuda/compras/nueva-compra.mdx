@@ -10,7 +10,7 @@ actualizado: 2026-11-25
 En **Compras / Ingresos**, el botón **«Nueva compra»** registra lo que comprás. **Es la única forma de cargar stock nuevo**: Inventario es para ver, editar y hacer recuentos.
 
 <Paso n={1} titulo="Proveedor y pago">
-Escribí el **Proveedor** (obligatorio en toda compra; texto libre, si no existe se crea solo), elegí el **Medio de pago** y la **Caja** de la que sale la plata. Si no hubo pago (un equipo propio, algo que apareció en un recuento), elegí **«Sin caja (no mueve plata)»**.
+Escribí el **Proveedor** (obligatorio en toda compra; texto libre, si no existe se crea solo), elegí el **Medio de pago** y la **Caja** de la que sale la plata: salen de tus **cajas reales** (los medios sin caja aparecen «(sin caja)»; creala en Cajas con su medio y su moneda). Con **«Registrar movimiento»** tildado (lo normal) la compra registra el egreso en esa caja; destildalo si no hubo pago (un equipo propio, algo que apareció en un recuento).
 </Paso>
 
 <Paso n={2} titulo="¿Sube al stock?">
@@ -30,7 +30,7 @@ Envío, flete o comisiones van en **Costos adicionales (USD)**: se reparten entr
 </Paso>
 
 <Aviso titulo="El movimiento de caja" tono="info">
-Si elegís una caja, se registra un **egreso** en esa caja al guardar. Sin caja, la compra se guarda sin movimiento. Si pagás en pesos, se guarda la cotización.
+Con **«Registrar movimiento»**, al guardar se registra un **egreso** por el total en la caja elegida (ej. U$2.000 en la caja de dólares). Sin tildarlo, la compra se guarda sin movimiento. Si pagás en pesos, se guarda la cotización.
 </Aviso>
 
 ## Pestaña Ingresos

@@ -4,7 +4,7 @@ resumen: "Usuarios y roles, cuenta y negocio, preferencias, recibos e importar d
 seccion: configuracion
 roles: [admin]
 orden: 1
-actualizado: 2026-11-24
+actualizado: 2026-11-25
 ---
 
 Configuración es casi toda **solo admin**, salvo **Mi cuenta** (dentro de «Cuenta y negocio»), que la ve cualquier rol para editar su nombre y alias.
@@ -13,7 +13,7 @@ Configuración es casi toda **solo admin**, salvo **Mi cuenta** (dentro de «Cue
 
 - **Usuarios y roles** — invitá gente, cambiá roles y desactivá usuarios.
 - **Cuenta y negocio** — tus datos (nombre y alias) y los del negocio (nombre, dirección, teléfono, CUIT y horario). Un no-admin sólo ve tu cuenta.
-- **Preferencias** — color del tema, logo, objetivo del mes y recargos por medio de pago.
+- **Preferencias** — color del tema, logo, objetivo del mes y el recargo de cuenta corriente (el de las cajas se configura en Cajas).
 - **Recibos** — los textos de garantía y de reparaciones.
 - **Importar datos** — alta masiva por CSV de celulares y clientes.
 
@@ -28,9 +28,8 @@ Configuración es casi toda **solo admin**, salvo **Mi cuenta** (dentro de «Cue
 ## Qué no se puede
 
 - Un **no-admin** sólo ve «Mi cuenta» (la sección se llama así para esos roles; el admin la ve dentro de «Cuenta y negocio»).
-- No hay **reenviar invitación** ni estado de «pendiente»: al invitar, el usuario ya queda activo y ocupa un lugar del plan.
 - No se pueden cambiar **contraseñas de otros**: cada uno la recupera con «Olvidé mi contraseña».
-- La desactivación de un usuario **no se revierte** desde la interfaz.
+- No se puede **eliminar** a un usuario con historial (ventas, tickets, movimientos): sólo desactivarlo.
 
 ## Preguntas frecuentes
 
@@ -41,10 +40,10 @@ Usuarios y roles → «Invitar usuario». Ver [Usuarios y roles](/ayuda/configur
 Depende del plan: Starter 1, Business 3, Business+ 10; la prueba (plan Starter) permite 1.
 
 **¿Puedo reenviar una invitación?**
-No hay reenvío: el invitado recibe el mail una vez.
+Sí: abrí al usuario (figura como «Invitación pendiente») y tocá «Reenviar invitación».
 
 **¿Qué pasa si desactivo a un usuario?**
-Se le corta el acceso pero conserva su historial. No se puede reactivar desde la app.
+Se le corta el acceso pero conserva su historial, y deja de ocupar un lugar del plan. Lo podés volver a habilitar con «Reactivar usuario». Si no tenía historial, también lo podés eliminar.
 
 **¿Cómo cambio el logo?**
 Preferencias → Logo. PNG, JPG o WebP de hasta 2 MB. Ver [Datos del negocio y preferencias](/ayuda/configuracion/datos-del-negocio).

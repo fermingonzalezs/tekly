@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { ClienteOpcion, ClienteSeleccion, MovimientoCC } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 import { createMovimientoCCAction, deleteMovimientoCCAction } from "./actions";
 
 /** Grilla de la tabla de movimientos -- columna extra al final solo si hay
@@ -59,7 +60,7 @@ export function CuentasCorrientesClient({
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   const [, startDeleteTransition] = useTransition();
   const [movimientos, setMovimientos] = useState<MovimientoCC[]>(initialMovimientos);
   const [q, setQ] = useState("");

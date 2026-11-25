@@ -15,6 +15,7 @@ import {
   estadoDeAcceso,
   motivoSoloLectura,
 } from "@/lib/planes";
+import { tieneRol } from "@/lib/roles";
 
 /** Plan actual, uso y planes disponibles. Con `MERCADOPAGO_ACCESS_TOKEN` el
  * admin se suscribe con débito automático (Mercado Pago); sin él, queda el
@@ -28,8 +29,8 @@ export default async function PlanPage({
   const user = await requireUser();
   const s = user.suscripcion;
   const acceso = estadoDeAcceso(s);
-  const miembros = user.rol === "admin" ? await listMiembros() : [];
-  const conMp = user.rol === "admin" && mercadoPagoConfigurado();
+  const miembros = tieneRol(user, "admin") ? await listMiembros() : [];
+  const conMp = tieneRol(user, "admin") && mercadoPagoConfigurado();
   const mp = conMp ? await getSuscripcionMp() : null;
   const debitoActivo = mp?.estado === "authorized";
   const cicloActual = mp?.ciclo ?? "mensual";
@@ -53,8 +54,8 @@ export default async function PlanPage({
           <StatCard label="Plan actual" value={PLANES[s.plan].label} hint={estadoLabel} />
           <StatCard
             label="Usuarios"
-            value={user.rol === "admin" ? `${cupo.usados} / ${cupo.max}` : cupo.max}
-            hint={user.rol === "admin" ? "activos del plan" : "incluidos en el plan"}
+            value={tieneRol(user, "admin") ? `${cupo.usados} / ${cupo.max}` : cupo.max}
+            hint={tieneRol(user, "admin") ? "activos del plan" : "incluidos en el plan"}
           />
           <StatCard
             label="Precio"
@@ -69,7 +70,7 @@ export default async function PlanPage({
           />
         </div>
 
-        {user.rol === "admin" ? (
+        {tieneRol(user, "admin") ? (
           <Card className="p-5">
             <ChartTitle
               align="left"

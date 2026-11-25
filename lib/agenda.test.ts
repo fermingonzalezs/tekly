@@ -191,6 +191,8 @@ describe("pedidos", () => {
     cliente: "Ana",
     clienteId: null,
     descripcion: "iPhone 15",
+    items: [],
+    senaUsd: 0,
     fechaEntrega: "2026-11-24",
     estado: "pedido",
     ...o,

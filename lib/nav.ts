@@ -51,8 +51,13 @@ export const NAV: NavItem[] = [
   { href: "/configuracion", label: "Configuración", icon: Settings, roles: ["admin"] },
 ];
 
-export function navForRole(rol: Rol): NavItem[] {
-  return NAV.filter((item) => !item.roles || item.roles.includes(rol));
+/** Ítems visibles para un usuario con **esos** roles: un ítem restringido
+ * aparece si comparte al menos uno (los permisos son la unión, ver
+ * `lib/roles.ts`). */
+export function navForRole(roles: readonly Rol[]): NavItem[] {
+  return NAV.filter(
+    (item) => !item.roles || roles.some((r) => item.roles!.includes(r)),
+  );
 }
 
 /** Categoría de la navbar horizontal (TopNav, md+): agrupa subsecciones
@@ -81,8 +86,8 @@ export type NavCategory = {
   children: NavItem[];
 };
 
-export function navCategoriesForRole(rol: Rol): NavCategory[] {
-  const visible = navForRole(rol);
+export function navCategoriesForRole(roles: readonly Rol[]): NavCategory[] {
+  const visible = navForRole(roles);
   return NAV_GROUPS.map((g) => ({
     key: g.hrefs[0],
     label: g.label,

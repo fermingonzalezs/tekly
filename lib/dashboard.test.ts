@@ -143,7 +143,7 @@ describe("metricasEmpleado", () => {
       ticket("2026-10-01", { estado: "en_reparacion" }),
     ];
     const turnos = [turno(0), turno(0, { estado: "cancelado" }), turno(1)];
-    const out = metricasEmpleado({ ventas, tickets, turnos, userId: "yo", rol: "vendedor", hoy });
+    const out = metricasEmpleado({ ventas, tickets, turnos, userId: "yo", roles: ["vendedor"], hoy });
     const porKey = Object.fromEntries(out.map((m) => [m.key, m]));
     expect(porKey["mis-ventas"].value).toBe("U$ 100"); // solo V-1, no la de "otro"
     expect(porKey["mis-ventas"].delta).toBe(100); // 100 vs 50 de sep
@@ -163,12 +163,38 @@ describe("metricasEmpleado", () => {
       ticket("2026-10-04", { estado: "recibido", tecnicoId: "yo", id: 15 }),
       ticket("2026-10-01", { estado: "entregado", tecnicoId: "yo", id: 16 }),
     ];
-    const out = metricasEmpleado({ ventas: [], tickets, turnos: [], userId: "yo", rol: "tecnico", hoy });
+    const out = metricasEmpleado({ ventas: [], tickets, turnos: [], userId: "yo", roles: ["tecnico"], hoy });
     const porKey = Object.fromEntries(out.map((m) => [m.key, m]));
     expect(porKey["mis-abiertos"].value).toBe("4"); // 11, 12, 14 y 15 (el 16 está entregado)
     expect(porKey["esperando-repuesto"].value).toBe("1");
     expect(porKey["listos-semana"].value).toBe("1"); // solo el 11 (ingreso 6 oct); el 12 es de la semana pasada
     expect(porKey.turnos.value).toBe("0");
+  });
+
+  it("Vendedor + Técnico: concatena las métricas de ambos sin duplicar Turnos", () => {
+    const hoy = new Date(2026, 9, 7);
+    const ventas = [
+      venta("2026-10-05", 100, 20, { vendedorId: "yo", id: "V-1" }),
+    ];
+    const tickets = [
+      ticket("2026-10-06", { estado: "listo", tecnicoId: "yo", id: 31 }),
+      ticket("2026-10-05", { estado: "esperando_repuesto", tecnicoId: "yo", id: 32 }),
+    ];
+    const turnos = [turno(0)];
+    const out = metricasEmpleado({
+      ventas,
+      tickets,
+      turnos,
+      userId: "yo",
+      roles: ["vendedor", "tecnico"],
+      hoy,
+    });
+    const porKey = Object.fromEntries(out.map((m) => [m.key, m]));
+    expect(porKey["mis-ventas"].value).toBe("U$ 100");
+    expect(porKey["mis-abiertos"].value).toBe("2");
+    expect(out.filter((m) => m.key === "turnos")).toHaveLength(1);
+    expect(out.filter((m) => m.destacada)).toHaveLength(1);
+    expect(out[0].key).toBe("mis-ventas");
   });
 });
 

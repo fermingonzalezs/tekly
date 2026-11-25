@@ -498,6 +498,7 @@ export function ReciboLineas({
   lineas,
   total,
   forzarTabla = false,
+  ajustes,
 }: {
   titulo: string;
   lineas: {
@@ -519,6 +520,9 @@ export function ReciboLineas({
    * ninguna línea traiga `serial` -- el "Detalle" del comprobante de venta
    * lo necesita siempre, no solo cuando hay algún equipo con IMEI. */
   forzarTabla?: boolean;
+  /** Filas de ajuste entre las líneas y el total (ej. descuento de la venta,
+   * plan 026). `resta` antepone "−". */
+  ajustes?: { label: string; montoUsd: number; resta?: boolean }[];
 }) {
   const conSerial = lineas.some((l) => l.serial);
   const conGarantia = lineas.some((l) => l.garantia !== undefined);
@@ -572,6 +576,18 @@ export function ReciboLineas({
           ))}
         </tbody>
       </table>
+      {ajustes?.map((a, i) => (
+        <div
+          key={i}
+          className="mt-1 flex items-center justify-between px-3 text-sm text-neutral-600"
+        >
+          <span>{a.label}</span>
+          <span className="font-medium tabular-nums">
+            {a.resta ? "−" : ""}
+            {fmtUsd(Math.abs(a.montoUsd))}
+          </span>
+        </div>
+      ))}
       {total !== undefined && (
         <div className="mt-2 flex items-center justify-between rounded-lg bg-accent/20 px-3 py-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">

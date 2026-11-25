@@ -35,8 +35,8 @@ describe("centro de ayuda (contenido real)", () => {
   });
 
   it("el índice por rol filtra los artículos solo-admin", () => {
-    const admin = indicePorSeccion("admin").flatMap((g) => g.articulos.map((a) => a.id));
-    const vendedor = indicePorSeccion("vendedor").flatMap((g) => g.articulos.map((a) => a.id));
+    const admin = indicePorSeccion(["admin"]).flatMap((g) => g.articulos.map((a) => a.id));
+    const vendedor = indicePorSeccion(["vendedor"]).flatMap((g) => g.articulos.map((a) => a.id));
     expect(admin).toContain("analiticas/guia");
     expect(vendedor).not.toContain("analiticas/guia");
   });
@@ -49,8 +49,8 @@ describe("centro de ayuda (contenido real)", () => {
   it("articuloDeSeccion respeta el rol", () => {
     expect(articuloDeSeccion("ventas")?.seccion).toBe("ventas");
     // analiticas es solo admin
-    expect(articuloDeSeccion("analiticas", "admin")?.seccion).toBe("analiticas");
-    expect(articuloDeSeccion("analiticas", "vendedor")).toBeNull();
+    expect(articuloDeSeccion("analiticas", ["admin"])?.seccion).toBe("analiticas");
+    expect(articuloDeSeccion("analiticas", ["vendedor"])).toBeNull();
   });
 
   it("vecinos arma anterior/siguiente dentro de la sección", () => {
@@ -73,8 +73,8 @@ describe("centro de ayuda (contenido real)", () => {
   });
 
   it("buscar respeta el rol", () => {
-    expect(buscar("analíticas", "vendedor").some((a) => a.seccion === "analiticas")).toBe(false);
-    expect(buscar("analíticas", "admin").some((a) => a.seccion === "analiticas")).toBe(true);
+    expect(buscar("analíticas", ["vendedor"]).some((a) => a.seccion === "analiticas")).toBe(false);
+    expect(buscar("analíticas", ["admin"]).some((a) => a.seccion === "analiticas")).toBe(true);
   });
 
   it("indicePlano no expone el cuerpo", () => {

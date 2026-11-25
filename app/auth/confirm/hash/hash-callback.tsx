@@ -36,7 +36,11 @@ export function HashCallback({ next }: { next: string | null }) {
 
     const destino =
       next ??
-      (params.get("type") === "recovery" ? "/reset-password" : "/dashboard");
+      (params.get("type") === "recovery"
+        ? "/reset-password"
+        : params.get("type") === "invite"
+          ? "/bienvenida"
+          : "/dashboard");
     void establecerSesionAction({ accessToken, refreshToken, next: destino })
       .then((res) => {
         if (res?.error) setError(res.error);

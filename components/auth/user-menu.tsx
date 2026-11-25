@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Settings, UserPen, LogOut, CreditCard, ShieldCheck } from "lucide-react";
-import { dotClass, rolLabel, rolTone } from "@/lib/status";
+import { dotClass, rolTone } from "@/lib/status";
+import { etiquetaRoles, tieneRol } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/(app)/actions";
 import type { SessionUser } from "@/lib/auth/types";
@@ -70,13 +71,13 @@ export function UserMenu({
                     dotClass[rolTone[user.rol]],
                   )}
                 />
-                {rolLabel[user.rol]}
+                {etiquetaRoles(user.roles)}
               </span>
             </div>
           </div>
 
           <div className="py-1">
-            {user.rol === "admin" && (
+            {tieneRol(user, "admin") && (
               <Link
                 href="/configuracion"
                 onClick={() => setOpen(false)}
@@ -86,7 +87,7 @@ export function UserMenu({
                 Ajustes
               </Link>
             )}
-            {user.rol === "admin" && (
+            {tieneRol(user, "admin") && (
               <Link
                 href="/plan"
                 onClick={() => setOpen(false)}
@@ -107,7 +108,7 @@ export function UserMenu({
               </Link>
             )}
             <Link
-              href={user.rol === "admin" ? "/configuracion?tab=cuenta-negocio" : "/configuracion"}
+              href={tieneRol(user, "admin") ? "/configuracion?tab=cuenta-negocio" : "/configuracion"}
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
             >

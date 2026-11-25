@@ -38,6 +38,19 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+/** `/bienvenida`: el invitado confirma su nombre y elige contraseña (mismas
+ * reglas que el signup / recuperar contraseña). */
+export const bienvenidaSchema = z
+  .object({
+    nombre: z.string().trim().min(2, "Ingresá tu nombre"),
+    password: z.string().min(12, "Mínimo 12 caracteres"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  });
+
 export const inviteSchema = z.object({
   email: z.string().trim().email("Email inválido"),
   nombre: z.string().trim().min(2, "Ingresá un nombre"),

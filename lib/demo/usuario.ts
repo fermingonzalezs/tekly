@@ -9,11 +9,13 @@ type UsuarioDemo = {
   email: string;
   organizationId: string;
   organizationNombre: string;
+  roles: ["admin"];
   rol: "admin";
   nombre: string;
   alias: string | null;
   instagram: string | null;
   terminosVersion: string | null;
+  debeCrearContrasena: boolean;
   suscripcion: {
     plan: "business_plus";
     estado: "activo";
@@ -27,10 +29,12 @@ export const USUARIO_DEMO: UsuarioDemo = {
   email: "demo@tekly.tech",
   organizationId: "demo",
   organizationNombre: "Tekly Demo",
+  roles: ["admin"],
   rol: "admin",
   nombre: "Visitante demo",
   alias: null,
   instagram: null,
   terminosVersion: null,
+  debeCrearContrasena: false,
   suscripcion: { plan: "business_plus", estado: "activo", trialTerminaAt: null, periodoTerminaAt: null },
 };

@@ -13,7 +13,7 @@ import type {
   Venta,
   VentaItem,
 } from "@/lib/types";
-import { margenVenta, montoConRecargo } from "@/lib/ventas";
+import { margenVenta, montoConRecargo, preciosDeVenta } from "@/lib/ventas";
 import { fechaDisplayDe, fechaISOLocal, type DemoState } from "@/lib/demo/seed";
 
 export type CrearVentaDemoInput = {
@@ -23,6 +23,11 @@ export type CrearVentaDemoInput = {
   procedencia?: string;
   modalidad: ModalidadVenta;
   items: VentaItem[];
+  /** Diferencia firmada (U$): >0 descuenta, <0 recarga. */
+  ajusteUsd?: number;
+  /** La venta entera es un regalo (total 0, sin pagos). */
+  regalo?: boolean;
+  /** Ignorados: se recalculan desde los ítems + diferencia. */
   totalUsd: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
   margenPct: number;
@@ -63,7 +68,7 @@ export function crearVentaDemo(
         id: clienteId,
         nombre: seleccion.nombre,
         telefono: seleccion.telefono ?? "",
-        email: "",
+        email: seleccion.email ?? "",
       },
     ];
   } else {
@@ -119,6 +124,20 @@ export function crearVentaDemo(
       : r,
   );
 
+  // Mismo criterio que `createVenta` (plan 026 revisado): regalo de la venta
+  // entera, o regalos por ítem + descuento prorrateado (`preciosDeVenta`).
+  const items = input.regalo
+    ? input.items.map((item) => ({
+        ...item,
+        regalo: true,
+        precioUsd: 0,
+        precioListaUsd: undefined,
+      }))
+    : preciosDeVenta(input.items, input.ajusteUsd ?? 0).items;
+  const totalUsd = input.regalo
+    ? 0
+    : preciosDeVenta(input.items, input.ajusteUsd ?? 0).totalUsd;
+
   const venta: Venta = {
     id: `V-${numero}`,
     fecha: fechaDisplayDe(fechaISO),
@@ -129,10 +148,12 @@ export function crearVentaDemo(
     vendedor: input.vendedorNombre,
     procedencia: input.procedencia,
     modalidad: input.modalidad,
-    items: input.items,
-    totalUsd: input.totalUsd,
+    items,
+    totalUsd,
+    ajusteUsd: input.regalo ? undefined : input.ajusteUsd || undefined,
+    regalo: input.regalo || undefined,
     pagos,
-    margenPct: margenVenta(input.items).margenPct ?? 0,
+    margenPct: margenVenta(items).margenPct ?? 0,
     tipo: input.tipo,
     tieneMovimientoCaja: pagos.some(
       (p) => p.medio !== "cuenta_corriente" && !!p.cajaId,

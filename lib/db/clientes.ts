@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import type { Cliente, ClienteOpcion, ClienteSeleccion } from "@/lib/types";
 import { fmtMonthYear } from "@/lib/format";
+import { normalizarInstagram } from "@/lib/instagram";
 import { demografiaClientes as demografiaClientesPura, type Periodo, type RangoEdad } from "@/lib/clientes";
 
 type ClienteRow = {
@@ -9,9 +10,17 @@ type ClienteRow = {
   nombre: string;
   telefono: string | null;
   email: string | null;
+  instagram: string | null;
   desde: string;
   fecha_nacimiento: string | null;
 };
+
+/** Normaliza el Instagram o tira con el mensaje para el usuario. */
+function instagramDe(valor: string | undefined): string | null {
+  const r = normalizarInstagram(valor);
+  if (!r.ok) throw new Error(r.error);
+  return r.usuario;
+}
 
 /** compras/reparaciones/gastadoUsd no se guardan en la tabla -- se derivan
  * acá mismo, contra ventas/tickets, para que nunca puedan desincronizarse
@@ -25,6 +34,7 @@ function toCliente(
     nombre: row.nombre,
     telefono: row.telefono ?? "—",
     email: row.email ?? "—",
+    instagram: row.instagram ?? undefined,
     desde: fmtMonthYear(row.desde),
     fechaNacimiento: row.fecha_nacimiento ?? undefined,
     compras: stats.compras,
@@ -37,7 +47,7 @@ export async function listClientes(): Promise<Cliente[]> {
   const supabase = createServerClient();
   const { data: rows, error } = await supabase
     .from("clientes")
-    .select("id, nombre, telefono, email, desde, fecha_nacimiento")
+    .select("id, nombre, telefono, email, instagram, desde, fecha_nacimiento")
     .eq("activo", true)
     .order("desde", { ascending: false });
   if (error) throw error;
@@ -89,8 +99,10 @@ export async function createCliente(data: {
   nombre: string;
   telefono?: string;
   email?: string;
+  instagram?: string;
   fechaNacimiento?: string;
 }): Promise<Cliente> {
+  const instagram = instagramDe(data.instagram);
   const supabase = createServerClient();
   const { data: row, error } = await supabase
     .from("clientes")
@@ -98,9 +110,10 @@ export async function createCliente(data: {
       nombre: data.nombre,
       telefono: data.telefono || null,
       email: data.email || null,
+      instagram,
       fecha_nacimiento: data.fechaNacimiento || null,
     })
-    .select("id, nombre, telefono, email, desde, fecha_nacimiento")
+    .select("id, nombre, telefono, email, instagram, desde, fecha_nacimiento")
     .single();
   if (error) throw error;
   return toCliente(row, { compras: 0, reparaciones: 0, gastadoUsd: 0 });
@@ -112,9 +125,11 @@ export async function updateCliente(
     nombre: string;
     telefono?: string;
     email?: string;
+    instagram?: string;
     fechaNacimiento?: string;
   },
 ): Promise<Cliente> {
+  const instagram = instagramDe(data.instagram);
   const supabase = createServerClient();
   const { data: row, error } = await supabase
     .from("clientes")
@@ -122,10 +137,11 @@ export async function updateCliente(
       nombre: data.nombre,
       telefono: data.telefono || null,
       email: data.email || null,
+      instagram,
       fecha_nacimiento: data.fechaNacimiento || null,
     })
     .eq("id", id)
-    .select("id, nombre, telefono, email, desde, fecha_nacimiento")
+    .select("id, nombre, telefono, email, instagram, desde, fecha_nacimiento")
     .single();
   if (error) throw error;
 
@@ -160,7 +176,13 @@ export async function resolveCliente(
   sel: Exclude<ClienteSeleccion, { tipo: "libre" }>,
 ): Promise<{ id: string; nombre: string }> {
   if (sel.tipo === "existente") return { id: sel.id, nombre: sel.nombre };
-  const nuevo = await createCliente({ nombre: sel.nombre, telefono: sel.telefono });
+  const nuevo = await createCliente({
+    nombre: sel.nombre,
+    telefono: sel.telefono,
+    email: sel.email,
+    instagram: sel.instagram,
+    fechaNacimiento: sel.fechaNacimiento,
+  });
   return { id: nuevo.id, nombre: nuevo.nombre };
 }
 
@@ -192,7 +214,7 @@ export async function createClientesBulk(
         fecha_nacimiento: r.fechaNacimiento || null,
       })),
     )
-    .select("id, nombre, telefono, email, desde, fecha_nacimiento");
+    .select("id, nombre, telefono, email, instagram, desde, fecha_nacimiento");
   if (error) throw error;
   return {
     inserted: data.length,
@@ -223,15 +245,19 @@ export type HistorialEntry =
   | { tipo: "turno"; id: string; fechaISO: string; detalle: string; estado: string };
 
 /** Historial cruzado de un cliente -- ventas, tickets y turnos reales.
- * Vacío hasta que esas secciones se migren de mock a datos reales (las
- * tablas ya existen desde la Fase 0, solo faltan las páginas que escriben
- * en ellas). */
+ * Los ítems de una venta viven en `venta_items` (ya no hay `ventas.items`):
+ * una consulta con una columna vieja fallaba y el historial salía vacío sin
+ * avisar, por eso ahora los errores se tiran. */
 export async function clienteHistorial(clienteId: string): Promise<HistorialEntry[]> {
   const supabase = createServerClient();
-  const [{ data: ventas }, { data: tickets }, { data: turnos }] = await Promise.all([
+  const [
+    { data: ventas, error: ventasError },
+    { data: tickets, error: ticketsError },
+    { data: turnos, error: turnosError },
+  ] = await Promise.all([
     supabase
       .from("ventas")
-      .select("id, fecha, items, total_usd")
+      .select("id, numero, fecha, total_usd, regalo, venta_items(detalle)")
       .eq("cliente_id", clienteId),
     supabase
       .from("tickets")
@@ -243,15 +269,19 @@ export async function clienteHistorial(clienteId: string): Promise<HistorialEntr
       .eq("cliente_id", clienteId),
   ]);
 
+  if (ventasError) throw ventasError;
+  if (ticketsError) throw ticketsError;
+  if (turnosError) throw turnosError;
+
   const entries: HistorialEntry[] = [
     ...(ventas ?? []).map((v): HistorialEntry => ({
       tipo: "venta",
-      id: v.id,
+      id: "V-" + v.numero,
       fechaISO: v.fecha,
-      detalle: Array.isArray(v.items)
-        ? (v.items as { detalle: string }[]).map((i) => i.detalle).join(" · ")
-        : "",
-      montoUsd: v.total_usd,
+      detalle:
+        ((v.venta_items ?? []) as { detalle: string }[]).map((i) => i.detalle).join(" · ") +
+        (v.regalo ? " (regalo)" : ""),
+      montoUsd: Number(v.total_usd),
     })),
     ...(tickets ?? []).map((t): HistorialEntry => ({
       tipo: "reparacion",

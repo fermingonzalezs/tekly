@@ -1,10 +1,22 @@
 # 026 — Descuento de la venta e ítems de regalo
 
-**Status:** en curso — hecho: lógica pura `aplicarDescuentoVenta`/`descuentoDesdePct`/`errorDescuento` en `lib/ventas.ts` + tests en `lib/ventas-descuento.test.ts`. Falta: `motivoNoConfirmable`, migración, server, UI, demo, recibos, docs, verificación.
+**Status:** HECHO en código (2026-11-25). La migración base `20261125150000_ventas_descuento_regalo.sql` está **aplicada** (descuento_usd + regalo por ítem). También **aplicada** `20261125170000_ventas_ajuste_regalo.sql` (renombrada desde `…160000…` porque chocaba con `compras_canje_equipo`): `ventas.ajuste_usd` (firmado) y `ventas.regalo`. Falta verificar en el navegador. Lógica pura en `lib/ventas.ts` («Descuento de la venta y regalos» + `aplicarAjusteVenta`) con tests en `lib/ventas-descuento.test.ts` y `lib/ventas.test.ts`.
+
 **Scope:** en **Nueva venta**, (a) un **descuento sobre el total** de la venta (ej. −U$ 5, −U$ 10, o un %), y (b) marcar un ítem como **regalo** (funda, cargador: precio 0, sale igual de la venta y de los recibos). Se ve en la lista, el detalle, los recibos/garantía, y entra bien en margen, KPIs y Analíticas.
 **Fuera de alcance:** descuento por ítem (solo total de la venta), editar una venta ya creada (hoy no existe), cupones/códigos, descuento máximo por rol, descontar stock de «Otros» al vender (hoy ningún ítem `otro` descuenta stock — no cambiarlo acá, anotarlo como pendiente).
 
 Leer antes: `CLAUDE.md` (sobre todo «Ventas», «Moneda», «`Dialog`», «Recibos / PDFs», «RLS — reglas de oro», «Testing») y el modal `NuevaVentaDialog` en `app/(app)/ventas/ventas-client.tsx`.
+
+## Orden de trabajo (lo que falta)
+
+1. Test del caso borde de «Lógica pura» + `motivoNoConfirmable` (con tests).
+2. Migración (aplicar + advisors).
+3. Tipos + `lib/db/ventas.ts` + `createVentaAction`.
+4. `NuevaVentaDialog`.
+5. Lista, Ítems vendidos, `VentaDetalle`, recibo y garantía.
+6. Demo.
+7. Ayuda + `CLAUDE.md` + `plans/README.md` + Status.
+8. Verificación.
 
 ## Cómo es hoy
 
@@ -25,12 +37,14 @@ Leer antes: `CLAUDE.md` (sobre todo «Ventas», «Moneda», «`Dialog`», «Reci
 6. **El server recalcula** total, precios efectivos y margen: `createVentaAction`/`createVenta` reciben los ítems con **precio de lista** + `regalo` + `descuentoUsd`, llaman a la función pura (abajo) y persisten lo que devuelve. `totalUsd` y `margenPct` del cliente se ignoran (o se comparan y se rechaza si difieren en más de 1 centavo — elegí recalcular e ignorar). La conciliación de pagos del server, si existe, contra el total recalculado.
 7. Ventas viejas: `descuento_usd = 0`, `regalo = false`, `precio_lista_usd = null` → se ven igual que hoy. Sin backfill.
 
-## Lógica pura — `lib/ventas.ts` (con tests en `lib/ventas.test.ts`)
+## Lógica pura — `lib/ventas.ts` (tests en `lib/ventas-descuento.test.ts`)
 
 - `aplicarDescuentoVenta(items: {cantidad, precioUsd, regalo?}[], descuentoUsd): { items: {precioUsd (efectivo), precioListaUsd?: number}[]; subtotalUsd; descuentoUsd; totalUsd }` — precio de regalo → 0; prorrateo según Decisión 3; `precioListaUsd` solo si el precio cambió.
 - `descuentoDesdePct(subtotal, pct)` → USD redondeado a centavos.
 - `errorDescuento(subtotal, descuentoUsd)` → mensaje o `null` (negativo, mayor o igual al subtotal).
-- `motivoNoConfirmable`: aceptar `regalo` en los ítems (no exigir precio en regalos), exigir ≥ 1 ítem no regalo, validar el descuento, y conciliar contra el **total con descuento**.
+- **Ya hecho — leer antes de usarla:** si el descuento no se puede repartir en centavos exactos (ej. 3 × U$ 10 con U$ 1 de descuento y ninguna línea de cantidad 1), la función aplica lo que puede (U$ 0,99) y lo informa en `resultado.descuentoUsd`. Por eso **la UI muestra y el server persiste siempre `resultado.descuentoUsd` y `resultado.totalUsd`**, nunca el descuento tipeado. Falta un test de este caso (`descuentoUsd` < pedido y `Σ precioUsd × cantidad = totalUsd`).
+- Un regalo vuelve como `{ precioUsd: 0 }` **sin** `precioListaUsd`: no se guarda cuánto valía. Está bien así; en recibo y detalle sale «Regalo» en vez de un monto.
+- `motivoNoConfirmable` (falta): aceptar `regalo` en los ítems (no exigir precio en regalos), exigir ≥ 1 ítem no regalo, validar el descuento, y conciliar contra el **total con descuento**.
 - Tests: sin descuento (no cambia nada, sin `precioListaUsd`), U$ 10 sobre 1 ítem, sobre 3 ítems con distintos precios (suma exacta), con `cantidad > 1`, con un regalo en la lista (no recibe descuento), descuento = subtotal (error), descuento en %, margen de `margenVenta` sobre los ítems resultantes (el regalo con costo baja la ganancia).
 
 ## Base — `supabase/migrations/2026112515xxxx_ventas_descuento_regalo.sql`
@@ -48,7 +62,7 @@ Aplicar con MCP `apply_migration` (proyecto `xdfdrzxrmfpnezyeeaeq`, tools `mcp__
 ## Server
 
 - `lib/types.ts`: `VentaItem.regalo?: boolean`, `VentaItem.precioListaUsd?: number`; `Venta.descuentoUsd?: number`.
-- `lib/db/ventas.ts`: `VENTA_COLS` + `descuento_usd` y en `venta_items(...)` + `regalo, precio_lista_usd`; `toVenta`/`toVentaItem` los mapean; `CreateVentaInput.descuentoUsd`; `createVenta` usa `aplicarDescuentoVenta` y persiste `total_usd`, `descuento_usd`, `margen_pct` (`margenVenta(...) ?? 0`, mismo criterio que hoy) y por ítem `precio_usd` efectivo, `precio_lista_usd`, `regalo`. Revisar `listItemsVendidosPagina` (select propio, línea ~487) y cualquier otro select de `venta_items` que deba traer `regalo`.
+- `lib/db/ventas.ts`: `VENTA_COLS` (línea ~70) + `descuento_usd` y en `venta_items(...)` + `regalo, precio_lista_usd`; `ITEM_COLS` (línea ~486, Ítems vendidos) + `regalo, precio_lista_usd`; `toVenta`/`toVentaItem` los mapean; `CreateVentaInput.descuentoUsd`; `createVenta` usa `aplicarDescuentoVenta` y persiste `total_usd`, `descuento_usd`, `margen_pct` (`margenVenta(...) ?? 0`, mismo criterio que hoy) y por ítem `precio_usd` efectivo, `precio_lista_usd`, `regalo`. Revisar `listItemsVendidosPagina` (select propio, línea ~487) y cualquier otro select de `venta_items` que deba traer `regalo`.
 - `app/(app)/ventas/actions.ts` (`createVentaAction`): pasar `descuentoUsd`, validar con `errorDescuento` (tira si hay error), forzar `precioUsd = 0` en regalos y rechazar regalo en un ítem con `celularId`/`notebookId`.
 - Demo: `crearVentaDemo` usa la misma `aplicarDescuentoVenta` (no tiene server; que el estado guardado sea el mismo shape).
 
@@ -61,7 +75,8 @@ Aplicar con MCP `apply_migration` (proyecto `xdfdrzxrmfpnezyeeaeq`, tools `mcp__
 
 ## UI — dónde se ve después
 
-- **Lista** (tabla y `VentaCardMobile`): `Total` sigue siendo `totalUsd`; si `descuentoUsd > 0`, una línea chica debajo «−U$ 10 desc.» (`text-[11px] text-neutral-500`, `tabular-nums`). Ítems vendidos: el ítem regalo muestra chip «Regalo» (patrón chip gris + punto de `CLAUDE.md`) y precio `U$ 0`.
+- **Lista** (tabla y `VentaCardMobile`): `Total` sigue siendo `totalUsd`; si `descuentoUsd > 0`, una línea chica debajo «−U$ 10 desc.» (`text-[11px] text-neutral-500`, `tabular-nums`). Ítems vendidos: el ítem regalo muestra chip «Regalo» (patrón chip gris + punto de `CLAUDE.md`) y precio `U$ 0`; un ítem con `precioListaUsd` muestra el precio efectivo (es el que da la ganancia) con el de lista chico debajo.
+- **Ojo con el recibo de venta**: hoy arma las líneas con `i.precioUsd` (`ventas-client.tsx` ~496). Después de este cambio ese es el precio **efectivo**: usar `precioListaUsd ?? precioUsd` para la línea, y el descuento como ajuste aparte.
 - **`VentaDetalle`**: en la tabla de ítems, regalo con chip «Regalo»; si hay `precioListaUsd`, mostrar el precio de lista y el efectivo (o el de lista con el descuento aparte — elegí lo más claro). Antes del Total: **Subtotal** y **Descuento**.
 - **Recibo de venta y garantía** (`components/recibos/recibo.tsx`, uso en `ventas-client.tsx` ~490–510): líneas al **precio de lista**, el regalo con «Regalo» en la columna de monto (`montoLabel`), y antes del total una fila/bloque «Descuento −U$ X» cuando corresponda. Si `ReciboLineas` no soporta filas de ajuste, agregarle una prop opcional (`ajustes?: { label, montoUsd }[]` que se dibuja entre las líneas y el total) sin romper los otros usos (Reparaciones, Compras). La garantía incluye los regalos (tienen garantía como cualquier ítem) — confirmá que `garantiaContenido(items)` no los filtre por precio.
 - **Ayuda:** `content/ayuda/ventas/nueva-venta.mdx` (descuento y regalo, cómo afecta el margen) y `content/ayuda/ventas/guia.mdx` si lista los campos. Fecha `actualizado`.
@@ -78,6 +93,7 @@ Aplicar con MCP `apply_migration` (proyecto `xdfdrzxrmfpnezyeeaeq`, tools `mcp__
 
 ## Cuidado
 
+- La primera sesión que tomó este plan se cortó por límite de uso después de la lógica pura. Antes de seguir, `git diff` de `lib/ventas.ts`, `lib/types.ts`, `lib/db/ventas.ts` y `ventas-client.tsx` para confirmar que no quedó nada a medias de este plan.
 - `ventas-client.tsx` y `lib/ventas.ts` los toca seguido otra gente: releer el archivo justo antes de editar, ediciones chicas y puntuales, no reescribir bloques enteros.
 - No usar `toLocaleString`/«USD» a mano: `fmtUsd`.
 - No recalcular montos persistidos con la cotización de hoy.

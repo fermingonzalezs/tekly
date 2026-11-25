@@ -44,6 +44,10 @@ import {
   resumenConciliaciones,
   diferenciaPorConciliacion,
   diferenciaPorCaja,
+  medioDeCaja,
+  tipoDeMedioCaja,
+  TIPOS_MEDIO_CAJA,
+  type TipoMedioCaja,
 } from "@/lib/cajas";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
@@ -64,12 +68,15 @@ import {
 } from "./actions";
 import type { CajaInput } from "@/lib/db/cajas";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 
 const MEDIOS = MEDIOS_CAJA;
 
 /** Tarjetas de arriba: todos los medios de caja (`canje` ya no es medio de
  * caja, plan 020). */
-const STAT_MEDIOS: MedioPago[] = MEDIOS;
+// Tarjetas por medio: los 5 de siempre; «Otro» solo si alguna caja lo usa
+// (la fila de tarjetas es de 5 columnas).
+const STAT_MEDIOS: MedioPago[] = MEDIOS.filter((m) => m !== "otro");
 
 /** Tabs de sección -- `?tab=` en la URL para linkear directo (como Configuración). */
 type Tab = "movimientos" | "conciliaciones" | "cajas";
@@ -86,6 +93,7 @@ const blankCaja: CajaInput = {
   activa: true,
   descripcion: "",
   medioPago: "pesos",
+  recargoPct: 0,
 };
 
 export function CajasClient({
@@ -104,7 +112,7 @@ export function CajasClient({
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   const [, startDeleteTransition] = useTransition();
   const tabParam = useSearchParams().get("tab");
   const [tab, setTab] = useState<Tab>(
@@ -217,9 +225,22 @@ export function CajasClient({
         0,
       );
 
-  const statMedios = STAT_MEDIOS.map((medio) => ({
+  // Moneda principal de cada tarjeta: la de sus cajas. Si todas las cajas
+  // del medio son en dólares (o no hay ninguna y el medio es «Dólares»), el
+  // monto grande va en U$ y la conversión a pesos abajo; si no, al revés.
+  const monedaDeMedio = (medio: MedioPago): "usd" | "ars" => {
+    const delMedio = cajas.filter((c) => c.medioPago === medio);
+    if (delMedio.length === 0) return medio === "dolares" ? "usd" : "ars";
+    return delMedio.every((c) => c.moneda === "usd") ? "usd" : "ars";
+  };
+
+  const statMedios = [
+    ...STAT_MEDIOS,
+    ...(cajas.some((c) => c.medioPago === "otro") ? (["otro"] as MedioPago[]) : []),
+  ].map((medio) => ({
     medio,
     total: totalPorMedio(medio),
+    moneda: monedaDeMedio(medio),
   }));
 
   const query = q.trim().toLowerCase();
@@ -270,6 +291,25 @@ export function CajasClient({
     return `${d.diff > 0 ? "+" : d.diff < 0 ? "−" : ""}${money(d.moneda, Math.abs(d.diff))}`;
   };
 
+  // «Nuevo movimiento» y «Nueva caja» quedan siempre a mano, en las tres
+  // pestañas; cada pestaña puede sumar su propia acción (Conciliar cajas).
+  const accionesCajas = (extra?: React.ReactNode) => (
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+      {extra}
+      <Button icon={Plus} onClick={() => setNuevoOpen(true)} variant="tonal" fullOnMobile>
+        Nuevo movimiento
+      </Button>
+      <Button
+        icon={Plus}
+        onClick={() => setEditingCaja({ id: null, data: blankCaja })}
+        variant="tonal"
+        fullOnMobile
+      >
+        Nueva caja
+      </Button>
+    </div>
+  );
+
   const tabsEntidad = (
     <Tabs
       value={tab}
@@ -319,13 +359,13 @@ export function CajasClient({
               />
             </>
           }
-          tarjetas={statMedios.map(({ medio, total }) => (
+          tarjetas={statMedios.map(({ medio, total, moneda }) => (
             <StatCard
               key={medio}
               align="left"
               label={medioPagoCfg[medio].label}
-              value={fmtArs(total)}
-              hint={`≈ ${fmtUsd(total / RATE)}`}
+              value={moneda === "usd" ? fmtUsd(total / RATE) : fmtArs(total)}
+              hint={moneda === "usd" ? "≈ " + fmtArs(total) : "≈ " + fmtUsd(total / RATE)}
               valueClassName={total < 0 ? "text-red-500" : undefined}
               active={medioFiltro === medio}
               onClick={() => setMedioFiltro(medioFiltro === medio ? null : medio)}
@@ -375,14 +415,7 @@ export function CajasClient({
                   </Select>
                 </>
               }
-              accion={
-                <Button icon={Plus}
-                  onClick={() => setNuevoOpen(true)}
-                  variant="tonal" fullOnMobile
-                >
-                  Nuevo movimiento
-                </Button>
-              }
+              accion={accionesCajas()}
             />
           }
         >
@@ -599,14 +632,14 @@ export function CajasClient({
           filtros={
             <BarraFiltros
               tabs={tabsEntidad}
-              accion={
+              accion={accionesCajas(
                 <Button icon={ClipboardCheck}
                   onClick={() => setConciliarOpen(true)}
                   variant="tonal" fullOnMobile
                 >
                   Conciliar cajas
-                </Button>
-              }
+                </Button>,
+              )}
             />
           }
         >
@@ -656,15 +689,7 @@ export function CajasClient({
           filtros={
             <BarraFiltros
               tabs={tabsEntidad}
-              accion={
-                <Button icon={Plus}
-                  onClick={() => setEditingCaja({ id: null, data: blankCaja })}
-                  variant="tonal"
-                  fullOnMobile
-                >
-                  Nueva caja
-                </Button>
-              }
+              accion={accionesCajas()}
             />
           }
         >
@@ -715,6 +740,7 @@ export function CajasClient({
                           activa: c.activa,
                           descripcion: c.descripcion,
                           medioPago: c.medioPago,
+                          recargoPct: c.recargoPct,
                         },
                       })
                     }
@@ -735,6 +761,7 @@ export function CajasClient({
                 <th className={cn("px-5 py-2 text-center", thDivider)}>Descripción</th>
                 <th className={cn("px-5 py-2 text-center", thDivider)}>Moneda</th>
                 <th className={cn("px-5 py-2 text-center", thDivider)}>Medio</th>
+                <th className={cn("px-5 py-2 text-center", thDivider)}>Recargo</th>
                 <th className={cn("px-5 py-2 text-center", thDivider)}>Estado</th>
                 <th className="px-5 py-2 text-center">Acciones</th>
               </tr>
@@ -768,6 +795,9 @@ export function CajasClient({
                       {medioPagoCfg[c.medioPago].label}
                     </span>
                   </td>
+                  <td className="px-5 py-2.5 text-center tabular-nums">
+                    {c.recargoPct > 0 ? `${c.recargoPct} %` : "—"}
+                  </td>
                   <td className="px-5 py-2.5 text-center">
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                       <span
@@ -788,6 +818,7 @@ export function CajasClient({
                               activa: c.activa,
                               descripcion: c.descripcion,
                               medioPago: c.medioPago,
+                              recargoPct: c.recargoPct,
                             },
                           })
                         }
@@ -1166,23 +1197,51 @@ function CajaDialog({
         <Field label="Moneda">
           <Select
             value={draft.moneda}
-            onChange={(e) => setDraft({ ...draft, moneda: e.target.value as "usd" | "ars" })}
+            onChange={(e) => {
+              const moneda = e.target.value as "usd" | "ars";
+              // «Efectivo» depende de la moneda: pesos ↔ dolares.
+              setDraft({
+                ...draft,
+                moneda,
+                medioPago: medioDeCaja(tipoDeMedioCaja(draft.medioPago), moneda),
+              });
+            }}
           >
             <option value="ars">Pesos (ARS)</option>
             <option value="usd">Dólares (USD)</option>
           </Select>
         </Field>
-        <Field label="Medio de pago" className="sm:col-span-2">
+        <Field label="Medio de pago">
           <Select
-            value={draft.medioPago}
-            onChange={(e) => setDraft({ ...draft, medioPago: e.target.value as MedioPago })}
+            value={tipoDeMedioCaja(draft.medioPago)}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                medioPago: medioDeCaja(e.target.value as TipoMedioCaja, draft.moneda),
+              })
+            }
           >
-            {MEDIOS.map((m) => (
-              <option key={m} value={m}>
-                {medioPagoCfg[m].label}
+            {TIPOS_MEDIO_CAJA.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
               </option>
             ))}
           </Select>
+        </Field>
+        <Field label="Recargo %">
+          <Input
+            className="text-center"
+            type="number"
+            min={0}
+            max={100}
+            step="any"
+            placeholder="0"
+            value={draft.recargoPct || ""}
+            onChange={(e) => setDraft({ ...draft, recargoPct: Number(e.target.value) || 0 })}
+          />
+          <p className="mt-1 text-[11px] text-neutral-500">
+            Se suma a lo que se cobra en esta caja (ej. comisión de tarjeta).
+          </p>
         </Field>
         <Field label="Descripción" className="sm:col-span-3">
           <Textarea

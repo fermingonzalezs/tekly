@@ -8,7 +8,7 @@ const VALID_TYPES: EmailLinkType[] = ["signup", "invite", "recovery"];
  * -- usado cuando el link no trae un `next` explícito. */
 const DEFAULT_NEXT: Record<EmailLinkType, string> = {
   signup: "/dashboard",
-  invite: "/dashboard",
+  invite: "/bienvenida",
   recovery: "/reset-password",
 };
 

@@ -57,6 +57,7 @@ function caja(id: string, moneda: "ars" | "usd"): Caja {
     descripcion: "",
     creadaEl: "ene 2026",
     medioPago: "pesos",
+    recargoPct: 0,
   };
 }
 

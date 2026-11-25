@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { requireUser } from "@/lib/auth";
 import { fmtDayMonth, fmtMonthYear, fmtTime } from "@/lib/format";
+import { getNegocio } from "@/lib/db/configuracion";
 import type {
   Caja,
   CategoriaGasto,
@@ -9,6 +10,7 @@ import type {
   ConciliacionLinea,
   MedioPago,
   MovimientoCaja,
+  Pago,
 } from "@/lib/types";
 
 // ─────────────────────────── Cajas ───────────────────────────
@@ -20,10 +22,12 @@ type CajaRow = {
   activa: boolean;
   descripcion: string | null;
   medio_pago: MedioPago;
+  recargo_pct: number | string;
   created_at: string;
 };
 
-const CAJA_COLS = "id, nombre, moneda, activa, descripcion, medio_pago, created_at";
+const CAJA_COLS =
+  "id, nombre, moneda, activa, descripcion, medio_pago, recargo_pct, created_at";
 
 function toCaja(row: CajaRow): Caja {
   return {
@@ -34,7 +38,45 @@ function toCaja(row: CajaRow): Caja {
     descripcion: row.descripcion ?? "",
     creadaEl: fmtMonthYear(row.created_at),
     medioPago: row.medio_pago,
+    recargoPct: Number(row.recargo_pct ?? 0),
   };
+}
+
+/** Recargo (%) de cada caja por id -- lo usan los servers de Ventas y
+ * Reparaciones para no confiar en el que mande el cliente. */
+export async function recargosPorCaja(ids: string[]): Promise<Map<string, number>> {
+  const unicos = [...new Set(ids.filter(Boolean))];
+  if (unicos.length === 0) return new Map();
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("cajas")
+    .select("id, recargo_pct")
+    .in("id", unicos);
+  if (error) throw error;
+  return new Map(
+    (data as { id: string; recargo_pct: number | string }[]).map((c) => [
+      c.id,
+      Number(c.recargo_pct ?? 0),
+    ]),
+  );
+}
+
+/** Pisa el `recargoPct` de cada pago con el de **su caja** (o el de cuenta
+ * corriente de la organización). Los servers de Ventas/Reparaciones lo usan
+ * para no confiar en el % que mande el cliente; el snapshot se guarda en el
+ * pago. */
+export async function conRecargoDeCaja<T extends Pago>(pagos: T[]): Promise<T[]> {
+  const porCaja = await recargosPorCaja(pagos.map((p) => p.cajaId ?? ""));
+  const cuentaCorriente = (await getNegocio()).recargosMediosPago.cuenta_corriente;
+  return pagos.map((p) => ({
+    ...p,
+    recargoPct:
+      p.medio === "cuenta_corriente"
+        ? cuentaCorriente || undefined
+        : p.cajaId
+          ? porCaja.get(p.cajaId) || undefined
+          : undefined,
+  })) as T[];
 }
 
 export async function listCajas(): Promise<Caja[]> {
@@ -50,6 +92,8 @@ export type CajaInput = {
   activa: boolean;
   descripcion: string;
   medioPago: MedioPago;
+  /** 0–100. */
+  recargoPct: number;
 };
 
 /** Alta si `id` es `null`, edición si no. */
@@ -61,6 +105,7 @@ export async function saveCaja(id: string | null, data: CajaInput): Promise<Caja
     activa: data.activa,
     descripcion: data.descripcion || null,
     medio_pago: data.medioPago,
+    recargo_pct: data.recargoPct,
   };
   const query = id
     ? supabase.from("cajas").update(patch).eq("id", id)

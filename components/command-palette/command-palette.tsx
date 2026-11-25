@@ -49,11 +49,11 @@ type Item = {
 /** Controlada: el botón que la abre vive en `FabDock` (`components/fab-dock.tsx`),
  * junto al de "Reportar un problema". Ctrl/⌘+K sigue andando desde acá. */
 export function CommandPalette({
-  rol,
+  roles,
   open,
   onOpenChange,
 }: {
-  rol: Rol;
+  roles: Rol[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -66,12 +66,12 @@ export function CommandPalette({
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const navItems = useMemo(
-    () => filterNavItems(navForRole(rol), query),
-    [rol, query],
+    () => filterNavItems(navForRole(roles), query),
+    [roles, query],
   );
   const actions = useMemo(
-    () => filterQuickActions(quickActionsForRole(rol), query),
-    [rol, query],
+    () => filterQuickActions(quickActionsForRole(roles), query),
+    [roles, query],
   );
 
   const porTipo = useMemo(() => {

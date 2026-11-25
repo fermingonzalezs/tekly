@@ -1,33 +1,36 @@
 ---
 titulo: "Compras por canje y su recibo"
-resumen: "Las compras que se generan solas desde una venta con canje, con el equipo recibido, el checklist y el PDF firmable."
+resumen: "Las compras que se generan solas desde una venta con canje: el equipo recibido, su recibo firmable y cómo pasarlo al stock."
 seccion: compras
 roles: [admin, tecnico]
 orden: 3
 actualizado: 2026-11-25
 ---
 
-Una compra **de canje** no se carga a mano: se **genera desde una venta** cuando el pago se hace con la caja de canje (ver [Canje](/ayuda/ventas/canje)). Documenta el equipo que el cliente entregó como parte de pago.
+Una compra **de canje** no se carga a mano: se **genera desde una venta** cuando parte del pago es un equipo («Mercadería», ver [Canje](/ayuda/ventas/canje)). Documenta el equipo que el cliente entregó. **El equipo no entra al stock solo**: queda acá hasta que lo pases.
 
 ## Qué muestra
 
-- **Información general**: el **cliente**, que queda como **proveedor** de la compra, la fecha, el medio «Mercadería», el estado «Recibida» y el **valor reconocido**.
-- **«Información del equipo»**: marca, serial/IMEI, color y a qué venta se aplicó.
-- **Checklist de ingreso** y **Aclaraciones** cargados al momento de la venta.
+- **Información general**: el **cliente**, que queda como **proveedor**, la fecha, el medio «Mercadería», el estado «Recibida» y si el equipo ya está **en el stock** o **sin ingresar**.
+- **Información del equipo**: modelo, IMEI / serial, color, estado, batería, precio de compra, si se hizo el testeo y a qué venta se aplicó.
+- El **testeo** (si se hizo) y los **detalles** cargados al momento de la venta.
 
-<Paso n={1} titulo="Abrilo desde Compras o desde la venta">
-En Ventas, el detalle del pago de canje tiene un link **«Ver compra de canje»** que te trae acá.
+En la lista, cada canje dice **«Canje · sin ingresar»** o **«Canje · en el stock»**. El filtro **«Canjes sin ingresar al stock»** muestra solo los pendientes.
+
+<Paso n={1} titulo="«Pasar al stock»">
+Cuando revisaste el equipo, abrí la compra y tocá **«Pasar al stock»**. Elegí la **variante** (o creala); modelo, IMEI, color, estado y batería vienen precargados y el **costo es el del canje**. El celular entra a **Inventario → Celulares** y aparece en la pestaña **Ingresos**.
 </Paso>
 
 <Paso n={2} titulo="«Imprimir recibo de canje»">
-El botón del footer imprime el PDF con el equipo, el checklist y las firmas del cliente y de la empresa.
+El botón del footer imprime el PDF con el equipo, el testeo (si se hizo), los detalles y las firmas del cliente y de la empresa.
 </Paso>
 
 ## Qué no se puede
 
 - El canje **no se carga ni se edita** desde Compras: se origina en la venta.
+- Un equipo se pasa al stock **una sola vez**.
 - No se puede imprimir el recibo de canje desde Ventas, sólo desde acá.
-- Nace siempre en estado **«Recibida»** (el equipo ya está en mano).
+- Al eliminar la compra, «Sacar del stock» da de baja el celular solo si sigue «En revisión» o «Disponible».
 
 ## Relacionados
 

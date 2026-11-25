@@ -1,5 +1,6 @@
 import type { Ticket, TicketServicio } from "@/lib/types";
 import type { Rol } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 
 /** Rentabilidad de un ticket: precio total de sus ítems menos el costo de
  * los repuestos usados. La mano de obra (servicios del catálogo / ítems
@@ -52,10 +53,14 @@ export function costoDeItem(
   return undefined;
 }
 
-/** El vendedor no recibe costos: se borra el snapshot de cada ítem antes de
- * mandar el ticket al cliente (todo lo que viaja en el payload se lee). */
-export function ticketParaRol<T extends Pick<Ticket, "servicios">>(ticket: T, rol: Rol): T {
-  if (rol !== "vendedor") return ticket;
+/** Un usuario solo-vendedor no recibe costos: se borra el snapshot de cada
+ * ítem antes de mandar el ticket al cliente (todo lo que viaja en el payload
+ * se lee). Admin y técnico -- y Vendedor + Técnico -- sí los ven. */
+export function ticketParaRol<T extends Pick<Ticket, "servicios">>(
+  ticket: T,
+  roles: Rol[],
+): T {
+  if (tieneRol({ roles }, "admin", "tecnico")) return ticket;
   return {
     ...ticket,
     servicios: ticket.servicios.map(({ costoUsd: _c, ...s }) => s),

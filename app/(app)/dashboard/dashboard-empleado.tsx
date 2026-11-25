@@ -18,13 +18,14 @@ import type {
 import type { Rol } from "@/lib/auth/types";
 import type { Turno } from "@/lib/types";
 
-/** Dashboard de empleado (vendedor / técnico). El server ya filtró todo por
- * rol: de un vendedor no llega ninguna ganancia/margen/costo ni el objetivo
- * de la org (ver `page.tsx` y el plan 005) -- el cliente solo arma el
- * layout. Vendedor: sus ventas (tendencia sin línea de ganancia) + ventas
- * recientes propias. Técnico: "Mis tickets" en vez de tendencia/ventas. */
+/** Dashboard de empleado (vendedor y/o técnico). El server ya filtró todo
+ * por rol: de un vendedor no llega ninguna ganancia/margen/costo ni el
+ * objetivo de la org (ver `page.tsx` y el plan 005) -- el cliente solo arma
+ * el layout. Vendedor: sus ventas (tendencia sin línea de ganancia) + ventas
+ * recientes propias. Técnico: "Mis tickets". Con los dos roles (plan 029) se
+ * muestran ambos bloques. */
 export function DashboardEmpleado({
-  rol,
+  roles,
   metrics,
   trendByPeriodo,
   rubroMix,
@@ -32,7 +33,9 @@ export function DashboardEmpleado({
   misTickets,
   turnos,
 }: {
-  rol: Rol;
+  /** Roles del empleado, sin admin (plan 029). Vendedor + Técnico muestra
+   * los dos bloques. */
+  roles: Rol[];
   metrics: MetricaDashboard[];
   /** Solo vendedor: su propia serie (sin `ganancia`). */
   trendByPeriodo?: Record<DashPeriodo, { venta: number[]; fechas: string[] }>;
@@ -44,7 +47,8 @@ export function DashboardEmpleado({
   turnos: Turno[];
 }) {
   useRefrescoEnVivo();
-  const esVendedor = rol === "vendedor";
+  const esVendedor = roles.includes("vendedor");
+  const esTecnico = roles.includes("tecnico");
   const [periodo, setPeriodo] = useState<DashPeriodo>("mes");
   const meta = DASH_PERIODOS.find((p) => p.value === periodo)!;
   const trend = trendByPeriodo?.[periodo];
@@ -73,22 +77,26 @@ export function DashboardEmpleado({
       <MetricCards metrics={metrics} />
 
       <div className="grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        {esVendedor ? (
-          <div className="flex min-w-0 flex-col gap-3">
-            {trend && (
-              <TrendChart
-                className="min-h-[240px] flex-1"
-                venta={trend.venta}
-                fechas={trend.fechas}
-                rubroMix={rubroMix?.[periodo] ?? []}
-                sub={meta.trendSub}
-              />
-            )}
-            {recentSales && <RecentSales className="shrink-0" sales={recentSales} />}
-          </div>
-        ) : (
-          <MisTickets className="min-h-[300px]" tickets={misTickets ?? []} />
-        )}
+        <div className="flex min-w-0 flex-col gap-3">
+          {esVendedor && trend && (
+            <TrendChart
+              className="min-h-[240px] flex-1"
+              venta={trend.venta}
+              fechas={trend.fechas}
+              rubroMix={rubroMix?.[periodo] ?? []}
+              sub={meta.trendSub}
+            />
+          )}
+          {esVendedor && recentSales && (
+            <RecentSales className="shrink-0" sales={recentSales} />
+          )}
+          {esTecnico && (
+            <MisTickets
+              className={esVendedor ? "shrink-0" : "min-h-[300px]"}
+              tickets={misTickets ?? []}
+            />
+          )}
+        </div>
 
         <div className="flex min-w-0 flex-col gap-3">
           <TurnosHeatmap className="shrink-0" turnos={turnos} />

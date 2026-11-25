@@ -1,6 +1,6 @@
 ---
 titulo: "Usuarios y roles"
-resumen: "Cómo invitar gente, cambiar el rol, editar el email y desactivar usuarios, con el cupo que impone el plan."
+resumen: "Cómo invitar gente, combinar roles (por ejemplo Vendedor y Técnico), reenviar una invitación, reactivar, desactivar o eliminar usuarios, con el cupo que impone el plan."
 seccion: configuracion
 roles: [admin]
 orden: 2
@@ -12,33 +12,53 @@ La pestaña **Usuarios y roles** administra quién entra a tu organización. Só
 ## Invitar
 
 <Paso n={1} titulo="«Invitar usuario»">
-Completá **Nombre**, **Email** y **Rol** (Admin/Dueño, Vendedor o Técnico). El **Instagram** es opcional: `@usuario` o el link al perfil. No se verifica contra Instagram; en la lista sale como link para que lo chequees con un click.
+Completá **Nombre**, **Email** y tildá uno o más **Roles** (Admin, Vendedor, Técnico). No se pide Instagram en el alta: se puede cargar después, desde la edición del usuario o desde «Mi cuenta».
 </Paso>
 
 <Paso n={2} titulo="Se le manda un mail">
-El invitado recibe un mail para setear su contraseña. Queda **activo** y ya ocupa un lugar del plan.
+El invitado recibe un mail con un link. Al abrirlo entra a la pantalla **«Bienvenido a {tu negocio}»**, donde confirma su nombre y **crea su contraseña** (mínimo 12 caracteres); recién ahí pasa al sistema. Si cierra esa pantalla sin terminar, le vuelve a aparecer la próxima vez que entre. Hasta que acepte la invitación, en la lista figura como **Invitación pendiente**, y ya ocupa un lugar del plan. Si invitás un email que ya es de un usuario de tu organización, el sistema te avisa y te dice qué hacer (reenviar la invitación o reactivarlo).
 </Paso>
 
 <Aviso titulo="Cupo del plan" tono="warning">
 Si el plan está lleno, la invitación se rechaza con un mensaje que indica cuántos usuarios permite tu plan. El cupo cuenta perfiles activos, **incluidas las invitaciones todavía sin aceptar**. Ver [Plan y facturación](/ayuda/configuracion/plan-y-facturacion).
 </Aviso>
 
-## Editar y desactivar
+## Varios roles por usuario
 
-- Tocá una fila para cambiar el **Rol**, el **Email** o el **Instagram** del usuario.
-- El botón de eliminar **desactiva** al usuario: se le corta el login y la sesión abierta, pero **conserva su historial**.
+Un usuario puede tener **más de un rol a la vez** — el caso más común es alguien que es **Vendedor y Técnico**. Sus permisos son la **unión**: ve todo lo que ve un vendedor y todo lo que ve un técnico (por ejemplo, Compras y Cajas, y también los costos y márgenes de Ventas y Reparaciones). En la lista aparece un chip por rol.
+
+**Admin incluye todo**: al tildar Admin, los demás roles quedan tildados y deshabilitados. Las combinaciones que tienen sentido son:
+
+- **Admin** (solo).
+- **Vendedor**.
+- **Técnico**.
+- **Vendedor y Técnico**.
+
+## Editar, reenviar, reactivar y dar de baja
+
+Tocá una fila para cambiar los **Roles**, el **Email** o el **Instagram** del usuario. Abajo aparecen las acciones que corresponden a su estado:
+
+- **Reenviar invitación** — si todavía no aceptó la invitación (el mail no le llegó o el link venció). Si ya la aceptó y no recuerda la contraseña, tiene que usar «¿Olvidaste tu contraseña?» en el login.
+- **Eliminar usuario** — si **no tiene historial** (ninguna venta, ticket asignado, movimiento de caja, cuenta corriente o stock, conciliación, recuento ni reporte de error). Se borra de forma definitiva y su email queda libre para invitarlo de nuevo.
+- **Desactivar usuario** — si **tiene historial**: se le corta el login y la sesión abierta, pero su historial se conserva. Deja de ocupar un lugar del plan.
+- **Reactivar usuario** — para un usuario desactivado: vuelve a poder entrar con su misma cuenta y contraseña. Necesita un lugar libre en el plan.
+
+<Aviso titulo="Siempre tiene que quedar un admin" tono="warning">
+No se puede quitar el rol Admin al único admin activo de la organización: el sistema lo bloquea para que nadie se quede sin acceso a Configuración, Cajas o Analíticas. Si necesitás cambiarte vos, primero hacé admin a otra persona.
+</Aviso>
 
 ## Roles
 
 - **Admin / Dueño**: ve todo, incluidos márgenes, Analíticas, Configuración y Cajas.
-- **Vendedor**: ve Ventas (sin costos), Turnos, Inventario, Clientes, Reparaciones y Difusión; **no** ve Cajas, Compras, Cuentas corrientes ni Analíticas.
-- **Técnico**: como el vendedor pero además ve Cajas, Compras y Cuentas corrientes.
+- **Vendedor**: ve Ventas (sin costos ni márgenes), Agenda, Inventario, Clientes, Reparaciones y Difusión; **no** ve Cajas, Compras, Cuentas corrientes ni Analíticas.
+- **Técnico**: como el vendedor, pero además ve Cajas, Compras, Cuentas corrientes y los costos/márgenes de Ventas y Reparaciones.
+- **Vendedor y Técnico**: la unión de los dos; el dashboard de empleado muestra **sus ventas y sus tickets**.
 
 ## Qué no se puede
 
-- **No hay reenvío de invitación** ni estado de «pendiente».
-- No se puede **reactivar** un usuario desactivado desde la interfaz.
-- No podés cambiarte el rol ni desactivarte **a vos mismo**.
+- No se puede **eliminar** a alguien con historial (sólo desactivarlo), para no perder quién hizo cada venta o movimiento.
+- No podés cambiarte el rol, desactivarte ni eliminarte **a vos mismo**.
+- No se puede dejar la organización **sin ningún admin activo**.
 - El cupo no se puede superar: hay que liberar un lugar o subir de plan.
 
 ## Relacionados

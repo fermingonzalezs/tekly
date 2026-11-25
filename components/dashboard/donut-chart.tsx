@@ -5,6 +5,9 @@ export type DonutSlice = {
   valueLabel: string;
 };
 
+/** Dos decimales: coordenadas iguales en el server y en el navegador. */
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
 const CXY = 64;
 const R = 40;
 const SW = 34; // anillo grueso -> poco hueco en el centro
@@ -40,8 +43,10 @@ export function DonutChart({
       len,
       dashOffset,
       startRad,
-      tx: CXY + R * Math.cos(midRad),
-      ty: CXY + R * Math.sin(midRad),
+      // Redondeado: el server y el navegador pueden diferir en el último
+      // decimal de cos/sin y eso rompía la hidratación.
+      tx: r2(CXY + R * Math.cos(midRad)),
+      ty: r2(CXY + R * Math.sin(midRad)),
     };
   });
 
@@ -78,10 +83,10 @@ export function DonutChart({
         {segs.map((s, i) => (
           <line
             key={`d-${i}`}
-            x1={CXY + RIN * Math.cos(s.startRad)}
-            y1={CXY + RIN * Math.sin(s.startRad)}
-            x2={CXY + ROUT * Math.cos(s.startRad)}
-            y2={CXY + ROUT * Math.sin(s.startRad)}
+            x1={r2(CXY + RIN * Math.cos(s.startRad))}
+            y1={r2(CXY + RIN * Math.sin(s.startRad))}
+            x2={r2(CXY + ROUT * Math.cos(s.startRad))}
+            y2={r2(CXY + ROUT * Math.sin(s.startRad))}
             stroke="#fff"
             strokeWidth={2}
           />
@@ -93,12 +98,12 @@ export function DonutChart({
           // el % queda igual visible en la leyenda.
           if (s.pct < 7) return null;
           const label = `${s.pct}%`;
-          const w = label.length * 4.6 + 6;
+          const w = r2(label.length * 4.6 + 6);
           return (
             <g key={`t-${i}`}>
               {/* chip igual al del % de "Objetivo del mes": blanco translúcido */}
               <rect
-                x={s.tx - w / 2}
+                x={r2(s.tx - w / 2)}
                 y={s.ty - 7}
                 width={w}
                 height={14}

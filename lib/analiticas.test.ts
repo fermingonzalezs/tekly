@@ -494,6 +494,7 @@ const CAJA_ARS: Caja = {
   descripcion: "",
   creadaEl: "",
   medioPago: "pesos",
+  recargoPct: 0,
 };
 const CAJA_USD: Caja = { ...CAJA_ARS, id: "usd-1", nombre: "Caja USD", moneda: "usd", medioPago: "dolares" };
 

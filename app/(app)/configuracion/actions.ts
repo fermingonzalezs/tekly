@@ -6,8 +6,12 @@ import {
   requireRoleEscritura,
   inviteMember,
   setMemberInstagram,
-  setMemberRole,
+  setMemberRoles,
   deactivateMember,
+  reactivateMember,
+  resendInvite,
+  deleteMember,
+  getHistorialMember,
   setMemberEmail,
 } from "@/lib/auth";
 import type { AuthResult, Rol } from "@/lib/auth/types";
@@ -43,19 +47,20 @@ import {
 export async function inviteMemberAction(
   email: string,
   nombre: string,
-  rol: Rol,
-  instagram?: string,
+  roles: Rol[],
 ): Promise<AuthResult> {
-  const result = await inviteMember({ email, nombre, rol, instagram });
+  const result = await inviteMember({ email, nombre, roles });
   if (!result.error) revalidatePath("/configuracion");
   return result;
 }
 
-export async function setMemberRoleAction(
+/** Cambia los roles de un miembro (plan 029). La RPC valida admin, misma org y
+ * que no quede la organización sin ningún admin activo. */
+export async function setMemberRolesAction(
   targetProfileId: string,
-  nuevoRol: Rol,
+  roles: Rol[],
 ): Promise<AuthResult> {
-  const result = await setMemberRole(targetProfileId, nuevoRol);
+  const result = await setMemberRoles(targetProfileId, roles);
   if (!result.error) revalidatePath("/configuracion");
   return result;
 }
@@ -73,6 +78,28 @@ export async function deactivateMemberAction(targetProfileId: string): Promise<A
   const result = await deactivateMember(targetProfileId);
   if (!result.error) revalidatePath("/configuracion");
   return result;
+}
+
+export async function reactivateMemberAction(targetProfileId: string): Promise<AuthResult> {
+  const result = await reactivateMember(targetProfileId);
+  if (!result.error) revalidatePath("/configuracion");
+  return result;
+}
+
+export async function resendInviteAction(targetProfileId: string): Promise<AuthResult> {
+  return resendInvite(targetProfileId);
+}
+
+/** Borrado real: solo si el miembro no tiene historial (lo revalida adentro). */
+export async function deleteMemberAction(targetProfileId: string): Promise<AuthResult> {
+  const result = await deleteMember(targetProfileId);
+  if (!result.error) revalidatePath("/configuracion");
+  return result;
+}
+
+/** Solo lectura: decide si el dialog ofrece «Eliminar» o «Desactivar». */
+export async function getHistorialMemberAction(targetProfileId: string) {
+  return getHistorialMember(targetProfileId);
 }
 
 export async function updateNegocioAction(data: Negocio): Promise<void> {

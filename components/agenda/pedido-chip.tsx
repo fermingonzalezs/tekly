@@ -3,6 +3,8 @@
 import { Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { pedidoVencido } from "@/lib/agenda";
+import { fmtUsd } from "@/lib/format";
+import { saldoPedido } from "@/lib/pedidos";
 import { pedidoEstado } from "@/lib/status";
 import type { Pedido } from "@/lib/types";
 
@@ -29,11 +31,12 @@ export function PedidoChip({
   conDescripcion?: boolean;
 }) {
   const vencido = pedidoVencido(pedido, hoy);
+  const saldo = pedido.items.length > 0 ? saldoPedido(pedido.items, pedido.senaUsd) : null;
   return (
     <button
       type="button"
       onClick={onClick}
-      title={`Pedido · ${pedido.cliente} · ${pedido.descripcion} · ${pedidoEstado[pedido.estado].label}${vencido ? " · vencido" : ""}`}
+      title={`Pedido · ${pedido.cliente} · ${pedido.descripcion} · ${pedidoEstado[pedido.estado].label}${vencido ? " · vencido" : ""}${saldo !== null ? ` · Saldo ${fmtUsd(saldo)}` : ""}`}
       className={cn(
         "flex w-full min-w-0 items-center gap-1 rounded border px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors",
         FORMA[pedido.estado],

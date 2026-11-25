@@ -1,6 +1,6 @@
 ---
 titulo: "Cómo cargar una venta"
-resumen: "Paso a paso del modal «Nueva venta»: cliente, vendedor, ítems desde el stock o libres, servicios con repuestos usados y el pago."
+resumen: "Paso a paso del modal «Nueva venta»: cliente, vendedor, ítems del stock, servicios con repuestos usados y el pago."
 seccion: ventas
 roles: []
 orden: 2
@@ -10,30 +10,36 @@ actualizado: 2026-11-25
 El modal **«Nueva venta»** tiene cuatro bloques marcados con eyebrows: **Cliente**, **Datos de la venta**, **Ítems** y **Pago**. El número de venta (`V-…`) se asigna recién al confirmar.
 
 <Paso n={1} titulo="Cliente">
-Elegí uno existente o creá uno nuevo. La creación es **diferida**: recién se guarda cuando confirmás la venta; si cancelás, no queda un cliente fantasma.
+Elegí uno existente o tocá «Crear cliente nuevo»: se abre un modal **encima de la venta** (no perdés lo cargado) con **nombre, teléfono, email, Instagram y fecha de nacimiento**, los mismos datos que en Clientes (solo el nombre es obligatorio). Si te equivocaste, «Editar datos» lo reabre. La creación es **diferida**: recién se guarda cuando confirmás la venta; si cancelás, no queda un cliente fantasma.
 </Paso>
 
 <Paso n={2} titulo="Datos de la venta">
-- **Vendedor**: arranca con **tu** nombre. Cualquier usuario puede elegir a otro usuario activo de la organización o **«Otro (escribir a mano)»** para alguien que no tiene usuario (por ejemplo, un vendedor por comisión). Una venta a mano no aparece en el filtro de vendedor ni en las métricas «propias» de nadie.
-- **Tienda / página** (opcional): si manejás más de una página desde la misma cuenta (por ejemplo Hellstore y Heavenstore), elegí de cuál salió la venta. Por defecto es la del negocio. **«+ Nueva tienda…»** la agrega a la lista (se guarda recién al confirmar la venta). La tienda se ve en el detalle de la venta y debajo del número en la lista.
+- **Vendedor**: elegí un **usuario del sistema** de la lista (arranca en vos) o **«Otro (escribir a mano)»**, y en ese caso el nombre se escribe **en la misma casilla** (por ejemplo, alguien por comisión). Una venta escrita a mano no aparece en el filtro de vendedor ni en las métricas «propias» de nadie.
+- **Tienda / página** (opcional): si manejás más de una página desde la misma cuenta (por ejemplo Hellstore y Heavenstore), elegí de cuál salió la venta. Por defecto es la del negocio. **«+ Nueva tienda…»** abre un modal para escribir el nombre, y al guardar queda seleccionada en la misma casilla (se crea al confirmar la venta). La tienda se ve en el detalle de la venta y debajo del número en la lista.
 - **Procedencia**: de dónde vino el cliente (Local, WhatsApp, Instagram, MercadoLibre, Referido, Otro).
 - **Modalidad**: Minorista o Mayorista.
 </Paso>
 
 <Paso n={3} titulo="Ítems">
-Buscá en el catálogo por **nombre, color o IMEI/serial**: trae celulares y notebooks disponibles, productos de «Otros» y servicios activos. También podés cargar un **ítem libre** escribiendo el nombre. Cada ítem tiene cantidad y precio (editable).
+Buscá en el catálogo por **nombre, color o IMEI/serial**: trae celulares y notebooks disponibles, productos de «Otros» **con stock** (los serializados, unidad por unidad) y servicios activos. **Solo se vende lo que está en el stock** (o un servicio del catálogo): no hay ítems libres. Lo que se vende —también los regalos— **descuenta el stock**, y si borrás la venta lo podés devolver. Los ítems **no se editan** en el modal: cantidad, costo y precio salen del catálogo (el costo solo lo ve admin/técnico).
+
+**Descuento**: debajo de la lista elegí **U$** (monto fijo) o **%** y escribí el descuento. No puede cubrir todo el subtotal. Al guardar, Tekly lo **reparte entre los ítems** (precio efectivo), así el margen, la ganancia, Analíticas y el dashboard quedan correctos. En el detalle y el recibo ves el precio de lista y el descuento aparte.
+
+**Regalos**: con el buscador **«🎁 Agregar regalo: repuesto u otro producto del stock»** sumás como regalo un **repuesto** (ej. un vidrio templado) o un producto de **Otros** (funda, cargador…). Sale en la lista con la etiqueta «Regalo», **no se cobra**, **descuenta su stock** y **conserva su costo**, así la ganancia refleja lo regalado. Si **todos** los ítems son regalo, la venta queda como **«Regalo»**: total U$0 y no lleva pagos.
 - Un ítem de categoría **servicio** admite **repuestos usados** (con el selector «+ Repuesto usado…»): al confirmar, se descuenta ese stock.
 - Un celular o notebook ya agregado no vuelve a aparecer en el buscador.
-- **Costo** (admin y técnico): cada ítem muestra su costo unitario, precargado desde el stock (celulares, notebooks, «Otros»). Lo podés corregir; vacío = sin dato. Un **servicio** o un **ítem libre** arranca sin costo: cargalo a mano si lo sabés. En un servicio, los **repuestos usados** se suman solos al costo («Costo con repuestos»).
-- Debajo del total, **Costo · Ganancia · Margen** se calculan en vivo mientras cargás. Los ítems sin costo no entran en la cuenta (se avisa cuántos son), así no inflan la ganancia como si costaran 0.
+- **Costo** (admin y técnico): cada ítem muestra su costo unitario, que sale del stock (celulares, notebooks, «Otros»). Un **servicio** puede quedar sin costo; los ítems sin costo no entran en la ganancia (se avisa cuántos son), así no inflan el margen.
+- Debajo del total, **Costo · Ganancia · Margen** se calculan en vivo con el descuento y los regalos ya aplicados.
 </Paso>
 
 <Paso n={4} titulo="Pago">
 Cada pago elige **medio** y **caja**. Si la caja es en pesos, escribís los **pesos cobrados** y Tekly muestra el equivalente en dólares a la cotización vigente. Ver [Pago dividido y cuenta corriente](/ayuda/ventas/pago-dividido).
+
+**Cada forma de cobro es una caja**: «transferencia en pesos», «transferencia en dólares», «USDT»… El selector muestra todos los medios; los que todavía no tienen caja salen **«(sin caja)»** y deshabilitados, con un aviso que lleva a **Cajas** para crearla con su medio y su moneda. Así siempre queda registrado adónde fue la plata.
 </Paso>
 
 <Aviso titulo="El botón no confirma: ¿por qué?" tono="warning">
-El footer te dice el motivo exacto, en este orden: «Elegí un cliente», «Agregá al menos un ítem», «Hay un ítem sin nombre», «Hay un ítem sin precio», «Faltan U$ … por cobrar», «Sobran U$ …», «Falta cargar el equipo del canje», «Completá el monto de cada pago».
+El footer te dice el motivo exacto, en este orden: «Elegí un cliente», «Agregá al menos un ítem», «Hay un ítem sin nombre», «Hay un ítem sin precio», «Un regalo no lleva pagos», «El descuento no puede cubrir todo el subtotal», «Faltan U$ … por cobrar», «Sobran U$ …», «Falta cargar el equipo del canje», «Completá el monto de cada pago».
 </Aviso>
 
 ## Qué pasa después
@@ -52,8 +58,9 @@ Al confirmar, Tekly:
 - No se eligen **celulares o notebooks no disponibles**: sólo aparece en el buscador lo que está en stock/disponible.
 - No podés dejar la venta con un monto que no cierre: o cubre el total exacto o el sistema te frena.
 - No se puede **editar** después. Si te equivocaste, hay que eliminarla (admin) y recargarla.
-- Un vendedor/técnico no puede asignar la venta a otra persona.
-- Si no hay ninguna caja activa para un medio, ese medio no aparece en el pago (salvo «Cuenta corriente»).
+- Los ítems no se editan en el modal: el descuento es sobre el total de la venta, no por ítem.
+- El descuento no puede dejar el total en 0, y no hay recargo sobre el total (los recargos van por medio de pago).
+- Un medio sin caja activa aparece «(sin caja)» y no se puede elegir (salvo «Cuenta corriente» y «Mercadería»): creá la caja en Cajas.
 
 <Captura alt="Modal «Nueva venta» con los bloques Cliente, Datos de la venta, Ítems y Pago." />
 

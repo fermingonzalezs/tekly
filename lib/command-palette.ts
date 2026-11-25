@@ -78,8 +78,10 @@ export const QUICK_ACTIONS: QuickAction[] = [
   },
 ];
 
-export function quickActionsForRole(rol: Rol): QuickAction[] {
-  return QUICK_ACTIONS.filter((a) => !a.roles || a.roles.includes(rol));
+export function quickActionsForRole(roles: readonly Rol[]): QuickAction[] {
+  return QUICK_ACTIONS.filter(
+    (a) => !a.roles || roles.some((r) => a.roles!.includes(r)),
+  );
 }
 
 /** Minúsculas + sin tildes, para que "reparacion" (como se tipea en un

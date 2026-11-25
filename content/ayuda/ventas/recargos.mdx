@@ -1,32 +1,38 @@
 ---
-titulo: "Recargos por medio de pago"
-resumen: "Cómo configurar un porcentaje extra por tarjeta u otro medio, y dónde se ve al cobrar."
+titulo: "Recargo por caja (comisión)"
+resumen: "Cómo configurar un porcentaje extra en cada caja (tarjeta, transferencia) y dónde se ve al cobrar."
 seccion: ventas
-roles: [admin]
+roles: [admin, tecnico]
 orden: 5
-actualizado: 2026-10-17
+actualizado: 2026-11-25
 ---
 
-Si tu local cobra un recargo por pagar con tarjeta (o cualquier otro medio), Tekly lo aplica solo.
+Si tu local cobra un recargo por pagar con tarjeta (o cualquier otra forma de cobro), Tekly lo aplica solo. El recargo se configura **en cada caja**, así dos cajas del mismo medio pueden tener comisiones distintas (Visa 10 %, Naranja 15 %, Mercado Pago…).
 
-<Paso n={1} titulo="Configurá el % por medio">
-En **Configuración → Preferencias** hay un recargo opcional por cada medio (pesos, dólares, transferencia, cripto, tarjeta, mercadería y cuenta corriente). Dejalo vacío para no cobrar recargo.
+<Paso n={1} titulo="Configurá el % en la caja">
+En **Cajas → Cajas → Editar** (o al crear una), cargá **«Recargo %»**: el porcentaje que se suma a lo que se cobra en esa caja. Vacío o 0 = sin recargo. La columna **Recargo** de la tabla te muestra cuáles lo tienen.
 </Paso>
 
 <Paso n={2} titulo="Se aplica en cada venta">
-Al elegir ese medio en «Nueva venta», el recargo infla lo que **se cobra de verdad** (y lo que entra a la caja). En el detalle de la venta aparece «+ N % recargo».
+Al elegir la **caja** en «Nueva venta», el recargo infla lo que **se cobra de verdad** (y lo que entra a la caja). Cambiar de caja cambia el %. En el detalle de la venta aparece «+ N % recargo».
 </Paso>
 
 <Aviso titulo="El total de la venta no cambia" tono="info">
-El recargo es lo que el medio hace pagar **de más** por arriba del total. La venta sigue valiendo lo mismo; el recargo no afecta el cálculo de margen.
+El recargo es lo que la forma de cobro hace pagar **de más** por arriba del total. La venta sigue valiendo lo mismo; el recargo no afecta el cálculo de margen. Los pagos ya guardados conservan el % que tenían al confirmarse.
 </Aviso>
+
+## Cuenta corriente
+
+**Cuenta corriente no es una caja**: su recargo se configura en **Configuración → Cuenta y negocio → Recargo de cuenta corriente**.
 
 ## Qué no se puede
 
-- El recargo **no** cambia el total de la venta ni la conciliación: sólo lo que se cobra/mueve por ese medio.
-- Configurarlo es **solo del admin** (vive en Configuración).
+- El recargo **no** cambia el total de la venta ni la conciliación: sólo lo que se cobra/mueve por esa caja.
+- «Mercadería» (canje) no lleva recargo.
+- Un pago guardado no se recalcula si después cambiás el % de la caja.
 
 ## Relacionados
 
+- [Crear y editar cajas](/ayuda/cajas/administrar-cajas)
 - [Datos del negocio y preferencias](/ayuda/configuracion/datos-del-negocio)
 - [Módulo Ventas](/ayuda/ventas/guia)

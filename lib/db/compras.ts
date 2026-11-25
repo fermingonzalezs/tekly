@@ -13,6 +13,7 @@ import {
   resolveProveedorId,
   type IngresoCompra,
 } from "@/lib/db/inventario";
+import type { CelularInput } from "@/lib/db/inventario";
 import { createNotebook, deleteNotebook, listSeriesExistentes } from "@/lib/db/notebooks";
 import {
   costoFinalUnitario,
@@ -57,17 +58,29 @@ type CompraRow = {
   sube_stock: boolean;
   costos_adicionales_usd: number;
   notas: string | null;
+  canje_modelo: string | null;
+  canje_color: string | null;
+  canje_condicion: string | null;
+  canje_bateria: number | null;
+  canje_testeado: boolean;
+  /** Celulares que entraron al stock con esta compra (`compra_id`). */
+  celulares: { id: string }[] | null;
 };
 
 const COMPRA_COLS =
-  "id, numero, fecha, origen, proveedor_nombre, cliente_id, cliente_nombre, venta:ventas(numero, pagos), items, total_usd, medio_pago, caja_id, estado, monto_ars, cotizacion, marca, imei, checklist, aclaraciones, sube_stock, costos_adicionales_usd, notas";
+  "id, numero, fecha, origen, proveedor_nombre, cliente_id, cliente_nombre, venta:ventas(numero, pagos), items, total_usd, medio_pago, caja_id, estado, monto_ars, cotizacion, marca, imei, checklist, aclaraciones, sube_stock, costos_adicionales_usd, notas, canje_modelo, canje_color, canje_condicion, canje_bateria, canje_testeado, celulares(id)";
 
 function toCompra(row: CompraRow): Compra {
   const venta = Array.isArray(row.venta) ? row.venta[0] : row.venta;
   const compraId = `C-${row.numero}`;
-  const celularId = (venta?.pagos ?? []).find(
-    (p) => p.medio === "canje" && p.compraId === compraId,
-  )?.celularId;
+  // Canje: el celular que pasó al stock desde Compras (`compra_id`) o, en
+  // canjes viejos (plan 020), el que se dio de alta con la venta.
+  const celularId =
+    row.origen === "canje"
+      ? (row.celulares?.[0]?.id ??
+        (venta?.pagos ?? []).find((p) => p.medio === "canje" && p.compraId === compraId)
+          ?.celularId)
+      : undefined;
   return {
     id: `C-${row.numero}`,
     fecha: new Date(row.fecha).toLocaleDateString("es-AR", { day: "2-digit", month: "short" }),
@@ -92,6 +105,11 @@ function toCompra(row: CompraRow): Compra {
     subeStock: row.sube_stock,
     costosAdicionalesUsd: Number(row.costos_adicionales_usd ?? 0),
     notas: row.notas ?? undefined,
+    canjeModelo: row.canje_modelo ?? undefined,
+    canjeColor: row.canje_color ?? undefined,
+    canjeCondicion: row.canje_condicion ?? undefined,
+    canjeBateria: row.canje_bateria ?? undefined,
+    canjeTesteado: row.canje_testeado,
   };
 }
 
@@ -134,6 +152,14 @@ export async function createCompra(data: {
   aclaraciones?: string;
   /** Solo canje: el celular recibido, para dejarle `compra_id`. */
   celularId?: string;
+  /** Solo canje: datos del equipo recibido (no entra al stock al vender). */
+  canje?: {
+    modelo: string;
+    color: string;
+    condicion: string;
+    bateria?: number;
+    testeado: boolean;
+  };
   /** Plan 025: ítems que suben al stock. Con esto, `items`/`totalUsd` se
    * recalculan en el server (nunca se confía en los del cliente), la compra
    * nace `recibida` y se crean las unidades. */
@@ -195,6 +221,11 @@ export async function createCompra(data: {
       sube_stock: subeStock,
       costos_adicionales_usd: subeStock ? adicional : 0,
       notas: data.notas?.trim() || null,
+      canje_modelo: origen === "canje" ? data.canje?.modelo ?? null : null,
+      canje_color: origen === "canje" ? data.canje?.color ?? null : null,
+      canje_condicion: origen === "canje" ? data.canje?.condicion ?? null : null,
+      canje_bateria: origen === "canje" ? data.canje?.bateria ?? null : null,
+      canje_testeado: origen === "canje" ? !!data.canje?.testeado : false,
     })
     .select(COMPRA_COLS)
     .single();
@@ -350,6 +381,59 @@ async function ingresarItems(
     const { error } = await supabase.from("compra_items").insert(fila);
     if (error) throw error;
   }
+}
+
+/**
+ * «Pasar al stock» un celular recibido en canje: lo crea en el inventario
+ * con la variante que se elige recién ahora, vinculado a su compra de canje
+ * (`compra_id`, `movimientos_stock` y una fila en `compra_items`, así aparece
+ * en Ingresos y «Eliminar compra» lo puede sacar). El costo es siempre el de
+ * la compra (lo que se le reconoció al cliente), nunca el que manda el form.
+ */
+export async function pasarCanjeAlStock(
+  id: string,
+  celular: CelularInput,
+  usuarioNombre: string,
+): Promise<{ celularId: string }> {
+  const supabase = createServerClient();
+  const numero = Number(id.replace(/^C-/, ""));
+  const { data: compra, error } = await supabase
+    .from("compras")
+    .select("id, numero, origen, total_usd, celulares(id)")
+    .eq("numero", numero)
+    .single();
+  if (error) throw error;
+  if (compra.origen !== "canje") throw new Error("Solo se pasan al stock los equipos de canje.");
+  if ((compra.celulares ?? []).length > 0) throw new Error("Este equipo ya está en el stock.");
+  if (!celular.varianteId) throw new Error("Elegí la variante del equipo.");
+
+  const ref = { compraId: compra.id as string, numero: compra.numero as number };
+  let creado;
+  try {
+    creado = await createCelular({ ...celular, costoUsd: Number(compra.total_usd) }, ref);
+  } catch (err) {
+    if ((err as { code?: string }).code === "23505") {
+      throw new Error(`Ya hay un celular con el IMEI ${celular.imei} en el inventario.`);
+    }
+    throw err;
+  }
+  const { error: itemError } = await supabase.from("compra_items").insert({
+    compra_id: compra.id,
+    tipo: "celular",
+    detalle: creado.modelo,
+    cantidad: 1,
+    costo_usd: Number(compra.total_usd),
+    costo_adicional_usd: 0,
+    serie: creado.imei || null,
+    usuario_nombre: usuarioNombre,
+    celular_id: creado.id,
+    variante_id: creado.varianteId || null,
+  });
+  if (itemError) {
+    await deleteCelular(creado.id); // sin transacción: se deshace el alta
+    throw itemError;
+  }
+  return { celularId: creado.id };
 }
 
 export type DeleteCompraOpciones = {

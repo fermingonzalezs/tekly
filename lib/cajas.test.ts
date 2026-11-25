@@ -4,6 +4,7 @@ import {
   diferenciaPorCaja,
   diferenciaPorConciliacion,
   enArs,
+  errorRecargo,
   ingresosEgresosPorDia,
   netoMovimientos,
   resumenConciliaciones,
@@ -22,6 +23,7 @@ const cajaArs = (id: string, nombre = id): Caja => ({
   descripcion: "",
   creadaEl: "sep 2024",
   medioPago: "pesos",
+  recargoPct: 0,
 });
 const cajaUsd = (id: string, nombre = id): Caja => ({
   id,
@@ -31,6 +33,7 @@ const cajaUsd = (id: string, nombre = id): Caja => ({
   descripcion: "",
   creadaEl: "sep 2024",
   medioPago: "dolares",
+  recargoPct: 0,
 });
 
 const mov = (
@@ -217,5 +220,32 @@ describe("diferenciaPorCaja", () => {
     const filas = diferenciaPorCaja(concs, cajas);
     expect(filas).toHaveLength(1);
     expect(filas[0]).toMatchObject({ cajaId: "a", moneda: "ars", diff: 0, conciliaciones: 2 });
+  });
+});
+
+import { medioDeCaja, tipoDeMedioCaja } from "./cajas";
+
+describe("medio de una caja (Efectivo + moneda)", () => {
+  it("efectivo se guarda como pesos o dolares según la moneda", () => {
+    expect(medioDeCaja("efectivo", "ars")).toBe("pesos");
+    expect(medioDeCaja("efectivo", "usd")).toBe("dolares");
+    expect(medioDeCaja("transferencia", "usd")).toBe("transferencia");
+    expect(medioDeCaja("otro", "ars")).toBe("otro");
+  });
+  it("y vuelve al tipo del formulario", () => {
+    expect(tipoDeMedioCaja("pesos")).toBe("efectivo");
+    expect(tipoDeMedioCaja("dolares")).toBe("efectivo");
+    expect(tipoDeMedioCaja("cripto")).toBe("cripto");
+  });
+});
+
+describe("errorRecargo", () => {
+  it("acepta 0–100 y rechaza fuera de rango o NaN", () => {
+    expect(errorRecargo(0)).toBeNull();
+    expect(errorRecargo(10.5)).toBeNull();
+    expect(errorRecargo(100)).toBeNull();
+    expect(errorRecargo(-1)).not.toBeNull();
+    expect(errorRecargo(101)).not.toBeNull();
+    expect(errorRecargo(Number.NaN)).not.toBeNull();
   });
 });

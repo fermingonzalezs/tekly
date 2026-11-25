@@ -27,6 +27,7 @@ import {
   rangoDe,
   type SearchParamsInput,
 } from "@/lib/ventas-filtros";
+import { tieneRol } from "@/lib/roles";
 import { VentasClient } from "./ventas-client";
 
 export default async function VentasPage(
@@ -36,7 +37,7 @@ export default async function VentasPage(
 ) {
   const searchParams = await props.searchParams;
   const user = await requireUser();
-  const puedeVerCosto = user.rol !== "vendedor";
+  const puedeVerCosto = tieneRol(user, "admin", "tecnico");
   const filtros = parseFiltrosVentas(searchParams, { puedeVerCosto });
   const rango = rangoDe(filtros);
   const rangoAnterior = periodoAnterior(filtros.preset, rango);

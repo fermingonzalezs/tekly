@@ -217,6 +217,61 @@ describe("motivoNoConfirmable", () => {
     ).toBe("Falta cargar el equipo del canje");
   });
 
+  it("una venta de regalo no se cobra y no lleva pagos", () => {
+    expect(
+      motivoNoConfirmable({
+        ...base,
+        regalo: true,
+        items: [{ detalle: "Funda", precioUsd: 0 }],
+        pagos: [],
+        totalPrecio: 0,
+      }),
+    ).toBeNull();
+    expect(
+      motivoNoConfirmable({
+        ...base,
+        regalo: true,
+        items: [{ detalle: "Funda", precioUsd: 0 }],
+      }),
+    ).toBe("Un regalo no lleva pagos");
+  });
+
+  it("valida el descuento contra el subtotal", () => {
+    expect(
+      motivoNoConfirmable({ ...base, subtotalUsd: 500, ajusteUsd: 10 }),
+    ).toBeNull();
+    expect(
+      motivoNoConfirmable({ ...base, subtotalUsd: 500, ajusteUsd: 500 }),
+    ).toBe("El descuento no puede cubrir todo el subtotal");
+    expect(
+      motivoNoConfirmable({ ...base, subtotalUsd: 500, ajusteUsd: -10 }),
+    ).toBe("El descuento no puede ser negativo");
+  });
+
+  it("los regalos van en 0; una venta toda de regalo no lleva pagos", () => {
+    expect(
+      motivoNoConfirmable({
+        ...base,
+        items: [...base.items, { detalle: "Funda", precioUsd: 0, regalo: true }],
+      }),
+    ).toBeNull();
+    expect(
+      motivoNoConfirmable({
+        ...base,
+        items: [{ detalle: "Funda", precioUsd: 0, regalo: true }],
+        pagos: [],
+        totalPrecio: 0,
+      }),
+    ).toBeNull(); // toda de regalo: no se cobra, sin pagos
+    expect(
+      motivoNoConfirmable({
+        ...base,
+        items: [{ detalle: "Funda", precioUsd: 0, regalo: true }],
+        pagos: [{ montoUsd: 10, medio: "pesos" }],
+      }),
+    ).toBe("Un regalo no lleva pagos");
+  });
+
   it("no deja ningún pago con monto 0 aunque la suma cierre", () => {
     expect(
       motivoNoConfirmable({

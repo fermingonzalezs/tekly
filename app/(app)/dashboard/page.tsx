@@ -19,6 +19,7 @@ import {
 import { DashboardAdmin } from "./dashboard-admin";
 import { DashboardEmpleado } from "./dashboard-empleado";
 import { Bienvenida } from "@/components/dashboard/bienvenida";
+import { tieneRol } from "@/lib/roles";
 import type { DashPeriodo } from "@/lib/mock-data";
 
 /** La ramificación por rol vive acá, en el server, a propósito (regla de
@@ -39,7 +40,7 @@ export default async function DashboardPage({
     getNegocio(),
   ]);
 
-  if (user.rol === "admin" && ventas.length === 0) {
+  if (tieneRol(user, "admin") && ventas.length === 0) {
     const pasos = combinarPasosOnboarding(
       negocio.onboardingPasos,
       await pasosOnboardingDesdeDatos(negocio),
@@ -51,45 +52,51 @@ export default async function DashboardPage({
 
   const hoy = new Date();
 
-  if (user.rol !== "admin") {
-    const rol = user.rol; // "vendedor" | "tecnico"
+  if (!tieneRol(user, "admin")) {
+    // Empleado: puede ser vendedor, técnico o ambos (plan 029). Las métricas
+    // y los bloques son la unión; nada de ganancia/margen viaja al cliente.
+    const roles = user.roles.filter(
+      (r): r is "vendedor" | "tecnico" => r !== "admin",
+    );
+    const esVendedor = roles.includes("vendedor");
+    const esTecnico = roles.includes("tecnico");
+
     const metrics = metricasEmpleado({
       ventas,
       tickets,
       turnos,
       userId: user.id,
-      rol,
+      roles,
       hoy,
     });
 
-    if (rol === "tecnico") {
-      return (
-        <DashboardEmpleado
-          rol={rol}
-          metrics={metrics}
-          misTickets={ticketsDeTecnico(tickets, user.id)}
-          turnos={turnos}
-        />
-      );
-    }
+    const misTickets = esTecnico ? ticketsDeTecnico(tickets, user.id) : undefined;
 
     // Vendedor: solo SUS ventas -- nada de ganancia/margen viaja al cliente.
-    const misVentas = ventas.filter((v) => v.vendedorId === user.id);
-    const trendCompleto = ventaGananciaPorPeriodo(misVentas, hoy);
-    const trendSinGanancia = Object.fromEntries(
-      Object.entries(trendCompleto).map(([p, t]) => [
-        p,
-        { venta: t.venta, fechas: t.fechas },
-      ]),
-    ) as Record<DashPeriodo, { venta: number[]; fechas: string[] }>;
+    let trendByPeriodo: Record<DashPeriodo, { venta: number[]; fechas: string[] }> | undefined;
+    let rubroMix: Record<DashPeriodo, { label: string; value: number }[]> | undefined;
+    let recentSales: ReturnType<typeof ventasRecientes> | undefined;
+    if (esVendedor) {
+      const misVentas = ventas.filter((v) => v.vendedorId === user.id);
+      const trendCompleto = ventaGananciaPorPeriodo(misVentas, hoy);
+      trendByPeriodo = Object.fromEntries(
+        Object.entries(trendCompleto).map(([p, t]) => [
+          p,
+          { venta: t.venta, fechas: t.fechas },
+        ]),
+      ) as Record<DashPeriodo, { venta: number[]; fechas: string[] }>;
+      rubroMix = ventasPorRubro(misVentas, hoy);
+      recentSales = ventasRecientes(misVentas, 6, hoy);
+    }
 
     return (
       <DashboardEmpleado
-        rol={rol}
+        roles={roles}
         metrics={metrics}
-        trendByPeriodo={trendSinGanancia}
-        rubroMix={ventasPorRubro(misVentas, hoy)}
-        recentSales={ventasRecientes(misVentas, 6, hoy)}
+        trendByPeriodo={trendByPeriodo}
+        rubroMix={rubroMix}
+        recentSales={recentSales}
+        misTickets={misTickets}
         turnos={turnos}
       />
     );

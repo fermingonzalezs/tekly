@@ -1,14 +1,30 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { fmtDayMonth } from "@/lib/format";
-import { addMovimiento, createCelular, deleteCelular } from "@/lib/db/inventario";
+import { addMovimiento, deleteCelular, moverStockOtro } from "@/lib/db/inventario";
 import { createMovimientoCC } from "@/lib/db/cuentas-corrientes";
 import { createCompra } from "@/lib/db/compras";
-import { montoConRecargo, resumenDeVentas, graficosDeVentas, pagoGeneraMovimientoCaja, celularCanjeBorrable, type ResumenVentas, type Rubro, type GraficosVentas } from "@/lib/ventas";
+import { conRecargoDeCaja } from "@/lib/db/cajas";
+import { bateriaCanje, erroresCanje } from "@/lib/canje";
+import {
+  celularCanjeBorrable,
+  errorAjuste,
+  errorItemsVenta,
+  esVentaRegalo,
+  preciosDeVenta,
+  graficosDeVentas,
+  margenVenta,
+  montoConRecargo,
+  pagoGeneraMovimientoCaja,
+  resumenDeVentas,
+  type GraficosVentas,
+  type ResumenVentas,
+  type Rubro,
+} from "@/lib/ventas";
 import { rangoDe, type FiltrosVentas } from "@/lib/ventas-filtros";
 import { sumarDias, type Rango } from "@/lib/date-presets";
 import { PAGE_SIZE } from "@/lib/pagination";
-import type { CanjeEquipo, Celular, CelularStatus, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
+import type { CanjeEquipo, CelularStatus, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
 
 /** Cantidad de ventas por procedencia (canal) -- usado por
  * `FuenteClientes` en Clientes. */
@@ -40,9 +56,13 @@ type VentaItemRow = {
   detalle: string;
   cantidad: number;
   precio_usd: number;
+  precio_lista_usd: number | null;
+  regalo: boolean;
   costo_usd: number | null;
   celular_id: string | null;
   notebook_id: string | null;
+  otro_id: string | null;
+  otro_serial: string | null;
   categoria: VentaItem["categoria"] | null;
   venta_item_repuestos: VentaItemRepuestoRow[] | null;
 };
@@ -62,22 +82,28 @@ type VentaRow = {
   modalidad: ModalidadVenta;
   venta_items: VentaItemRow[];
   total_usd: number;
+  ajuste_usd: number;
+  regalo: boolean;
   pagos: Pago[];
   margen_pct: number | null;
   tipo: "venta" | "reparacion";
 };
 
 const VENTA_COLS =
-  "id, numero, fecha, cliente_id, cliente, vendedor_id, vendedor_nombre, profiles(nombre), tienda_id, tiendas(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, costo_usd, celular_id, notebook_id, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, pagos, margen_pct, tipo";
+  "id, numero, fecha, cliente_id, cliente, vendedor_id, vendedor_nombre, profiles(nombre), tienda_id, tiendas(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, precio_lista_usd, regalo, costo_usd, celular_id, notebook_id, otro_id, otro_serial, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, ajuste_usd, regalo, pagos, margen_pct, tipo";
 
 function toVentaItem(row: VentaItemRow): VentaItem {
   return {
     detalle: row.detalle,
     cantidad: row.cantidad,
     precioUsd: row.precio_usd,
+    precioListaUsd: row.precio_lista_usd ?? undefined,
+    regalo: row.regalo || undefined,
     costoUsd: row.costo_usd ?? undefined,
     celularId: row.celular_id ?? undefined,
     notebookId: row.notebook_id ?? undefined,
+    otroId: row.otro_id ?? undefined,
+    otroSerial: row.otro_serial ?? undefined,
     categoria: row.categoria ?? undefined,
     repuestos: (row.venta_item_repuestos ?? []).map((r) => ({
       repuestoId: r.repuesto_id,
@@ -107,6 +133,8 @@ function toVenta(
     modalidad: row.modalidad,
     items: (row.venta_items ?? []).map(toVentaItem),
     totalUsd: row.total_usd,
+    ajusteUsd: row.ajuste_usd !== 0 ? row.ajuste_usd : undefined,
+    regalo: row.regalo || undefined,
     pagos: row.pagos ?? [],
     margenPct: row.margen_pct ?? 0,
     tipo: row.tipo,
@@ -474,9 +502,13 @@ type ItemRow = {
   detalle: string;
   cantidad: number;
   precio_usd: number;
+  precio_lista_usd: number | null;
+  regalo: boolean;
   costo_usd: number | null;
   celular_id: string | null;
   notebook_id: string | null;
+  otro_id: string | null;
+  otro_serial: string | null;
   categoria: VentaItem["categoria"] | null;
   celulares: { imei: string } | null;
   notebooks: { numero_serie: string | null } | null;
@@ -484,7 +516,7 @@ type ItemRow = {
 };
 
 const ITEM_COLS =
-  "detalle, cantidad, precio_usd, costo_usd, celular_id, notebook_id, categoria, celulares(imei), notebooks(numero_serie), ventas!inner(id, fecha, numero, total_usd, margen_pct)";
+  "detalle, cantidad, precio_usd, precio_lista_usd, regalo, costo_usd, celular_id, notebook_id, otro_id, otro_serial, categoria, celulares(imei), notebooks(numero_serie), ventas!inner(id, fecha, numero, total_usd, ajuste_usd, regalo, margen_pct)";
 
 /** Una página de ítems vendidos (vista "Ítems vendidos"), con las mismas
  * reglas de filtro/orden que la tabla de ventas. Cada fila trae su `Venta`
@@ -519,12 +551,16 @@ export async function listItemsVendidosPagina(
         detalle: r.detalle,
         cantidad: r.cantidad,
         precioUsd: r.precio_usd,
+        precioListaUsd: r.precio_lista_usd ?? undefined,
+        regalo: r.regalo || undefined,
         costoUsd: r.costo_usd ?? undefined,
         celularId: r.celular_id ?? undefined,
         notebookId: r.notebook_id ?? undefined,
+        otroId: r.otro_id ?? undefined,
+        otroSerial: r.otro_serial ?? undefined,
         categoria: r.categoria ?? undefined,
       },
-      serial: r.celulares?.imei ?? r.notebooks?.numero_serie ?? undefined,
+      serial: r.celulares?.imei ?? r.notebooks?.numero_serie ?? r.otro_serial ?? undefined,
     });
   }
   return { items, total: count ?? 0 };
@@ -570,13 +606,19 @@ export type CreateVentaInput = {
   tiendaId?: string | null;
   procedencia?: string;
   modalidad: ModalidadVenta;
+  /** Ítems con **precio de lista** + `regalo`; el descuento se prorratea acá. */
   items: VentaItem[];
-  totalUsd: number;
+  /** Diferencia total pedida, firmada (U$): >0 descuenta, <0 recarga. */
+  ajusteUsd?: number;
+  /** La venta entera es un regalo (total 0, sin pagos). */
+  regalo?: boolean;
+  /** Ignorados: el server recalcula total y margen desde los ítems. */
+  totalUsd?: number;
   /** `canje` (solo en pagos con `medio === "canje"`) viaja acá para crear
    * la `Compra` vinculada -- nunca se persiste en `Venta.pagos`, ver
    * `createVenta`. */
   pagos: (Pago & { canje?: CanjeEquipo })[];
-  margenPct: number;
+  margenPct?: number;
   tipo: "venta" | "reparacion";
   /** Cotización blue vigente al momento de la venta -- para convertir a
    * pesos el monto de los pagos que van a una caja ARS (mismo criterio que
@@ -603,11 +645,52 @@ export type CreateVentaInput = {
  * -- hoy no vale la complejidad para esta escala. */
 export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   const supabase = createServerClient();
-  // El equipo recibido en canje entra al inventario, así que necesita su
-  // variante (plan 024): se valida antes de escribir nada.
-  if (data.pagos.some((p) => p.medio === "canje" && !p.canje?.varianteId)) {
-    throw new Error("El equipo del canje necesita una variante.");
+  // El equipo recibido en canje se valida acá (nunca se confía en el
+  // modal): modelo, IMEI, color, condición, batería y precio de compra.
+  for (const p of data.pagos) {
+    if (p.medio !== "canje") continue;
+    const errores = erroresCanje(p.canje, p.montoUsd);
+    if (errores.length > 0) throw new Error(errores.join(" "));
   }
+  // Plan 026 (revisado): el total, los precios efectivos (diferencia
+  // prorrateada o regalo) y el margen se recalculan acá; lo que mande el
+  // cliente se ignora.
+  // Solo stock o servicios del catálogo; regalos de «Otros» (errorItemsVenta).
+  const errorItems = errorItemsVenta(data.items, data.ajusteUsd ?? 0);
+  if (errorItems) throw new Error(errorItems);
+  // «Regalo»: todos los ítems son regalo (o la marca vieja de venta entera).
+  const esRegalo = !!data.regalo || esVentaRegalo(data.items);
+  if (esRegalo && data.pagos.some((p) => p.montoUsd > 0)) {
+    throw new Error("Un regalo no lleva pagos.");
+  }
+  // Sin pagos: ni movimientos de caja en 0 ni cargos en cuenta corriente.
+  if (esRegalo) data = { ...data, pagos: [] };
+  let itemsConPrecio: VentaItem[];
+  let totalUsd: number;
+  let ajusteUsd = 0;
+  if (esRegalo) {
+    itemsConPrecio = data.items.map((item) => ({
+      ...item,
+      regalo: true,
+      precioUsd: 0,
+      precioListaUsd: undefined,
+    }));
+    totalUsd = 0;
+  } else {
+    // Regalos por ítem (precio 0, conservan el costo) + descuento ≥ 0
+    // prorrateado en el resto. Nunca se confía en los precios del cliente
+    // para los regalos ni en el total.
+    const subtotalUsd = data.items
+      .filter((i) => !i.regalo)
+      .reduce((a, i) => a + Math.max(0, i.precioUsd) * i.cantidad, 0);
+    const errorAjusteMsg = errorAjuste(subtotalUsd, data.ajusteUsd ?? 0);
+    if (errorAjusteMsg) throw new Error(errorAjusteMsg);
+    const r = preciosDeVenta(data.items, data.ajusteUsd ?? 0);
+    itemsConPrecio = r.items;
+    totalUsd = r.totalUsd;
+    ajusteUsd = r.ajusteUsd;
+  }
+  const margenPct = Math.round((margenVenta(itemsConPrecio).margenPct ?? 0) * 10) / 10;
   // `canje` nunca se persiste en `Venta.pagos` -- solo viaja para crear la
   // `Compra` vinculada más abajo, que es donde vive el detalle completo.
   // Los pagos a una caja ARS llevan además el snapshot de cotización
@@ -615,7 +698,10 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   // movimiento de caja, calculado acá para que la UI nunca tenga que
   // recalcularlo con el blue de hoy (ver `montoPagoLabel` en lib/ventas.ts).
   let avisoCanje: string | undefined;
-  const pagosSinCanje: Pago[] = data.pagos.map(({ canje, ...p }) => {
+  // Recargo: sale de la caja elegida (o de la organización para cuenta
+  // corriente), nunca del cliente. Queda como snapshot en cada pago.
+  const pagos = await conRecargoDeCaja(data.pagos);
+  const pagosSinCanje: Pago[] = pagos.map(({ canje, ...p }) => {
     // El canje no es una caja: no lleva `cajaId` ni snapshot en pesos
     // (siempre se carga en USD). Plan 020.
     if (p.medio === "canje") {
@@ -641,9 +727,11 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       tienda_id: data.tiendaId ?? null,
       procedencia: data.procedencia ?? null,
       modalidad: data.modalidad,
-      total_usd: data.totalUsd,
+      total_usd: totalUsd,
+      ajuste_usd: ajusteUsd,
+      regalo: esRegalo,
       pagos: pagosSinCanje,
-      margen_pct: data.margenPct,
+      margen_pct: margenPct,
       tipo: data.tipo,
     })
     .select("id, numero")
@@ -658,14 +746,18 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     const { data: itemRows, error: itemsError } = await supabase
       .from("venta_items")
       .insert(
-        data.items.map((item) => ({
+        itemsConPrecio.map((item) => ({
           venta_id: ventaRow.id,
           detalle: item.detalle,
           cantidad: item.cantidad,
           precio_usd: item.precioUsd,
+          precio_lista_usd: item.precioListaUsd ?? null,
+          regalo: !!item.regalo,
           costo_usd: item.costoUsd ?? null,
           celular_id: item.celularId ?? null,
           notebook_id: item.notebookId ?? null,
+          otro_id: item.otroId ?? null,
+          otro_serial: item.otroSerial ?? null,
           categoria: item.categoria ?? null,
         })),
       )
@@ -692,6 +784,19 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
         .update({ estado: "vendido" })
         .in("id", notebookIds);
       if (updError) throw updError;
+    }
+
+    // «Otros» (accesorios, AirPods…): vender o regalar descuenta su stock.
+    for (const item of data.items) {
+      if (!item.otroId) continue;
+      await moverStockOtro(
+        item.otroId,
+        { cantidad: item.cantidad, serial: item.otroSerial },
+        "egreso",
+        (item.regalo ? "Regalo en venta V-" : "Vendido en venta V-") +
+          ventaRow.numero +
+          (item.otroSerial ? " · " + item.otroSerial : ""),
+      );
     }
 
     // Repuestos usados por ítem (solo servicio) -- vincular + descontar
@@ -734,9 +839,8 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     // recibido (checklist + PDF firmable, ver "Ventas" en CLAUDE.md).
     const concepto = `Venta V-${ventaRow.numero} · ${data.cliente}`;
     const compraIdPorIndice = new Map<number, string>();
-    const celularIdPorIndice = new Map<number, string>();
-    for (let i = 0; i < data.pagos.length; i++) {
-      const pago = data.pagos[i];
+    for (let i = 0; i < pagos.length; i++) {
+      const pago = pagos[i];
       const montoReal = montoConRecargo(pago.montoUsd, pago.recargoPct);
       if (pago.medio === "cuenta_corriente") {
         if (!data.clienteId) continue;
@@ -770,73 +874,38 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       }
 
       if (pago.medio === "canje" && pago.canje) {
-        // El equipo recibido entra al inventario como celular `en_revision`
-        // (costo = valor acordado, precio 0) y la `Compra` documenta el
-        // recibo. Si el IMEI ya existe, se carga sin IMEI y se avisa
-        // (plan 020).
-        const imei = (pago.canje.imei ?? "").trim();
-        const crear = (imeiACargar: string) =>
-          createCelular({
-            varianteId: pago.canje!.varianteId ?? "",
-            modelo: pago.canje!.equipo,
-            almacenamiento: "",
-            color: pago.canje!.checklist.color ?? "",
-            imei: imeiACargar,
-            bateria: 0,
-            condicion: "",
-            costoUsd: pago.montoUsd,
-            precioUsd: 0,
-            estado: "en_revision",
-            // Entra en revisión con precio 0: no hereda el de la variante.
-            precioPropio: true,
-          });
-
-        let celular: Celular;
-        let aclaracionImei: string | undefined;
-        try {
-          celular = await crear(imei);
-        } catch (err) {
-          const code = (err as { code?: string }).code;
-          if (code === "23505" && imei) {
-            celular = await crear("");
-            aclaracionImei = `IMEI repetido: ${imei}, revisar`;
-            avisoCanje = `El IMEI ${imei} ya existía: el celular recibido se cargó sin IMEI, revisalo en Inventario.`;
-          } else {
-            throw err;
-          }
-        }
-
-        const aclaraciones = [pago.canje.aclaraciones, aclaracionImei]
-          .filter(Boolean)
-          .join("\n");
-
+        // El equipo recibido NO entra al stock: queda registrado en su
+        // compra de canje y se pasa al inventario después, desde Compras
+        // («Pasar al stock», `pasarCanjeAlStock` en lib/db/compras.ts).
+        const c = pago.canje;
         const compra = await createCompra({
           origen: "canje",
           clienteId: data.clienteId,
           clienteNombre: data.cliente,
           ventaId: ventaRow.id,
-          items: [{ detalle: celular.modelo, cantidad: 1, costoUsd: pago.montoUsd }],
+          items: [{ detalle: c.modelo.trim(), cantidad: 1, costoUsd: pago.montoUsd }],
           totalUsd: pago.montoUsd,
           medioPago: "canje",
           estado: "recibida",
-          marca: pago.canje.marca,
-          imei: pago.canje.imei,
-          checklist: pago.canje.checklist,
-          aclaraciones: aclaraciones || undefined,
-          celularId: celular.id,
+          imei: c.imei.trim(),
+          checklist: c.testeo ? c.checklist : undefined,
+          aclaraciones: c.detalles?.trim() || undefined,
+          canje: {
+            modelo: c.modelo.trim(),
+            color: c.color.trim(),
+            condicion: c.condicion,
+            bateria: bateriaCanje(c),
+            testeado: c.testeo,
+          },
           usuarioNombre: data.vendedorNombre,
         });
         compraIdPorIndice.set(i, compra.id);
-        celularIdPorIndice.set(i, celular.id);
       }
     }
 
-    if (compraIdPorIndice.size > 0 || celularIdPorIndice.size > 0) {
+    if (compraIdPorIndice.size > 0) {
       for (const [i, compraId] of compraIdPorIndice) {
         pagosSinCanje[i] = { ...pagosSinCanje[i], compraId };
-      }
-      for (const [i, celularId] of celularIdPorIndice) {
-        pagosSinCanje[i] = { ...pagosSinCanje[i], celularId };
       }
       const { error: pagosUpdateError } = await supabase
         .from("ventas")
@@ -871,10 +940,10 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     .single();
   if (selectError) throw selectError;
 
-  const tieneMovimientoCaja = data.pagos.some(
+  const tieneMovimientoCaja = pagos.some(
     (p) => pagoGeneraMovimientoCaja(p) && !!p.cajaId,
   );
-  const tieneMovimientoCC = data.pagos.some((p) => p.medio === "cuenta_corriente");
+  const tieneMovimientoCC = pagos.some((p) => p.medio === "cuenta_corriente");
   return {
     ...toVenta(row as unknown as VentaRow, tieneMovimientoCaja, tieneMovimientoCC),
     avisoCanje,
@@ -950,6 +1019,25 @@ export async function deleteVenta(
         .in("id", notebookIds);
       if (updError) throw updError;
     }
+
+    const { data: otrosItems, error: otrosError } = await supabase
+      .from("venta_items")
+      .select("otro_id, otro_serial, cantidad")
+      .eq("venta_id", ventaRow.id)
+      .not("otro_id", "is", null);
+    if (otrosError) throw otrosError;
+    for (const it of otrosItems ?? []) {
+      try {
+        await moverStockOtro(
+          it.otro_id as string,
+          { cantidad: Number(it.cantidad), serial: it.otro_serial ?? undefined },
+          "ingreso",
+          "Devuelto al borrar la venta " + id,
+        );
+      } catch {
+        // La unidad ya no existe o se editó a mano: no frena el borrado.
+      }
+    }
   }
 
   if (opts.restituirRepuestos) {
@@ -1011,19 +1099,29 @@ export async function deleteVenta(
 
   let aviso: string | null = null;
   if (opts.eliminarCompraCanje) {
-    const { error: compraError } = await supabase
+    // Celulares que salieron de un canje de esta venta: los que ya se pasaron
+    // al stock desde Compras (`compra_id` = la compra de canje) y, en canjes
+    // viejos (plan 020), el que se dio de alta junto con la venta
+    // (`Pago.celularId`). Solo se dan de baja si todavía no se movieron.
+    const { data: comprasCanje, error: comprasError } = await supabase
       .from("compras")
-      .delete()
+      .select("id")
       .eq("venta_id", ventaRow.id);
-    if (compraError) throw compraError;
-
-    // El celular recibido en canje se dio de alta junto con la venta (plan
-    // 020). Solo se da de baja si todavía no se movió; si ya se vendió,
-    // reservó o extravió, se conserva y se avisa.
-    const pagos = (ventaRow.pagos ?? []) as Pago[];
-    const celularIds = pagos
-      .filter((p) => p.medio === "canje" && p.celularId)
-      .map((p) => p.celularId as string);
+    if (comprasError) throw comprasError;
+    const compraIds = (comprasCanje ?? []).map((c) => c.id as string);
+    const celularIds = new Set(
+      ((ventaRow.pagos ?? []) as Pago[])
+        .filter((p) => p.medio === "canje" && p.celularId)
+        .map((p) => p.celularId as string),
+    );
+    if (compraIds.length > 0) {
+      const { data: ingresados, error: ingError } = await supabase
+        .from("celulares")
+        .select("id")
+        .in("compra_id", compraIds);
+      if (ingError) throw ingError;
+      for (const c of ingresados ?? []) celularIds.add(c.id as string);
+    }
     for (const celularId of celularIds) {
       const { data: celular, error: celError } = await supabase
         .from("celulares")
@@ -1039,6 +1137,12 @@ export async function deleteVenta(
           "El celular recibido en canje ya se movió: se conservó en inventario.";
       }
     }
+
+    const { error: compraError } = await supabase
+      .from("compras")
+      .delete()
+      .eq("venta_id", ventaRow.id);
+    if (compraError) throw compraError;
   }
 
   const { error } = await supabase.from("ventas").delete().eq("id", ventaRow.id);

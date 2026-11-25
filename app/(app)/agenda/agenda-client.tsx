@@ -27,6 +27,7 @@ import { defaultTurnoSlot } from "@/lib/command-palette";
 import { dotClass, turnoTipo } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import type {
+  Caja,
   Celular,
   ClienteOpcion,
   OtroItem,
@@ -38,6 +39,7 @@ import type {
   TurnoTipo,
 } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 import type { Negocio } from "@/lib/db/configuracion";
 import {
   createPedidoAction,
@@ -71,6 +73,7 @@ export function AgendaClient({
   atendientes,
   user,
   negocio,
+  cajas,
 }: {
   vista: VistaAgenda;
   fecha: string;
@@ -88,10 +91,11 @@ export function AgendaClient({
   atendientes: { id: string; nombre: string }[];
   user: SessionUser;
   negocio: Negocio;
+  cajas: Caja[];
 }) {
   const { publish } = useRealtime();
   const actor = user.nombre;
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pendiente, startTransition] = useTransition();
@@ -405,6 +409,7 @@ export function AgendaClient({
         atendientes={atendientes}
         turnosAgenda={todos}
         negocio={negocio}
+        cajas={cajas}
         onClose={() => setDialogo(null)}
         onSubmit={guardar}
       />

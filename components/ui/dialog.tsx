@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,11 @@ export function unlockScroll() {
 export function isNested(): boolean {
   return openDialogs > 0;
 }
+
+// Pila de dialogs abiertos (por id), para que Esc cierre solo el de arriba:
+// todos escuchan `keydown` en `window`, y sin esto un Esc en un dialog
+// anidado (ej. «Cliente nuevo» sobre «Nueva venta») cerraba los dos.
+const pilaDialogs: string[] = [];
 
 /** Re-estilado de campos dentro del modal: en el vidrio un `Input`/`Select`
  * blanco opaco se ve "pegado"; alto 42px, radio 14px y blanco al 70% para que
@@ -71,6 +76,10 @@ export function Dialog({
   // Se congela al abrir: si se abre un ConfirmDialog encima, el de abajo no
   // cambia su overlay.
   const [nested, setNested] = useState(false);
+  // Ref para que el efecto de Esc/pila dependa solo de `open` (si dependiera
+  // de un `onClose` inline, se rearmaría en cada render y reordenaría la pila).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
@@ -91,14 +100,21 @@ export function Dialog({
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    pilaDialogs.push(titleId);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && pilaDialogs[pilaDialogs.length - 1] === titleId) {
+        onCloseRef.current();
+      }
+    };
     window.addEventListener("keydown", onKey);
     lockScroll();
     return () => {
       window.removeEventListener("keydown", onKey);
+      const i = pilaDialogs.lastIndexOf(titleId);
+      if (i !== -1) pilaDialogs.splice(i, 1);
       unlockScroll();
     };
-  }, [open, onClose]);
+  }, [open, titleId]);
 
   if (!rendered || !mounted) return null;
 

@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient, createServiceRoleClient } from "@/lib/auth/supabase";
 import { requireRole } from "@/lib/auth";
 import type { Rol } from "@/lib/auth/types";
+import { normalizarRoles } from "@/lib/roles";
 import type { MedioPagoVenta } from "@/lib/types";
 import type { OnboardingPasoId } from "@/lib/onboarding";
 import type { PaletaId } from "@/lib/theme-presets";
@@ -14,18 +15,47 @@ export type Miembro = {
   email: string;
   /** Usuario de Instagram normalizado, o `null`. */
   instagram: string | null;
+  /** Roles (1 a 3). Los permisos se resuelven con la unión (`tieneRol`). */
+  roles: Rol[];
+  /** Rol principal derivado (`admin` > `tecnico` > `vendedor`). */
   rol: Rol;
   activo: boolean;
+  /** Todavía no aceptó la invitación (no confirmó el email en Auth). */
+  pendiente: boolean;
 };
+
+/** Ids de usuarios de Auth que todavía no confirmaron el email (invitación
+ * sin aceptar). Por service role (el admin API de Auth no existe con la
+ * sesión del usuario); los ids vienen de la consulta con RLS de la org. Si
+ * Auth falla, se asume "no pendiente" (solo se pierde el botón de reenviar). */
+async function idsPendientes(ids: string[]): Promise<Set<string>> {
+  const service = createServiceRoleClient();
+  const resultados = await Promise.all(
+    ids.map(async (id) => {
+      const { data, error } = await service.auth.admin.getUserById(id);
+      return !error && data.user && !data.user.email_confirmed_at ? id : null;
+    }),
+  );
+  return new Set(resultados.filter((id): id is string => id !== null));
+}
 
 export async function listMiembros(): Promise<Miembro[]> {
   const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, nombre, email, instagram, rol, activo")
-    .order("nombre");
+  // `*` a propósito: si `profiles.roles` todavía no existe (migración sin
+  // aplicar), se deriva de `rol` en vez de romper la consulta.
+  const { data, error } = await supabase.from("profiles").select("*").order("nombre");
   if (error) throw error;
-  return data;
+  const pendientes = await idsPendientes((data ?? []).map((row) => row.id as string));
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    nombre: row.nombre as string,
+    email: row.email as string,
+    instagram: (row.instagram as string | null) ?? null,
+    roles: normalizarRoles((row.roles as string[] | null) ?? [row.rol as string]),
+    rol: row.rol as Rol,
+    activo: row.activo as boolean,
+    pendiente: pendientes.has(row.id as string),
+  }));
 }
 
 // ─────────────────────────── Datos del negocio ───────────────────────────

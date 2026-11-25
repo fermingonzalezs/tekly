@@ -1,11 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Fragment, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useVolverAlOnboarding } from "@/components/onboarding/volver-al-onboarding";
 import type { EntidadImportacion } from "@/lib/ia-lecturas";
-import { Plus, Store, Trash2 } from "lucide-react";
+import { Mail, Plus, RotateCcw, Store, Trash2, UserX } from "lucide-react";
 import { Section } from "@/components/section";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
@@ -14,7 +14,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { fmtNum } from "@/lib/format";
 import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
-import { dotClass, rolLabel, rolTone, medioPago as medioPagoCfg, MEDIOS_VENTA } from "@/lib/status";
+import { dotClass, rolTone, medioPago as medioPagoCfg } from "@/lib/status";
 import { thDivider } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
 import { updateOwnProfileAction } from "@/app/(app)/actions";
@@ -22,9 +22,13 @@ import { instagramUrl, normalizarInstagram } from "@/lib/instagram";
 import {
   inviteMemberAction,
   setMemberInstagramAction,
-  setMemberRoleAction,
+  setMemberRolesAction,
   setMemberEmailAction,
   deactivateMemberAction,
+  reactivateMemberAction,
+  resendInviteAction,
+  deleteMemberAction,
+  getHistorialMemberAction,
   updateNegocioAction,
   uploadLogoAction,
   removeLogoAction,
@@ -32,7 +36,9 @@ import {
 import { ImportarDatos } from "./importar-datos";
 import { PALETAS } from "@/lib/theme-presets";
 import type { SessionUser, Rol } from "@/lib/auth/types";
+import { ROL_ETIQUETA, mismosRoles, normalizarRoles, tieneRol } from "@/lib/roles";
 import type { Miembro, Negocio } from "@/lib/db/configuracion";
+import { accionesMiembro, estadoMiembro, type EstadoMiembro } from "@/lib/miembros";
 import type { Variante } from "@/lib/types";
 
 type Tab = "usuarios" | "cuenta-negocio" | "preferencias" | "recibos" | "importar";
@@ -66,7 +72,7 @@ export function ConfiguracionClient({
   /** Variantes activas de celulares (Importar datos las exige por fila). */
   variantes: Variante[];
 }) {
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   const searchParams = useSearchParams();
   const tabParam = tabDeParam(searchParams.get("tab"));
   const [tab, setTab] = useState<Tab>(
@@ -122,23 +128,10 @@ export function ConfiguracionClient({
                       <p className="truncate text-xs text-neutral-500">{u.email}</p>
                       <InstagramLink usuario={u.instagram} className="text-xs" />
                     </div>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 rounded-full",
-                          u.activo ? dotClass.green : dotClass.gray,
-                        )}
-                      />
-                      {u.activo ? "Activo" : "Inactivo"}
-                    </span>
+                    <ChipEstadoMiembro miembro={u} className="shrink-0" />
                   </div>
                   <div className="mt-2.5 border-t border-neutral-100 pt-2.5">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                      <span
-                        className={cn("h-1.5 w-1.5 rounded-full", dotClass[rolTone[u.rol]])}
-                      />
-                      {rolLabel[u.rol]}
-                    </span>
+                    <ChipsRoles roles={u.roles} />
                   </div>
                 </Card>
               ))}
@@ -173,23 +166,10 @@ export function ConfiguracionClient({
                         {u.instagram ? <InstagramLink usuario={u.instagram} /> : <span className="text-neutral-500">—</span>}
                       </td>
                       <td className="px-5 py-2 text-center">
-                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                          <span
-                            className={cn("h-1.5 w-1.5 rounded-full", dotClass[rolTone[u.rol]])}
-                          />
-                          {rolLabel[u.rol]}
-                        </span>
+                        <ChipsRoles roles={u.roles} />
                       </td>
                       <td className="px-5 py-2 text-center">
-                        <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                          <span
-                            className={cn(
-                              "h-1.5 w-1.5 rounded-full",
-                              u.activo ? dotClass.green : dotClass.gray,
-                            )}
-                          />
-                          {u.activo ? "Activo" : "Inactivo"}
-                        </span>
+                        <ChipEstadoMiembro miembro={u} />
                       </td>
                     </tr>
                   ))}
@@ -233,16 +213,106 @@ export function ConfiguracionClient({
   );
 }
 
+const ESTADO_MIEMBRO: Record<EstadoMiembro, { label: string; dot: string }> = {
+  activo: { label: "Activo", dot: dotClass.green },
+  pendiente: { label: "Invitación pendiente", dot: dotClass.amber },
+  inactivo: { label: "Inactivo", dot: dotClass.gray },
+};
+
+/** Estado del usuario: chip gris con el color en el punto (patrón de tablas). */
+function ChipEstadoMiembro({ miembro, className }: { miembro: Miembro; className?: string }) {
+  const e = ESTADO_MIEMBRO[estadoMiembro(miembro)];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700",
+        className,
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", e.dot)} />
+      {e.label}
+    </span>
+  );
+}
+
+/** Un chip por rol (plan 029), con el punto de color de `lib/status.ts`. */
+function ChipsRoles({ roles }: { roles: Rol[] }) {
+  return (
+    <span className="inline-flex flex-wrap items-center justify-center gap-1">
+      {normalizarRoles(roles).map((r) => (
+        <span
+          key={r}
+          className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700"
+        >
+          <span className={cn("h-1.5 w-1.5 rounded-full", dotClass[rolTone[r]])} />
+          {ROL_ETIQUETA[r]}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Checkboxes de roles. «Admin» absorbe al resto: al tildarlo, Vendedor y
+ * Técnico quedan tildados y deshabilitados (se guarda `['admin']`). */
+function CampoRoles({
+  roles,
+  onChange,
+}: {
+  roles: Rol[];
+  onChange: (roles: Rol[]) => void;
+}) {
+  const admin = roles.includes("admin");
+
+  function alternar(rol: Rol) {
+    if (rol === "admin") {
+      // Destildar Admin vuelve a un rol de trabajo para no dejar «sin rol».
+      onChange(admin ? ["vendedor"] : ["admin"]);
+      return;
+    }
+    if (admin) return;
+    const siguiente = new Set(roles);
+    if (siguiente.has(rol)) siguiente.delete(rol);
+    else siguiente.add(rol);
+    onChange(normalizarRoles([...siguiente]));
+  }
+
+  return (
+    <div className="sm:col-span-3">
+      <p className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+        Roles
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        {ROLES.map((r) => (
+          <label key={r} className="flex items-center gap-2 text-sm text-neutral-600">
+            <input
+              type="checkbox"
+              checked={admin || roles.includes(r)}
+              disabled={admin && r !== "admin"}
+              onChange={() => alternar(r)}
+              className="h-4 w-4 rounded border-neutral-300 text-accent disabled:opacity-60"
+            />
+            {ROL_ETIQUETA[r]}
+          </label>
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-neutral-500">
+        {roles.length === 0
+          ? "Elegí al menos un rol."
+          : "Admin incluye todos los permisos; un usuario puede ser Vendedor y Técnico a la vez."}
+      </p>
+    </div>
+  );
+}
+
 function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const volverAlOnboarding = useVolverAlOnboarding();
   const [email, setEmail] = useState("");
   const [nombre, setNombre] = useState("");
-  const [instagram, setInstagram] = useState("");
-  const [rol, setRol] = useState<Rol>("vendedor");
+  // Default Vendedor: la combinación útil más común (plan 029).
+  const [roles, setRoles] = useState<Rol[]>(["vendedor"]);
   const [error, setError] = useState<string | null>(null);
   const [enviada, setEnviada] = useState(false);
-  const igInvalido = errorInstagram(instagram);
   const [pending, startTransition] = useTransition();
 
   function cerrar() {
@@ -253,15 +323,14 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
   function enviar() {
     setError(null);
     startTransition(async () => {
-      const result = await inviteMemberAction(email.trim(), nombre.trim(), rol, instagram);
+      const result = await inviteMemberAction(email.trim(), nombre.trim(), roles);
       if (result.error) {
         setError(result.error);
         return;
       }
       setEmail("");
       setNombre("");
-      setInstagram("");
-      setRol("vendedor");
+      setRoles(["vendedor"]);
       if (await volverAlOnboarding()) return;
       setEnviada(true);
       router.refresh();
@@ -285,7 +354,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
           </Button>
           <Button
             onClick={enviar}
-            disabled={pending || !email.trim() || !nombre.trim() || !!igInvalido}
+            disabled={pending || !email.trim() || !nombre.trim() || roles.length === 0}
             variant="primary" fullOnMobile
           >
             {pending ? "Invitando…" : "Invitar"}
@@ -300,16 +369,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
         <Field label="Email" className="sm:col-span-2">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
-        <Field label="Rol">
-          <Select value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {rolLabel[r]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <CampoInstagram value={instagram} onChange={setInstagram} error={igInvalido} className="sm:col-span-2" />
+        <CampoRoles roles={roles} onChange={setRoles} />
         {enviada && <p className="text-xs text-emerald-600 sm:col-span-3">Invitación enviada.</p>}
         {error && <p className="text-xs text-red-600 sm:col-span-3">{error}</p>}
       </GrillaCampos>
@@ -330,22 +390,81 @@ function EditarMiembroDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [rol, setRol] = useState<Rol>(miembro?.rol ?? "vendedor");
+  const [roles, setRoles] = useState<Rol[]>(
+    miembro ? normalizarRoles(miembro.roles) : ["vendedor"],
+  );
   const [email, setEmail] = useState(miembro?.email ?? "");
   const [instagram, setInstagram] = useState(miembro?.instagram ?? "");
   const igInvalido = errorInstagram(instagram);
   const [error, setError] = useState<string | null>(null);
-  const [confirmEliminar, setConfirmEliminar] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+  /** Baja abierta: «eliminar» (borrado real) o «desactivar» (con historial). */
+  const [confirmBaja, setConfirmBaja] = useState<"eliminar" | "desactivar" | null>(null);
   const [pending, startTransition] = useTransition();
-  const [pendingEliminar, startEliminarTransition] = useTransition();
+  const [pendingBaja, startBajaTransition] = useTransition();
+  const [pendingAccion, startAccionTransition] = useTransition();
+  const [historial, setHistorial] = useState<{ tieneHistorial: boolean; resumen: string } | null>(
+    null,
+  );
+
+  // El historial decide si se ofrece «Eliminar» o «Desactivar»: se consulta
+  // al abrir (el dialog se remonta por `key` para cada miembro).
+  useEffect(() => {
+    if (!miembro || esUnoMismo) return;
+    let vigente = true;
+    getHistorialMemberAction(miembro.id).then((r) => {
+      if (!vigente) return;
+      if (r.error) setError(r.error);
+      else setHistorial({ tieneHistorial: r.tieneHistorial, resumen: r.resumen });
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [miembro, esUnoMismo]);
+
+  const acciones = miembro
+    ? accionesMiembro({
+        activo: miembro.activo,
+        pendiente: miembro.pendiente,
+        tieneHistorial: historial?.tieneHistorial,
+        esUnoMismo,
+      })
+    : null;
+
+  function reactivar() {
+    if (!miembro) return;
+    setError(null);
+    setAviso(null);
+    startAccionTransition(async () => {
+      const result = await reactivateMemberAction(miembro.id);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+      onClose();
+    });
+  }
+
+  function reenviarInvitacion() {
+    if (!miembro) return;
+    setError(null);
+    setAviso(null);
+    startAccionTransition(async () => {
+      const result = await resendInviteAction(miembro.id);
+      if (result.error) setError(result.error);
+      else setAviso(`Invitación reenviada a ${miembro.email}.`);
+    });
+  }
 
   function guardar() {
     if (!miembro) return;
     setError(null);
     startTransition(async () => {
-      if (rol !== miembro.rol) {
-        const result = await setMemberRoleAction(miembro.id, rol);
+      if (!mismosRoles(roles, miembro.roles)) {
+        const result = await setMemberRolesAction(miembro.id, roles);
         if (result.error) {
+          // «La organización necesita al menos un admin activo», etc.
           setError(result.error);
           return;
         }
@@ -370,16 +489,19 @@ function EditarMiembroDialog({
     });
   }
 
-  function eliminar() {
-    if (!miembro) return;
-    startEliminarTransition(async () => {
-      const result = await deactivateMemberAction(miembro.id);
+  function confirmarBaja() {
+    if (!miembro || !confirmBaja) return;
+    const modo = confirmBaja;
+    startBajaTransition(async () => {
+      const result =
+        modo === "eliminar"
+          ? await deleteMemberAction(miembro.id)
+          : await deactivateMemberAction(miembro.id);
+      setConfirmBaja(null);
       if (result.error) {
         setError(result.error);
-        setConfirmEliminar(false);
         return;
       }
-      setConfirmEliminar(false);
       router.refresh();
       onClose();
     });
@@ -403,12 +525,40 @@ function EditarMiembroDialog({
             </Button>
           ) : (
             <>
-              <Button icon={Trash2}
-                onClick={() => setConfirmEliminar(true)}
-                variant="danger-outline" fullOnMobile className="sm:mr-auto"
-              >
-                Eliminar usuario
-              </Button>
+              {acciones?.eliminar && (
+                <Button icon={Trash2}
+                  onClick={() => setConfirmBaja("eliminar")}
+                  variant="danger-outline" fullOnMobile className="sm:mr-auto"
+                >
+                  Eliminar usuario
+                </Button>
+              )}
+              {acciones?.desactivar && (
+                <Button icon={UserX}
+                  onClick={() => setConfirmBaja("desactivar")}
+                  variant="danger-outline" fullOnMobile className="sm:mr-auto"
+                >
+                  Desactivar usuario
+                </Button>
+              )}
+              {acciones?.reenviarInvitacion && (
+                <Button icon={Mail}
+                  onClick={reenviarInvitacion}
+                  loading={pendingAccion}
+                  variant="tonal" fullOnMobile
+                >
+                  Reenviar invitación
+                </Button>
+              )}
+              {acciones?.reactivar && (
+                <Button icon={RotateCcw}
+                  onClick={reactivar}
+                  loading={pendingAccion}
+                  variant="tonal" fullOnMobile
+                >
+                  Reactivar usuario
+                </Button>
+              )}
               <Button
                 onClick={onClose}
                 variant="outline" fullOnMobile
@@ -417,7 +567,7 @@ function EditarMiembroDialog({
               </Button>
               <Button
                 onClick={guardar}
-                disabled={pending || !email.trim() || !!igInvalido}
+                disabled={pending || !email.trim() || !!igInvalido || roles.length === 0}
                 variant="primary" fullOnMobile
               >
                 {pending ? "Guardando…" : "Guardar"}
@@ -434,35 +584,50 @@ function EditarMiembroDialog({
           </p>
         ) : (
           <GrillaCampos>
-            <Field label="Rol">
-              <Select value={rol} onChange={(e) => setRol(e.target.value as Rol)}>
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {rolLabel[r]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Email" className="sm:col-span-2">
+            <Field label="Email" className="sm:col-span-3">
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
+            <CampoRoles roles={roles} onChange={setRoles} />
             <CampoInstagram value={instagram} onChange={setInstagram} error={igInvalido} className="sm:col-span-3" />
           </GrillaCampos>
         )}
+        {miembro && !esUnoMismo && !miembro.activo && (
+          <p className="mt-3 text-xs text-neutral-500">
+            Usuario desactivado: no puede entrar a Tekly.
+            {historial && !historial.tieneHistorial && " Como no tiene historial, también lo podés eliminar."}
+          </p>
+        )}
+        {miembro && !esUnoMismo && miembro.activo && miembro.pendiente && (
+          <p className="mt-3 text-xs text-neutral-500">
+            Todavía no aceptó la invitación. Si no le llegó el mail o el link venció, reenviásela.
+          </p>
+        )}
+        {aviso && <p className="mt-3 text-xs text-emerald-600">{aviso}</p>}
         {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
       </Dialog>
 
       {miembro && !esUnoMismo && (
         <ConfirmDialog
-          open={confirmEliminar}
-          onClose={() => setConfirmEliminar(false)}
-          onConfirm={eliminar}
-          pending={pendingEliminar}
-          title="¿Eliminar usuario?"
-          confirmLabel="Eliminar usuario"
+          open={confirmBaja !== null}
+          onClose={() => setConfirmBaja(null)}
+          onConfirm={confirmarBaja}
+          pending={pendingBaja}
+          title={confirmBaja === "eliminar" ? "¿Eliminar usuario?" : "¿Desactivar usuario?"}
+          confirmLabel={confirmBaja === "eliminar" ? "Eliminar usuario" : "Desactivar usuario"}
         >
-          Se eliminará a «{miembro.nombre}» -- pierde acceso a Tekly de
-          inmediato. Su historial (ventas, tickets, movimientos) se conserva.
+          {confirmBaja === "eliminar" ? (
+            <>
+              Se eliminará a «{miembro.nombre}» de forma definitiva. No tiene
+              ventas, tickets ni movimientos, así que no se pierde historial, y
+              su email queda libre para invitarlo de nuevo.
+            </>
+          ) : (
+            <>
+              «{miembro.nombre}» pierde el acceso a Tekly de inmediato. No se
+              puede eliminar porque tiene {historial?.resumen || "historial"}, que
+              se conserva. Lo podés reactivar cuando quieras.
+            </>
+          )}
         </ConfirmDialog>
       )}
     </Fragment>
@@ -693,33 +858,38 @@ function PreferenciasForm({ negocio }: { negocio: Negocio }) {
               </Field>
             </div>
             <div>
-              <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-                Recargo por medio de pago
+              <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                Recargo de cuenta corriente
               </p>
-              <div className="space-y-2">
-                {MEDIOS_VENTA.map((m) => (
-                  <div key={m} className="flex items-center gap-2">
-                    <span className="flex-1 text-sm text-neutral-600">
-                      {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
-                    </span>
-                    <Input
-                      className="w-24 text-center"
-                      type="number"
-                      min={0}
-                      placeholder="0"
-                      value={form.recargosMediosPago[m] ?? ""}
-                      onChange={(e) => {
-                        const v = Number(e.target.value) || 0;
-                        setForm((f) => ({
-                          ...f,
-                          recargosMediosPago: { ...f.recargosMediosPago, [m]: v || undefined },
-                        }));
-                      }}
-                    />
-                    <span className="text-sm text-neutral-400">%</span>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2">
+                <span className="flex-1 text-sm text-neutral-600">
+                  {medioPagoCfg.cuenta_corriente.emoji} {medioPagoCfg.cuenta_corriente.label}
+                </span>
+                <Input
+                  className="w-24 text-center"
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  value={form.recargosMediosPago.cuenta_corriente ?? ""}
+                  onChange={(e) => {
+                    const v = Number(e.target.value) || 0;
+                    setForm((f) => ({
+                      ...f,
+                      recargosMediosPago: {
+                        ...f.recargosMediosPago,
+                        cuenta_corriente: v || undefined,
+                      },
+                    }));
+                  }}
+                />
+                <span className="text-sm text-neutral-400">%</span>
               </div>
+              <p className="mt-2 text-[11px] text-neutral-500">
+                El recargo de las cajas (tarjeta, transferencia, etc.) se configura en cada caja.{" "}
+                <a href="/cajas?tab=cajas" className="font-semibold text-accent hover:underline">
+                  Ir a Cajas
+                </a>
+              </p>
             </div>
           </div>
         </Card>

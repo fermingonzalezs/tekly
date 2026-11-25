@@ -9,10 +9,13 @@ import {
   deleteMovimiento,
   crearConciliacion,
 } from "@/lib/db/cajas";
+import { errorRecargo } from "@/lib/cajas";
 import type { CategoriaGasto, ConciliacionLinea, MedioPago } from "@/lib/types";
 
 export async function saveCajaAction(id: string | null, data: CajaInput) {
   await requireRoleEscritura("admin", "tecnico");
+  const error = errorRecargo(data.recargoPct);
+  if (error) throw new Error(error);
   const caja = await saveCaja(id, data);
   revalidatePath("/cajas");
   return caja;

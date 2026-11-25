@@ -25,6 +25,7 @@ function caja(
     descripcion: "",
     creadaEl: "mar 2023",
     medioPago,
+    recargoPct: 0,
   };
 }
 

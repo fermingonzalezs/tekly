@@ -4,16 +4,17 @@ resumen: "Cómo se da de alta una caja, se le fija moneda y medio de pago, y có
 seccion: cajas
 roles: [admin, tecnico]
 orden: 4
-actualizado: 2026-10-17
+actualizado: 2026-11-25
 ---
 
-La pestaña **Cajas** administra el listado de cajas. El botón **«Nueva caja»** (o **«Editar»** en una fila) abre el formulario.
+La pestaña **Cajas** administra el listado de cajas. El botón **«Nueva caja»** (siempre visible, en cualquier pestaña de Cajas) o **«Editar»** en una fila abre el formulario.
 
 ## Campos
 
 - **Nombre** — cómo la identificás (Mostrador, Taller, Bóveda USD…).
 - **Moneda** — ARS o USD.
-- **Medio de pago** — **uno solo** por caja (efectivo, dólares, transferencia, cripto o tarjeta). «Mercadería» (canje) no es un medio de caja: es un medio de pago de la venta y no entra a ninguna caja.
+- **Medio de pago** — **uno solo** por caja: **Efectivo**, **Transferencia**, **Cripto**, **Tarjeta** u **Otro** (MercadoPago, cheque…). Junto con la moneda dice exactamente cómo entró la plata: «Efectivo + USD» son dólares en mano, «Transferencia + USD» una transferencia en dólares, «Cripto + USD» USDT. «Mercadería» (canje) no es un medio de caja: es un medio de pago de la venta y no entra a ninguna caja.
+- **Recargo %** — porcentaje que se suma a lo que se cobra en esta caja (por ejemplo, la comisión de la tarjeta). 0 o vacío = sin recargo. La columna **Recargo** de la tabla lo muestra.
 - **Descripción** — opcional.
 - **«Caja activa (disponible para cargar movimientos)»** — el checkbox para desactivarla o reactivarla.
 

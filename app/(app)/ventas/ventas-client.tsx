@@ -11,6 +11,7 @@ import {
   Printer,
   Search,
   ChevronDown,
+  ChevronLeft,
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import {
 import { Pagination } from "@/components/ui/pagination";
 import { MenuAcciones, type AccionMenu } from "@/components/ui/menu-acciones";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { VentaConfirmada } from "@/components/ui/venta-confirmada";
 import { ChecklistEditor, CHECKLIST_VACIO } from "@/components/ui/checklist-editor";
 import {
   ReciboImprimir,
@@ -38,12 +40,17 @@ import {
   ReciboNotaLista,
   type ReciboPagina,
 } from "@/components/recibos/recibo";
-import { medioPago as medioPagoCfg, dotClass, MEDIOS_CAJA } from "@/lib/status";
+import { medioPago as medioPagoCfg, dotClass, MEDIOS_CAJA, CONDICIONES_CELULAR, esCelularNuevo } from "@/lib/status";
+import { erroresCanje, resumenCanje } from "@/lib/canje";
 import { fmtUsd, fmtArs, fmtNum, fmtDateSlash } from "@/lib/format";
 import { otroCostoPromedio } from "@/lib/otros";
 import {
+  ajusteDesdePct,
+  esVentaRegalo,
+  aplicarAjusteVenta,
   calcularMargenPct,
   calcularRestante,
+  errorAjuste,
   saldarUltimoPago,
   montoConRecargo,
   montoPagoLabel,
@@ -73,7 +80,6 @@ import { useDolar } from "@/lib/dolar";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { BarraFiltros } from "@/components/ui/barra-filtros";
-import { SelectorVariante } from "@/components/inventario/selector-variante";
 import { cruzoMinimo, nombreVariante, stockDeVariante } from "@/lib/variantes";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { DeleteVentaOpts, ItemVendido } from "@/lib/db/ventas";
@@ -100,6 +106,7 @@ import type {
 } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
 import { createVentaAction, deleteVentaAction } from "./actions";
@@ -126,6 +133,8 @@ function ventaGananciaLabel(v: Venta): string {
 }
 
 function ventaMargenLabel(v: Venta): string {
+  // Una venta en 0 (regalo) no tiene margen porcentual.
+  if (v.totalUsd <= 0) return "—";
   const m = margenVenta(v.items);
   return m.margenPct === null ? "—" : `${m.margenPct.toFixed(1)}%`;
 }
@@ -135,9 +144,58 @@ function itemGananciaLabel(i: VentaItem): string {
 }
 
 function itemMargenLabel(i: VentaItem): string {
+  // Un regalo (precio 0) no tiene margen: mostrar 0 % mentiría.
+  if (i.precioUsd <= 0) return "—";
   return i.costoUsd !== undefined
     ? `${calcularMargenPct(i.precioUsd, i.costoUsd).toFixed(1)}%`
     : "—";
+}
+
+/** Chip «Regalo» de un ítem (plan 026): chip gris neutro + punto, como el
+ * resto de las etiquetas de tabla. */
+/** «U$850»: dólares sin espacio entre el símbolo y el número (Nueva venta). */
+function usdPegado(n: number): string {
+  return "U$" + fmtNum(Math.round(n));
+}
+
+function ChipRegalo() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-700">
+      <span className={cn("h-1.5 w-1.5 rounded-full", dotClass.violet)} />
+      Regalo
+    </span>
+  );
+}
+
+/** Precio efectivo + precio de lista chico debajo, cuando el descuento tocó
+ * la línea. */
+function PrecioConLista({ item, className }: { item: VentaItem; className?: string }) {
+  return (
+    <span className={cn("inline-flex flex-col items-center", className)}>
+      <span>{fmtUsd(item.precioUsd)}</span>
+      {item.precioListaUsd !== undefined && (
+        <span className="text-[11px] font-normal text-neutral-500 tabular-nums">
+          lista {fmtUsd(item.precioListaUsd)}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Línea chica de la diferencia/regalo debajo del total (lista y mobile). */
+function DiferenciaLinea({ venta }: { venta: Venta }) {
+  if (venta.regalo) {
+    return (
+      <span className="block text-[11px] font-normal text-neutral-500">Regalo</span>
+    );
+  }
+  const ajuste = venta.ajusteUsd ?? 0;
+  if (ajuste === 0) return null;
+  return (
+    <span className="block text-[11px] font-normal text-neutral-500">
+      {ajuste > 0 ? `−${fmtUsd(ajuste)} desc.` : `+${fmtUsd(-ajuste)} rec.`}
+    </span>
+  );
 }
 
 /** Pago principal (el de mayor monto) + "+N" si hay más. */
@@ -193,7 +251,14 @@ export type CrearVentaInput = {
   tienda?: TiendaSeleccion;
   procedencia?: string;
   modalidad: ModalidadVenta;
+  /** Ítems con precio de lista; la diferencia va aparte. */
   items: VentaItem[];
+  /** Descuento sobre el total (U$, ≥ 0). El server lo prorratea. */
+  ajusteUsd: number;
+  /** La venta entera es un regalo (total 0, sin pagos). Nueva venta ya no lo
+   * ofrece (los regalos son por ítem); queda por compatibilidad. */
+  regalo?: boolean;
+  /** Solo para la UI/demo: el server recalcula total y margen. */
   totalUsd: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
   margenPct: number;
@@ -277,10 +342,10 @@ export function VentasClient({
 }) {
   const { publish } = useRealtime();
   const dolarVenta = useDolar().venta;
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   // El vendedor no ve costo/margen de las ventas -- expone el precio de
   // compra (margen = 1 - costo/precio, con el precio visible ya alcanza).
-  const puedeVerCosto = user.rol !== "vendedor";
+  const puedeVerCosto = tieneRol(user, "admin", "tecnico");
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -303,6 +368,8 @@ export function VentasClient({
   const [eliminarCompraCanje, setEliminarCompraCanje] = useState(true);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  /** Resumen de la venta recién confirmada (check grande); `null` = oculto. */
+  const [ventaOk, setVentaOk] = useState<string | null>(null);
   const [recibo, setRecibo] = useState<
     | { venta: Venta; tipo: "venta" }
     | { venta: Venta; tipo: "ambos" }
@@ -493,13 +560,28 @@ export function VentasClient({
                   lineas={recibo.venta.items.map((i) => ({
                     detalle: i.detalle,
                     cantidad: i.cantidad,
-                    montoUsd: i.cantidad * i.precioUsd,
+                    // Precio de lista: el descuento va como ajuste aparte.
+                    montoUsd: i.cantidad * (i.precioListaUsd ?? i.precioUsd),
+                    montoLabel: i.regalo ? "Regalo" : undefined,
                     serial: i.celularId
                       ? celularesPorId.get(i.celularId)?.imei
                       : i.notebookId
                         ? notebooksPorId.get(i.notebookId)?.numeroSerie
                         : undefined,
                   }))}
+                  ajustes={
+                    recibo.venta.regalo
+                      ? undefined
+                      : recibo.venta.ajusteUsd
+                        ? [
+                            {
+                              label: recibo.venta.ajusteUsd > 0 ? "Descuento" : "Recargo",
+                              montoUsd: Math.abs(recibo.venta.ajusteUsd),
+                              resta: recibo.venta.ajusteUsd > 0,
+                            },
+                          ]
+                        : undefined
+                  }
                   total={recibo.venta.totalUsd}
                 />
                 <ReciboLineas
@@ -805,6 +887,8 @@ export function VentasClient({
         </div>
       </SeccionTabla>
 
+      <VentaConfirmada detalle={ventaOk} onClose={() => setVentaOk(null)} />
+
       <NuevaVentaDialog
         key={creating ? "abierto" : "cerrado"}
         open={creating}
@@ -826,6 +910,9 @@ export function VentasClient({
         modoDemo={modoDemo}
         onCreate={(v) => {
           setCreating(false);
+          setVentaOk(
+            [v.id, v.cliente, v.regalo ? "Regalo" : "U$" + fmtNum(Math.round(v.totalUsd))].join(" · "),
+          );
           if (v.avisoCanje) setAviso(v.avisoCanje);
           publish({
             type: "sale_confirmed",
@@ -931,7 +1018,7 @@ export function VentasClient({
               Se eliminará la venta {abierta.id} de {abierta.cliente}. Esta acción
               no se puede deshacer.
             </p>
-            {abierta.items.some((i) => i.celularId || i.notebookId) && (
+            {abierta.items.some((i) => i.celularId || i.notebookId || i.otroId) && (
               <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
                 <input
                   type="checkbox"
@@ -939,8 +1026,8 @@ export function VentasClient({
                   onChange={(e) => setRestituirCelulares(e.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
                 />
-                Devolver los celulares/notebooks vendidos al inventario (quedan
-                «disponibles» de nuevo)
+                Devolver al inventario lo vendido o regalado (celulares, notebooks y
+                productos de Otros quedan «disponibles» de nuevo)
               </label>
             )}
             {abierta.items.some((i) => i.repuestos?.length) && (
@@ -1062,7 +1149,7 @@ function ThSort({
       <button
         type="button"
         onClick={() => onSort(col)}
-        className="inline-flex items-center gap-1 transition-colors hover:text-white/80"
+        className="inline-flex items-center gap-1 uppercase transition-colors hover:text-white/80"
       >
         {label}
         {activo &&
@@ -1174,8 +1261,8 @@ function VentasTabla({
                     </span>
                   )}
                 </td>
-                <td className="max-w-[160px] truncate px-5 py-2 text-start">{v.cliente}</td>
-                <td className="max-w-[260px] truncate px-5 py-2 text-neutral-600 text-start">
+                <td className="max-w-[160px] truncate px-5 py-2 text-center">{v.cliente}</td>
+                <td className="max-w-[260px] truncate px-5 py-2 text-neutral-600 text-center">
                   {v.items.map((i) => i.detalle).join(" · ")}
                 </td>
                 <td className="px-5 py-2">
@@ -1193,6 +1280,7 @@ function VentasTabla({
                 )}
                 <td className="px-5 py-2 text-center font-semibold tabular-nums">
                   {fmtUsd(v.totalUsd)}
+                  <DiferenciaLinea venta={v} />
                 </td>
                 <td className="w-px whitespace-nowrap px-5 py-2 text-center">
                   <MenuAcciones
@@ -1298,8 +1386,9 @@ function ItemsVendidosTabla({
               <p className="min-w-0 truncate text-sm font-medium text-neutral-900">
                 {i.detalle}
               </p>
-              <span className="shrink-0 text-xs text-neutral-500">
-                {RUBRO_LABEL[categoriaDe(i)]}
+              <span className="flex shrink-0 items-center gap-1.5">
+                {i.regalo && <ChipRegalo />}
+                <span className="text-xs text-neutral-500">{RUBRO_LABEL[categoriaDe(i)]}</span>
               </span>
             </div>
             {serial && (
@@ -1309,9 +1398,7 @@ function ItemsVendidosTabla({
               <span className="text-xs text-neutral-500">
                 {puedeVerCosto && `Margen ${itemMargenLabel(i)}`}
               </span>
-              <span className="text-sm font-semibold tabular-nums">
-                {fmtUsd(i.precioUsd)}
-              </span>
+              <PrecioConLista item={i} className="text-sm font-semibold tabular-nums" />
             </div>
           </Card>
         ))}
@@ -1354,13 +1441,18 @@ function ItemsVendidosTabla({
                     {v.fecha}
                   </span>
                 </td>
-                <td className="max-w-[160px] truncate px-5 py-2 text-start">{v.cliente}</td>
-                <td className="max-w-[260px] truncate px-5 py-2 text-start">{i.detalle}</td>
+                <td className="max-w-[160px] truncate px-5 py-2 text-center">{v.cliente}</td>
+                <td className="max-w-[260px] px-5 py-2 text-center">
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="truncate">{i.detalle}</span>
+                    {i.regalo && <ChipRegalo />}
+                  </span>
+                </td>
                 <td className="px-5 py-2 font-mono text-xs tabular-nums text-neutral-500">
                   {serial ?? "—"}
                 </td>
                 <td className="px-5 py-2 text-center tabular-nums">
-                  {fmtUsd(i.precioUsd)}
+                  <PrecioConLista item={i} />
                 </td>
                 {puedeVerCosto && (
                   <td className="px-5 py-2 text-center tabular-nums text-neutral-700">
@@ -1455,8 +1547,9 @@ function VentaCardMobile({
             )}
           </div>
         </div>
-        <div className="flex shrink-0 items-center border-l border-neutral-100 pl-3">
+        <div className="flex shrink-0 flex-col items-end justify-center border-l border-neutral-100 pl-3">
           <p className="text-base font-semibold tabular-nums">{fmtUsd(v.totalUsd)}</p>
+          <DiferenciaLinea venta={v} />
         </div>
       </div>
     </Card>
@@ -1622,23 +1715,47 @@ function VentaDetalle({
         <Card className="divide-y divide-neutral-100 overflow-hidden md:hidden">
           {venta.items.map((i, idx) => (
             <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2">
-              <span className="min-w-0 flex-1 truncate text-sm text-neutral-900">
-                {i.detalle}
+              <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="min-w-0 truncate text-sm text-neutral-900">{i.detalle}</span>
+                {i.regalo && !venta.regalo && <ChipRegalo />}
               </span>
               <span className="shrink-0 text-xs tabular-nums text-neutral-500">
                 ×{i.cantidad}
               </span>
-              <span className="shrink-0 text-sm font-semibold tabular-nums">
+              <span className="flex shrink-0 flex-col items-end text-sm font-semibold tabular-nums">
                 {fmtUsd(i.cantidad * i.precioUsd)}
+                {i.precioListaUsd !== undefined && (
+                  <span className="text-[11px] font-normal text-neutral-500">
+                    lista {fmtUsd(i.cantidad * i.precioListaUsd)}
+                  </span>
+                )}
               </span>
             </div>
           ))}
+          {!!venta.ajusteUsd && (
+            <>
+              <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] text-neutral-600">
+                <span>Subtotal</span>
+                <span className="tabular-nums">
+                  {fmtUsd(venta.totalUsd + venta.ajusteUsd)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] text-neutral-600">
+                <span>{venta.ajusteUsd > 0 ? "Descuento" : "Recargo"}</span>
+                <span className="tabular-nums">
+                  {venta.ajusteUsd > 0 ? "−" : "+"}
+                  {fmtUsd(Math.abs(venta.ajusteUsd))}
+                </span>
+              </div>
+            </>
+          )}
           <div
             className="flex items-center justify-between gap-2 px-3 py-2"
             style={{ backgroundColor: "var(--accent-soft)" }}
           >
-            <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
+            <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
               Total
+              {venta.regalo && <ChipRegalo />}
             </span>
             <span className="text-sm font-semibold tabular-nums">
               {fmtUsd(venta.totalUsd)}
@@ -1661,7 +1778,12 @@ function VentaDetalle({
             <tbody>
               {venta.items.map((i, idx) => (
                 <tr key={idx} className="border-t border-neutral-100 first:border-t-0">
-                  <td className="px-4 py-2.5 text-start">{i.detalle}</td>
+                  <td className="px-4 py-2.5 text-start">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate">{i.detalle}</span>
+                      {i.regalo && !venta.regalo && <ChipRegalo />}
+                    </span>
+                  </td>
                   <td className="px-4 py-2.5 text-center tabular-nums">{i.cantidad}</td>
                   {puedeVerCosto && (
                     <td className="px-4 py-2.5 text-center tabular-nums text-neutral-500">
@@ -1669,13 +1791,45 @@ function VentaDetalle({
                     </td>
                   )}
                   <td className="px-4 py-2.5 text-center tabular-nums">
-                    {fmtUsd(i.precioUsd)}
+                    <PrecioConLista item={i} />
                   </td>
                   <td className="px-4 py-2.5 text-center font-semibold tabular-nums">
                     {fmtUsd(i.cantidad * i.precioUsd)}
+                    {i.precioListaUsd !== undefined && (
+                      <span className="block text-[11px] font-normal text-neutral-500">
+                        lista {fmtUsd(i.cantidad * i.precioListaUsd)}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
+              {!!venta.ajusteUsd && (
+                <>
+                  <tr className="border-t border-neutral-100 text-neutral-600">
+                    <td
+                      className="px-4 py-2 text-[13px]"
+                      colSpan={puedeVerCosto ? 4 : 3}
+                    >
+                      Subtotal
+                    </td>
+                    <td className="px-4 py-2 text-center text-[13px] tabular-nums">
+                      {fmtUsd(venta.totalUsd + venta.ajusteUsd)}
+                    </td>
+                  </tr>
+                  <tr className="border-t border-neutral-100 text-neutral-600">
+                    <td
+                      className="px-4 py-2 text-[13px]"
+                      colSpan={puedeVerCosto ? 4 : 3}
+                    >
+                      {venta.ajusteUsd > 0 ? "Descuento" : "Recargo"}
+                    </td>
+                    <td className="px-4 py-2 text-center text-[13px] tabular-nums">
+                      {venta.ajusteUsd > 0 ? "−" : "+"}
+                      {fmtUsd(Math.abs(venta.ajusteUsd))}
+                    </td>
+                  </tr>
+                </>
+              )}
               <tr
                 className="border-t border-neutral-100 font-semibold text-neutral-900"
                 style={{ backgroundColor: "var(--accent-soft)", backgroundImage: "none" }}
@@ -1875,6 +2029,12 @@ type CatItem = {
   costoUsd?: number;
   precioUsd: number;
   serial?: string;
+  /** «Otros» serializado: la unidad puntual que se vende. */
+  otroSerial?: string;
+  /** «Otros» por cantidad: unidades en stock (tope de líneas en la venta). */
+  disponibles?: number;
+  /** Repuesto del stock (solo en el buscador de regalos). */
+  repuestoId?: string;
 };
 
 const origenTone: Record<Origen, "violet" | "blue" | "green" | "gray"> = {
@@ -1910,6 +2070,9 @@ function ItemBuscador({
   yaAgregados,
   onAdd,
   onLibre,
+  repuestos = [],
+  placeholder = "Buscar por nombre, color o IMEI/serial…",
+  listId = "item-buscador-lista",
 }: {
   celulares: Celular[];
   notebooks: Notebook[];
@@ -1917,7 +2080,13 @@ function ItemBuscador({
   servicios: Servicio[];
   yaAgregados: string[];
   onAdd: (c: CatItem) => void;
-  onLibre: (nombre: string) => void;
+  /** Sin esto no se ofrece «Ítem libre» (ej. el buscador de regalos: solo stock). */
+  onLibre?: (nombre: string) => void;
+  /** Repuestos con stock (el buscador de regalos los ofrece). */
+  repuestos?: Repuesto[];
+  placeholder?: string;
+  /** Id de la lista (accesibilidad): distinto si hay dos buscadores. */
+  listId?: string;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -1956,14 +2125,36 @@ function ItemBuscador({
           precioUsd: n.precioUsd,
           serial: n.numeroSerie || undefined,
         })),
-      ...otros.map((o) => ({
-        key: `o-${o.id}`,
-        origen: "otro" as const,
-        refId: o.id,
-        nombre: o.nombre,
-        costoUsd: otroCostoPromedio(o),
-        precioUsd: o.precioUsd,
-      })),
+      // «Otros»: solo lo que hay en stock. Serializados, una opción por
+      // unidad disponible; por cantidad, una opción con su tope.
+      ...otros.flatMap((o): CatItem[] =>
+        o.serializado
+          ? o.unidades
+              .filter((u) => (u.estado ?? "disponible") === "disponible")
+              .map((u) => ({
+                key: "o-" + o.id + "-" + u.serial,
+                origen: "otro" as const,
+                refId: o.id,
+                nombre: [o.nombre, u.color].filter(Boolean).join(" "),
+                costoUsd: u.costoUsd,
+                precioUsd: o.precioUsd,
+                serial: u.serial,
+                otroSerial: u.serial,
+              }))
+          : o.cantidad > 0
+            ? [
+                {
+                  key: "o-" + o.id,
+                  origen: "otro" as const,
+                  refId: o.id,
+                  nombre: o.nombre,
+                  costoUsd: otroCostoPromedio(o),
+                  precioUsd: o.precioUsd,
+                  disponibles: o.cantidad,
+                },
+              ]
+            : [],
+      ),
       ...servicios
         .filter((s) => s.activo)
         .map((s) => ({
@@ -1979,29 +2170,53 @@ function ItemBuscador({
     ],
     [celulares, notebooks, otros, servicios],
   );
+  const catalogoRepuestos: CatItem[] = useMemo(
+    () =>
+      repuestos
+        .filter((r) => r.stock > 0)
+        .map((r) => ({
+          key: "r-" + r.id,
+          origen: "otro" as const,
+          refId: r.id,
+          repuestoId: r.id,
+          nombre: [r.nombre, r.modelo].filter(Boolean).join(" · "),
+          costoUsd: r.costoUsd,
+          precioUsd: 0,
+          disponibles: r.stock,
+        })),
+    [repuestos],
+  );
 
   const matches = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return catalogo
+    return [...catalogo, ...catalogoRepuestos]
       .filter((c) => {
         const coincide =
           c.nombre.toLowerCase().includes(needle) ||
           (c.serial?.toLowerCase().includes(needle) ?? false);
-        return (
-          coincide &&
-          !((c.origen === "celular" || c.origen === "notebook") &&
-            yaAgregados.includes(c.refId))
-        );
+        if (!coincide) return false;
+        // `yaAgregados` son claves de stock: id de celular/notebook,
+        // «id:serial» de una unidad de Otros, o el id de Otros por cantidad
+        // (una vez por línea, hasta su stock).
+        if (c.origen === "celular" || c.origen === "notebook") return !yaAgregados.includes(c.refId);
+        if (c.otroSerial) return !yaAgregados.includes(c.refId + ":" + c.otroSerial);
+        if (c.repuestoId) {
+          return yaAgregados.filter((x) => x === "r:" + c.repuestoId).length < (c.disponibles ?? 0);
+        }
+        if (c.disponibles !== undefined) {
+          return yaAgregados.filter((x) => x === c.refId).length < c.disponibles;
+        }
+        return true;
       })
       .slice(0, 8);
-  }, [catalogo, q, yaAgregados]);
+  }, [catalogo, catalogoRepuestos, q, yaAgregados]);
 
-  const libre = q.trim();
+  const libre = onLibre ? q.trim() : "";
   const total = matches.length + (libre ? 1 : 0);
 
   function elegir(idx: number) {
     if (idx < matches.length) onAdd(matches[idx]);
-    else if (libre) onLibre(libre);
+    else if (libre && onLibre) onLibre(libre);
     else return;
     setQ("");
     setOpen(false);
@@ -2013,11 +2228,11 @@ function ItemBuscador({
     <div ref={wrapRef} className="relative">
       <Input
         ref={inputRef}
-        placeholder="Buscar por nombre, color o IMEI/serial…"
+        placeholder={placeholder}
         value={q}
         role="combobox"
         aria-expanded={open}
-        aria-controls="item-buscador-lista"
+        aria-controls={listId}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
           setQ(e.target.value);
@@ -2042,7 +2257,7 @@ function ItemBuscador({
       />
       {open && (
         <div
-          id="item-buscador-lista"
+          id={listId}
           role="listbox"
           className="animate-menu-in absolute z-20 mt-1 max-h-64 w-full origin-top overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg"
         >
@@ -2060,7 +2275,9 @@ function ItemBuscador({
               )}
             >
               <span className="flex min-w-0 items-center gap-2">
-                <Badge tone={origenTone[c.origen]}>{origenLabel[c.origen]}</Badge>
+                <Badge tone={c.repuestoId ? "amber" : origenTone[c.origen]}>
+                  {c.repuestoId ? "Repuesto" : origenLabel[c.origen]}
+                </Badge>
                 <span className="truncate">{c.nombre}</span>
                 {c.serial && c.serial !== "—" && (
                   <span className="shrink-0 text-[11px] text-neutral-500">
@@ -2142,12 +2359,13 @@ function NuevaVentaDialog({
 }) {
   const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
 
-  // Vendedor: un usuario de la organización o, con VENDEDOR_LIBRE, un
-  // nombre escrito a mano. Arranca en el usuario actual.
-  const [vendedorId, setVendedorId] = useState(
+  // Vendedor: se elige un usuario del sistema o «Otro», y en ese caso el
+  // nombre se escribe en la misma casilla. Arranca en el usuario actual.
+  const [vendedorSel, setVendedorSel] = useState(
     vendedores.some((v) => v.id === user.id) ? user.id : (vendedores[0]?.id ?? VENDEDOR_LIBRE),
   );
   const [vendedorLibre, setVendedorLibre] = useState("");
+  const vendedorEsLibre = vendedorSel === VENDEDOR_LIBRE;
   // Tienda: "" = la principal (nombre del negocio), un id, o TIENDA_NUEVA.
   const [tiendaSel, setTiendaSel] = useState("");
   const [tiendaNueva, setTiendaNueva] = useState("");
@@ -2157,7 +2375,6 @@ function NuevaVentaDialog({
       : tiendaSel
         ? { tipo: "existente", id: tiendaSel }
         : { tipo: "principal" };
-  const vendedorEsLibre = vendedorId === VENDEDOR_LIBRE;
   const [procedencia, setProcedencia] = useState(PROCEDENCIAS[0]);
   const [modalidad, setModalidad] = useState<ModalidadVenta>("minorista");
 
@@ -2181,7 +2398,7 @@ function NuevaVentaDialog({
       medio: caja?.medioPago ?? "transferencia",
       cajaId: caja?.id,
       caja: caja?.moneda ?? "usd",
-      recargoPct: caja ? negocio.recargosMediosPago[caja.medioPago] : undefined,
+      recargoPct: caja?.recargoPct || undefined,
     };
   };
   const destinoDe = (p: DraftPago) => p.cajaId ?? p.medio;
@@ -2194,6 +2411,9 @@ function NuevaVentaDialog({
     ...MEDIOS_CAJA.filter((m) => cajasDeMedio(m).length > 0),
     ...(modoDemo ? [] : (["canje"] as const)),
   ];
+  // Medios que el negocio todavía no tiene: se muestran deshabilitados con un
+  // aviso para crear la caja (sin caja no se sabe adónde fue la plata).
+  const mediosSinCaja = MEDIOS_CAJA.filter((m) => cajasDeMedio(m).length === 0);
   const medioAPago = (medio: MedioPagoVenta): Partial<DraftPago> => {
     if (medio === "cuenta_corriente") {
       return {
@@ -2218,7 +2438,7 @@ function NuevaVentaDialog({
       medio,
       cajaId: caja?.id,
       caja: caja?.moneda ?? "usd",
-      recargoPct: negocio.recargosMediosPago[medio],
+      recargoPct: caja?.recargoPct || undefined,
     };
   };
 
@@ -2230,34 +2450,70 @@ function NuevaVentaDialog({
       montoUsd: 0,
     } as DraftPago,
   ]);
+  // Descuento sobre el total: monto fijo (U$) o porcentaje. Solo descuenta.
+  const [descuentoTipo, setDescuentoTipo] = useState<"usd" | "pct">("usd");
+  const [descuentoValor, setDescuentoValor] = useState("");
+  const [tiendaModal, setTiendaModal] = useState(false);
+  const [tiendaModalNombre, setTiendaModalNombre] = useState("");
   const [canjeModalKey, setCanjeModalKey] = useState<string | null>(null);
   const [confirmMonto, setConfirmMonto] = useState(false);
   const [errorCrear, setErrorCrear] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const totalPrecio = items.reduce((a, i) => a + i.cantidad * i.precioUsd, 0);
-  // Costo de cada ítem con sus repuestos usados: es lo que se guarda y lo
-  // que da la ganancia en vivo (solo la ven admin/técnico).
-  const puedeVerCosto = user.rol !== "vendedor";
+  // ── Diferencia (descuento/recargo) y regalo de la venta (plan 026) ──
+  const puedeVerCosto = tieneRol(user, "admin", "tecnico");
   const costoRepuesto = (id: string) => repuestos.find((r) => r.id === id)?.costoUsd;
-  const itemsConCosto = items.map((i) => ({ ...i, costoUsd: costoUnitarioItem(i, costoRepuesto) }));
+  const subtotalPrecio = items.reduce((a, i) => a + i.cantidad * i.precioUsd, 0);
+  // Los regalos (ítems de regalo, del stock) no suman al subtotal ni
+  // reciben descuento; conservan su costo, que baja la ganancia.
+  const valorDescuento = Number(descuentoValor.replace(",", ".")) || 0;
+  const ajustePedido =
+    descuentoTipo === "pct" ? ajusteDesdePct(subtotalPrecio, valorDescuento) : valorDescuento;
+  const errorAjusteMsg = errorAjuste(subtotalPrecio, ajustePedido);
+  const resultadoAjuste = aplicarAjusteVenta(
+    items.map((i) => ({ cantidad: i.cantidad, precioUsd: i.precioUsd, regalo: i.regalo })),
+    errorAjusteMsg ? 0 : ajustePedido,
+  );
+  const totalPrecio = resultadoAjuste.totalUsd;
+  const ajusteAplicado = resultadoAjuste.ajusteUsd;
+  const itemsConCosto = items.map((i, k) => ({
+    ...i,
+    precioUsd: resultadoAjuste.items[k].precioUsd,
+    costoUsd: costoUnitarioItem(i, costoRepuesto),
+  }));
   const rentabilidad = margenVenta(itemsConCosto);
   const margenPct = rentabilidad.margenPct ?? 0;
-  const restante = calcularRestante(totalPrecio, pagos);
+  // Venta de regalo: todos los ítems son regalo → total 0, no se cobra.
+  const ventaRegalo = esVentaRegalo(items);
+  const pagosEfectivos = ventaRegalo ? [] : pagos;
+  // Lo que ya está en la venta, para no ofrecerlo dos veces en los buscadores.
+  const clavesStock = items
+    .map((i) =>
+      i.celularId ??
+      i.notebookId ??
+      (i.otroId ? (i.otroSerial ? i.otroId + ":" + i.otroSerial : i.otroId) : ""),
+    )
+    .concat(
+      items.flatMap((i) => (i.regalo ? (i.repuestos ?? []).map((r) => "r:" + r.repuestoId) : [])),
+    )
+    .filter(Boolean);
+  const restante = calcularRestante(totalPrecio, pagosEfectivos);
   const clienteNombre = cliente?.nombre ?? "";
 
   const motivo = motivoNoConfirmable({
     clienteNombre,
     vendedorNombre: vendedorEsLibre
       ? vendedorLibre
-      : (vendedores.find((v) => v.id === vendedorId)?.nombre ?? ""),
+      : (vendedores.find((v) => v.id === vendedorSel)?.nombre ?? ""),
     ...(tiendaSel === TIENDA_NUEVA ? { tiendaNueva } : {}),
-    items: items.map((i) => ({ detalle: i.detalle, precioUsd: i.precioUsd })),
-    pagos: pagos.map((p) => ({
+    items: items.map((i) => ({ detalle: i.detalle, precioUsd: i.precioUsd, regalo: i.regalo })),
+    pagos: pagosEfectivos.map((p) => ({
       montoUsd: p.montoUsd,
       medio: p.medio,
-      canjeEquipo: p.canje?.equipo,
+      canjeEquipo: p.canje?.modelo,
     })),
+    subtotalUsd: subtotalPrecio,
+    ajusteUsd: ajustePedido,
     totalPrecio,
   });
   const valid = motivo === null;
@@ -2270,6 +2526,8 @@ function NuevaVentaDialog({
         origen: c.origen,
         celularId: c.origen === "celular" ? c.refId : undefined,
         notebookId: c.origen === "notebook" ? c.refId : undefined,
+        otroId: c.origen === "otro" ? c.refId : undefined,
+        otroSerial: c.otroSerial,
         detalle: c.nombre,
         cantidad: 1,
         costoUsd: c.costoUsd,
@@ -2277,61 +2535,48 @@ function NuevaVentaDialog({
       },
     ]);
   }
-  function addLibre(nombre: string) {
+  /** Ítem de regalo, elegido del stock: no se cobra (precio 0) pero
+   * conserva su costo, que baja la ganancia de la venta. */
+  function addRegalo(c: CatItem) {
+    if (c.repuestoId) {
+      // Regalo de un repuesto: va como ítem de regalo con el repuesto
+      // vinculado (mismo circuito que los «repuestos usados»: descuenta su
+      // stock, se devuelve al borrar la venta y su costo entra en la ganancia).
+      setItems((p) => [
+        ...p,
+        {
+          _k: rid(),
+          origen: "otro",
+          detalle: c.nombre,
+          cantidad: 1,
+          costoUsd: undefined,
+          precioUsd: 0,
+          regalo: true,
+          repuestos: [{ repuestoId: c.repuestoId!, nombre: c.nombre, cantidad: 1 }],
+        },
+      ]);
+      return;
+    }
     setItems((p) => [
       ...p,
       {
         _k: rid(),
-        origen: "libre",
-        detalle: nombre,
+        origen: c.origen,
+        celularId: c.origen === "celular" ? c.refId : undefined,
+        notebookId: c.origen === "notebook" ? c.refId : undefined,
+        otroId: c.origen === "otro" ? c.refId : undefined,
+        otroSerial: c.otroSerial,
+        detalle: c.nombre,
         cantidad: 1,
-        costoUsd: undefined,
+        costoUsd: c.costoUsd,
         precioUsd: 0,
+        regalo: true,
       },
     ]);
   }
   const updItem = (k: string, patch: Partial<DraftItem>) =>
     setItems((p) => p.map((i) => (i._k === k ? { ...i, ...patch } : i)));
   const rmItem = (k: string) => setItems((p) => p.filter((i) => i._k !== k));
-
-  const addRepuestoUsado = (itemKey: string, repuestoId: string) => {
-    const r = repuestos.find((x) => x.id === repuestoId);
-    if (!r) return;
-    setItems((p) =>
-      p.map((i) =>
-        i._k === itemKey
-          ? {
-              ...i,
-              repuestos: [
-                ...(i.repuestos ?? []),
-                { repuestoId: r.id, nombre: r.nombre, cantidad: 1 },
-              ],
-            }
-          : i,
-      ),
-    );
-  };
-  const updRepuestoUsado = (itemKey: string, idx: number, cantidad: number) =>
-    setItems((p) =>
-      p.map((i) =>
-        i._k === itemKey
-          ? {
-              ...i,
-              repuestos: (i.repuestos ?? []).map((r, j) =>
-                j === idx ? { ...r, cantidad } : r,
-              ),
-            }
-          : i,
-      ),
-    );
-  const rmRepuestoUsado = (itemKey: string, idx: number) =>
-    setItems((p) =>
-      p.map((i) =>
-        i._k === itemKey
-          ? { ...i, repuestos: (i.repuestos ?? []).filter((_, j) => j !== idx) }
-          : i,
-      ),
-    );
 
   const destinos = modoDemo
     ? cajasActivas.map((c) => c.id)
@@ -2360,18 +2605,24 @@ function NuevaVentaDialog({
     startTransition(async () => {
       const vendedorNombre = vendedorEsLibre
         ? vendedorLibre.trim().replace(/\s+/g, " ")
-        : (vendedores.find((v) => v.id === vendedorId)?.nombre ?? "");
+        : (vendedores.find((v) => v.id === vendedorSel)?.nombre ?? "");
       try {
         const venta = await crearVenta({
           cliente,
-          vendedorId: vendedorEsLibre ? "" : vendedorId,
+          vendedorId: vendedorEsLibre ? "" : vendedorSel,
           vendedorNombre,
           tienda,
           procedencia,
           modalidad,
-          items: itemsConCosto.map(({ _k, origen, ...i }) => ({ ...i, categoria: origen })),
+          items: items.map(({ _k, origen, ...i }) => ({
+            ...i,
+            // El server prorratea la diferencia: se manda el precio de lista.
+            costoUsd: costoUnitarioItem(i, costoRepuesto),
+            categoria: origen,
+          })),
+          ajusteUsd: ajusteAplicado,
           totalUsd: totalPrecio,
-          pagos: pagos.map(({ _k, ...p }) => p),
+          pagos: pagosEfectivos.map(({ _k, ...p }) => p),
           margenPct: Math.round(margenPct * 10) / 10,
           tipo: items.some((i) => i.origen === "celular" || i.origen === "notebook")
             ? "venta"
@@ -2435,47 +2686,71 @@ function NuevaVentaDialog({
           <Eyebrow>Datos de la venta</Eyebrow>
           <GrillaCampos>
             <Field label="Vendedor">
-              <Select value={vendedorId} onChange={(e) => setVendedorId(e.target.value)}>
-                {vendedores.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.nombre}
-                  </option>
-                ))}
-                <option value={VENDEDOR_LIBRE}>Otro (escribir a mano)</option>
-              </Select>
-              {vendedorEsLibre && (
-                <Input
-                  className="mt-2"
-                  value={vendedorLibre}
-                  maxLength={VENDEDOR_LIBRE_MAX}
-                  onChange={(e) => setVendedorLibre(e.target.value)}
-                  placeholder="Nombre del vendedor"
-                  aria-label="Nombre del vendedor"
-                  autoFocus
-                />
+              {vendedorEsLibre ? (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    autoFocus
+                    value={vendedorLibre}
+                    maxLength={VENDEDOR_LIBRE_MAX}
+                    onChange={(e) => setVendedorLibre(e.target.value)}
+                    placeholder="Nombre del vendedor"
+                    aria-label="Nombre del vendedor"
+                  />
+                  <IconButton
+                    aria-label="Volver a la lista de usuarios"
+                    title="Volver a la lista de usuarios"
+                    icon={ChevronLeft}
+                    variant="ghost"
+                    onClick={() => {
+                      setVendedorLibre("");
+                      setVendedorSel(
+                        vendedores.some((v) => v.id === user.id)
+                          ? user.id
+                          : (vendedores[0]?.id ?? VENDEDOR_LIBRE),
+                      );
+                    }}
+                  />
+                </div>
+              ) : (
+                <Select
+                  value={vendedorSel}
+                  onChange={(e) => {
+                    setVendedorSel(e.target.value);
+                    if (e.target.value === VENDEDOR_LIBRE) setVendedorLibre("");
+                  }}
+                  aria-label="Vendedor"
+                >
+                  {vendedores.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.nombre}
+                    </option>
+                  ))}
+                  <option value={VENDEDOR_LIBRE}>Otro (escribir a mano)</option>
+                </Select>
               )}
             </Field>
             <Field label="Tienda / página">
-              <Select value={tiendaSel} onChange={(e) => setTiendaSel(e.target.value)}>
+              <Select
+                value={tiendaSel}
+                onChange={(e) => {
+                  if (e.target.value === TIENDA_NUEVA) {
+                    setTiendaModalNombre("");
+                    setTiendaModal(true);
+                    return;
+                  }
+                  setTiendaSel(e.target.value);
+                }}
+              >
                 <option value="">{negocio.nombre || "Tienda principal"}</option>
                 {tiendas.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.nombre}
                   </option>
                 ))}
-                <option value={TIENDA_NUEVA}>+ Nueva tienda…</option>
+                <option value={TIENDA_NUEVA}>
+                  {tiendaNueva ? `${tiendaNueva} (nueva)` : "+ Nueva tienda…"}
+                </option>
               </Select>
-              {tiendaSel === TIENDA_NUEVA && (
-                <Input
-                  className="mt-2"
-                  value={tiendaNueva}
-                  maxLength={TIENDA_NOMBRE_MAX}
-                  onChange={(e) => setTiendaNueva(e.target.value)}
-                  placeholder="Ej. Heavenstore"
-                  aria-label="Nombre de la tienda nueva"
-                  autoFocus
-                />
-              )}
             </Field>
             <Field label="Procedencia">
               <Select
@@ -2510,11 +2785,8 @@ function NuevaVentaDialog({
             notebooks={notebooks}
             otros={otros}
             servicios={servicios}
-            yaAgregados={items
-              .map((i) => i.celularId ?? i.notebookId)
-              .filter((x): x is string => !!x)}
+            yaAgregados={clavesStock}
             onAdd={addCatalogo}
-            onLibre={addLibre}
           />
 
           {items.length === 0 ? (
@@ -2523,134 +2795,92 @@ function NuevaVentaDialog({
             </p>
           ) : (
             <div className="mt-3 space-y-2">
-              <div className="hidden items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500 sm:flex">
-                <span className="flex-1 text-start">Ítem</span>
-                <span className="w-12 text-right">Cant</span>
-                {puedeVerCosto && <span className="w-24 text-right">Costo</span>}
-                <span className="w-24 text-right">Precio</span>
-                <span className="w-9" />
-              </div>
-              {items.map((it) => (
-                <div key={it._k}>
-                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-                    <Input
-                      className="min-w-0 sm:flex-1"
-                      placeholder="Nombre del ítem"
-                      value={it.detalle}
-                      readOnly={it.origen !== "libre"}
-                      onChange={(e) =>
-                        updItem(it._k, { detalle: e.target.value })
-                      }
+              <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
+                {items.map((it) => (
+                  <li key={it._k} className="flex items-center gap-2 px-3 py-2 text-sm">
+                    <span className="shrink-0 tabular-nums text-neutral-500">{it.cantidad}x</span>
+                    <span className="min-w-0 flex-1 truncate uppercase text-neutral-900">
+                      {it.detalle}
+                    </span>
+                    {it.regalo ? (
+                      <ChipRegalo />
+                    ) : (
+                      <span className="shrink-0 font-semibold tabular-nums">
+                        {usdPegado(it.cantidad * it.precioUsd)}
+                      </span>
+                    )}
+                    <IconButton
+                      aria-label={`Quitar ${it.detalle}`}
+                      icon={Trash2}
+                      variant="danger-ghost"
+                      size="sm"
+                      onClick={() => rmItem(it._k)}
                     />
-                    <div className="flex items-center gap-2">
-                      <Input
-                        className="w-16 !text-right tabular-nums sm:w-12"
-                        type="number"
-                        min={1}
-                        value={it.cantidad}
-                        onChange={(e) =>
-                          updItem(it._k, { cantidad: Number(e.target.value) || 1 })
-                        }
-                      />
-                      {puedeVerCosto && (
-                        <Input
-                          className="flex-1 !text-right tabular-nums sm:w-24 sm:flex-none"
-                          type="number"
-                          min={0}
-                          placeholder="Costo"
-                          aria-label={`Costo unitario de ${it.detalle || "el ítem"}`}
-                          title="Costo unitario (U$). Vacío = sin dato."
-                          value={it.costoUsd ?? ""}
-                          onChange={(e) =>
-                            updItem(it._k, {
-                              costoUsd: e.target.value === "" ? undefined : Number(e.target.value) || 0,
-                            })
-                          }
-                        />
-                      )}
-                      <Input
-                        className="flex-1 !text-right tabular-nums sm:w-24 sm:flex-none"
-                        type="number"
-                        min={0}
-                        placeholder="U$"
-                        aria-label={`Precio unitario de ${it.detalle || "el ítem"}`}
-                        value={it.precioUsd || ""}
-                        onChange={(e) =>
-                          updItem(it._k, {
-                            precioUsd: Number(e.target.value) || 0,
-                          })
-                        }
-                      />
-                      <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmItem(it._k)} />
-                    </div>
-                  </div>
-                  {it.origen === "servicio" && (
-                    <div className="ml-1 mt-1.5 space-y-1.5 border-l-2 border-neutral-100 pl-3">
-                      {(it.repuestos ?? []).map((r, idx) => (
-                        <div
-                          key={idx}
-                          className="flex flex-col gap-1.5 text-[12px] text-neutral-600 sm:flex-row sm:items-center sm:gap-2"
-                        >
-                          <span className="flex-1 truncate">{r.nombre}</span>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              className="w-16 !text-right tabular-nums"
-                              type="number"
-                              min={1}
-                              value={r.cantidad}
-                              onChange={(e) =>
-                                updRepuestoUsado(
-                                  it._k,
-                                  idx,
-                                  Number(e.target.value) || 1,
-                                )
-                              }
-                            />
-                            <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="sm" onClick={() => rmRepuestoUsado(it._k, idx)} className="rounded" />
-                          </div>
-                        </div>
-                      ))}
-                      {puedeVerCosto && (it.repuestos?.length ?? 0) > 0 && (
-                        <p className="text-[11px] text-neutral-500">
-                          Costo con repuestos:{" "}
-                          <span className="font-semibold tabular-nums text-neutral-700">
-                            {(() => {
-                              const c = costoUnitarioItem(it, costoRepuesto);
-                              return c === undefined ? "—" : fmtUsd(c * it.cantidad);
-                            })()}
-                          </span>
-                        </p>
-                      )}
-                      <Select
-                        key={it.repuestos?.length ?? 0}
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) addRepuestoUsado(it._k, e.target.value);
-                        }}
-                        className="h-7 w-full text-[11px] text-neutral-500 sm:w-56"
-                        aria-label="Agregar repuesto usado"
-                      >
-                        <option value="">+ Repuesto usado…</option>
-                        {repuestos.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.nombre} ({r.stock} en stock)
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  )}
+                  </li>
+                ))}
+              </ul>
+
+              <ItemBuscador
+                celulares={[]}
+                notebooks={[]}
+                otros={otros}
+                servicios={[]}
+                yaAgregados={clavesStock}
+                repuestos={repuestos}
+                onAdd={addRegalo}
+                placeholder="🎁 Agregar regalo: repuesto u otro producto del stock"
+                listId="regalo-buscador-lista"
+              />
+
+              <div className="space-y-1.5 rounded-lg border border-neutral-200 px-4 py-2">
+                <div className="flex items-center justify-between gap-2 text-[13px] text-neutral-600">
+                  <span>Subtotal</span>
+                  <span className="tabular-nums">{usdPegado(subtotalPrecio)}</span>
                 </div>
-              ))}
+                {!ventaRegalo && (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-neutral-600">
+                  <span>Descuento</span>
+                  {/* Una sola casilla de ancho fijo: tipo (U$ / %), valor y, con %,
+                      el monto resultante adentro. Así no se mueve al escribir. Los
+                      «!» le ganan al estilo de casillas del modo formulario. */}
+                  <div className="flex h-9 w-56 items-center rounded-lg border border-neutral-300 bg-white/70 pl-1 pr-3 transition-colors focus-within:border-accent">
+                    <select
+                      value={descuentoTipo}
+                      onChange={(e) => setDescuentoTipo(e.target.value as "usd" | "pct")}
+                      className="!h-7 !w-14 shrink-0 cursor-pointer !rounded-md !border-0 !bg-neutral-100 !px-1 text-xs font-semibold text-neutral-800 !text-center ![text-align-last:center] outline-none"
+                      aria-label="Tipo de descuento"
+                    >
+                      <option value="usd">U$</option>
+                      <option value="pct">%</option>
+                    </select>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={descuentoValor}
+                      onChange={(e) => setDescuentoValor(e.target.value.replace(/[^\d.,]/g, ""))}
+                      placeholder="0"
+                      className="!h-7 min-w-0 flex-1 !border-0 !bg-transparent !px-2 text-sm !text-center tabular-nums text-neutral-900 outline-none"
+                      aria-label={descuentoTipo === "pct" ? "Descuento en porcentaje" : "Descuento en dólares"}
+                    />
+                    <span className="w-16 shrink-0 text-right text-xs font-medium tabular-nums text-neutral-800">
+                      {ajusteAplicado > 0 ? "−" + usdPegado(ajusteAplicado) : ""}
+                    </span>
+                  </div>
+                </div>
+                )}
+                {!ventaRegalo && errorAjusteMsg && (
+                  <p className="text-[11px] text-red-600">{errorAjusteMsg}</p>
+                )}
+              </div>
               <div
                 className="flex items-center justify-between gap-2 rounded-lg px-5 py-2"
                 style={{ backgroundColor: "var(--accent-soft)" }}
               >
-                <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
+                <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-900">
                   Total
+                  {ventaRegalo && <ChipRegalo />}
                 </span>
-                <span className="text-sm font-semibold tabular-nums">
-                  {fmtUsd(totalPrecio)}
-                </span>
+                <span className="text-sm font-semibold tabular-nums">{usdPegado(totalPrecio)}</span>
               </div>
               {puedeVerCosto && (
                 <RentabilidadEnVivo
@@ -2668,150 +2898,190 @@ function NuevaVentaDialog({
         <Card className="p-4">
           <Eyebrow>Pago</Eyebrow>
 
-          <div className="space-y-2">
-            {pagos.map((p) => {
-              const recargoPct = p.recargoPct ?? 0;
-              const cajasMedio =
-                p.medio !== "cuenta_corriente" && p.medio !== "canje"
-                  ? cajasDeMedio(p.medio)
-                  : [];
-              return (
-                <div key={p._k} className="space-y-1.5 rounded-lg border border-neutral-200 p-3">
-                  <div className="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
-                    <Select
-                      value={p.medio}
-                      onChange={(e) => {
-                        const medio = e.target.value as MedioPagoVenta;
-                        updPago(p._k, { ...medioAPago(medio), canje: undefined });
-                        if (medio === "canje") setCanjeModalKey(p._k);
-                      }}
-                      className="w-full sm:w-40"
-                      aria-label="Medio de pago"
+          {ventaRegalo ? (
+            <p className="rounded-lg bg-neutral-50 px-3 py-2 text-center text-[13px] text-neutral-600">
+              Venta de regalo: todos los ítems son regalo, no se cobra (U$0) y no lleva pagos.
+            </p>
+          ) : (
+          <>
+              <div className="space-y-2">
+                {pagos.map((p) => {
+                  const recargoPct = p.recargoPct ?? 0;
+                  const cajasMedio =
+                    p.medio !== "cuenta_corriente" && p.medio !== "canje"
+                      ? cajasDeMedio(p.medio)
+                      : [];
+                  return (
+                    <div
+                      key={p._k}
+                      className="overflow-x-auto rounded-lg border border-neutral-200"
                     >
-                      {!modoDemo && (
-                        <option value="cuenta_corriente">
-                          {medioPagoCfg.cuenta_corriente.emoji} Cuenta corriente
-                        </option>
-                      )}
-                      {mediosDisponibles.map((m) => (
-                        <option key={m} value={m}>
-                          {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
-                        </option>
-                      ))}
-                    </Select>
-                    {cajasMedio.length > 0 && (
-                      <Select
-                        value={p.cajaId}
-                        onChange={(e) => {
-                          const caja = cajasMedio.find((c) => c.id === e.target.value);
-                          if (caja) updPago(p._k, { cajaId: caja.id, caja: caja.moneda });
-                        }}
-                        className="w-full sm:w-36"
-                        aria-label="Caja"
-                      >
-                        {cajasMedio.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                    <div className="flex items-center gap-2 sm:min-w-[12rem] sm:flex-1">
-                      {p.caja === "ars" ? (
-                        <div className="flex h-9 flex-1 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-sm transition-colors focus-within:border-accent">
-                          <input
+                      <div className="flex min-w-max items-center justify-center gap-2 p-2">
+                        <Select
+                          value={p.medio}
+                          onChange={(e) => {
+                            const medio = e.target.value as MedioPagoVenta;
+                            updPago(p._k, { ...medioAPago(medio), canje: undefined });
+                            if (medio === "canje") setCanjeModalKey(p._k);
+                          }}
+                          className="w-40 shrink-0 !text-center ![text-align-last:center]"
+                          aria-label="Medio de pago"
+                        >
+                          {!modoDemo && (
+                            <option value="cuenta_corriente">
+                              {medioPagoCfg.cuenta_corriente.emoji} Cuenta corriente
+                            </option>
+                          )}
+                          {mediosDisponibles.map((m) => (
+                            <option key={m} value={m}>
+                              {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
+                            </option>
+                          ))}
+                          {!modoDemo &&
+                            mediosSinCaja.map((m) => (
+                              <option key={m} value={m} disabled>
+                                {medioPagoCfg[m].emoji} {medioPagoCfg[m].label} (sin caja)
+                              </option>
+                            ))}
+                        </Select>
+                        {cajasMedio.length > 0 && (
+                          <Select
+                            value={p.cajaId}
+                            onChange={(e) => {
+                              const caja = cajasMedio.find((c) => c.id === e.target.value);
+                              if (caja)
+                                updPago(p._k, {
+                                  cajaId: caja.id,
+                                  caja: caja.moneda,
+                                  recargoPct: caja.recargoPct || undefined,
+                                });
+                            }}
+                            className="w-32 shrink-0 !text-center ![text-align-last:center]"
+                            aria-label="Caja"
+                          >
+                            {cajasMedio.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nombre} · {c.moneda === "ars" ? "$" : "U$"}
+                              </option>
+                            ))}
+                          </Select>
+                        )}
+                        {p.caja === "ars" ? (
+                          <div className="flex h-9 w-52 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-sm transition-colors focus-within:border-accent">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="Cobrado $"
+                              aria-label="Monto cobrado en pesos"
+                              className="min-w-0 flex-1 !text-center tabular-nums outline-none"
+                              value={
+                                p.montoUsd ? `$${fmtNum(Math.round(p.montoUsd * dolarVenta))}` : ""
+                              }
+                              onChange={(e) => {
+                                const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
+                                updPago(p._k, { montoUsd: raw / dolarVenta });
+                              }}
+                            />
+                            {p.montoUsd > 0 && (
+                              <span className="shrink-0 whitespace-nowrap text-[11px] text-neutral-500">
+                                ≈ {fmtUsd(p.montoUsd)}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <Input
+                            className="w-32 shrink-0 !text-center tabular-nums"
                             type="text"
                             inputMode="numeric"
-                            placeholder="Cobrado $"
-                            className="min-w-0 flex-1 !text-right tabular-nums outline-none"
-                            value={p.montoUsd ? fmtNum(Math.round(p.montoUsd * dolarVenta)) : ""}
+                            placeholder={p.medio === "canje" ? "Precio del equipo" : "Cobrado U$"}
+                            aria-label={p.medio === "canje" ? "Precio del equipo en canje" : "Monto cobrado en dólares"}
+                            value={p.montoUsd ? `U$${fmtNum(Math.round(p.montoUsd))}` : ""}
+                            // Canje: el monto es el precio de compra del equipo, se carga en su modal.
+                            readOnly={p.medio === "canje"}
+                            onClick={
+                              p.medio === "canje" ? () => setCanjeModalKey(p._k) : undefined
+                            }
+                            title={
+                              p.medio === "canje" ? "Se edita en el equipo del canje" : undefined
+                            }
                             onChange={(e) => {
+                              if (p.medio === "canje") return;
                               const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
-                              updPago(p._k, { montoUsd: raw / dolarVenta });
+                              updPago(p._k, { montoUsd: raw });
                             }}
                           />
-                          {p.montoUsd > 0 && (
-                            <span className="shrink-0 text-[11px] text-neutral-500">
-                              ≈ {fmtUsd(p.montoUsd)}
+                        )}
+                        {recargoPct > 0 && p.montoUsd > 0 && (
+                          <span className="shrink-0 whitespace-nowrap text-[11px] text-amber-600">
+                            +{recargoPct}% → {fmtUsd(montoConRecargo(p.montoUsd, recargoPct))}
+                          </span>
+                        )}
+                        {p.medio === "canje" && (
+                          <span className="flex max-w-[14rem] shrink-0 items-center gap-1 text-[11px] text-neutral-500">
+                            <span className="truncate">
+                              📦 {p.canje ? resumenCanje(p.canje) : "Falta el equipo"}
                             </span>
-                          )}
-                        </div>
-                      ) : (
-                        <Input
-                          className="flex-1 !text-right tabular-nums"
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="Cobrado U$"
-                          value={p.montoUsd ? fmtNum(Math.round(p.montoUsd)) : ""}
-                          onChange={(e) => {
-                            const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
-                            updPago(p._k, { montoUsd: raw });
-                          }}
+                            <button
+                              type="button"
+                              onClick={() => setCanjeModalKey(p._k)}
+                              className="font-semibold text-accent hover:underline"
+                            >
+                              {p.canje ? "Editar" : "Completar"}
+                            </button>
+                          </span>
+                        )}
+                        <IconButton
+                          aria-label="Quitar medio de pago"
+                          icon={Trash2}
+                          variant="danger-ghost"
+                          size="lg"
+                          className="shrink-0"
+                          onClick={() => rmPago(p._k)}
+                          disabled={pagos.length === 1}
                         />
-                      )}
-                      <IconButton aria-label="Quitar medio de pago" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmPago(p._k)} disabled={pagos.length === 1} />
+                      </div>
                     </div>
-                  </div>
-                  {recargoPct > 0 && p.montoUsd > 0 && (
-                    <p className="pl-1 text-[11px] text-amber-600">
-                      + {recargoPct}% recargo → cobra{" "}
-                      {fmtUsd(montoConRecargo(p.montoUsd, recargoPct))}
-                    </p>
-                  )}
-                  {p.medio === "canje" &&
-                    (p.canje ? (
-                      <div className="flex items-center gap-2 pl-1 text-[11px] text-neutral-500">
-                        <span className="truncate">📦 {p.canje.equipo}</span>
-                        <button
-                          type="button"
-                          onClick={() => setCanjeModalKey(p._k)}
-                          className="font-semibold text-accent hover:underline"
-                        >
-                          Editar
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 pl-1 text-[11px] text-amber-600">
-                        <span>Falta completar el equipo canjeado</span>
-                        <button
-                          type="button"
-                          onClick={() => setCanjeModalKey(p._k)}
-                          className="font-semibold underline"
-                        >
-                          Completar
-                        </button>
-                      </div>
-                    ))}
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
 
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={addPago}
-              disabled={pagos.length >= destinos.length}
-              className="text-xs font-medium text-accent hover:underline disabled:opacity-40"
-            >
-              + Agregar medio
-            </button>
-            {Math.abs(restante) < 0.005 ? (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
-                <Check className="h-3.5 w-3.5" /> Pago completo
-              </span>
-            ) : (
-              <span className="flex items-center gap-2 text-xs font-semibold">
-                <span className={restante > 0 ? "text-amber-600" : "text-red-500"}>
-                  {restante > 0 ? "Faltan " : "Sobran "}
-                  {fmtUsd(Math.abs(restante))}
-                </span>
-                <Button type="button" variant="outline" size="sm" onClick={saldar}>
-                  Saldar
-                </Button>
-              </span>
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                <button
+                  type="button"
+                  onClick={addPago}
+                  disabled={pagos.length >= destinos.length}
+                  className="text-xs font-medium text-accent hover:underline disabled:opacity-40"
+                >
+                  + Agregar medio
+                </button>
+                {Math.abs(restante) < 0.005 ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                    <Check className="h-3.5 w-3.5" /> Pago completo
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-xs font-semibold">
+                    <span className={restante > 0 ? "text-amber-600" : "text-red-500"}>
+                      {restante > 0 ? "Faltan " : "Sobran "}
+                      {fmtUsd(Math.abs(restante))}
+                    </span>
+                    <Button type="button" variant="outline" size="sm" onClick={saldar}>
+                      Saldar
+                    </Button>
+                  </span>
+                )}
+              </div>
+            {!modoDemo && mediosSinCaja.length > 0 && (
+              <p className="mt-3 text-center text-[11px] text-neutral-500">
+                ¿No aparece cómo te pagaron (ej. transferencia en dólares o USDT)? Cada forma de
+                cobro es una caja: creala en{" "}
+                <a href="/cajas" target="_blank" rel="noopener noreferrer" className="font-semibold text-accent hover:underline">
+                  Cajas
+                </a>{" "}
+                con su medio y su moneda, y recargá esta pantalla.
+              </p>
             )}
-          </div>
+          </>
+          )}
         </Card>
       </div>
 
@@ -2820,13 +3090,49 @@ function NuevaVentaDialog({
         open={!!canjeModalKey}
         onClose={() => setCanjeModalKey(null)}
         initial={pagos.find((p) => p._k === canjeModalKey)?.canje}
-        variantes={variantes}
-        celulares={celulares}
-        onSave={(canje) => {
-          if (canjeModalKey) updPago(canjeModalKey, { canje });
+        precioInicial={pagos.find((p) => p._k === canjeModalKey)?.montoUsd ?? 0}
+        onSave={(canje, precioUsd) => {
+          if (canjeModalKey) updPago(canjeModalKey, { canje, montoUsd: precioUsd });
           setCanjeModalKey(null);
         }}
       />
+
+      <Dialog
+        open={tiendaModal}
+        onClose={() => setTiendaModal(false)}
+        title="Nueva tienda"
+        size="lg"
+        formulario
+        description="Se guarda al confirmar la venta."
+        footer={
+          <>
+            <Button onClick={() => setTiendaModal(false)} variant="outline" fullOnMobile>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!tiendaModalNombre.trim()}
+              onClick={() => {
+                setTiendaNueva(tiendaModalNombre.trim());
+                setTiendaSel(TIENDA_NUEVA);
+                setTiendaModal(false);
+              }}
+              variant="primary" fullOnMobile
+            >
+              Guardar
+            </Button>
+          </>
+        }
+      >
+        <Field label="Nombre de la tienda">
+          <Input
+            value={tiendaModalNombre}
+            onChange={(e) => setTiendaModalNombre(e.target.value)}
+            maxLength={TIENDA_NOMBRE_MAX}
+            placeholder="Ej. Heavenstore"
+            autoFocus
+          />
+        </Field>
+      </Dialog>
 
       <Dialog
         open={confirmMonto}
@@ -2866,135 +3172,176 @@ function NuevaVentaDialog({
   );
 }
 
+// El modo formulario del Dialog deja el contenido de las casillas a la
+// izquierda; en el canje se centran todas salvo Modelo y Detalles.
+const CENTRADO = "!text-center";
+const CENTRADO_SELECT = "!text-center ![text-align-last:center]";
+
 function CanjeModal({
   open,
   onClose,
   initial,
-  variantes,
-  celulares,
+  precioInicial,
   onSave,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: CanjeEquipo;
-  variantes: Variante[];
-  celulares: Celular[];
-  onSave: (canje: CanjeEquipo) => void;
+  /** Monto actual del pago «Mercadería» (= precio de compra del equipo). */
+  precioInicial: number;
+  onSave: (canje: CanjeEquipo, precioUsd: number) => void;
 }) {
-  const [varianteId, setVarianteId] = useState(initial?.varianteId ?? "");
-  const [marca, setMarca] = useState(initial?.marca ?? "");
-  const [equipo, setEquipo] = useState(initial?.equipo ?? "");
+  const [modelo, setModelo] = useState(initial?.modelo ?? "");
   const [imei, setImei] = useState(initial?.imei ?? "");
+  const [color, setColor] = useState(initial?.color ?? "");
+  const [condicion, setCondicion] = useState(initial?.condicion ?? "");
+  const [bateria, setBateria] = useState(
+    initial?.bateria !== undefined ? String(initial.bateria) : "",
+  );
+  const [precio, setPrecio] = useState(precioInicial > 0 ? String(Math.round(precioInicial)) : "");
+  const [detalles, setDetalles] = useState(initial?.detalles ?? "");
+  const [testeo, setTesteo] = useState(initial?.testeo ?? false);
   const [checklist, setChecklist] = useState<Checklist>(initial?.checklist ?? CHECKLIST_VACIO);
-  const [aclaraciones, setAclaraciones] = useState(initial?.aclaraciones ?? "");
-  const variante = variantes.find((v) => v.id === varianteId) ?? null;
+  const nuevo = esCelularNuevo(condicion);
 
-  function elegirVariante(v: Variante | null) {
-    setVarianteId(v?.id ?? "");
-    if (v) {
-      setEquipo(nombreVariante(v, { cualquierColor: true }));
-      if (v.color) setChecklist((c) => ({ ...c, color: v.color }));
-    }
-  }
+  const canje: CanjeEquipo = {
+    modelo: modelo.trim(),
+    imei: imei.trim(),
+    color: color.trim(),
+    condicion,
+    bateria: nuevo || bateria === "" ? undefined : Number(bateria),
+    detalles: detalles.trim() || undefined,
+    testeo,
+    checklist: testeo ? { ...checklist, color: color.trim() } : undefined,
+  };
+  const precioUsd = Number(precio.replace(/\D/g, "")) || 0;
+  const errores = erroresCanje(canje, precioUsd);
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      size="3xl"
+      size={testeo ? "3xl" : "lg"}
       title="Celular recibido en canje"
       formulario
-      description="Se guarda como una compra al confirmar la venta"
+      description="Queda registrado en Compras / Ingresos. No entra al stock hasta que lo pases desde ahí."
       footer={
         <>
-          <Button
-            onClick={onClose}
-            variant="outline" fullOnMobile
-          >
+          {errores.length > 0 && (
+            <p aria-live="polite" className="mr-auto text-sm text-neutral-500">
+              {errores[0]}
+            </p>
+          )}
+          <Button onClick={onClose} variant="outline" fullOnMobile>
             Cancelar
           </Button>
           <Button
-            disabled={!variante || !equipo.trim()}
-            onClick={() =>
-              onSave({ marca, equipo: equipo.trim(), varianteId, imei, checklist, aclaraciones })
-            }
-            variant="primary" fullOnMobile
+            disabled={errores.length > 0}
+            onClick={() => onSave(canje, precioUsd)}
+            variant="primary"
+            fullOnMobile
           >
             Guardar
           </Button>
         </>
       }
     >
-      <div className="space-y-5 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start lg:gap-6 lg:space-y-0">
-        <div>
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-            Datos del equipo
-          </p>
-          <GrillaCampos>
-            <Field label="Variante" className="sm:col-span-3">
-              <SelectorVariante
-                variantes={variantes}
-                unidades={celulares}
-                value={varianteId || null}
-                onChange={elegirVariante}
-              />
-              <p className="mt-1 text-[11px] text-neutral-500">
-                {variante
-                  ? `Definido por la variante ${variante.sku}: el modelo, almacenamiento y condición salen de acá.`
-                  : "Obligatoria: elegí la variante del equipo recibido (o creala)."}
-              </p>
-            </Field>
-            <Field label="Marca">
-              <Input
-                value={marca}
-                onChange={(e) => setMarca(e.target.value)}
-                placeholder="Apple"
-              />
-            </Field>
-            <Field label="Celular" className="sm:col-span-2">
-              <Input
-                value={equipo}
-                onChange={(e) => setEquipo(e.target.value)}
-                disabled={!!variante}
-                placeholder="iPhone 13 Pro 128GB"
-              />
-            </Field>
-            <Field label="Serial / IMEI (opcional)">
-              <Input value={imei} onChange={(e) => setImei(e.target.value)} />
-            </Field>
-            <Field label="Color (opcional)" className="sm:col-span-2">
-              <Input
-                value={checklist.color}
-                onChange={(e) => setChecklist((c) => ({ ...c, color: e.target.value }))}
-                disabled={!!variante?.color}
-                placeholder="Ej: Negro"
-              />
-            </Field>
-          </GrillaCampos>
+      <div
+        className={cn(
+          "space-y-5",
+          testeo && "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-start lg:gap-6 lg:space-y-0",
+        )}
+      >
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+              Datos del equipo
+            </p>
+            <GrillaCampos>
+              <Field label="Modelo" className="sm:col-span-3">
+                <Input
+                  value={modelo}
+                  onChange={(e) => setModelo(e.target.value)}
+                  placeholder="iPhone 13 Pro 128GB"
+                  autoFocus
+                />
+              </Field>
+              <Field label="IMEI / serial" className="sm:col-span-2">
+                <Input value={imei} onChange={(e) => setImei(e.target.value)} inputMode="numeric" className={CENTRADO} />
+              </Field>
+              <Field label="Color">
+                <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="Negro" className={CENTRADO} />
+              </Field>
+              <Field label="Estado">
+                <Select value={condicion} onChange={(e) => setCondicion(e.target.value)} className={CENTRADO_SELECT}>
+                  <option value="">Elegí…</option>
+                  {CONDICIONES_CELULAR.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Batería %">
+                {nuevo ? (
+                  <Input value="" placeholder="No aplica (nuevo)" disabled aria-label="Batería: no aplica en un celular nuevo" className={CENTRADO} />
+                ) : (
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={bateria}
+                    onChange={(e) => setBateria(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                    placeholder="87"
+                    className={cn(CENTRADO, "tabular-nums")}
+                  />
+                )}
+              </Field>
+              <Field label="Precio de compra (U$)">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  className={cn(CENTRADO, "tabular-nums")}
+                  value={precio}
+                  onChange={(e) => setPrecio(e.target.value.replace(/\D/g, ""))}
+                  placeholder="U$"
+                />
+              </Field>
+              <Field label="Detalles (opcional)" className="sm:col-span-3">
+                <Textarea
+                  rows={3}
+                  value={detalles}
+                  onChange={(e) => setDetalles(e.target.value)}
+                  placeholder="Ej: rayón en la esquina, sin caja ni cargador."
+                />
+              </Field>
+            </GrillaCampos>
+            <p className="mt-2 text-[11px] text-neutral-500">
+              El precio de compra es lo que se le reconoce al cliente: cubre ese monto de la venta.
+            </p>
+          </div>
+          <label className="flex items-center justify-center gap-2 text-[13px] font-medium text-neutral-700">
+            <input
+              type="checkbox"
+              checked={testeo}
+              onChange={(e) => setTesteo(e.target.checked)}
+              className="h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+            />
+            Hacer el testeo del equipo (checklist)
+          </label>
         </div>
 
-        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-            Checklist de ingreso
-          </p>
-          <ChecklistEditor
-            value={checklist}
-            onChange={setChecklist}
-            gridClassName="grid-cols-1 sm:grid-cols-2"
-          />
-        </div>
-
-        <div>
-          <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-            Aclaraciones
-          </p>
-          <Textarea
-            rows={3}
-            value={aclaraciones}
-            onChange={(e) => setAclaraciones(e.target.value)}
-            placeholder="Ej: no incluye cargador ni caja."
-          />
-        </div>
+        {testeo && (
+          <div>
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+              Testeo
+            </p>
+            <ChecklistEditor
+              value={checklist}
+              onChange={setChecklist}
+              gridClassName="grid-cols-1 sm:grid-cols-2"
+            />
+          </div>
+        )}
       </div>
     </Dialog>
   );

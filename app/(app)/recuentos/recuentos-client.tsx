@@ -36,6 +36,7 @@ import type {
   RecuentoResolucion,
 } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 import { resolverRecuentoAction } from "./actions";
 
 const ITEM_TIPO_LABEL: Record<MovimientoItem["itemTipo"], string> = {
@@ -54,7 +55,7 @@ export function RecuentosClient({
   initialMovimientos: MovimientoItem[];
   user: SessionUser;
 }) {
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   const [vista, setVista] = useState<"recuentos" | "movimientos">("recuentos");
 
   const [recuentos, setRecuentos] = useState<Recuento[]>(initialRecuentos);

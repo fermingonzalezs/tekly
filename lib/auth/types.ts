@@ -2,7 +2,7 @@ import type { Suscripcion } from "@/lib/planes";
 
 export type Rol = "admin" | "vendedor" | "tecnico";
 
-/** Usuario autenticado + su perfil de negocio (organización, rol). Es el
+/** Usuario autenticado + su perfil de negocio (organización, roles). Es el
  * contrato que el resto de la app conoce -- nada fuera de lib/auth sabe
  * que detrás hay Supabase. */
 export type SessionUser = {
@@ -10,6 +10,12 @@ export type SessionUser = {
   email: string;
   organizationId: string;
   organizationNombre: string;
+  /** Roles del usuario (1 a 3). Los permisos son la **unión**: se resuelven
+   * con `tieneRol` de `lib/roles.ts`, nunca comparando `rol`. */
+  roles: Rol[];
+  /** Rol principal derivado de `roles` por trigger en la base (`admin` >
+   * `tecnico` > `vendedor`). Solo para mostrar/ordenar y para el SQL que
+   * compara contra `'admin'` -- no para permisos en la app. */
   rol: Rol;
   nombre: string;
   alias: string | null;
@@ -19,6 +25,10 @@ export type SessionUser = {
   terminosVersion: string | null;
   /** Plan y estado de la organización (`lib/planes.ts`). */
   suscripcion: Suscripcion;
+  /** Entró por una invitación y todavía no eligió contraseña
+   * (`user_metadata.debe_crear_contrasena`): el layout `(app)` lo manda a
+   * `/bienvenida` hasta que la cree. */
+  debeCrearContrasena: boolean;
 };
 
 export type AuthResult = { error: string | null };

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import type { Rol } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 
 /** Índice y carga de artículos del centro de ayuda. Lee `content/ayuda/**`
  * (fs), así que es **server-only** en la práctica: sólo lo importan los
@@ -125,22 +126,32 @@ export function getArticulo(seccion: string, slug: string): Articulo | null {
  * Devuelve el primero visible para ese rol, o null. */
 export function articuloDeSeccion(
   seccion: SeccionAyuda,
-  rol?: Rol,
+  roles?: readonly Rol[],
 ): Articulo | null {
   const arts = listArticulos().filter((a) => a.seccion === seccion);
   if (arts.length === 0) return null;
-  if (!rol) return arts[0];
-  return arts.find((a) => a.roles.length === 0 || a.roles.includes(rol)) ?? null;
+  if (!roles || roles.length === 0) return arts[0];
+  // Un artículo es visible si no restringe roles o si comparte alguno (los
+  // permisos son la unión; admin incluye todo vía `tieneRol`).
+  return (
+    arts.find(
+      (a) => a.roles.length === 0 || a.roles.some((r) => tieneRol({ roles }, r)),
+    ) ?? null
+  );
 }
 
 /** Artículos agrupados por sección (solo secciones con artículos). */
-export function indicePorSeccion(rol?: Rol): {
+export function indicePorSeccion(roles?: readonly Rol[]): {
   seccion: SeccionAyuda;
   label: string;
   articulos: ArticuloMeta[];
 }[] {
   const arts = listArticulos().filter(
-    (a) => !rol || a.roles.length === 0 || a.roles.includes(rol),
+    (a) =>
+      !roles ||
+      roles.length === 0 ||
+      a.roles.length === 0 ||
+      a.roles.some((r) => tieneRol({ roles }, r)),
   );
   return SECCIONES_AYUDA.flatMap((s) => {
     const de = arts.filter((a) => a.seccion === s);
@@ -197,11 +208,15 @@ export function relacionados(art: Articulo, max = 3): ArticuloMeta[] {
 
 /** Buscador: título + resumen + headings del cuerpo. Devuelve los que
  * matchean, priorizando títulos. */
-export function buscar(consulta: string, rol?: Rol): ArticuloMeta[] {
+export function buscar(consulta: string, roles?: readonly Rol[]): ArticuloMeta[] {
   const q = consulta.trim().toLowerCase();
   if (!q) return [];
   const arts = listArticulos().filter(
-    (a) => !rol || a.roles.length === 0 || a.roles.includes(rol),
+    (a) =>
+      !roles ||
+      roles.length === 0 ||
+      a.roles.length === 0 ||
+      a.roles.some((r) => tieneRol({ roles }, r)),
   );
   const meta = ({ cuerpo: _c, archivo: _a, ...m }: Articulo) => m;
   return arts

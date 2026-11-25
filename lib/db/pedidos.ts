@@ -1,18 +1,22 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
-import type { Pedido, PedidoEstado } from "@/lib/types";
+import { descripcionPedido } from "@/lib/pedidos";
+import type { Pedido, PedidoEstado, PedidoItem } from "@/lib/types";
 
 type PedidoRow = {
   id: string;
   cliente: string;
   cliente_id: string | null;
   descripcion: string;
+  items: PedidoItem[] | null;
+  sena_usd: number | string;
   fecha_entrega: string;
   estado: PedidoEstado;
   nota: string | null;
 };
 
-const COLS = "id, cliente, cliente_id, descripcion, fecha_entrega, estado, nota";
+const COLS =
+  "id, cliente, cliente_id, descripcion, items, sena_usd, fecha_entrega, estado, nota";
 
 function toPedido(row: PedidoRow): Pedido {
   return {
@@ -20,6 +24,8 @@ function toPedido(row: PedidoRow): Pedido {
     cliente: row.cliente,
     clienteId: row.cliente_id,
     descripcion: row.descripcion,
+    items: row.items ?? [],
+    senaUsd: Number(row.sena_usd),
     fechaEntrega: row.fecha_entrega,
     estado: row.estado,
     nota: row.nota ?? undefined,
@@ -44,7 +50,9 @@ export async function listPedidosRango(desde: string, hasta: string): Promise<Pe
 export type PedidoDatos = {
   cliente: string;
   clienteId: string | null;
-  descripcion: string;
+  /** Ya validados y normalizados por la server action. */
+  items: PedidoItem[];
+  senaUsd: number;
   fechaEntrega: string;
   nota: string;
 };
@@ -53,7 +61,12 @@ function columnas(d: PedidoDatos) {
   return {
     cliente: d.cliente,
     cliente_id: d.clienteId,
-    descripcion: d.descripcion.trim(),
+    // `descripcion` es `not null` y la siguen leyendo el chip, el confirm de
+    // borrar y los pedidos viejos: se deriva de los ítems, no la escribe el
+    // usuario.
+    descripcion: descripcionPedido(d.items),
+    items: d.items,
+    sena_usd: d.senaUsd,
     fecha_entrega: d.fechaEntrega,
     nota: d.nota.trim() || null,
   };

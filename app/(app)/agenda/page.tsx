@@ -6,6 +6,7 @@ import { listPedidosRango } from "@/lib/db/pedidos";
 import { listCelulares, listOtros } from "@/lib/db/inventario";
 import { listTickets, listTecnicos } from "@/lib/db/reparaciones";
 import { listClientesOpciones } from "@/lib/db/clientes";
+import { listCajas } from "@/lib/db/cajas";
 import { getNegocio } from "@/lib/db/configuracion";
 import { parseFiltrosAgenda, rangoDeVista } from "@/lib/agenda";
 import { hoyISO } from "@/lib/date-presets";
@@ -20,7 +21,7 @@ export default async function TurnosPage({
   const { vista, fecha } = parseFiltrosAgenda(await searchParams, hoy);
   const { desde, hasta } = rangoDeVista(vista, fecha);
 
-  const [turnos, pedidos, proximos, celulares, otros, tickets, clientesOpciones, atendientes, user, negocio] =
+  const [turnos, pedidos, proximos, celulares, otros, tickets, clientesOpciones, atendientes, user, negocio, cajas] =
     await Promise.all([
       listTurnosRango(desde, hasta),
       listPedidosRango(desde, hasta),
@@ -32,6 +33,7 @@ export default async function TurnosPage({
       listTecnicos(),
       requireUser(),
       getNegocio(),
+      listCajas(),
     ]);
 
   return (
@@ -47,11 +49,12 @@ export default async function TurnosPage({
         otros={otros}
         ticketsListos={tickets
           .filter((t) => t.estado === "listo")
-          .map((t) => ticketParaRol(t, user.rol))}
+          .map((t) => ticketParaRol(t, user.roles))}
         clientesOpciones={clientesOpciones}
         atendientes={atendientes}
         user={user}
         negocio={negocio}
+        cajas={cajas}
       />
     </Section>
   );

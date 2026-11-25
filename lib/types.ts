@@ -63,6 +63,8 @@ export type MedioPago =
   | "transferencia"
   | "cripto"
   | "tarjeta"
+  /** Cualquier otra forma de cobro con caja propia (MercadoPago, cheque…). */
+  | "otro"
   | "canje";
 
 /** `MedioPago` + "cuenta corriente" -- solo válido como `Pago.medio` (una
@@ -107,6 +109,8 @@ export type Cliente = {
   nombre: string;
   telefono: string;
   email: string;
+  /** Usuario de Instagram normalizado (`lib/instagram.ts`), sin «@». */
+  instagram?: string;
   desde: string;
   /** Opcional -- solo para "Demografía de clientes" en el dashboard de
    * Clientes. Un cliente sin esto queda afuera de ese cálculo. */
@@ -127,7 +131,15 @@ export type ClienteOpcion = { id: string; nombre: string; telefono: string; emai
  * -- únicamente donde el picker se usa con `allowLibre`, hoy sólo Turnos). */
 export type ClienteSeleccion =
   | { tipo: "existente"; id: string; nombre: string }
-  | { tipo: "nuevo"; nombre: string; telefono?: string }
+  | {
+      tipo: "nuevo";
+      nombre: string;
+      telefono?: string;
+      email?: string;
+      instagram?: string;
+      /** ISO `YYYY-MM-DD`. */
+      fechaNacimiento?: string;
+    }
   | { tipo: "libre"; nombre: string };
 
 export type Servicio = {
@@ -209,6 +221,15 @@ export type Ticket = {
   nota?: string;
 };
 
+/** Ítem de un pedido (encargo): un producto, cuántos y a qué precio de venta
+ * unitario en USD. Es un snapshot embebido en `pedidos.items` (jsonb), no una
+ * relación viva. */
+export type PedidoItem = {
+  detalle: string;
+  cantidad: number;
+  precioUsd: number;
+};
+
 /** Pedido (encargo) de la Agenda: algo que no está en stock y se le entrega
  * a un cliente en `fechaEntrega`. Se dibuja en la fila «Todo el día» del
  * calendario. Tabla `pedidos` (`lib/db/pedidos.ts`). */
@@ -219,7 +240,15 @@ export type Pedido = {
   cliente: string;
   /** `null` si se cargó "sin registrar" (`ClientePicker` con `allowLibre`). */
   clienteId: string | null;
+  /** Derivada de `items` en el server (`descripcionPedido`) — el usuario ya
+   * no la escribe. Se mantiene porque el chip, el confirm de borrar y los
+   * pedidos viejos (con `items = []`) la leen. */
   descripcion: string;
+  /** Productos del pedido. Vacío en pedidos anteriores a los ítems. */
+  items: PedidoItem[];
+  /** Seña abonada en USD (`0` = no abonó). El total y el saldo no se
+   * guardan: se calculan en `lib/pedidos.ts`. */
+  senaUsd: number;
   /** `YYYY-MM-DD`. */
   fechaEntrega: string;
   estado: PedidoEstado;
@@ -489,12 +518,24 @@ export type Proveedor = {
 export type VentaItem = {
   detalle: string;
   cantidad: number;
+  /** Precio unitario **efectivo**: ya incluye la parte del descuento de la
+   * venta que le tocó (ver `aplicarDescuentoVenta`). Un regalo va en 0. */
   precioUsd: number;
+  /** Precio de lista, solo cuando el descuento de la venta cambió esta
+   * línea (si no, `null`/ausente: el efectivo ES el de lista). */
+  precioListaUsd?: number;
+  /** Ítem de regalo (plan 026): sale de la venta y de los recibos, no
+   * suma al total y conserva su costo. */
+  regalo?: boolean;
   costoUsd?: number;
   /** Si el ítem sale del inventario de celulares. */
   celularId?: string;
   /** Si el ítem sale del inventario de notebooks. */
   notebookId?: string;
+  /** Si el ítem sale de «Otros» (descuenta su stock) y, si es serializado,
+   * la unidad vendida. */
+  otroId?: string;
+  otroSerial?: string;
   /** Origen elegido en "Nueva venta" (equipo del stock, servicio del
    * catálogo, producto de "Otros" o ítem libre) -- alimenta el mix de
    * categorías del dashboard (`ventasPorRubro` en `lib/dashboard.ts`).
@@ -545,13 +586,20 @@ export type Pago = {
  * (`Pago.compraId`) y el celular que entra al inventario
  * (`Pago.celularId`). */
 export type CanjeEquipo = {
-  marca?: string;
-  equipo: string;
-  /** Variante obligatoria del celular recibido (plan 024). */
-  varianteId?: string;
-  imei?: string;
-  checklist: Checklist;
-  aclaraciones?: string;
+  /** Modelo tal cual (ej. «iPhone 13 Pro 128GB»): sin variante, el equipo no
+   * entra al stock al vender (ver `lib/canje.ts`). */
+  modelo: string;
+  imei: string;
+  color: string;
+  /** Escala de `CONDICIONES_CELULAR` (NUEVO, A+, A, B+, B, C). */
+  condicion: string;
+  /** % de batería; no aplica (se guarda 100) si la condición es NUEVO. */
+  bateria?: number;
+  /** Detalles del equipo (rayones, faltantes, etc.). */
+  detalles?: string;
+  /** Si se hizo el testeo: con `false` no se guarda checklist. */
+  testeo: boolean;
+  checklist?: Checklist;
 };
 
 /** Mayorista/minorista -- clasificación de la venta, no del cliente (el
@@ -575,6 +623,13 @@ export type Venta = {
   tienda?: string;
   items: VentaItem[];
   totalUsd: number;
+  /** Diferencia total aplicada a la venta, firmada: >0 descuento, <0
+   * recargo (0/ausente en las viejas). Ya está prorrateada en
+   * `items[].precioUsd`. */
+  ajusteUsd?: number;
+  /** La venta entera es un regalo: total 0, sin pagos, con los costos
+   * conservados para la ganancia. */
+  regalo?: boolean;
   /** 1+ medios con monto; la suma cubre el total. */
   pagos: Pago[];
   margenPct: number;
@@ -615,6 +670,9 @@ export type Caja = {
   /** Medio de pago fijo de esta caja — al elegir la caja en un movimiento
    * nuevo, el medio de pago se completa solo, no se vuelve a preguntar. */
   medioPago: MedioPago;
+  /** % que se suma a lo que se cobra en esta caja (comisión de tarjeta, etc.).
+   * Se snapshotea en `Pago.recargoPct` al confirmar. 0 = sin recargo. */
+  recargoPct: number;
 };
 
 export type MovimientoCaja = {
@@ -738,10 +796,18 @@ export type Compra = {
   marca?: string;
   imei?: string;
   checklist?: Checklist;
+  /** En canje: los «Detalles» del equipo. */
   aclaraciones?: string;
-  /** Solo `origen === "canje"`: `Celular.id` del equipo que entró al
-   * inventario con la venta que generó esta compra (plan 020). Se resuelve
-   * desde `Pago.celularId` de la venta de origen; no es una columna. */
+  /** Solo canje: datos del equipo recibido (columnas `canje_*`). Compras de
+   * canje anteriores a esto no los tienen (el modelo sale de `items[0]`). */
+  canjeModelo?: string;
+  canjeColor?: string;
+  canjeCondicion?: string;
+  canjeBateria?: number;
+  canjeTesteado?: boolean;
+  /** Solo `origen === "canje"`: `Celular.id` del equipo una vez que pasó al
+   * inventario (celular con `compra_id` = esta compra; en canjes viejos,
+   * `Pago.celularId` de la venta). `undefined` = «sin ingresar». */
   celularId?: string;
   /** Plan 025: la compra creó stock al guardarse (`compra_items` tiene el
    * vínculo con cada unidad). `false` = gasto/historial, como siempre. */

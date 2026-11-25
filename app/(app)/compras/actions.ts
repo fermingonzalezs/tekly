@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRoleEscritura } from "@/lib/auth";
-import { createCompra, marcarRecibida, deleteCompra } from "@/lib/db/compras";
+import { createCompra, marcarRecibida, deleteCompra, pasarCanjeAlStock } from "@/lib/db/compras";
+import type { CelularInput } from "@/lib/db/inventario";
 import type { ItemCompraStock } from "@/lib/compras";
 import type { Compra, CompraItem, MedioPago } from "@/lib/types";
 
@@ -52,4 +53,21 @@ export async function deleteCompraAction(
   revalidatePath("/cajas");
   if (opciones.quitarDelStock) revalidatePath("/inventario");
   return res;
+}
+
+/** Pasa al inventario un celular recibido en canje (elige la variante
+ * recién acá). Mismos roles que crear una compra. */
+export async function pasarCanjeAlStockAction(
+  compraId: string,
+  celular: CelularInput,
+): Promise<{ ok: true; celularId: string } | { ok: false; error: string }> {
+  const user = await requireRoleEscritura("admin", "tecnico");
+  try {
+    const { celularId } = await pasarCanjeAlStock(compraId, celular, user.nombre);
+    revalidatePath("/compras");
+    revalidatePath("/inventario");
+    return { ok: true, celularId };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "No se pudo pasar al stock." };
+  }
 }

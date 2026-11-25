@@ -3,6 +3,7 @@ import { createServerClient } from "@/lib/auth/supabase";
 import { requireUser } from "@/lib/auth";
 import { addMovimiento } from "@/lib/db/inventario";
 import { createMovimientoCC } from "@/lib/db/cuentas-corrientes";
+import { conRecargoDeCaja } from "@/lib/db/cajas";
 import { montoConRecargo } from "@/lib/ventas";
 import { fmtDayMonth, fmtTime } from "@/lib/format";
 import type { Checklist, Pago, Servicio, Ticket, TicketServicio, TicketStatus } from "@/lib/types";
@@ -152,8 +153,11 @@ export async function entregarTicket(id: number, data: EntregarTicketInput): Pro
   };
 
   const concepto = `Entrega ticket #${id} · ${ticketRow.clientes?.nombre ?? "—"}`;
+  // Recargo: de la caja elegida (o de la org para cuenta corriente), nunca
+  // del cliente; queda como snapshot en los pagos del ticket.
+  const pagos = await conRecargoDeCaja(data.pagos);
 
-  for (const pago of data.pagos) {
+  for (const pago of pagos) {
     const montoReal = montoConRecargo(pago.montoUsd, pago.recargoPct);
     if (pago.medio === "cuenta_corriente") {
       if (!ticketRow.cliente_id) continue;
@@ -185,7 +189,7 @@ export async function entregarTicket(id: number, data: EntregarTicketInput): Pro
     .from("tickets")
     .update({
       checklist_egreso: data.checklist,
-      pagos: data.pagos,
+      pagos,
       estado: "entregado" satisfies TicketStatus,
     })
     .eq("id", id)

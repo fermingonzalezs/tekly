@@ -19,6 +19,7 @@ import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { Cliente } from "@/lib/types";
 import type { KpisClientes } from "@/lib/clientes-inteligencia";
 import type { SessionUser } from "@/lib/auth/types";
+import { tieneRol } from "@/lib/roles";
 import {
   createClienteAction,
   updateClienteAction,
@@ -26,6 +27,13 @@ import {
   getClienteHistorialAction,
 } from "./actions";
 import type { HistorialEntry } from "@/lib/db/clientes";
+import { isoAFechaDDMMAAAA } from "@/lib/clientes";
+import {
+  CamposCliente,
+  datosDeBorrador,
+  validarBorradorCliente,
+  type BorradorCliente,
+} from "@/components/clientes/campos-cliente";
 
 export function ClientesClient({
   initialClientes,
@@ -39,7 +47,7 @@ export function ClientesClient({
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   const [list, setList] = useState<Cliente[]>(initialClientes);
   const [q, setQ] = useState("");
   // ?open=<id>: deep links desde Analíticas (mapa de valor, cohortes, listas
@@ -157,6 +165,7 @@ export function ClientesClient({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs text-neutral-500">
                   {c.telefono} · {c.email}
+                  {c.instagram ? ` · @${c.instagram}` : ""}
                 </p>
                 <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
                   <span>Cliente desde {c.desde}</span>
@@ -203,8 +212,11 @@ export function ClientesClient({
                   {c.nombre}
                 </td>
                 <td className="px-5 py-2 text-center text-neutral-500">{c.telefono}</td>
-                <td className="max-w-[180px] truncate px-5 py-2 text-start text-neutral-500">
+                <td className="max-w-[180px] truncate px-5 py-2 text-center text-neutral-500">
                   {c.email}
+                  {c.instagram && (
+                    <span className="block truncate text-[11px] text-accent">@{c.instagram}</span>
+                  )}
                 </td>
                 <td className="px-5 py-2 text-center text-neutral-500">{c.desde}</td>
                 <td className="px-5 py-2 text-center tabular-nums">{c.compras}</td>
@@ -354,9 +366,13 @@ function Ficha({ cliente }: { cliente: Cliente }) {
   const [historial, setHistorial] = useState<HistorialEntry[] | null>(null);
   useEffect(() => {
     let cancelado = false;
-    getClienteHistorialAction(cliente.id).then((h) => {
-      if (!cancelado) setHistorial(h);
-    });
+    getClienteHistorialAction(cliente.id)
+      .then((h) => {
+        if (!cancelado) setHistorial(h);
+      })
+      .catch(() => {
+        if (!cancelado) setHistorial([]);
+      });
     return () => {
       cancelado = true;
     };
@@ -366,7 +382,11 @@ function Ficha({ cliente }: { cliente: Cliente }) {
 
   const infoFields = [
     { label: "Teléfono", value: cliente.telefono },
-    { label: "Email", value: cliente.email },
+    {
+      label: cliente.instagram ? "Email · Instagram" : "Email",
+      value: cliente.email,
+      debajo: cliente.instagram ? "@" + cliente.instagram : undefined,
+    },
     { label: "Cliente desde", value: cliente.desde },
     { label: "Compras", value: String(cliente.compras) },
     { label: "Reparaciones", value: String(cliente.reparaciones) },
@@ -386,6 +406,9 @@ function Ficha({ cliente }: { cliente: Cliente }) {
                 {f.label}
               </p>
               <p className="mt-1.5 truncate text-sm font-normal text-neutral-600">{f.value}</p>
+              {"debajo" in f && f.debajo && (
+                <p className="truncate text-xs font-medium text-accent">{f.debajo}</p>
+              )}
             </Card>
           ))}
         </div>
@@ -474,33 +497,6 @@ function Ficha({ cliente }: { cliente: Cliente }) {
   );
 }
 
-/** "15/5/2000abc" -> "15/05/2000" mientras se escribe -- solo dígitos,
- * inserta las barras solo, máximo 8 dígitos (DDMMAAAA). */
-function maskFechaDDMMAAAA(raw: string): string {
-  const digits = raw.replace(/\D/g, "").slice(0, 8);
-  const partes = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
-  return partes.join("/");
-}
-
-/** "15/05/2000" -> "2000-05-15" (lo que espera la columna `date`).
- * `undefined` si está incompleta o el rango no es plausible. */
-function fechaDDMMAAAAaIso(ddmmaaaa: string): string | undefined {
-  const m = ddmmaaaa.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!m) return undefined;
-  const [, dd, mm, yyyy] = m;
-  const d = Number(dd);
-  const mo = Number(mm);
-  const y = Number(yyyy);
-  if (d < 1 || d > 31 || mo < 1 || mo > 12 || y < 1900) return undefined;
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-/** "2000-05-15" -> "15/05/2000", para precargar el input al editar. */
-function isoAFechaDDMMAAAA(iso?: string): string {
-  const m = iso?.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
-}
-
 function ClienteFormDialog({
   cliente,
   open,
@@ -512,28 +508,29 @@ function ClienteFormDialog({
   onClose: () => void;
   onSaved: (c: Cliente) => void;
 }) {
-  const [nombre, setNombre] = useState(cliente?.nombre ?? "");
-  const [telefono, setTelefono] = useState(
-    cliente?.telefono && cliente.telefono !== "—" ? cliente.telefono : "",
-  );
-  const [email, setEmail] = useState(cliente?.email && cliente.email !== "—" ? cliente.email : "");
-  const [fechaNacimiento, setFechaNacimiento] = useState(
-    isoAFechaDDMMAAAA(cliente?.fechaNacimiento),
-  );
+  const [borrador, setBorrador] = useState<BorradorCliente>({
+    nombre: cliente?.nombre ?? "",
+    telefono: cliente?.telefono && cliente.telefono !== "—" ? cliente.telefono : "",
+    email: cliente?.email && cliente.email !== "—" ? cliente.email : "",
+    instagram: cliente?.instagram ?? "",
+    nacimiento: isoAFechaDDMMAAAA(cliente?.fechaNacimiento),
+  });
+  const { valido } = validarBorradorCliente(borrador);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function submit() {
+    setError(null);
     startTransition(async () => {
-      const data = {
-        nombre: nombre.trim(),
-        telefono: telefono.trim(),
-        email: email.trim(),
-        fechaNacimiento: fechaDDMMAAAAaIso(fechaNacimiento),
-      };
-      const saved = cliente
-        ? await updateClienteAction(cliente.id, data)
-        : await createClienteAction(data);
-      onSaved(saved);
+      const data = datosDeBorrador(borrador);
+      try {
+        const saved = cliente
+          ? await updateClienteAction(cliente.id, data)
+          : await createClienteAction(data);
+        onSaved(saved);
+      } catch {
+        setError("No se pudo guardar el cliente. Revisá los datos y probá de nuevo.");
+      }
     });
   }
 
@@ -554,7 +551,7 @@ function ClienteFormDialog({
           </Button>
           <Button
             onClick={submit}
-            disabled={!nombre.trim() || pending}
+            disabled={!valido || pending}
             variant="primary" fullOnMobile
           >
             {pending ? "Guardando…" : cliente ? "Guardar" : "Crear cliente"}
@@ -562,26 +559,8 @@ function ClienteFormDialog({
         </>
       }
     >
-      <GrillaCampos>
-        <Field label="Nombre y apellido" className="sm:col-span-3">
-          <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Juan Pérez" />
-        </Field>
-        <Field label="Teléfono">
-          <Input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+54 9 11 …" />
-        </Field>
-        <Field label="Email" className="sm:col-span-2">
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="cliente@mail.com" />
-        </Field>
-        <Field label="Fecha de nacimiento (opcional)" className="sm:col-span-2">
-          <Input
-            value={fechaNacimiento}
-            onChange={(e) => setFechaNacimiento(maskFechaDDMMAAAA(e.target.value))}
-            placeholder="DD/MM/AAAA"
-            inputMode="numeric"
-            maxLength={10}
-          />
-        </Field>
-      </GrillaCampos>
+      <CamposCliente value={borrador} onChange={setBorrador} />
+      {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
     </Dialog>
   );
 }

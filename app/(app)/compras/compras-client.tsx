@@ -58,7 +58,13 @@ import {
 } from "../inventario/inventario-client";
 import type { Negocio } from "@/lib/db/configuracion";
 import type { SessionUser } from "@/lib/auth/types";
-import { createCompraAction, marcarRecibidaAction, deleteCompraAction } from "./actions";
+import { tieneRol } from "@/lib/roles";
+import {
+  createCompraAction,
+  marcarRecibidaAction,
+  deleteCompraAction,
+  pasarCanjeAlStockAction,
+} from "./actions";
 
 const MEDIOS = MEDIOS_CAJA;
 
@@ -102,6 +108,22 @@ function contraparteDe(c: Compra) {
   return c.proveedor || (c.origen === "canje" ? c.cliente ?? "" : "") || "Sin proveedor";
 }
 
+/** Canje cuyo equipo todavía no pasó al inventario. */
+function canjeSinIngresar(c: Compra) {
+  return c.origen === "canje" && !c.celularId;
+}
+
+/** Datos del equipo de un canje. Los canjes anteriores a las columnas
+ * `canje_*` (plan 020) toman el modelo del ítem y el color del checklist. */
+function equipoDeCanje(c: Compra) {
+  return {
+    modelo: c.canjeModelo || c.items[0]?.detalle || "—",
+    color: c.canjeColor || c.checklist?.color || "",
+    condicion: c.canjeCondicion || "",
+    bateria: c.canjeBateria,
+  };
+}
+
 function matchesQuery(c: Compra, q: string) {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
@@ -125,10 +147,12 @@ export function ComprasClient({
   stock: StockParaCompra;
 }) {
   const { publish } = useRealtime();
-  const esAdmin = user.rol === "admin";
+  const esAdmin = tieneRol(user, "admin");
   const [list, setList] = useState<Compra[]>(initialCompras);
   const openParam = useSearchParams().get("open");
-  const [estadoFiltro, setEstadoFiltro] = useState<"todos" | CompraEstado>("todos");
+  const [estadoFiltro, setEstadoFiltro] = useState<"todos" | CompraEstado | "canje_sin_ingresar">(
+    "todos",
+  );
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(openParam);
@@ -141,6 +165,9 @@ export function ComprasClient({
   );
   const [tipoIngreso, setTipoIngreso] = useState<"todos" | TipoItemCompra>("todos");
   const [recibo, setRecibo] = useState(false);
+  /** Canje que se está pasando al stock (formulario de celular abierto). */
+  const [pasando, setPasando] = useState<Compra | null>(null);
+  const [errorPasar, setErrorPasar] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -169,7 +196,10 @@ export function ComprasClient({
   const filtered = useMemo(
     () =>
       list.filter(
-        (c) => (estadoFiltro === "todos" || c.estado === estadoFiltro) && matchesQuery(c, q),
+        (c) =>
+          (estadoFiltro === "todos" ||
+            (estadoFiltro === "canje_sin_ingresar" ? canjeSinIngresar(c) : c.estado === estadoFiltro)) &&
+          matchesQuery(c, q),
       ),
     [list, estadoFiltro, q],
   );
@@ -192,7 +222,7 @@ export function ComprasClient({
     setOpenId(null);
     setConfirmDelete(false);
     const borrarMovimiento = !!c?.cajaId && eliminarMovimientoCaja;
-    const sacarStock = !!c?.subeStock && quitarDelStock;
+    const sacarStock = (!!c?.subeStock || (c?.origen === "canje" && !!c.celularId)) && quitarDelStock;
     startTransition(async () => {
       const res = await deleteCompraAction(id, {
         eliminarMovimientoCaja: borrarMovimiento,
@@ -301,13 +331,16 @@ export function ComprasClient({
             ) : (
             <Select
               value={estadoFiltro}
-              onChange={(e) => setEstadoFiltro(e.target.value as "todos" | CompraEstado)}
+              onChange={(e) =>
+                setEstadoFiltro(e.target.value as "todos" | CompraEstado | "canje_sin_ingresar")
+              }
               className={cn("w-full sm:w-44", filterPill)}
               aria-label="Filtrar por estado"
             >
               <option value="todos">Todos los estados</option>
               <option value="pendiente">Pendiente</option>
               <option value="recibida">Recibida</option>
+              <option value="canje_sin_ingresar">Canjes sin ingresar al stock</option>
             </Select>
             )
           }
@@ -353,6 +386,9 @@ export function ComprasClient({
                 <p className="mt-0.5 truncate text-xs text-neutral-500">
                   {c.items.map((i) => i.detalle).join(" · ")}
                 </p>
+                {canjeSinIngresar(c) && (
+                  <p className="mt-0.5 text-[11px] font-medium text-amber-600">Canje · sin ingresar al stock</p>
+                )}
 
                 <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5">
                   <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
@@ -433,6 +469,16 @@ export function ComprasClient({
                       Ingresó al stock
                     </span>
                   )}
+                  {c.origen === "canje" && (
+                    <span
+                      className={cn(
+                        "mt-1 block text-[11px] font-medium",
+                        c.celularId ? "text-neutral-500" : "text-amber-600",
+                      )}
+                    >
+                      {c.celularId ? "Canje · en el stock" : "Canje · sin ingresar"}
+                    </span>
+                  )}
                 </td>
                 <td className="px-5 py-2 text-center font-semibold tabular-nums">
                   {fmtUsd(c.totalUsd)}
@@ -492,6 +538,17 @@ export function ComprasClient({
                   Imprimir recibo de canje
                 </Button>
               )}
+              {canjeSinIngresar(open) && (
+                <Button
+                  onClick={() => {
+                    setErrorPasar(null);
+                    setPasando(open);
+                  }}
+                  variant="primary" fullOnMobile
+                >
+                  Pasar al stock
+                </Button>
+              )}
               {open.estado === "pendiente" && (
                 <Button
                   disabled={pending}
@@ -508,6 +565,11 @@ export function ComprasClient({
           )
         }
       >
+        {open && errorPasar && (
+          <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {errorPasar}
+          </p>
+        )}
         {open && (
           <CompraDetalle
             compra={open}
@@ -539,7 +601,7 @@ export function ComprasClient({
                 Eliminar también el movimiento de caja generado por esta compra
               </label>
             )}
-            {open.subeStock && (
+            {(open.subeStock || (open.origen === "canje" && !!open.celularId)) && (
               <label className="flex items-start gap-2 rounded-lg border border-neutral-200 p-3 text-[13px] font-medium text-neutral-700">
                 <input
                   type="checkbox"
@@ -567,14 +629,23 @@ export function ComprasClient({
           compacto
           sello="canje"
         >
-          <ReciboCampos
-            filas={[
-              ["Marca", open.marca || "—"],
-              ["Modelo", open.items[0]?.detalle ?? "—"],
-              ["Serial / IMEI", open.imei || "—"],
-              ["Color", open.checklist?.color || "—"],
-            ]}
-          />
+          {(() => {
+            const eq = equipoDeCanje(open);
+            return (
+              <ReciboCampos
+                filas={[
+                  ["Modelo", eq.modelo],
+                  ["Serial / IMEI", open.imei || "—"],
+                  ["Color", eq.color || "—"],
+                  ["Estado", eq.condicion || "—"],
+                  [
+                    "Batería",
+                    eq.condicion === "NUEVO" ? "No aplica" : eq.bateria !== undefined ? `${eq.bateria} %` : "—",
+                  ],
+                ]}
+              />
+            );
+          })()}
           {open.checklist && (
             <ReciboChecklist titulo="Checklist de ingreso" checklist={open.checklist} ocultarColor />
           )}
@@ -585,8 +656,52 @@ export function ComprasClient({
               ["Valor reconocido", fmtUsd(open.totalUsd)],
             ]}
           />
-          <ReciboNota titulo="Aclaraciones" texto={open.aclaraciones ?? ""} />
+          <ReciboNota titulo="Detalles del equipo" texto={open.aclaraciones ?? ""} />
         </ReciboImprimir>
+      )}
+
+      {pasando && (
+        <CelularFormDialog
+          key={`pasar-${pasando.id}`}
+          celular={null}
+          variantes={stock.variantes}
+          unidades={stock.celulares}
+          open
+          onClose={() => setPasando(null)}
+          puedeVerCosto
+          modoCompra
+          inicial={(() => {
+            const eq = equipoDeCanje(pasando);
+            return {
+              modelo: eq.modelo,
+              color: eq.color,
+              imei: pasando.imei ?? "",
+              condicion: eq.condicion || "A",
+              bateria: eq.bateria ?? 100,
+              costoUsd: pasando.totalUsd,
+            };
+          })()}
+          textos={{
+            titulo: `Pasar al stock · ${pasando.id}`,
+            descripcion:
+              "Elegí la variante del equipo. Entra al inventario con el costo del canje (lo que se le reconoció al cliente).",
+            boton: "Pasar al stock",
+          }}
+          onVarianteCreada={() => router.refresh()}
+          onSubmit={async (input) => {
+            const compraId = pasando.id;
+            const res = await pasarCanjeAlStockAction(compraId, input);
+            if (!res.ok) {
+              setErrorPasar(res.error);
+              return;
+            }
+            setErrorPasar(null);
+            setList((prev) =>
+              prev.map((c) => (c.id === compraId ? { ...c, celularId: res.celularId } : c)),
+            );
+            router.refresh();
+          }}
+        />
       )}
 
       <NuevaCompraDialog
@@ -624,7 +739,7 @@ function CompraDetalle({ compra, ingresos }: { compra: Compra; ingresos: Ingreso
     { label: "Estado", value: compraEstado[compra.estado].label },
     ...(compra.origen === "proveedor"
       ? [{ label: "Stock", value: compra.subeStock ? "Ingresó al stock" : "No sube al stock" }]
-      : []),
+      : [{ label: "Stock", value: compra.celularId ? "En el stock" : "Sin ingresar" }]),
     ...(compra.costosAdicionalesUsd
       ? [{ label: "Costos adicionales", value: fmtUsd(compra.costosAdicionalesUsd) }]
       : []),
@@ -756,12 +871,23 @@ function CompraDetalle({ compra, ingresos }: { compra: Compra; ingresos: Ingreso
             Información del equipo
           </p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: "Marca", value: compra.marca || "—" },
-              { label: "Serial / IMEI", value: compra.imei || "—" },
-              { label: "Color", value: compra.checklist?.color || "—" },
-              { label: "Venta", value: compra.ventaId ?? "—" },
-            ].map((f) => (
+            {(() => {
+              const eq = equipoDeCanje(compra);
+              return [
+                { label: "Modelo", value: eq.modelo },
+                { label: "IMEI / serial", value: compra.imei || "—" },
+                { label: "Color", value: eq.color || "—" },
+                { label: "Estado", value: eq.condicion || "—" },
+                {
+                  label: "Batería",
+                  value:
+                    eq.condicion === "NUEVO" ? "No aplica" : eq.bateria !== undefined ? `${eq.bateria} %` : "—",
+                },
+                { label: "Precio de compra", value: fmtUsd(compra.totalUsd) },
+                { label: "Testeo", value: compra.checklist ? "Hecho" : "No se hizo" },
+                { label: "Venta", value: compra.ventaId ?? "—" },
+              ];
+            })().map((f) => (
               <Card key={f.label} className="p-2 text-center">
                 <p className="font-grotesk truncate border-b border-neutral-300 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   {f.label}
@@ -789,7 +915,7 @@ function CompraDetalle({ compra, ingresos }: { compra: Compra; ingresos: Ingreso
           )}
           {compra.aclaraciones && (
             <p className="mt-3 text-sm text-neutral-600">
-              <span className="font-semibold text-neutral-900">Aclaraciones: </span>
+              <span className="font-semibold text-neutral-900">Detalles: </span>
               {compra.aclaraciones}
             </p>
           )}
@@ -895,14 +1021,22 @@ function NuevaCompraDialog({
   varianteInicialId?: string | null;
 }) {
   const [proveedor, setProveedor] = useState("");
-  const [medioPago, setMedioPago] = useState<MedioPago>("transferencia");
-  // Cajas activas del medio elegido -- mismo criterio que el pago de Ventas:
-  // un medio puede tener más de una caja, hay que saber cuál. «Sin caja» =
-  // la compra no mueve plata (equipo propio, pago fuera del sistema).
-  const cajasDelMedio = cajas.filter((c) => c.activa && c.medioPago === medioPago);
+  // Medio y caja salen de las cajas reales (mismo criterio que el pago de
+  // Ventas): solo se ofrecen los medios con alguna caja activa, y la caja
+  // dice la moneda. «Registrar movimiento» decide si la compra genera el
+  // egreso en esa caja (sin tildar: equipo propio, pago fuera del sistema).
+  const cajasActivas = cajas.filter((c) => c.activa);
+  const mediosConCaja = MEDIOS.filter((m) => cajasActivas.some((c) => c.medioPago === m));
+  const mediosSinCaja = MEDIOS.filter((m) => !mediosConCaja.includes(m));
+  const [medioPago, setMedioPago] = useState<MedioPago>(
+    cajasActivas[0]?.medioPago ?? "transferencia",
+  );
+  const cajasDelMedio = cajasActivas.filter((c) => c.medioPago === medioPago);
   const [cajaId, setCajaId] = useState<string | null>(cajasDelMedio[0]?.id ?? null);
   const cajaElegida = cajasDelMedio.find((c) => c.id === cajaId) ?? null;
-  const pagaEnArs = medioPago === "pesos" || cajaElegida?.moneda === "ars";
+  const [registrarMovimiento, setRegistrarMovimiento] = useState(cajasActivas.length > 0);
+  const mueveCaja = registrarMovimiento && !!cajaElegida;
+  const pagaEnArs = mueveCaja && cajaElegida?.moneda === "ars";
   const [subeStock, setSubeStock] = useState(true);
   const [items, setItems] = useState<CompraItem[]>([{ detalle: "", cantidad: 1, costoUsd: 0 }]);
   const [carrito, setCarrito] = useState<ItemCompraStock[]>([]);
@@ -951,7 +1085,7 @@ function NuevaCompraDialog({
         items: subeStock ? [] : itemsValidos,
         totalUsd,
         medioPago,
-        ...(cajaId ? { cajaId } : {}),
+        ...(mueveCaja && cajaId ? { cajaId } : {}),
         ...(pagaEnArs ? { montoArs: Math.round(totalUsd * dolarVenta), cotizacion: dolarVenta } : {}),
         ...(subeStock ? { stock: carrito, costosAdicionalesUsd: adicional } : {}),
         ...(notas.trim() ? { notas: notas.trim() } : {}),
@@ -1013,27 +1147,67 @@ function NuevaCompraDialog({
                 onChange={(e) => {
                   const medio = e.target.value as MedioPago;
                   setMedioPago(medio);
-                  setCajaId(cajas.find((c) => c.activa && c.medioPago === medio)?.id ?? null);
+                  setCajaId(cajasActivas.find((c) => c.medioPago === medio)?.id ?? null);
                 }}
+                disabled={mediosConCaja.length === 0}
               >
-                {MEDIOS.map((m) => (
+                {mediosConCaja.length === 0 && <option value={medioPago}>Sin cajas activas</option>}
+                {mediosConCaja.map((m) => (
                   <option key={m} value={m}>
-                    {medioPagoCfg[m].label}
+                    {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
+                  </option>
+                ))}
+                {mediosSinCaja.map((m) => (
+                  <option key={m} value={m} disabled>
+                    {medioPagoCfg[m].emoji} {medioPagoCfg[m].label} (sin caja)
                   </option>
                 ))}
               </Select>
             </Field>
             <Field label="Caja">
-              <Select value={cajaId ?? ""} onChange={(e) => setCajaId(e.target.value || null)}>
+              <Select
+                value={cajaId ?? ""}
+                onChange={(e) => setCajaId(e.target.value || null)}
+                disabled={cajasDelMedio.length === 0}
+              >
+                {cajasDelMedio.length === 0 && <option value="">—</option>}
                 {cajasDelMedio.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.nombre}
+                    {c.nombre} · {c.moneda === "ars" ? "$" : "U$"}
                   </option>
                 ))}
-                <option value="">Sin caja (no mueve plata)</option>
               </Select>
             </Field>
           </GrillaCampos>
+          <label className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[13px] font-medium text-neutral-700">
+            <input
+              type="checkbox"
+              checked={mueveCaja}
+              disabled={!cajaElegida}
+              onChange={(e) => setRegistrarMovimiento(e.target.checked)}
+              className="h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+            />
+            Registrar movimiento
+            <span className="text-[11px] font-normal text-neutral-500">
+              {mueveCaja && cajaElegida
+                ? "(se registra el egreso en «" + cajaElegida.nombre + "» al guardar)"
+                : "(la compra no mueve plata de ninguna caja)"}
+            </span>
+          </label>
+          {mediosSinCaja.length > 0 && (
+            <p className="mt-1 text-center text-[11px] text-neutral-500">
+              ¿No aparece cómo pagaste? Cada forma de pago es una caja: creala en{" "}
+              <a
+                href="/cajas"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-accent hover:underline"
+              >
+                Cajas
+              </a>{" "}
+              con su medio y su moneda.
+            </p>
+          )}
           <label className="mt-3 flex items-center justify-center gap-2 text-[13px] font-medium text-neutral-700">
             <input
               type="checkbox"

@@ -1,5 +1,6 @@
 import "server-only";
 import { bateriaCelular } from "@/lib/status";
+import { movimientoStockOtro } from "@/lib/otros";
 import { createServerClient } from "@/lib/auth/supabase";
 import { requireUser, requireRole } from "@/lib/auth";
 import type { SessionUser } from "@/lib/auth/types";
@@ -1041,4 +1042,25 @@ export async function listMovimientosStock(filtro: {
     itemTipo: m.item_type as ItemType,
     itemNombre: nombrePorTipo[m.item_type as ItemType].get(m.item_id) ?? "—",
   }));
+}
+
+/** Vende/regala (`egreso`) o devuelve (`ingreso`) stock de un producto de
+ * «Otros» desde una venta. La regla vive en `movimientoStockOtro`
+ * (lib/otros.ts): nunca deja stock negativo ni vende una unidad que no está
+ * disponible. Deja el registro en `movimientos_stock`. */
+export async function moverStockOtro(
+  id: string,
+  mov: { cantidad: number; serial?: string },
+  sentido: "egreso" | "ingreso",
+  detalle: string,
+): Promise<void> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase.from("otros_items").select(OTRO_COLS).eq("id", id).single();
+  if (error) throw error;
+  const otro = toOtro(data as unknown as OtroRow);
+  const r = movimientoStockOtro(otro, mov, sentido);
+  if (!r.ok) throw new Error(r.error);
+  const { error: updError } = await supabase.from("otros_items").update(r.patch).eq("id", id);
+  if (updError) throw updError;
+  await addMovimiento("otro", id, detalle, sentido);
 }
