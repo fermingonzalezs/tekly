@@ -4,8 +4,8 @@
 import { sumarDias } from "@/lib/date-presets";
 import type { Pedido, Turno, TurnoTipo } from "@/lib/types";
 
-export type VistaAgenda = "dia" | "semana" | "mes";
-export const VISTAS_AGENDA: VistaAgenda[] = ["dia", "semana", "mes"];
+export type VistaAgenda = "semana" | "mes";
+export const VISTAS_AGENDA: VistaAgenda[] = ["semana", "mes"];
 
 /** Horario de la grilla. */
 export const HORA_INICIO = 9;
@@ -27,7 +27,6 @@ export const DURACIONES = [15, 30, 45, 60, 90] as const;
 export const DIAS_SEMANA_AGENDA = 6;
 
 const DIAS_CORTOS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
-const DIAS_LARGOS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -103,7 +102,6 @@ function moverMes(fecha: string, delta: number): string {
 
 /** Rango de fechas (ambos incluidos) que hay que traer para dibujar la vista. */
 export function rangoDeVista(vista: VistaAgenda, fecha: string): { desde: string; hasta: string } {
-  if (vista === "dia") return { desde: fecha, hasta: fecha };
   if (vista === "semana") {
     const s = semanaDe(fecha);
     return { desde: s[0], hasta: s[s.length - 1] };
@@ -115,21 +113,24 @@ export function rangoDeVista(vista: VistaAgenda, fecha: string): { desde: string
 
 /** ‹ / › de la barra de navegación. Mes → día 1 del mes vecino. */
 export function moverFecha(vista: VistaAgenda, fecha: string, direccion: 1 | -1): string {
-  if (vista === "dia") return sumarDias(fecha, direccion);
   if (vista === "semana") return sumarDias(fecha, 7 * direccion);
   return moverMes(primeroDelMes(fecha), direccion);
 }
 
 const ddmm = (f: string) => `${f.slice(8, 10)}/${f.slice(5, 7)}`;
 
-/** "Martes 24/11" · "23/11 – 28/11" · "Noviembre 2026". */
+/** "23 al 28 de noviembre" · "30 de noviembre al 5 de diciembre" · "Noviembre de 2026". */
 export function etiquetaRango(vista: VistaAgenda, fecha: string): string {
-  if (vista === "dia") return `${DIAS_LARGOS[diaDeSemana(fecha)]} ${ddmm(fecha)}`;
+  const dia = (f: string) => Number(f.slice(8, 10));
+  const mes = (f: string) => MESES[Number(f.slice(5, 7)) - 1].toLowerCase();
   if (vista === "semana") {
     const s = semanaDe(fecha);
-    return `${ddmm(s[0])} – ${ddmm(s[s.length - 1])}`;
+    const [ini, fin] = [s[0], s[s.length - 1]];
+    return mes(ini) === mes(fin)
+      ? `${dia(ini)} al ${dia(fin)} de ${mes(fin)}`
+      : `${dia(ini)} de ${mes(ini)} al ${dia(fin)} de ${mes(fin)}`;
   }
-  return `${MESES[Number(fecha.slice(5, 7)) - 1]} ${fecha.slice(0, 4)}`;
+  return `${MESES[Number(fecha.slice(5, 7)) - 1]} de ${fecha.slice(0, 4)}`;
 }
 
 export const diaCorto = (fecha: string) => DIAS_CORTOS[diaDeSemana(fecha)];
@@ -143,7 +144,7 @@ export type FiltrosAgenda = { vista: VistaAgenda; fecha: string };
 type SP = Record<string, string | string[] | undefined>;
 const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-/** `?vista=dia|semana|mes&fecha=YYYY-MM-DD`; inválido → semana + hoy. */
+/** `?vista=semana|mes&fecha=YYYY-MM-DD`; inválido → semana + hoy. */
 export function parseFiltrosAgenda(sp: SP, hoy: string): FiltrosAgenda {
   const v = uno(sp.vista);
   const f = uno(sp.fecha);
@@ -218,37 +219,52 @@ export function agruparSolapados<T extends ConHorario>(eventos: T[]): T[][] {
   return grupos;
 }
 
-export type GrupoProximos<T> = {
-  clave: "vencidos" | "hoy" | "manana" | "semana" | "despues";
+/** Entrada del panel «Próximos»: un turno abierto o un pedido sin entregar. */
+export type ItemProximo<T, P> =
+  | { clase: "turno"; id: string; fecha: string; hora: string; turno: T }
+  | { clase: "pedido"; id: string; fecha: string; hora: string; pedido: P };
+
+export type GrupoProximos<T, P = Pedido> = {
+  clave: "atrasados" | "hoy" | "manana" | "semana" | "despues";
   label: string;
-  turnos: T[];
+  items: ItemProximo<T, P>[];
 };
 
-const porFechaHora = (a: Pick<Turno, "fecha" | "hora">, b: Pick<Turno, "fecha" | "hora">) =>
+// Los pedidos no tienen hora: `hora = ""` los pone primero en su día («Todo el día»).
+const porFechaHora = (a: { fecha: string; hora: string }, b: { fecha: string; hora: string }) =>
   a.fecha.localeCompare(b.fecha) || a.hora.localeCompare(b.hora);
 
-/** Vencidos (pasados sin marcar, el más viejo primero) / Hoy / Mañana /
- * Esta semana / Más adelante. Solo turnos abiertos; los vacíos se omiten. */
-export function agruparProximos<T extends Pick<Turno, "fecha" | "hora" | "estado">>(
-  turnos: T[],
-  hoy: string,
-): GrupoProximos<T>[] {
+/** Atrasados (pasaron sin cerrarse, el más viejo primero) / Hoy / Mañana /
+ * Esta semana / Más adelante. Turnos abiertos + pedidos sin entregar ni
+ * cancelar, mezclados por fecha; los grupos vacíos se omiten. */
+export function agruparProximos<
+  T extends Pick<Turno, "id" | "fecha" | "hora" | "estado">,
+  P extends Pick<Pedido, "id" | "fechaEntrega" | "estado"> = Pedido,
+>(turnos: T[], hoy: string, pedidos: P[] = []): GrupoProximos<T, P>[] {
   const manana = sumarDias(hoy, 1);
   const sem = semanaDe(hoy);
   const finSemana = sem[sem.length - 1];
-  const abiertos = turnos.filter(estaAbierto);
-  const grupos: GrupoProximos<T>[] = [
-    { clave: "vencidos", label: "Vencidos", turnos: abiertos.filter((t) => t.fecha < hoy).sort(porFechaHora) },
-    { clave: "hoy", label: "Hoy", turnos: [] },
-    { clave: "manana", label: "Mañana", turnos: [] },
-    { clave: "semana", label: "Esta semana", turnos: [] },
-    { clave: "despues", label: "Más adelante", turnos: [] },
+  const items: ItemProximo<T, P>[] = [
+    ...turnos
+      .filter(estaAbierto)
+      .map((t) => ({ clase: "turno" as const, id: t.id, fecha: t.fecha, hora: t.hora, turno: t })),
+    ...[...new Map(pedidos.map((p) => [p.id, p])).values()]
+      .filter((p) => p.estado === "pedido" || p.estado === "llego")
+      .map((p) => ({ clase: "pedido" as const, id: p.id, fecha: p.fechaEntrega, hora: "", pedido: p })),
+  ].sort(porFechaHora);
+  const grupos: GrupoProximos<T, P>[] = [
+    { clave: "atrasados", label: "Atrasados", items: [] },
+    { clave: "hoy", label: "Hoy", items: [] },
+    { clave: "manana", label: "Mañana", items: [] },
+    { clave: "semana", label: "Esta semana", items: [] },
+    { clave: "despues", label: "Más adelante", items: [] },
   ];
-  for (const t of abiertos.filter((t) => t.fecha >= hoy).sort(porFechaHora)) {
-    const g = t.fecha === hoy ? 1 : t.fecha === manana ? 2 : t.fecha <= finSemana ? 3 : 4;
-    grupos[g].turnos.push(t);
+  for (const it of items) {
+    const g =
+      it.fecha < hoy ? 0 : it.fecha === hoy ? 1 : it.fecha === manana ? 2 : it.fecha <= finSemana ? 3 : 4;
+    grupos[g].items.push(it);
   }
-  return grupos.filter((g) => g.turnos.length > 0);
+  return grupos.filter((g) => g.items.length > 0);
 }
 
 /** Turnos activos de la misma persona que pisan el horario dado. */
@@ -273,19 +289,36 @@ export function turnosSuperpuestos<
   });
 }
 
-export type KpisAgenda = { hoy: number; sinConfirmar: number; semana: number; vencidos: number };
+export type KpisAgenda = {
+  /** Lo que hay que atender hoy: turnos (sin cancelados) + pedidos abiertos que se entregan hoy. */
+  hoy: { turnos: number; pedidos: number };
+  /** Pedidos sin entregar ni cancelar, de cualquier fecha. */
+  pedidosPendientes: number;
+  vencidos: { turnos: number; pedidos: number };
+  /** Turnos marcados atendidos en los últimos 7 días (hoy incluido). */
+  atendidosSemana: number;
+};
 
-/** KPIs de arriba. `turnos` = la mezcla de rango visible + próximos (se
- * deduplica por id). Sin confirmar = pendientes de hoy en adelante. */
-export function kpisAgenda(turnos: Turno[], hoy: string): KpisAgenda {
-  const unicos = [...new Map(turnos.map((t) => [t.id, t])).values()];
-  const sem = semanaDe(hoy);
-  const [d, h] = [sem[0], sem[sem.length - 1]];
+/** KPIs de arriba. `turnos` = la mezcla de rango visible + próximos y
+ * `pedidos` = abiertos + rango visible (se deduplica por id en los dos). */
+export function kpisAgenda(turnos: Turno[], pedidos: Pedido[], hoy: string): KpisAgenda {
+  const ts = [...new Map(turnos.map((t) => [t.id, t])).values()];
+  const ps = [...new Map(pedidos.map((p) => [p.id, p])).values()];
+  const abiertos = ps.filter(pedidoAbierto);
+  const haceUnaSemana = sumarDias(hoy, -6);
   return {
-    hoy: unicos.filter((t) => t.fecha === hoy && t.estado !== "cancelado").length,
-    sinConfirmar: unicos.filter((t) => t.fecha >= hoy && t.estado === "pendiente").length,
-    semana: unicos.filter((t) => t.fecha >= d && t.fecha <= h && t.estado !== "cancelado").length,
-    vencidos: unicos.filter((t) => esVencido(t, hoy)).length,
+    hoy: {
+      turnos: ts.filter((t) => t.fecha === hoy && t.estado !== "cancelado").length,
+      pedidos: abiertos.filter((p) => p.fechaEntrega === hoy).length,
+    },
+    pedidosPendientes: abiertos.length,
+    vencidos: {
+      turnos: ts.filter((t) => esVencido(t, hoy)).length,
+      pedidos: ps.filter((p) => pedidoVencido(p, hoy)).length,
+    },
+    atendidosSemana: ts.filter(
+      (t) => t.estado === "atendido" && t.fecha >= haceUnaSemana && t.fecha <= hoy,
+    ).length,
   };
 }
 

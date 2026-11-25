@@ -427,7 +427,7 @@ export function ComprasClient({
           <thead>
             <tr className="border-b border-neutral-100 text-xs text-neutral-400">
               <th className={cn("px-5 py-3 text-center", thDivider)}>Compra</th>
-              <th className={cn("px-5 py-3 text-center", thDivider)}>Contraparte</th>
+              <th className={cn("px-5 py-3 text-center", thDivider)}>Proveedor</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Detalle</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Medio</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Estado</th>
@@ -445,8 +445,8 @@ export function ComprasClient({
                   {c.id}
                   <span className="block text-xs font-normal text-neutral-400">{c.fecha}</span>
                 </td>
-                <td className="px-5 py-2 text-start font-medium">{contraparteDe(c)}</td>
-                <td className="max-w-[240px] truncate px-5 py-2 text-start text-neutral-500">
+                <td className="px-5 py-2 text-center font-medium">{contraparteDe(c)}</td>
+                <td className="max-w-[240px] truncate px-5 py-2 text-center text-neutral-500">
                   {c.items.map((i) => i.detalle).join(" · ")}
                 </td>
                 <td className="px-5 py-2 text-center">
@@ -807,7 +807,7 @@ function CompraDetalle({ compra, ingresos }: { compra: Compra; ingresos: Ingreso
             <tbody>
               {compra.items.map((i, idx) => (
                 <tr key={idx} className="border-t border-neutral-100 first:border-t-0">
-                  <td className="px-4 py-2.5 !text-start">{i.detalle}</td>
+                  <td className="px-4 py-2.5">{i.detalle}</td>
                   <td className="px-4 py-2.5 tabular-nums">{i.cantidad}</td>
                   <td className="px-4 py-2.5 tabular-nums text-neutral-500">{fmtUsd(i.costoUsd)}</td>
                   <td className="px-4 py-2.5 font-semibold tabular-nums">
@@ -819,7 +819,7 @@ function CompraDetalle({ compra, ingresos }: { compra: Compra; ingresos: Ingreso
                 className="border-t border-neutral-100 font-semibold text-neutral-900"
                 style={{ backgroundColor: "var(--accent-soft)", backgroundImage: "none" }}
               >
-                <td className="px-4 py-2.5 !text-start uppercase tracking-wide" colSpan={3}>
+                <td className="px-4 py-2.5 uppercase tracking-wide" colSpan={3}>
                   Total
                 </td>
                 <td className="px-4 py-2.5 tabular-nums">{fmtUsd(compra.totalUsd)}</td>
@@ -966,7 +966,7 @@ function IngresosTabla({
                     {TIPO_ITEM_COMPRA_LABEL[i.tipo]}
                   </span>
                 </td>
-                <td className="px-4 py-2 text-start">
+                <td className="px-4 py-2 text-center">
                   {href ? (
                     <a
                       href={href}
@@ -984,7 +984,7 @@ function IngresosTabla({
                 </td>
                 <td className="px-4 py-2 tabular-nums">{i.cantidad}</td>
                 <td className="px-4 py-2 tabular-nums">{fmtUsd(i.costoUsd)}</td>
-                <td className="px-4 py-2 text-start">{i.proveedor || "—"}</td>
+                <td className="px-4 py-2 text-center">{i.proveedor || "—"}</td>
                 <td className="px-4 py-2">{i.usuario || "—"}</td>
               </tr>
             );
@@ -1253,7 +1253,7 @@ function NuevaCompraDialog({
                     {carrito.map((it, idx) => (
                       <tr key={idx} className="border-t border-neutral-100">
                         <td className="px-3 py-2">{TIPO_ITEM_COMPRA_LABEL[it.tipo]}</td>
-                        <td className="px-3 py-2 !text-start">{it.detalle}</td>
+                        <td className="px-3 py-2">{it.detalle}</td>
                         <td className="px-3 py-2 font-mono text-xs">{serieDeItem(it) || "—"}</td>
                         <td className="px-3 py-2 tabular-nums">{it.cantidad}</td>
                         <td className="px-3 py-2 tabular-nums">{fmtUsd(it.costoUsd)}</td>

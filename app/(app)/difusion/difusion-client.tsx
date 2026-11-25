@@ -179,10 +179,10 @@ export function DifusionClient({
                 onClick={() => setViewingId(l.id)}
                 className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
               >
-                <td className="max-w-[180px] truncate px-5 py-2 text-start font-medium">
+                <td className="max-w-[180px] truncate px-5 py-2 font-medium">
                   {l.nombre}
                 </td>
-                <td className="max-w-[240px] truncate px-5 py-2 text-start text-neutral-500">
+                <td className="max-w-[240px] truncate px-5 py-2 text-neutral-500">
                   {l.mensajeInicial || "—"}
                 </td>
                 <td className="px-5 py-2 text-center tabular-nums">{l.secciones.length}</td>

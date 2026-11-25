@@ -82,7 +82,7 @@ export default async function AdminReportesPage() {
                         {r.organizacion}
                       </Link>
                     </td>
-                    <td className="px-5 py-3 text-start">
+                    <td className="px-5 py-3">
                       <p className="font-medium text-neutral-900">{r.usuarioNombre}</p>
                       <p className="text-xs text-neutral-500">
                         {rolLabel[r.rol as Rol] ?? r.rol} · {r.usuarioEmail}
@@ -91,10 +91,10 @@ export default async function AdminReportesPage() {
                     <td className="px-5 py-3 font-mono text-xs text-neutral-600">
                       {seccionDe(r.ruta)}
                     </td>
-                    <td className="min-w-[12rem] px-5 py-3 text-start text-neutral-700">
+                    <td className="min-w-[12rem] px-5 py-3 text-neutral-700">
                       {r.accion || "—"}
                     </td>
-                    <td className="min-w-[18rem] whitespace-pre-wrap px-5 py-3 text-start text-neutral-900">
+                    <td className="min-w-[18rem] whitespace-pre-wrap px-5 py-3 text-neutral-900">
                       {r.descripcion}
                       {r.respuesta && (
                         <p className="mt-2 border-l-2 border-emerald-400 pl-2 text-xs text-neutral-600">

@@ -168,7 +168,7 @@ export function OrganizacionClient({
                       key={u.id}
                       className="border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                     >
-                      <td className="px-5 py-2.5 font-medium text-start">
+                      <td className="px-5 py-2.5 font-medium">
                         {u.nombre}
                         {esUnoMismo && (
                           <span className="ml-1.5 text-xs text-neutral-500">(vos)</span>

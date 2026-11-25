@@ -61,12 +61,12 @@ export function VentasRecientesTabla({
                     className="cursor-pointer hover:bg-accent-soft"
                     onClick={() => router.push(hrefDe(s.id))}
                   >
-                    <td className="px-4 py-2.5 text-start font-medium text-neutral-900">
+                    <td className="px-4 py-2.5 font-medium text-neutral-900">
                       <Link href={hrefDe(s.id)} className="hover:underline" onClick={(e) => e.stopPropagation()}>
                         {s.cliente}
                       </Link>
                     </td>
-                    <td className="max-w-[18rem] truncate px-4 py-2.5 text-start text-neutral-700" title={s.item}>
+                    <td className="max-w-[18rem] truncate px-4 py-2.5 text-neutral-700" title={s.item}>
                       {s.item}
                     </td>
                     <td className="px-4 py-2.5">

@@ -1,27 +1,30 @@
 "use client";
 
+import { InputFecha } from "@/components/ui/input-fecha";
 import { useRef, useState } from "react";
 import { Check, PackageCheck, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Field, GrillaCampos, Input, Textarea } from "@/components/ui/field";
+import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
 import { ClientePicker } from "@/components/ui/cliente-picker";
-import { fmtUsd } from "@/lib/format";
+import { fmtArs, fmtUsd } from "@/lib/format";
+import { useDolar } from "@/lib/dolar";
 import {
   errorPedido,
   itemPedidoVacio,
   limpiarItems,
   normalizarItems,
-  redondearUsd,
   saldoPedido,
+  senaEnCaja,
   subtotalItem,
   totalPedido,
   type PedidoItemBorrador,
 } from "@/lib/pedidos";
 import { cn } from "@/lib/utils";
 import { etiquetaDia, pedidoAbierto, pedidoVencido } from "@/lib/agenda";
-import { dotClass, pedidoEstado } from "@/lib/status";
+import { dotClass, medioPago, pedidoEstado } from "@/lib/status";
 import type {
+  Caja,
   ClienteOpcion,
   ClienteSeleccion,
   Pedido,
@@ -59,6 +62,7 @@ export function PedidoDialog({
   pedido,
   fechaInicial,
   clientesOpciones,
+  cajas,
   error,
   guardando,
   onClose,
@@ -69,6 +73,8 @@ export function PedidoDialog({
   pedido: Pedido | null;
   fechaInicial: string;
   clientesOpciones: ClienteOpcion[];
+  /** La seña entra como ingreso en una de las cajas activas. */
+  cajas: Caja[];
   error: string | null;
   guardando: boolean;
   onClose: () => void;
@@ -83,8 +89,16 @@ export function PedidoDialog({
   );
   const [items, setItems] = useState<PedidoItemBorrador[]>(() => itemsIniciales(pedido));
   const [fechaEntrega, setFechaEntrega] = useState(pedido?.fechaEntrega ?? fechaInicial);
+  const cajasActivas = cajas.filter((c) => c.activa || c.id === pedido?.sena?.cajaId);
   const [abonaSena, setAbonaSena] = useState((pedido?.senaUsd ?? 0) > 0);
-  const [sena, setSena] = useState(pedido && pedido.senaUsd > 0 ? String(pedido.senaUsd) : "");
+  const [senaCajaId, setSenaCajaId] = useState(
+    pedido?.sena?.cajaId ?? cajasActivas.find((c) => c.activa)?.id ?? "",
+  );
+  // En la moneda de la caja (pesos si es ARS, como el cobro de Nueva venta).
+  const [sena, setSena] = useState(pedido?.sena ? String(pedido.sena.monto) : "");
+  const dolar = useDolar().venta;
+  // Ya conciliada en Cajas: la seña queda fija (el server lo rechazaría).
+  const senaFija = !!pedido?.sena?.conciliado;
   const [nota, setNota] = useState(pedido?.nota ?? "");
   const [tocado, setTocado] = useState(false);
   const refs = useRef<(HTMLInputElement | null)[]>([]);
@@ -92,10 +106,25 @@ export function PedidoDialog({
   const filas = limpiarItems(items);
   // Vacío en el input de la seña = falta el monto (no 0): así «Abonó seña»
   // sin monto no se guarda como seña cero.
-  const senaNum = abonaSena ? (sena.trim() === "" ? Number.NaN : Number(sena)) : 0;
+  const cajaSena = cajasActivas.find((c) => c.id === senaCajaId);
+  const montoSena = abonaSena ? (sena.trim() === "" ? Number.NaN : Number(sena)) : 0;
+  const senaSinCambios =
+    !!pedido?.sena && pedido.sena.cajaId === senaCajaId && pedido.sena.monto === montoSena;
+  // USD de la seña: la guardada si no cambió (no se recalcula con el dólar de
+  // hoy); si no, desde la caja y la cotización vigente.
+  const senaNum = !abonaSena
+    ? 0
+    : senaSinCambios
+      ? pedido!.senaUsd
+      : cajaSena
+        ? (senaEnCaja(cajaSena.moneda, montoSena, dolar)?.senaUsd ?? Number.NaN)
+        : Number.NaN;
   const total = totalPedido(filas);
-  const saldo = saldoPedido(filas, senaNum);
-  const errorValidacion = errorPedido({ items: filas, senaUsd: senaNum });
+  const saldo = saldoPedido(filas, Number.isFinite(senaNum) ? senaNum : 0);
+  const errorValidacion =
+    abonaSena && !cajaSena
+      ? "Elegí la caja donde entra la seña."
+      : errorPedido({ items: filas, senaUsd: senaNum });
 
   const valido =
     !!cliente && cliente.nombre.trim() !== "" && !!fechaEntrega && !errorValidacion;
@@ -139,8 +168,10 @@ export function PedidoDialog({
               onSubmit({
                 cliente,
                 items: normalizarItems(filas),
-                // `valido` ya garantizó que `senaNum` es un número finito ≥ 0.
-                senaUsd: redondearUsd(senaNum),
+                // `valido` ya garantizó caja y monto válidos.
+                sena: abonaSena
+                  ? { cajaId: senaCajaId, monto: montoSena, cotizacion: dolar }
+                  : null,
                 fechaEntrega,
                 nota,
               })
@@ -164,12 +195,11 @@ export function PedidoDialog({
           />
         </Field>
         <Field label="Fecha de entrega">
-          <Input
-            type="date"
+          <InputFecha
             value={fechaEntrega}
-            onChange={(e) => {
+            onChange={(v) => {
               setTocado(true);
-              setFechaEntrega(e.target.value);
+              setFechaEntrega(v);
             }}
           />
         </Field>
@@ -181,17 +211,17 @@ export function PedidoDialog({
           <table className="w-full min-w-[520px]">
             <thead>
               <tr className="text-xs">
-                <th>Producto</th>
-                <th className="w-20">Cant.</th>
-                <th className="w-32">Precio unit. (U$)</th>
-                <th className="w-28">Subtotal</th>
-                <th className="w-12" />
+                <th className="py-2">Producto</th>
+                <th className="py-2 w-20">Cant.</th>
+                <th className="py-2 w-32">Precio unit. (U$)</th>
+                <th className="py-2 w-28">Subtotal</th>
+                <th className="py-2 w-12" />
               </tr>
             </thead>
             <tbody>
               {items.map((item, indice) => (
                 <tr key={indice}>
-                  <td className="p-1.5 text-start">
+                  <td className="p-1.5">
                     <Input
                       ref={(el) => {
                         refs.current[indice] = el;
@@ -267,6 +297,7 @@ export function PedidoDialog({
           <input
             type="checkbox"
             checked={abonaSena}
+            disabled={senaFija}
             onChange={(e) => {
               setTocado(true);
               setAbonaSena(e.target.checked);
@@ -276,22 +307,64 @@ export function PedidoDialog({
           />
           Abonó seña
         </label>
+        {abonaSena && cajasActivas.length === 0 && (
+          <p className="text-sm text-amber-700">
+            No hay cajas activas: creá una en{" "}
+            <a href="/cajas" className="font-medium underline">
+              Cajas
+            </a>{" "}
+            para registrar la seña.
+          </p>
+        )}
+        {abonaSena && cajasActivas.length > 0 && (
+          <GrillaCampos>
+            <Field label="Caja" className="sm:col-span-2">
+              <Select
+                value={senaCajaId}
+                disabled={senaFija}
+                onChange={(e) => {
+                  setTocado(true);
+                  setSenaCajaId(e.target.value);
+                }}
+              >
+                {!cajaSena && <option value="">Elegí una caja</option>}
+                {cajasActivas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} · {medioPago[c.medioPago].label} ({c.moneda.toUpperCase()})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={cajaSena?.moneda === "ars" ? "Monto ($)" : "Monto (U$)"}>
+              <Input
+                type="number"
+                min={0}
+                step={cajaSena?.moneda === "ars" ? "1" : "0.01"}
+                inputMode="decimal"
+                value={sena}
+                disabled={senaFija}
+                onChange={(e) => {
+                  setTocado(true);
+                  setSena(e.target.value);
+                }}
+                placeholder="0"
+                className="!text-center"
+              />
+              {cajaSena?.moneda === "ars" && Number.isFinite(senaNum) && senaNum > 0 && (
+                <p className="mt-1 text-xs tabular-nums text-neutral-500">
+                  ≈ {fmtUsd(senaNum)}
+                  {!senaSinCambios && ` · dólar ${fmtArs(dolar)}`}
+                </p>
+              )}
+            </Field>
+          </GrillaCampos>
+        )}
         {abonaSena && (
-          <Field label="Monto de la seña (U$)" className="mx-auto max-w-xs">
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              inputMode="decimal"
-              value={sena}
-              onChange={(e) => {
-                setTocado(true);
-                setSena(e.target.value);
-              }}
-              placeholder="0"
-              className="!text-center"
-            />
-          </Field>
+          <p className="text-xs text-neutral-500">
+            {senaFija
+              ? "La seña ya está conciliada en Cajas: no se puede cambiar."
+              : "Se registra como ingreso en la caja elegida."}
+          </p>
         )}
       </div>
 
@@ -335,6 +408,7 @@ export function PedidoDetalle({
   pedido,
   hoy,
   clientes,
+  cajas,
   esAdmin,
   onClose,
   onEstado,
@@ -344,6 +418,7 @@ export function PedidoDetalle({
   pedido: Pedido | null;
   hoy: string;
   clientes: ClienteOpcion[];
+  cajas: Caja[];
   esAdmin: boolean;
   onClose: () => void;
   onEstado: (p: Pedido, estado: PedidoEstado) => void;
@@ -440,7 +515,7 @@ export function PedidoDetalle({
                     <tbody>
                       {pedido.items.map((item, indice) => (
                         <tr key={indice}>
-                          <td className="px-2 py-1.5 text-start">{item.detalle}</td>
+                          <td className="px-2 py-1.5">{item.detalle}</td>
                           <td className="px-2 py-1.5 tabular-nums">{item.cantidad}</td>
                           <td className="px-2 py-1.5 tabular-nums">{fmtUsd(item.precioUsd)}</td>
                           <td className="px-2 py-1.5 tabular-nums">{fmtUsd(subtotalItem(item))}</td>
@@ -460,6 +535,13 @@ export function PedidoDetalle({
                   <p className="tabular-nums text-neutral-900">
                     {pedido.senaUsd > 0 ? fmtUsd(pedido.senaUsd) : "Sin seña"}
                   </p>
+                  {pedido.sena && (
+                    <p className="text-xs text-neutral-500">
+                      {cajas.find((c) => c.id === pedido.sena!.cajaId)?.nombre ?? "Caja"}
+                      {cajas.find((c) => c.id === pedido.sena!.cajaId)?.moneda === "ars" &&
+                        ` · ${fmtArs(pedido.sena.monto)}`}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">

@@ -14,11 +14,11 @@ Un **pedido** es algo que el cliente encargó y que no tenés en stock: un equip
 <Paso n={1}>Tocá **«Nuevo pedido»** en la barra de la Agenda, o el hueco libre de «Todo el día» en el día que corresponda (aparece «+ Pedido»).</Paso>
 <Paso n={2}>Elegí el **cliente** (existente, nuevo o sin registrar) y la **fecha de entrega**.</Paso>
 <Paso n={3}>Cargá los **productos**: uno o varios, cada uno con su **cantidad** y su **precio de venta unitario en dólares**. Podés sumar filas con **«Agregar producto»** (o con Enter en el último precio) y quitarlas con el tacho.</Paso>
-<Paso n={4}>Si el cliente dejó plata por adelantado, tildá **«Abonó seña»** y escribí el **monto**. Abajo ves en vivo el **total**, la **seña** y el **saldo por abonar** (total − seña).</Paso>
-<Paso n={5}>Si querés, sumá una **nota** (proveedor, color alternativo, con qué pagó la seña) y guardá.</Paso>
+<Paso n={4}>Si el cliente dejó plata por adelantado, tildá **«Abonó seña»**, elegí la **caja** donde entra la plata y escribí el **monto** (en pesos si la caja es en pesos: abajo ves el equivalente en dólares con la cotización del momento). Abajo ves en vivo el **total**, la **seña** y el **saldo por abonar** (total − seña).</Paso>
+<Paso n={5}>Si querés, sumá una **nota** (proveedor, color alternativo, …) y guardá.</Paso>
 
 <Aviso tono="info">
-El precio es el de **venta**, en dólares, y el saldo se calcula solo: no hay que escribirlo. La seña **no mueve caja** todavía (no queda registrada como ingreso): sirve para saber cuánto falta cobrar.
+El precio es el de **venta**, en dólares, y el saldo se calcula solo: no hay que escribirlo. La seña **queda registrada como ingreso** en la caja elegida (la ves en Cajas como «Seña pedido · cliente»). Si después cambiás la caja o el monto, el ingreso se corrige solo; una vez conciliada en Cajas, la seña ya no se puede cambiar.
 </Aviso>
 
 ## Estados
@@ -29,11 +29,11 @@ El precio es el de **venta**, en dólares, y el saldo se calcula solo: no hay qu
 
 Tocá el pedido para ver el detalle (productos, total, seña y saldo) y marcar **Llegó**, **Entregado** o **Cancelar pedido**. **Reabrir** vuelve un pedido cerrado a «Pedido». Si la fecha de entrega ya pasó y sigue abierto, se marca en **rojo**.
 
-Cancelar un pedido **no** devuelve la seña ni cambia el saldo: si corresponde devolverla o no, anotalo en la nota.
+Cancelar un pedido **no** devuelve la seña ni cambia el saldo: si corresponde devolverla, registrá el egreso en Cajas. **Eliminar** el pedido sí borra el ingreso de la seña (salvo que ya esté conciliada).
 
 ## Qué no se puede
 
-- Un pedido no mueve caja ni stock: la seña y el precio son datos del pedido, y el cobro real se hace con una **venta** al entregar.
+- Un pedido no mueve stock y solo la seña mueve caja: el saldo se cobra con una **venta** al entregar.
 - Sólo el **admin** elimina pedidos.
 
 ## Relacionados

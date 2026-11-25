@@ -203,27 +203,46 @@ export const pedidoEstado: Record<PedidoEstado, { label: string; tone: Tone }> =
   cancelado: { label: "Cancelado", tone: "red" },
 };
 
-/** Fondo/borde/texto del bloque del calendario por tipo de turno (el estado
- * cambia la forma, ver `components/agenda/evento-bloque.tsx`). */
+/** Clases por tipo de turno, todas con los tonos de la paleta índigo
+ * (`--chart-*`, siguen el tema activo; mismo mapeo que `TURNO_TIPO_COLOR` de
+ * `lib/chart.ts`). El tipo se distingue por tono + ícono (`TURNO_ICONO`); el
+ * estado cambia la forma (ver `components/agenda/evento-bloque.tsx`).
+ * Literales completos a propósito: Tailwind no ve clases armadas en runtime. */
 export const turnoBlockClass: Record<
   TurnoTipo,
-  { solid: string; soft: string }
+  { solid: string; soft: string; icono: string; fondo: string; texto: string; banda: string }
 > = {
   compra: {
-    solid: "border-emerald-600 bg-emerald-600 text-white",
-    soft: "border-emerald-500 bg-emerald-50 text-neutral-900",
+    solid: "border-[color:color-mix(in_srgb,var(--chart-3)_35%,white)] bg-[color:color-mix(in_srgb,var(--chart-3)_12%,white)] text-neutral-900",
+    soft: "border-dashed border-[color:var(--chart-3)] bg-white text-neutral-900",
+    icono: "text-[color:var(--chart-3)]",
+    fondo: "text-[color:color-mix(in_srgb,var(--chart-3)_22%,white)]",
+    texto: "text-[color:var(--chart-3)]",
+    banda: "bg-[color:var(--chart-3)]",
   },
   deja: {
-    solid: "border-blue-600 bg-blue-600 text-white",
-    soft: "border-blue-500 bg-blue-50 text-neutral-900",
+    solid: "border-[color:color-mix(in_srgb,var(--chart-0)_35%,white)] bg-[color:color-mix(in_srgb,var(--chart-0)_12%,white)] text-neutral-900",
+    soft: "border-dashed border-[color:var(--chart-0)] bg-white text-neutral-900",
+    icono: "text-[color:var(--chart-0)]",
+    fondo: "text-[color:color-mix(in_srgb,var(--chart-0)_22%,white)]",
+    texto: "text-[color:var(--chart-0)]",
+    banda: "bg-[color:var(--chart-0)]",
   },
   retira: {
-    solid: "border-violet-600 bg-violet-600 text-white",
-    soft: "border-violet-500 bg-violet-50 text-neutral-900",
+    solid: "border-[color:color-mix(in_srgb,var(--chart-1)_35%,white)] bg-[color:color-mix(in_srgb,var(--chart-1)_12%,white)] text-neutral-900",
+    soft: "border-dashed border-[color:var(--chart-1)] bg-white text-neutral-900",
+    icono: "text-[color:var(--chart-1)]",
+    fondo: "text-[color:color-mix(in_srgb,var(--chart-1)_22%,white)]",
+    texto: "text-[color:var(--chart-1)]",
+    banda: "bg-[color:var(--chart-1)]",
   },
   cotizar: {
-    solid: "border-amber-500 bg-amber-500 text-white",
-    soft: "border-amber-500 bg-amber-50 text-neutral-900",
+    solid: "border-[color:color-mix(in_srgb,var(--chart-2)_35%,white)] bg-[color:color-mix(in_srgb,var(--chart-2)_12%,white)] text-neutral-900",
+    soft: "border-dashed border-[color:var(--chart-2)] bg-white text-neutral-900",
+    icono: "text-[color:var(--chart-2)]",
+    fondo: "text-[color:color-mix(in_srgb,var(--chart-2)_22%,white)]",
+    texto: "text-[color:var(--chart-2)]",
+    banda: "bg-[color:var(--chart-2)]",
   },
 };
 

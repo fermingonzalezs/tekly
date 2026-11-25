@@ -39,18 +39,15 @@ function minutosAhora(): number {
   return h * 60 + m;
 }
 
-/** Grilla por media hora, una columna por día. La usan las vistas Día (1
- * columna) y Semana (lunes a sábado). En Semana, 3+ turnos superpuestos se
- * juntan en un bloque «N turnos» que abre ese día. */
+/** Grilla por media hora de la vista Semana (lunes a sábado), una columna
+ * por día. Turnos superpuestos van lado a lado. */
 export function CalendarioGrilla({
   dias,
   turnos,
   pedidos,
   hoy,
-  compacta,
   onAgendar,
   onAbrirTurno,
-  onAbrirDia,
   onNuevoPedido,
   onAbrirPedido,
 }: {
@@ -60,10 +57,8 @@ export function CalendarioGrilla({
   pedidos: Pedido[];
   hoy: string;
   /** Semana: agrupa 3+ solapados y muestra menos detalle. */
-  compacta: boolean;
   onAgendar: (fecha: string, hora: string) => void;
   onAbrirTurno: (id: string) => void;
-  onAbrirDia: (fecha: string) => void;
   onNuevoPedido: (fecha: string) => void;
   onAbrirPedido: (id: string) => void;
 }) {
@@ -79,29 +74,25 @@ export function CalendarioGrilla({
 
   return (
     <Card className="overflow-x-auto p-0">
-      <div className={compacta ? "min-w-[720px]" : "min-w-[320px]"}>
+      <div className="min-w-[720px]">
         <div className="grid bg-table-header" style={{ gridTemplateColumns: cols }}>
           <div className="flex items-center justify-center text-[10px] font-bold uppercase tracking-wide text-white/50">
             Hora
           </div>
           {dias.map((d, i) => (
-            <button
+            <div
               key={d}
-              type="button"
-              onClick={() => onAbrirDia(d)}
-              disabled={!compacta}
               className={cn(
                 "px-2 py-2 text-center",
                 i < dias.length - 1 && thDivider,
                 d === hoy && "bg-white/10",
-                compacta && "hover:bg-white/10",
               )}
             >
               <span className="block text-[11px] font-bold uppercase tracking-wide text-white/60">
                 {diaCorto(d)}
               </span>
               <span className="block text-sm font-semibold text-white">{fechaCorta(d)}</span>
-            </button>
+            </div>
           ))}
         </div>
 
@@ -126,7 +117,7 @@ export function CalendarioGrilla({
                     key={p.id}
                     pedido={p}
                     hoy={hoy}
-                    conDescripcion={!compacta}
+                    conDescripcion={false}
                     onClick={() => onAbrirPedido(p.id)}
                   />
                 ))}
@@ -183,36 +174,13 @@ export function CalendarioGrilla({
                 ))}
 
                 {agruparSolapados(delDia).flatMap((grupo) => {
-                  if (compacta && grupo.length >= 3) {
-                    const ini = Math.min(...grupo.map((t) => horaAMinutos(t.hora)));
-                    const fin = Math.max(
-                      ...grupo.map((t) => horaAMinutos(t.hora) + t.duracionMin),
-                    );
-                    return [
-                      <button
-                        key={`g-${grupo[0].id}`}
-                        type="button"
-                        onClick={() => onAbrirDia(fecha)}
-                        title={`${grupo.length} turnos entre ${grupo[0].hora} y ${minutosAHora(fin)}`}
-                        style={{
-                          top: Math.max(0, top(ini)) + 1,
-                          height: Math.max(ALTO_SLOT, ((fin - ini) / 60) * PX_POR_HORA) - 2,
-                          left: 2,
-                          right: 2,
-                        }}
-                        className="absolute z-10 rounded-md border border-accent bg-accent-soft px-1.5 py-0.5 text-left text-xs font-semibold text-accent hover:shadow-md"
-                      >
-                        {grupo.length} turnos
-                      </button>,
-                    ];
-                  }
                   return calcularSolapes(grupo).map(({ evento, col, cols: n }) => {
                     const alto = Math.max(20, (evento.duracionMin / 60) * PX_POR_HORA - 2);
                     return (
                       <EventoBloque
                         key={evento.id}
                         turno={evento}
-                        detallado={alto >= 44 && (compacta ? n === 1 : n < 3)}
+                        detallado={alto >= 44 && n === 1}
                         onClick={() => onAbrirTurno(evento.id)}
                         style={{
                           top: Math.max(0, top(horaAMinutos(evento.hora))) + 1,

@@ -208,7 +208,7 @@ export function ClientesClient({
                 onClick={() => setOpenId(c.id)}
                 className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
               >
-                <td className="max-w-[160px] truncate px-5 py-2 text-start font-medium">
+                <td className="max-w-[160px] truncate px-5 py-2 font-medium">
                   {c.nombre}
                 </td>
                 <td className="px-5 py-2 text-center text-neutral-500">{c.telefono}</td>

@@ -171,14 +171,14 @@ export function DialogGlassDemo() {
               <th className="px-5 py-3">Fecha</th>
               <th className="px-5 py-3">Concepto</th>
               <th className="px-5 py-3">Caja</th>
-              <th className="px-5 py-3 text-end">Monto</th>
+              <th className="px-5 py-3">Monto</th>
             </tr>
           </thead>
           <tbody>
             {FILAS.map((f) => (
               <tr key={f[1]}>
                 {f.map((c, i) => (
-                  <td key={i} className={i === 3 ? "px-5 py-2.5 text-end tabular-nums" : "px-5 py-2.5"}>
+                  <td key={i} className={i === 3 ? "px-5 py-2.5 tabular-nums" : "px-5 py-2.5"}>
                     {c}
                   </td>
                 ))}

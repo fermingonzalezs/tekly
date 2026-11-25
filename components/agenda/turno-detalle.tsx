@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { thDivider } from "@/lib/ui-styles";
 import { fmtUsd } from "@/lib/format";
 import { etiquetaDia, horaFin } from "@/lib/agenda";
-import { celularStatus, dotClass, medioPago, turnoStatus, turnoTipo } from "@/lib/status";
+import { celularStatus, dotClass, medioPago, turnoBlockClass, turnoStatus, turnoTipo } from "@/lib/status";
+import { TURNO_ICONO } from "./turno-icono";
 import { TicketResumen } from "./ticket-resumen";
 import type { Celular, ClienteOpcion, Ticket, Turno, TurnoEstado } from "@/lib/types";
 
@@ -35,6 +36,7 @@ export function TurnoDetalle({
   onEliminar: (t: Turno) => void;
 }) {
   const abierto = turno && (turno.estado === "pendiente" || turno.estado === "confirmado");
+  const IconoTipo = turno ? TURNO_ICONO[turno.tipo] : null;
   const cliente = turno?.clienteId ? clientes.find((c) => c.id === turno.clienteId) : undefined;
   return (
     <Dialog
@@ -111,12 +113,10 @@ export function TurnoDetalle({
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      dotClass[turnoTipo[turno.tipo].tone],
-                    )}
-                  />
+                  {IconoTipo && <IconoTipo
+                    aria-hidden
+                    className={cn("h-3.5 w-3.5", turnoBlockClass[turno.tipo].icono)}
+                  />}
                   {turnoTipo[turno.tipo].label}
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
@@ -192,13 +192,13 @@ export function TurnoDetalle({
                         if (!e) return null;
                         return (
                           <tr key={id}>
-                            <td className="px-4 py-2.5 text-start">
-                              <span className="flex items-center gap-2">
+                            <td className="px-4 py-2.5">
+                              <span className="flex items-center justify-center gap-2">
                                 <Smartphone className="h-3.5 w-3.5 text-neutral-400" />
                                 {e.modelo} {e.almacenamiento} · {e.color}
                               </span>
                             </td>
-                            <td className="px-4 py-2.5 text-start">
+                            <td className="px-4 py-2.5">
                               <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                                 <span
                                   className={cn(
@@ -298,7 +298,7 @@ export function TurnoDetalle({
                     <tbody>
                       {turno.itemsOtros.map((i) => (
                         <tr key={`${i.otroId}-${i.serial ?? "x"}`}>
-                          <td className="px-4 py-2.5 text-start">
+                          <td className="px-4 py-2.5">
                             {i.nombre}
                             {i.cantidad != null && i.cantidad > 1 && (
                               <span className="text-neutral-400"> ×{i.cantidad}</span>

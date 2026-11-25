@@ -96,8 +96,8 @@ body {
    de Tailwind. Aplican a TODA tabla, presente y futura.
 
    Encabezado: banda índigo oscuro, texto blanco/negrita/mayúscula.
-   Filas: cebra (blanca / índigo muy claro) para que resalten. Todo a la
-   izquierda salvo opt-out. */
+   Filas: cebra (blanca / índigo muy claro) para que resalten. Todo centrado
+   (ver abajo). */
 
 th {
   background-color: var(--table-header, var(--chart-1)); /* tono medio-oscuro de la paleta activa */
@@ -159,21 +159,19 @@ th + th:not(:empty)::before {
   }
 }
 
-/* Opt-out por celda para números / acciones: centrar o alinear a la derecha. */
-th.text-center,
-td.text-center {
-  text-align: center;
-}
-th.text-right,
-td.text-right,
-th.text-end,
-td.text-end {
+/* Toda tabla del sistema va centrada, sin excepciones (decisión del 25/11):
+   una clase `text-start`/`text-right` en un `th`/`td` NO la alinea. Solo los
+   recibos/PDF (`.recibo-print`) conservan su propio criterio por columna. */
+.recibo-print th.text-right,
+.recibo-print td.text-right,
+.recibo-print th.text-end,
+.recibo-print td.text-end {
   text-align: right;
 }
-th.text-left,
-td.text-left,
-th.text-start,
-td.text-start {
+.recibo-print th.text-left,
+.recibo-print td.text-left,
+.recibo-print th.text-start,
+.recibo-print td.text-start {
   text-align: left;
 }
 

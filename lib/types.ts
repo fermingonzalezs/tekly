@@ -249,10 +249,22 @@ export type Pedido = {
   /** Seña abonada en USD (`0` = no abonó). El total y el saldo no se
    * guardan: se calculan en `lib/pedidos.ts`. */
   senaUsd: number;
+  /** Movimiento de caja de la seña (`movimientos_caja.pedido_id`): `monto`
+   * en la moneda de la caja. `undefined` sin seña. */
+  sena?: PedidoSena;
   /** `YYYY-MM-DD`. */
   fechaEntrega: string;
   estado: PedidoEstado;
   nota?: string;
+};
+
+export type PedidoSena = {
+  movimientoId: string;
+  cajaId: string;
+  monto: number;
+  cotizacion: number | null;
+  /** Ya archivado bajo una conciliación: no se puede cambiar ni borrar. */
+  conciliado: boolean;
 };
 
 export type Turno = {

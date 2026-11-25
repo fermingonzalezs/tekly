@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Package, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Package, Plus } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { Tabs } from "@/components/ui/tabs";
@@ -24,7 +24,8 @@ import {
 } from "@/lib/agenda";
 import { sumarDias } from "@/lib/date-presets";
 import { defaultTurnoSlot } from "@/lib/command-palette";
-import { dotClass, turnoTipo } from "@/lib/status";
+import { turnoBlockClass, turnoTipo } from "@/lib/status";
+import { TURNO_ICONO } from "@/components/agenda/turno-icono";
 import { cn } from "@/lib/utils";
 import type {
   Caja,
@@ -65,6 +66,7 @@ export function AgendaClient({
   hoy,
   turnos,
   pedidos,
+  pedidosAbiertos,
   proximos,
   celulares,
   otros,
@@ -82,6 +84,8 @@ export function AgendaClient({
   turnos: Turno[];
   /** Pedidos con entrega en el rango visible (fila «Todo el día»). */
   pedidos: Pedido[];
+  /** Pedidos sin entregar de cualquier fecha (solo para los KPIs). */
+  pedidosAbiertos: Pedido[];
   /** Vencidos + próximos 14 días (panel «Próximos» y KPIs). */
   proximos: Turno[];
   celulares: Celular[];
@@ -107,9 +111,16 @@ export function AgendaClient({
   const [errorPedido, setErrorPedido] = useState<string | null>(null);
   const [guardandoPedido, setGuardandoPedido] = useState(false);
   const [eliminandoPedido, setEliminandoPedido] = useState<Pedido | null>(null);
-  const pedidoSel = pedidoSelId ? (pedidos.find((p) => p.id === pedidoSelId) ?? null) : null;
+  // Desde «Próximos» se abre un pedido que puede estar fuera del rango visible.
+  const pedidoSel = pedidoSelId
+    ? (pedidos.find((p) => p.id === pedidoSelId) ?? pedidosAbiertos.find((p) => p.id === pedidoSelId) ?? null)
+    : null;
   const pedidoEditando =
-    dialogoPedido?.modo === "editar" ? (pedidos.find((p) => p.id === dialogoPedido.id) ?? null) : null;
+    dialogoPedido?.modo === "editar"
+      ? (pedidos.find((p) => p.id === dialogoPedido.id) ??
+        pedidosAbiertos.find((p) => p.id === dialogoPedido.id) ??
+        null)
+      : null;
 
   // Todo lo conocido, sin duplicados (un turno puede estar en el rango y en próximos).
   const todos = useMemo(
@@ -118,17 +129,17 @@ export function AgendaClient({
   );
   const sel = selId ? (todos.find((t) => t.id === selId) ?? null) : null;
   const editando = dialogo?.modo === "editar" ? (todos.find((t) => t.id === dialogo.id) ?? null) : null;
-  const kpis = kpisAgenda(todos, hoy);
+  const kpis = kpisAgenda(todos, [...pedidosAbiertos, ...pedidos], hoy);
 
-  const navegar = (v: VistaAgenda, f: string) =>
+  // Destino de la navegación en curso: los tabs y la etiqueta cambian al
+  // toque mientras el server trae el rango nuevo (si no, parece colgado).
+  const [destino, setDestino] = useState<{ vista: VistaAgenda; fecha: string } | null>(null);
+  const navegar = (v: VistaAgenda, f: string) => {
+    setDestino({ vista: v, fecha: f });
     startTransition(() => router.replace(`/agenda?vista=${v}&fecha=${f}`, { scroll: false }));
-
-  // Mobile: la vista por defecto es Día (la Semana obliga a scrollear de costado).
-  useEffect(() => {
-    if (!searchParams.get("vista") && window.innerWidth < 768) navegar("dia", fecha);
-    // solo al montar
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
+  const vistaVisible = pendiente && destino ? destino.vista : vista;
+  const fechaVisible = pendiente && destino ? destino.fecha : fecha;
 
   // ?accion=agendar-turno: el buscador global (CommandPalette) navega acá con
   // ese param; efecto (no useState inicial) para que también ande estando ya
@@ -214,49 +225,51 @@ export function AgendaClient({
     setDialogoPedido({ modo: "nuevo", fecha: f });
   };
 
-  const abrirDia = (f: string) => navegar("dia", f);
+  const abrirSemana = (f: string) => navegar("semana", f);
   const agendar = (f: string, h: string) => setDialogo({ modo: "nuevo", fecha: f, hora: h });
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Turnos hoy" value={kpis.hoy} hint="sin contar cancelados" />
-        <StatCard label="Sin confirmar" value={kpis.sinConfirmar} hint="de hoy en adelante" />
-        <StatCard label="Esta semana" value={kpis.semana} hint="lunes a sábado" />
         <StatCard
-          label="Vencidos sin marcar"
-          value={kpis.vencidos}
-          hint="pasaron y nadie marcó atendido / no vino"
-          valueClassName={kpis.vencidos > 0 ? "text-red-500" : undefined}
+          label="Turnos hoy"
+          value={kpis.hoy.turnos + kpis.hoy.pedidos}
+          hint={desglose(kpis.hoy)}
         />
+        <StatCard label="Pedidos pendientes" value={kpis.pedidosPendientes} hint="sin entregar ni cancelar" />
+        <StatCard
+          label="Vencidos"
+          value={kpis.vencidos.turnos + kpis.vencidos.pedidos}
+          hint={desglose(kpis.vencidos)}
+          valueClassName={kpis.vencidos.turnos + kpis.vencidos.pedidos > 0 ? "text-red-500" : undefined}
+        />
+        <StatCard label="Atendidos última semana" value={kpis.atendidosSemana} hint="últimos 7 días" />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 rounded-full border border-neutral-900/10 bg-white px-1 shadow-sm">
           <IconButton
-            aria-label="Anterior"
+            aria-label={vistaVisible === "mes" ? "Mes anterior" : "Semana anterior"}
             icon={ChevronLeft}
-            variant="outline"
-            onClick={() => navegar(vista, moverFecha(vista, fecha, -1))}
+            variant="ghost"
+            size="sm"
+            onClick={() => navegar(vistaVisible, moverFecha(vistaVisible, fechaVisible, -1))}
           />
-          <Button variant="outline" onClick={() => navegar(vista, hoy)}>
-            Hoy
-          </Button>
+          <span className="min-w-[11rem] text-center text-sm font-medium">
+            {etiquetaRango(vistaVisible, fechaVisible)}
+          </span>
           <IconButton
-            aria-label="Siguiente"
+            aria-label={vistaVisible === "mes" ? "Mes siguiente" : "Semana siguiente"}
             icon={ChevronRight}
-            variant="outline"
-            onClick={() => navegar(vista, moverFecha(vista, fecha, 1))}
+            variant="ghost"
+            size="sm"
+            onClick={() => navegar(vistaVisible, moverFecha(vistaVisible, fechaVisible, 1))}
           />
         </div>
-        <span className="min-w-[8.5rem] text-sm font-semibold tabular-nums text-neutral-900">
-          {etiquetaRango(vista, fecha)}
-        </span>
         <Tabs
-          value={vista}
-          onChange={(v) => navegar(v, fecha)}
+          value={vistaVisible}
+          onChange={(v) => navegar(v, fechaVisible)}
           options={[
-            { value: "dia", label: "Día" },
             { value: "semana", label: "Semana" },
             { value: "mes", label: "Mes" },
           ]}
@@ -265,34 +278,48 @@ export function AgendaClient({
           icon={Package}
           variant="tonal"
           className="ml-auto"
-          onClick={() => nuevoPedido(vista === "dia" ? fecha : hoy)}
+          onClick={() => nuevoPedido(hoy)}
         >
           Nuevo pedido
         </Button>
         <Button
           icon={Plus}
           variant="primary"
-          onClick={() => setDialogo({ modo: "nuevo", fecha: vista === "dia" ? fecha : hoy, hora: "09:00" })}
+          onClick={() => setDialogo({ modo: "nuevo", fecha: hoy, hora: "09:00" })}
         >
           Agendar turno
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-600">
-        {TIPOS.map((tp) => (
-          <span key={tp} className="inline-flex items-center gap-1.5">
-            <span className={cn("h-1.5 w-1.5 rounded-full", dotClass[turnoTipo[tp].tone])} />
-            {turnoTipo[tp].label}
-          </span>
-        ))}
+        {TIPOS.map((tp) => {
+          const Icono = TURNO_ICONO[tp];
+          return (
+            <span key={tp} className="inline-flex items-center gap-1.5">
+              <Icono aria-hidden className={cn("h-3.5 w-3.5", turnoBlockClass[tp].icono)} />
+              {turnoTipo[tp].label}
+            </span>
+          );
+        })}
         <span className="text-neutral-500">
           · <Package aria-hidden className="inline h-3 w-3" /> Pedido (todo el día)
-          · Lleno: confirmado · Borde: sin confirmar · Apagado: atendido / no vino · Tachado: cancelado
+          · Apagado: atendido / no vino · Tachado: cancelado
         </span>
       </div>
 
-      <div className={cn("grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]", pendiente && "opacity-60")}>
-        <div className="min-w-0">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="relative min-w-0" aria-busy={pendiente}>
+          {pendiente && (
+            <div
+              role="status"
+              className="absolute inset-0 z-30 flex animate-fade-in items-start justify-center rounded-2xl bg-white/70 pt-24 backdrop-blur-[1px]"
+            >
+              <span className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm">
+                <Loader2 aria-hidden className="h-4 w-4 animate-spin text-accent" />
+                Cargando {vistaVisible === "mes" ? "el mes" : "la semana"}…
+              </span>
+            </div>
+          )}
           {vista === "mes" ? (
             <CalendarioMes
               fecha={fecha}
@@ -300,25 +327,29 @@ export function AgendaClient({
               pedidos={pedidos}
               hoy={hoy}
               onAbrirTurno={setSelId}
-              onAbrirDia={abrirDia}
+              onAbrirDia={abrirSemana}
               onAbrirPedido={setPedidoSelId}
             />
           ) : (
             <CalendarioGrilla
-              dias={vista === "dia" ? [fecha] : semanaDe(fecha)}
+              dias={semanaDe(fecha)}
               turnos={turnos}
               hoy={hoy}
-              compacta={vista === "semana"}
               pedidos={pedidos}
               onAgendar={agendar}
               onAbrirTurno={setSelId}
-              onAbrirDia={abrirDia}
               onNuevoPedido={nuevoPedido}
               onAbrirPedido={setPedidoSelId}
             />
           )}
         </div>
-        <Proximos turnos={proximos} hoy={hoy} onAbrirTurno={setSelId} />
+        <Proximos
+          turnos={proximos}
+          pedidos={pedidosAbiertos}
+          hoy={hoy}
+          onAbrirTurno={setSelId}
+          onAbrirPedido={setPedidoSelId}
+        />
       </div>
 
       <TurnoDetalle
@@ -351,6 +382,7 @@ export function AgendaClient({
         pedido={pedidoSel}
         hoy={hoy}
         clientes={clientesOpciones}
+        cajas={cajas}
         esAdmin={esAdmin}
         onClose={() => setPedidoSelId(null)}
         onEstado={cambiarEstadoPedido}
@@ -370,7 +402,13 @@ export function AgendaClient({
         confirmLabel="Eliminar pedido"
       >
         {eliminandoPedido &&
-          `Se eliminará el pedido de «${eliminandoPedido.cliente}» (${eliminandoPedido.descripcion}). Esta acción no se puede deshacer.`}
+          `Se eliminará el pedido de «${eliminandoPedido.cliente}» (${eliminandoPedido.descripcion}).${
+            eliminandoPedido.sena
+              ? eliminandoPedido.sena.conciliado
+                ? " La seña ya está conciliada: su movimiento queda en la caja."
+                : " También se borra el ingreso de la seña en la caja."
+              : ""
+          } Esta acción no se puede deshacer.`}
       </ConfirmDialog>
 
       <PedidoDialog
@@ -385,6 +423,7 @@ export function AgendaClient({
         pedido={pedidoEditando}
         fechaInicial={dialogoPedido?.modo === "nuevo" ? dialogoPedido.fecha : hoy}
         clientesOpciones={clientesOpciones}
+        cajas={cajas}
         error={errorPedido}
         guardando={guardandoPedido}
         onClose={() => setDialogoPedido(null)}
@@ -416,3 +455,9 @@ export function AgendaClient({
     </div>
   );
 }
+
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
+/** «2 turnos · 1 pedido» para el hint de las tarjetas que suman los dos. */
+const desglose = (k: { turnos: number; pedidos: number }) =>
+  `${plural(k.turnos, "turno", "turnos")} · ${plural(k.pedidos, "pedido", "pedidos")}`;

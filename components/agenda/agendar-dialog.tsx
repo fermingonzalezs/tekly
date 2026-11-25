@@ -1,5 +1,6 @@
 "use client";
 
+import { InputFecha } from "@/components/ui/input-fecha";
 import { useMemo, useRef, useState } from "react";
 import { Minus, Plus, Smartphone, Trash2, X } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
@@ -269,7 +270,7 @@ export function AgendarDialog({
               </Select>
             </Field>
             <Field label="Fecha">
-              <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+              <InputFecha value={fecha} onChange={setFecha} />
             </Field>
             <Field label="Hora">
               <Select value={hora} onChange={(e) => setHora(e.target.value)}>

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  cambioSena,
   descripcionPedido,
+  senaEnCaja,
   errorPedido,
   itemPedidoVacio,
   limpiarItems,
@@ -134,5 +136,39 @@ describe("descripcionPedido", () => {
   });
   it("sin ítems → vacío", () => {
     expect(descripcionPedido([])).toBe("");
+  });
+});
+
+describe("senaEnCaja", () => {
+  it("caja USD: el monto es la seña en USD", () => {
+    expect(senaEnCaja("usd", 100.456, 1400)).toEqual({ monto: 100.46, senaUsd: 100.46 });
+  });
+  it("caja ARS: monto en pesos redondeado y USD por la cotización", () => {
+    expect(senaEnCaja("ars", 140000.4, 1400)).toEqual({ monto: 140000, senaUsd: 100 });
+  });
+  it("monto o cotización inválidos → null", () => {
+    expect(senaEnCaja("usd", 0, 1400)).toBeNull();
+    expect(senaEnCaja("ars", 1000, 0)).toBeNull();
+    expect(senaEnCaja("ars", Number.NaN, 1400)).toBeNull();
+  });
+});
+
+describe("cambioSena", () => {
+  const ant = { cajaId: "a", monto: 100, conciliado: false };
+  it("sin seña antes ni ahora → igual", () => {
+    expect(cambioSena(null, null)).toBe("igual");
+  });
+  it("misma caja y monto → igual", () => {
+    expect(cambioSena(ant, { cajaId: "a", monto: 100 })).toBe("igual");
+    expect(cambioSena({ ...ant, conciliado: true }, { cajaId: "a", monto: 100 })).toBe("igual");
+  });
+  it("cambia monto, caja o se quita → reemplazar", () => {
+    expect(cambioSena(ant, { cajaId: "a", monto: 120 })).toBe("reemplazar");
+    expect(cambioSena(ant, { cajaId: "b", monto: 100 })).toBe("reemplazar");
+    expect(cambioSena(ant, null)).toBe("reemplazar");
+    expect(cambioSena(null, { cajaId: "a", monto: 100 })).toBe("reemplazar");
+  });
+  it("cambia pero ya estaba conciliada → bloqueado", () => {
+    expect(cambioSena({ ...ant, conciliado: true }, null)).toBe("bloqueado");
   });
 });

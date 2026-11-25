@@ -923,24 +923,19 @@ Aplica a **toda tabla, presente y futura** (menos los recibos/PDF):
   Regla en `@layer base` para que el `hover:bg-*` de cada fila siga ganando.
   Los `.recibo-print` tienen su propia cebra, en violeta claro (`#edecf8`,
   `accent-soft`) en vez del índigo muy claro del resto de la app.
-- **Todo centrado** por defecto (`th, td { text-align:center }`): headers
-  siempre centrados, y celdas cortas (estados, chips, fechas, números, montos,
-  IMEI/serie, ids, acciones) también.
-- **Opt-out por columna de texto largo**: nombres de cliente, detalles, fallas,
-  descripciones, emails, comentarios (≈ más de 25 caracteres o que se parten en
-  líneas) llevan `text-start` en el `td` (el `th` sigue centrado). Se decide por
-  **columna**, no por celda. `text-start`/`text-left` alinea a la izquierda,
-  `text-right`/`text-end` sigue disponible pero ya no se usa en tablas.
+- **Todo centrado, en todas las tablas del sistema, sin excepciones**
+  (decisión del usuario, 25/11 — reemplaza al plan 007 y al opt-out de texto
+  largo): headers y celdas, nombres/detalles/descripciones incluidos. El
+  global (`th, td { text-align:center }`) ya no tiene opt-out: `text-start`/
+  `text-right` en un `th`/`td` **no** alinea fuera de `.recibo-print`. Una
+  celda con contenido `flex` (ícono + texto, chevron de árbol) lleva
+  `justify-center`; mejor `inline-flex`, que se centra solo.
 - Números en columnas → `tabular-nums`. Texto de las celdas: peso normal (dejar
   `font-semibold` solo para el dato que tiene que destacar, ej. Total).
 - Fuera de tablas, alinear a la izquierda con `text-start`.
-- **Decisión vigente (reemplaza al plan 007): centrado salvo texto largo,
-  montos también centrados.** Excepciones pedidas por el usuario (25/11):
-  la tabla de **Ventas** e **Ítems vendidos** y la de **Repuestos** van
-  **todo centrado**, cliente/detalle/nombre incluidos. Los encabezados
-  ordenables (`ThSort`) llevan `uppercase` en su `<button>`: un botón no
-  hereda el `text-transform` del `th`. Los recibos/PDF (`.recibo-print`) conservan su
-  propio criterio.
+- Los encabezados ordenables (`ThSort`) llevan `uppercase` en su `<button>`:
+  un botón no hereda el `text-transform` del `th`. Los recibos/PDF
+  (`.recibo-print`) conservan su propio criterio por columna.
 
 ## Componentes reutilizables — usar SIEMPRE estos
 
@@ -1309,25 +1304,34 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   se llama «Agenda» en todos lados y vive en `/agenda` (`/turnos` redirige ahí
   con un 308 en `next.config.mjs`, query incluida). La entidad sigue siendo
   «turno» (tabla `turnos`, `lib/db/turnos.ts`, `Turno`) y la ayuda sigue en
-  `/ayuda/turnos`. Vistas **Día /
-  Semana / Mes** (Semana = lunes a sábado, `DIAS_SEMANA_AGENDA`; en mobile
-  arranca en Día) con grilla por **media hora** 09–20 h (`PX_POR_HORA` 56);
-  **la URL manda** (`?vista=dia|semana|mes&fecha=YYYY-MM-DD`,
+  `/ayuda/turnos`. Vistas **Semana / Mes**
+  (Semana = lunes a sábado, `DIAS_SEMANA_AGENDA`; la vista Día se sacó a
+  pedido del usuario — `?vista=dia` cae a semana; sin botón «Hoy»: la navegación es una pastilla «‹ 23 al 28 de noviembre ›» / «‹ Noviembre de 2026 ›» como la del Dashboard, `etiquetaRango`; turnos superpuestos van lado
+  a lado y «+N más» del Mes abre esa semana) con grilla por **media hora** 09–20 h (`PX_POR_HORA` 56);
+  **la URL manda** (`?vista=semana|mes&fecha=YYYY-MM-DD`,
   `parseFiltrosAgenda` en `lib/agenda.ts`). Toda la lógica pura (semanas,
-  rangos, solapes, `agruparProximos`, `turnosSuperpuestos`, `kpisAgenda`) está
+  rangos, solapes, `agruparProximos`, `turnosSuperpuestos`, `kpisAgenda` — Turnos hoy (turnos + pedidos abiertos de hoy), Pedidos pendientes (`listPedidosAbiertos`, cualquier fecha), Vencidos (turnos + pedidos) y Atendidos última semana) está
   en `lib/agenda.ts` con test; fechas siempre como string ISO, hora argentina
   (`hoyISO`/`sumarDias` de `lib/date-presets.ts`, nunca `toISOString()`).
   `page.tsx` trae el rango visible (`listTurnosRango`) + `listTurnosProximos`
   (últimos 30 y próximos 14 días, para «Próximos» y KPIs). UI en
-  `components/agenda/` (`calendario-grilla` = Día y Semana, `calendario-mes`,
+  `components/agenda/` (`calendario-grilla` = Semana, `calendario-mes`,
   `evento-bloque`, `proximos`, `turno-detalle`, `agendar-dialog` con modo
   edición). `Turno` suma `fecha`, `duracionMin`, `atiendeId`/`atiende`
   (columnas `duracion_min`, `atiende_id`); `dayOffset` **sigue existiendo**
   (calculado, lo usan dashboard, analíticas, command palette y demo). Estados:
   `pendiente` («Sin confirmar»), `confirmado`, `atendido`, `no_vino`,
   `cancelado`; un turno pasado en `pendiente|confirmado` es **vencido**. El
-  color del bloque lo da el tipo (`turnoBlockClass` en `lib/status.ts`) y el
-  estado la forma (lleno / borde / apagado / tachado). Click en hueco →
+  color del bloque lo da el tipo (`turnoBlockClass` en `lib/status.ts`, **tonos de la
+  paleta índigo** `--chart-*` (siguen el tema; mismo mapeo que `TURNO_TIPO_COLOR`):
+  fondo claro vía `color-mix`, `banda` para las tarjetas de «Agenda del local»
+  del dashboard — nunca colores sueltos tipo emerald/amber) junto con su ícono (`TURNO_ICONO`,
+  `components/agenda/turno-icono.tsx`: compra 🛍 · deja 🔧 · retira 📦 ·
+  cotizar 🧮; en bloques, mes, leyenda y Próximos) y el estado la forma
+  (claro / borde punteado sin confirmar / apagado / tachado). Los turnos nacen
+  `confirmado`, así que «Próximos» solo muestra el estado si no lo es; cada
+  tarjeta: horario + tipo arriba, nombre grande, quién atiende abajo, ícono
+  grande de fondo (estilo sistema-update). «Próximos» mezcla turnos abiertos y **pedidos sin entregar** (`agruparProximos(turnos, hoy, pedidos)` → `ItemProximo`, el pedido va primero en su día como «Todo el día»); lo que pasó de fecha va en el grupo **«Atrasados»**, tarjeta con borde rojo y «ATRASADO ·» delante del título. Click en hueco →
   alta con fecha/hora precargadas; «Editar» reusa `AgendarDialog` (al
   editar, los celulares/ítems quitados vuelven al stock si estaban
   reservados). Agendar con celulares vinculados los reserva si
@@ -1337,7 +1341,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `items` jsonb, `sena_usd`, `fecha_entrega`, `estado`
   `pedido|llego|entregado|cancelado`, `nota`; `lib/db/pedidos.ts`,
   `Pedido`/`pedidoEstado`), sin hora: se dibujan en la fila **«Todo el día»**
-  de Día/Semana (`CalendarioGrilla`, el hueco libre carga uno con esa fecha)
+  de Semana (`CalendarioGrilla`, el hueco libre carga uno con esa fecha)
   y arriba de cada día en Mes (sin cancelados). `PedidoChip` (forma por
   estado, borde rojo si vencido) y `PedidoDialog`/`PedidoDetalle` en
   `components/agenda/`; lógica pura `pedidosDelDia`/`pedidoVencido` en
@@ -1351,9 +1355,17 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   ya no la escribe, pero la columna sigue (`not null`) para el chip, el
   confirm de borrar y los pedidos viejos (`items = []`, se editan con una
   fila precargada y el precio vacío). Validación `errorPedido` reusada por el
-  dialog y la action. No mueven caja ni stock (la seña no genera movimiento).
-  Fuera de alcance: reservas, convertir el pedido en venta y registrar la
-  seña en una caja.
+  dialog y la action. No mueven stock. **La seña sí mueve caja**
+  (`20261126120000_pedidos_sena_caja.sql`): el dialog elige caja activa +
+  monto en la moneda de la caja (pesos si es ARS, con su USD a la cotización
+  de `useDolar()`), y `lib/db/pedidos.ts` crea un ingreso en
+  `movimientos_caja` con `pedido_id` (USD recalculado desde la caja en el
+  server, `senaEnCaja`). Editar caja/monto reemplaza el movimiento
+  (`cambioSena`, puro con test); una seña ya **conciliada** no se puede
+  cambiar; borrar el pedido borra la seña sin conciliar (`on delete set
+  null` deja la conciliada). Sin recargo de caja (es un adelanto).
+  Fuera de alcance: reservas y convertir el pedido en venta (el saldo se
+  cobra con una venta aparte).
 - **Inventario** (`app/(app)/inventario/`, migrado): 4 tabs — **Celulares**
   (unidades únicas por IMEI, con `Celular.almacenamiento`), **Notebooks**
   (unidades únicas por `Notebook.numeroSerie`, con CPU/memoria/pantalla/
@@ -1511,9 +1523,8 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   dashboard): si la venta está en la página se abre de la lista, si no
   `getVenta(id)` la trae aparte (`ventaAbierta`); al cerrar se saca el
   param. `?q=` y `?accion=nueva-venta` del CommandPalette siguen andando.
-  **Alineación**: texto a la izquierda, montos/% a la derecha (`text-right
-  tabular-nums`), acciones al final en columna angosta — Ventas es la
-  sección de referencia (ver "Reglas globales de tablas").
+  **Alineación**: todo centrado (ver "Reglas globales de tablas"), montos
+  con `tabular-nums`, acciones al final en columna angosta.
   La lista es una tabla (`VentaCardMobile` debajo de `md`) con Venta
   (`V-1042` + fecha), Cliente, Detalle, Pago (**un solo chip**: el medio de
   mayor `montoUsd` + "+N", `title` con el detalle vía `montoPagoLabel`),
@@ -1849,7 +1860,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `/clientes?open=<id>`. `margenPorTipo` (`lib/analiticas.ts`, con test) es
   real desde que `VentaItem` tiene tabla propia (`venta_items`). Helper
   `BarRows`/`BarColumns` (`app/(app)/analiticas/bar-rows.tsx`).
-- **Dashboard admin · layout (rediseño estilo sistema-update)**: de arriba abajo `KpisAdmin` (4: ventas destacada sobre `bg-table-header`, ganancia, margen, ticket), `AgendaLocalCard` (`agendaDelLocal` en `lib/dashboard.ts`: listos sin retirar + próximos turnos, bandas con `bandClass` de `lib/status.ts`; tickets abiertos/turnos hoy pasaron a sus contadores), `ObjetivoMes` (`components/dashboard/objetivo-mes.tsx`, cálculos en `avanceObjetivo`; `ObjetivoPanel` queda solo para la landing), `RitmoChart` + `RubrosPie` y `VentasRecientesTabla`. La página scrollea (ya no entra fija en el viewport). La demo pasa `demo` (sin links a Turnos/Reparaciones).
+- **Dashboard admin · layout (rediseño estilo sistema-update)**: de arriba abajo `KpisAdmin` (4: ventas destacada sobre `bg-table-header`, ganancia, margen, ticket), `AgendaLocalCard` (`agendaDelLocal` en `lib/dashboard.ts`: listos sin retirar + próximos turnos, bandas con `turnoBlockClass[tipo].banda` + ícono `TURNO_ICONO` (ticket listo: tono de «retira» + `CircleCheck`), `AgendaItem.tipo`; tickets abiertos/turnos hoy pasaron a sus contadores), `ObjetivoMes` (`components/dashboard/objetivo-mes.tsx`, cálculos en `avanceObjetivo`; `ObjetivoPanel` queda solo para la landing), `RitmoChart` + `RubrosPie` y `VentasRecientesTabla`. La página scrollea (ya no entra fija en el viewport). La demo pasa `demo` (sin links a Turnos/Reparaciones).
 - **Dashboard · mes** (admin): el selector es un navegador de mes (`‹ Octubre de 2026 ›`, `?mes=YYYY-MM`, `mesDashboard` en `lib/dashboard.ts`; mes pasado = calculado al último día del mes). "Ritmo del mes" (`RitmoChart`, `ritmoDelMes`) reemplazó a "Tendencia de ventas" (`TrendChart` queda solo para el vendedor); hay card "Ganancia del mes" (`margenVenta`). La demo lleva el mes en estado local (`onMesChange`).
 - **Dashboard** (`app/(app)/dashboard/`, migrado): **dos dashboards por
   rol, la ramificación vive en el server** (`page.tsx`, ver plan 005) —
@@ -2148,6 +2159,9 @@ nombre de actor** -- eso fue un bug real que quedó de la época mock.
 - No usar los indicadores nativos (flechas de incremento/decremento) de los
   `<input type="number">` — quedan feos en montos, batería, cantidades, etc.
   Ya están ocultos globalmente en `app/globals.css`; no reintroducirlos.
+- No usar `<input type="date">` a mano: muestra el formato del idioma del
+  navegador (MM/DD/AAAA en inglés). Las fechas van siempre en **DD/MM/AAAA**
+  con `InputFecha` (`components/ui/input-fecha.tsx`, valor en ISO).
 
 ## graphify
 

@@ -1,9 +1,9 @@
-import type { Celular, Ticket, TicketStatus, Turno, Venta } from "@/lib/types";
+import type { Celular, Ticket, TicketStatus, Turno, TurnoTipo, Venta } from "@/lib/types";
 import type { Rol } from "@/lib/auth/types";
 import type { DashPeriodo } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, margenPonderado, margenVenta } from "@/lib/ventas";
-import { TICKET_FLOW, turnoTipo, type Tone } from "@/lib/status";
+import { TICKET_FLOW, turnoTipo } from "@/lib/status";
 
 const MESES = [
   "ene", "feb", "mar", "abr", "may", "jun",
@@ -532,7 +532,9 @@ export type AgendaItem = {
   key: string;
   /** Texto de la banda: "Listo · sin retirar hace 3 días", "Compra equipo · hoy 11:30". */
   banda: string;
-  tone: Tone;
+  /** Define tono de la banda e ícono (paleta índigo, `turnoBlockClass`):
+   * el tipo del turno, o `listo` para un ticket esperando retiro. */
+  tipo: TurnoTipo | "listo";
   cliente: string;
   detalle: string;
   sub: string;
@@ -582,7 +584,7 @@ export function agendaDelLocal(
     return {
       key: `t-${t.id}`,
       banda: `Listo · ingresó ${dias === 0 ? "hoy" : dias === 1 ? "hace 1 día" : `hace ${dias} días`}`,
-      tone: "red",
+      tipo: "listo",
       cliente: t.cliente,
       detalle: [t.equipo, t.reparacionSolicitada ?? t.falla].filter(Boolean).join(" · "),
       sub: `Ticket #${t.id}${t.tecnico ? ` · ${t.tecnico}` : ""}`,
@@ -600,7 +602,7 @@ export function agendaDelLocal(
     return {
       key: `u-${t.id}`,
       banda: `${cfg.label} · ${cuandoTurno(t.dayOffset, t.hora, hoy)}`,
-      tone: cfg.tone,
+      tipo: t.tipo,
       cliente: t.cliente,
       detalle: ticket?.equipo ?? t.nota ?? cfg.label,
       sub: ticket ? `Ticket #${ticket.id}${t.nota ? ` · ${t.nota}` : ""}` : "",

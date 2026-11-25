@@ -126,3 +126,48 @@ export function errorPedido({
   if (sena > totalPedido(items)) return "La seña no puede superar el total.";
   return null;
 }
+
+// ── Seña con movimiento de caja ──
+
+/** Seña tal como la carga el dialog: la caja elegida y el monto en **la
+ * moneda de esa caja** (pesos si es ARS, como en Nueva venta). */
+export type SenaCaja = {
+  cajaId: string;
+  /** En la moneda de la caja. */
+  monto: number;
+  /** ARS por USD del momento -- snapshot del movimiento. */
+  cotizacion: number;
+};
+
+/** Monto del movimiento (moneda de la caja) y su equivalente en USD, que es
+ * lo que se guarda en `pedidos.sena_usd`. `null` si el monto o la
+ * cotización no sirven. */
+export function senaEnCaja(
+  moneda: "usd" | "ars",
+  monto: number,
+  cotizacion: number,
+): { monto: number; senaUsd: number } | null {
+  if (!Number.isFinite(monto) || monto <= 0) return null;
+  if (moneda === "usd") {
+    const usd = redondearUsd(monto);
+    return { monto: usd, senaUsd: usd };
+  }
+  if (!Number.isFinite(cotizacion) || cotizacion <= 0) return null;
+  const ars = Math.round(monto);
+  return { monto: ars, senaUsd: redondearUsd(ars / cotizacion) };
+}
+
+/** Qué hacer con el movimiento de la seña al editar un pedido:
+ * `"igual"` = misma caja y mismo monto, no se toca (aunque cambie el dólar);
+ * `"reemplazar"` = se borra el anterior (si hay) y se crea el nuevo (si hay);
+ * `"bloqueado"` = cambió pero el anterior ya está conciliado. */
+export function cambioSena(
+  anterior: { cajaId: string; monto: number; conciliado: boolean } | null,
+  nueva: { cajaId: string; monto: number } | null,
+): "igual" | "reemplazar" | "bloqueado" {
+  if (!anterior && !nueva) return "igual";
+  if (anterior && nueva && anterior.cajaId === nueva.cajaId && anterior.monto === nueva.monto) {
+    return "igual";
+  }
+  return anterior?.conciliado ? "bloqueado" : "reemplazar";
+}

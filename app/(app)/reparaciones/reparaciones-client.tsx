@@ -1,5 +1,6 @@
 "use client";
 
+import { InputFecha } from "@/components/ui/input-fecha";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { rentabilidadTicket } from "@/lib/reparaciones";
@@ -526,19 +527,19 @@ export function ReparacionesClient({
                   </Select>
                   {datePreset === "personalizado" && (
                     <div className="flex items-center gap-2">
-                      <Input
-                        type="date"
+                      <InputFecha
                         value={desde}
-                        onChange={(e) => setDesde(e.target.value)}
-                        className={cn("w-full md:w-36", filterPill)}
+                        onChange={(v) => setDesde(v)}
+                        className="w-full md:w-36"
+                        inputClassName={filterPill}
                         aria-label="Desde"
                       />
                       <span className="text-xs text-neutral-400">a</span>
-                      <Input
-                        type="date"
+                      <InputFecha
                         value={hasta}
-                        onChange={(e) => setHasta(e.target.value)}
-                        className={cn("w-full md:w-36", filterPill)}
+                        onChange={(v) => setHasta(v)}
+                        className="w-full md:w-36"
+                        inputClassName={filterPill}
                         aria-label="Hasta"
                       />
                     </div>
@@ -658,10 +659,10 @@ export function ReparacionesClient({
                       {t.ingreso}
                     </span>
                   </td>
-                  <td className="max-w-[140px] truncate px-5 py-2 text-start">
+                  <td className="max-w-[140px] truncate px-5 py-2">
                     {t.cliente}
                   </td>
-                  <td className="max-w-[220px] truncate px-5 py-2 text-start">
+                  <td className="max-w-[220px] truncate px-5 py-2">
                     {t.equipo}
                     <span className="block truncate text-xs text-neutral-400">
                       {t.falla}
@@ -944,8 +945,8 @@ export function ReparacionesClient({
                       <tbody>
                         {open.servicios.map((s, i) => (
                           <tr key={i}>
-                            <td className="px-4 py-2.5 text-start">
-                              <span className="flex items-center gap-2">
+                            <td className="px-4 py-2.5">
+                              <span className="flex items-center justify-center gap-2">
                                 <Wrench className="h-3.5 w-3.5 text-neutral-400" />
                                 {(s.cantidad ?? 1) > 1 ? `${s.cantidad}× ` : ""}
                                 {s.nombre}
@@ -1017,7 +1018,7 @@ export function ReparacionesClient({
                           }}
                         >
                           <td
-                            className="px-4 py-2.5 text-start uppercase tracking-wide"
+                            className="px-4 py-2.5 uppercase tracking-wide"
                             colSpan={2}
                           >
                             Presupuesto total

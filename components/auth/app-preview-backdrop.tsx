@@ -71,7 +71,7 @@ export function AppPreviewBackdrop() {
               <tr>
                 <th>Cliente</th>
                 <th>Producto</th>
-                <th className="text-end">Total</th>
+                <th>Total</th>
                 <th>Pago</th>
               </tr>
             </thead>
@@ -80,7 +80,7 @@ export function AppPreviewBackdrop() {
                 <tr key={v.cliente}>
                   <td>{v.cliente}</td>
                   <td>{v.producto}</td>
-                  <td className="text-end tabular-nums">{v.total}</td>
+                  <td className="tabular-nums">{v.total}</td>
                   <td>
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700">
                       <span className={`h-1.5 w-1.5 rounded-full ${dotClass[v.tone]}`} />

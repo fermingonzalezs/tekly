@@ -167,7 +167,7 @@ export function PatrimonioClient({
               ) : (
                 p.activo.disponibilidades.cajas.map((c) => (
                   <tr key={c.id}>
-                    <td className="px-4 py-2.5 font-medium text-neutral-800 text-start">
+                    <td className="px-4 py-2.5 font-medium text-neutral-800">
                       {c.nombre}
                       {!c.activa && (
                         <span className="ml-2 text-[11px] font-normal text-neutral-500">inactiva</span>
@@ -334,7 +334,7 @@ export function PatrimonioClient({
 function FilaCategoria({ c }: { c: PatrimonioCategoria }) {
   return (
     <tr>
-      <td className="px-4 py-2.5 font-medium text-neutral-800 text-start">
+      <td className="px-4 py-2.5 font-medium text-neutral-800">
         {c.label}
         {c.sinCosto > 0 && (
           <span className="ml-2 text-[11px] font-normal text-neutral-500">

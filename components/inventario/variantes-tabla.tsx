@@ -126,7 +126,7 @@ export function VariantesTabla({
       <table className="w-full text-sm">
         <thead>
           <tr className="text-xs">
-            <th className={cn(th, "text-start")}>Grupo</th>
+            <th className={th}>Grupo</th>
             <th className={th}>Variantes</th>
             <th className={th}>Disponibles</th>
             <th className={th}>Precio</th>
@@ -163,8 +163,8 @@ export function VariantesTabla({
                   className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                   onClick={() => setGruposInvertidos((s) => toggle(s, grupo.clave))}
                 >
-                  <td className="px-4 py-2.5 text-start">
-                    <span className="flex items-center gap-2 font-semibold text-neutral-900">
+                  <td className="px-4 py-2.5">
+                    <span className="flex items-center justify-center gap-2 font-semibold text-neutral-900">
                       {abierto ? (
                         <ChevronDown className="h-4 w-4 text-neutral-500" />
                       ) : (
@@ -221,7 +221,7 @@ export function VariantesTabla({
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="text-xs">
-                              <th className={cn("px-4 py-2 text-start", thDivider)}>Variante</th>
+                              <th className={cn("px-4 py-2", thDivider)}>Variante</th>
                               {esNotebook && (
                                 <th className={cn("px-4 py-2", thDivider)}>Memoria</th>
                               )}
@@ -336,8 +336,8 @@ function VarianteRows({
         )}
         onClick={onToggle}
       >
-        <td className="px-4 py-2 text-start">
-          <span className="flex items-center gap-2">
+        <td className="px-4 py-2">
+          <span className="flex items-center justify-center gap-2">
             {expandida ? (
               <ChevronDown className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
             ) : (
@@ -470,7 +470,7 @@ function UnidadesSubtabla({
               onClick={() => onAbrirUnidad(u.id)}
               className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
             >
-              <td className="max-w-[160px] truncate px-4 py-2 text-start font-medium">
+              <td className="max-w-[160px] truncate px-4 py-2 font-medium">
                 {u.modelo}
               </td>
               <td className="max-w-[110px] truncate px-4 py-2 text-neutral-500">
@@ -556,7 +556,7 @@ function NotebooksSubtabla({
               onClick={() => onAbrirUnidad(u.id)}
               className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
             >
-              <td className="max-w-[160px] truncate px-4 py-2 text-start font-medium">{u.modelo}</td>
+              <td className="max-w-[160px] truncate px-4 py-2 font-medium">{u.modelo}</td>
               <td className="px-4 py-2 font-mono text-xs text-neutral-500">{u.numeroSerie || "—"}</td>
               <td className="max-w-[140px] truncate px-4 py-2">{u.cpu || "—"}</td>
               <td className="px-4 py-2">{u.pantalla || "—"}</td>

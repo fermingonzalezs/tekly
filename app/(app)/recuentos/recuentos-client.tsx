@@ -380,11 +380,11 @@ function MovimientoRow({ movimiento: m }: { movimiento: MovimientoItem }) {
           {info.label}
         </span>
       </td>
-      <td className="max-w-[180px] truncate px-5 py-2 text-start">
+      <td className="max-w-[180px] truncate px-5 py-2">
         <span className="text-neutral-500">{ITEM_TIPO_LABEL[m.itemTipo]}</span> {m.itemNombre}
       </td>
       <td className="px-5 py-2 text-center">{m.usuario}</td>
-      <td className="max-w-[320px] truncate px-5 py-2 text-start">{m.detalle}</td>
+      <td className="max-w-[320px] truncate px-5 py-2">{m.detalle}</td>
     </tr>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { InputFecha } from "@/components/ui/input-fecha";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -787,19 +788,19 @@ export function VentasClient({
                 </Select>
                 {filtros.preset === "personalizado" && (
                   <div className="flex items-center gap-2">
-                    <Input
-                      type="date"
+                    <InputFecha
                       value={filtros.desde}
-                      onChange={(e) => actualizar({ desde: e.target.value })}
-                      className={cn("w-full md:w-36", filterPill)}
+                      onChange={(v) => actualizar({ desde: v })}
+                      className="w-full md:w-36"
+                      inputClassName={filterPill}
                       aria-label="Desde"
                     />
                     <span className="text-xs text-neutral-500">a</span>
-                    <Input
-                      type="date"
+                    <InputFecha
                       value={filtros.hasta}
-                      onChange={(e) => actualizar({ hasta: e.target.value })}
-                      className={cn("w-full md:w-36", filterPill)}
+                      onChange={(v) => actualizar({ hasta: v })}
+                      className="w-full md:w-36"
+                      inputClassName={filterPill}
                       aria-label="Hasta"
                     />
                   </div>
@@ -1413,7 +1414,7 @@ function ItemsVendidosTabla({
               <th className={cn("px-5 py-3", thDivider)}>Venta</th>
               <th className={cn("px-5 py-3", thDivider)}>Cliente</th>
               <th className={cn("px-5 py-3", thDivider)}>Ítem</th>
-              <th className={cn("px-5 py-3", thDivider)}>Serie</th>
+              <th className={cn("px-5 py-3", thDivider)}>IMEI/Serial</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Precio</th>
               {puedeVerCosto && (
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Ganancia</th>
@@ -1778,8 +1779,8 @@ function VentaDetalle({
             <tbody>
               {venta.items.map((i, idx) => (
                 <tr key={idx} className="border-t border-neutral-100 first:border-t-0">
-                  <td className="px-4 py-2.5 text-start">
-                    <span className="flex items-center gap-2">
+                  <td className="px-4 py-2.5">
+                    <span className="flex items-center justify-center gap-2">
                       <span className="truncate">{i.detalle}</span>
                       {i.regalo && !venta.regalo && <ChipRegalo />}
                     </span>

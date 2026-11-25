@@ -497,8 +497,8 @@ export function CajasClient({
                       <td className="px-5 py-2 text-center text-neutral-400">{m.fecha}</td>
                     )}
                     <td className="px-5 py-2 text-center text-neutral-400">{m.hora}</td>
-                    <td className="max-w-[220px] px-5 py-2 text-start">
-                      <span className="flex items-center gap-2">
+                    <td className="max-w-[220px] px-5 py-2">
+                      <span className="flex items-center justify-center gap-2">
                         {m.tipo === "ingreso" ? (
                           <ArrowDownLeft className="h-4 w-4 shrink-0 text-emerald-500" />
                         ) : (
@@ -773,8 +773,8 @@ export function CajasClient({
                   <td className="px-5 py-2.5 text-center font-medium">{c.nombre}</td>
                   <td
                     className={cn(
-                      "max-w-[260px] truncate px-5 py-2.5 text-neutral-500 text-start",
-                      c.descripcion ? "text-start" : "text-center",
+                     "max-w-[260px] truncate px-5 py-2.5 text-neutral-500",
+                      c.descripcion ?"" :"text-center",
                     )}
                   >
                     {c.descripcion || "—"}
@@ -1567,7 +1567,7 @@ function ConciliarDialog({
                       >
                         {diff === null ? "—" : `${diff > 0 ? "+" : ""}${money(c.moneda, diff)}`}
                       </td>
-                      <td className="px-5 py-2 text-start">
+                      <td className="px-5 py-2">
                         <Input
                           value={comentarios[c.id] ?? ""}
                           onChange={(e) => setComentarios((p) => ({ ...p, [c.id]: e.target.value }))}
@@ -1712,7 +1712,7 @@ function ConciliacionesTab({
                         {diff > 0 ? "+" : ""}
                         {money(moneda, diff)}
                       </td>
-                      <td className="max-w-[260px] truncate px-5 py-2 text-neutral-500 text-start">
+                      <td className="max-w-[260px] truncate px-5 py-2 text-neutral-500">
                         {l.comentario || "—"}
                       </td>
                     </tr>

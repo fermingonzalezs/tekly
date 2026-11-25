@@ -4,9 +4,10 @@ import { cn } from "@/lib/utils";
 import { turnoBlockClass, turnoTipo, turnoStatus } from "@/lib/status";
 import { horaFin } from "@/lib/agenda";
 import type { Turno } from "@/lib/types";
+import { TURNO_ICONO } from "./turno-icono";
 
 /** El color lo da el motivo; el estado cambia la forma (ver CLAUDE.md →
- * Agenda): confirmado lleno · sin confirmar borde + fondo suave · atendido /
+ * Agenda): confirmado fondo claro · sin confirmar borde punteado · atendido /
  * no vino apagado · cancelado punteado y tachado. */
 export function claseBloque(t: Pick<Turno, "tipo" | "estado">): string {
   const c = turnoBlockClass[t.tipo];
@@ -36,6 +37,8 @@ export function EventoBloque({
   detallado: boolean;
   onClick: () => void;
 }) {
+  const Icono = TURNO_ICONO[turno.tipo];
+  const activo = turno.estado === "confirmado" || turno.estado === "pendiente";
   return (
     <button
       type="button"
@@ -47,7 +50,13 @@ export function EventoBloque({
         claseBloque(turno),
       )}
     >
-      <span className="block truncate font-semibold">{turno.cliente}</span>
+      <span className="flex min-w-0 items-center gap-1">
+        <Icono
+          aria-hidden
+          className={cn("h-3 w-3 shrink-0", activo && turnoBlockClass[turno.tipo].icono)}
+        />
+        <span className="truncate font-semibold">{turno.cliente}</span>
+      </span>
       {detallado && (
         <>
           <span className="block truncate text-[11px] opacity-80">

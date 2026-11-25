@@ -70,7 +70,7 @@ export default async function AdminOverviewPage() {
                     key={m.orgId}
                     className="border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                   >
-                    <td className="px-5 py-2.5 text-start">
+                    <td className="px-5 py-2.5">
                       <Link
                         href={`/admin/organizaciones/${m.orgId}`}
                         className="font-medium text-neutral-900 hover:text-accent"

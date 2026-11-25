@@ -1,5 +1,6 @@
 "use client";
 
+import { InputFecha } from "@/components/ui/input-fecha";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Section } from "@/components/section";
@@ -97,19 +98,19 @@ export function AnaliticasClient({
           </Select>
           {filtros.preset === "personalizado" && !periodoDeshabilitado && (
             <div className="flex items-center gap-2">
-              <Input
-                type="date"
+              <InputFecha
                 value={filtros.desde}
-                onChange={(e) => navegar({ ...filtros, desde: e.target.value })}
-                className={cn("w-full sm:w-36", filterPill)}
+                onChange={(v) => navegar({ ...filtros, desde: v })}
+                className="w-full sm:w-36"
+                inputClassName={filterPill}
                 aria-label="Desde"
               />
               <span className="text-xs text-neutral-500">a</span>
-              <Input
-                type="date"
+              <InputFecha
                 value={filtros.hasta}
-                onChange={(e) => navegar({ ...filtros, hasta: e.target.value })}
-                className={cn("w-full sm:w-36", filterPill)}
+                onChange={(v) => navegar({ ...filtros, hasta: v })}
+                className="w-full sm:w-36"
+                inputClassName={filterPill}
                 aria-label="Hasta"
               />
             </div>

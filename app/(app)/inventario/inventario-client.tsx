@@ -1117,7 +1117,7 @@ export function InventarioClient({
                               onChange={() => toggleSel(e.id)}
                             />
                           </td>
-                          <td className="max-w-[160px] truncate px-5 py-2 text-start font-medium">
+                          <td className="max-w-[160px] truncate px-5 py-2 font-medium">
                             {e.modelo}
                           </td>
                           <td className="max-w-[110px] truncate px-5 py-2 text-center text-neutral-500">
@@ -1368,7 +1368,7 @@ export function InventarioClient({
                           onChange={() => toggleSel(n.id)}
                         />
                       </td>
-                      <td className="max-w-[220px] px-5 py-2 text-start">
+                      <td className="max-w-[220px] px-5 py-2">
                         <p className="truncate font-medium">{n.modelo}</p>
                         <p className="truncate text-xs text-neutral-500">
                           {n.numeroSerie || "Sin número de serie"}
@@ -1910,7 +1910,7 @@ export function InventarioClient({
                               onClick={() => setOpenOtroId(o.id)}
                               className="cursor-pointer border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50"
                             >
-                              <td className="max-w-[180px] truncate px-5 py-2 text-start font-medium">
+                              <td className="max-w-[180px] truncate px-5 py-2 font-medium">
                                 <span className="inline-flex items-center gap-1">
                                   <span className="flex w-3.5 shrink-0 justify-center">
                                     {o.serializado && (
@@ -1934,7 +1934,7 @@ export function InventarioClient({
                                   <span className="truncate">{o.nombre}</span>
                                 </span>
                               </td>
-                              <td className="max-w-[220px] truncate px-5 py-2 text-start text-neutral-500">
+                              <td className="max-w-[220px] truncate px-5 py-2 text-neutral-500">
                                 {o.descripcion ?? "—"}
                               </td>
                               <td className="px-5 py-2 text-center">
@@ -2466,7 +2466,7 @@ function RecuentoModalDialog({
             <tbody>
               {filtrados.map((item) => (
                 <tr key={item.id}>
-                  <td className="px-3 py-1.5 font-medium text-start">{item.nombre}</td>
+                  <td className="px-3 py-1.5 font-medium">{item.nombre}</td>
                   <td className="px-3 py-1.5 text-center tabular-nums text-neutral-500">
                     {item.sistema}
                   </td>
@@ -2485,7 +2485,7 @@ function RecuentoModalDialog({
                       className="mx-auto h-8 w-20 text-center"
                     />
                   </td>
-                  <td className="px-3 py-1.5 text-start">
+                  <td className="px-3 py-1.5">
                     <Input
                       value={comentarios[item.id] ?? ""}
                       onChange={(e) =>

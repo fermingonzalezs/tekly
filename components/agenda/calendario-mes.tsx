@@ -6,6 +6,7 @@ import { thDivider } from "@/lib/ui-styles";
 import { diaCorto, pedidosDelDia, semanasDelMes } from "@/lib/agenda";
 import { PedidoChip } from "./pedido-chip";
 import { turnoBlockClass } from "@/lib/status";
+import { TURNO_ICONO } from "./turno-icono";
 import type { Pedido, Turno } from "@/lib/types";
 
 const MAX_POR_DIA = 3;
@@ -83,13 +84,16 @@ export function CalendarioMes({
                         onClick={() => onAbrirPedido(p.id)}
                       />
                     ))}
-                    {delDia.slice(0, MAX_POR_DIA).map((t) => (
+                    {delDia.slice(0, MAX_POR_DIA).map((t) => {
+                      const Icono = TURNO_ICONO[t.tipo];
+                      const activo = t.estado === "pendiente" || t.estado === "confirmado";
+                      return (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => onAbrirTurno(t.id)}
                         className={cn(
-                          "block w-full truncate rounded border px-1 py-0.5 text-left text-[11px] leading-tight",
+                          "flex w-full min-w-0 items-center gap-1 rounded border px-1 py-0.5 text-left text-[11px] leading-tight",
                           t.estado === "pendiente"
                             ? turnoBlockClass[t.tipo].soft
                             : t.estado === "confirmado"
@@ -97,9 +101,16 @@ export function CalendarioMes({
                               : "border-neutral-200 bg-neutral-100 text-neutral-500",
                         )}
                       >
-                        <span className="tabular-nums">{t.hora}</span> {t.cliente}
+                        <Icono
+                          aria-hidden
+                          className={cn("h-3 w-3 shrink-0", activo && turnoBlockClass[t.tipo].icono)}
+                        />
+                        <span className="truncate">
+                          <span className="tabular-nums">{t.hora}</span> {t.cliente}
+                        </span>
                       </button>
-                    ))}
+                      );
+                    })}
                     {delDia.length > MAX_POR_DIA && (
                       <button
                         type="button"

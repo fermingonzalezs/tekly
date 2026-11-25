@@ -99,7 +99,7 @@ export function ServiciosCatalogo({
                 key={s.id}
                 className="border-t border-neutral-100 first:border-t-0"
               >
-                <td className="px-5 py-3 font-medium text-start">{s.nombre}</td>
+                <td className="px-5 py-3 font-medium">{s.nombre}</td>
                 <td className="px-5 py-3 font-semibold">{fmtUsd(s.precioUsd)}</td>
                 <td className="px-5 py-3 text-neutral-500 text-center">
                   <span className="inline-flex items-center gap-1">

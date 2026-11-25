@@ -61,7 +61,6 @@ describe("semanaDe", () => {
 
 describe("rangoDeVista / moverFecha / etiquetaRango", () => {
   it("rango", () => {
-    expect(rangoDeVista("dia", "2026-11-24")).toEqual({ desde: "2026-11-24", hasta: "2026-11-24" });
     expect(rangoDeVista("semana", "2026-11-24")).toEqual({ desde: "2026-11-23", hasta: "2026-11-28" });
     expect(rangoDeVista("mes", "2026-11-24")).toEqual({ desde: "2026-11-02", hasta: "2026-12-05" });
   });
@@ -72,15 +71,14 @@ describe("rangoDeVista / moverFecha / etiquetaRango", () => {
     expect(semanas.flat()).not.toContain("2026-11-01"); // domingo
   });
   it("mueve", () => {
-    expect(moverFecha("dia", "2026-11-30", 1)).toBe("2026-12-01");
     expect(moverFecha("semana", "2026-11-24", -1)).toBe("2026-11-17");
     expect(moverFecha("mes", "2026-01-31", 1)).toBe("2026-02-01");
     expect(moverFecha("mes", "2026-01-15", -1)).toBe("2025-12-01");
   });
   it("etiqueta", () => {
-    expect(etiquetaRango("dia", "2026-11-24")).toBe("Martes 24/11");
-    expect(etiquetaRango("semana", "2026-11-24")).toBe("23/11 – 28/11");
-    expect(etiquetaRango("mes", "2026-11-24")).toBe("Noviembre 2026");
+    expect(etiquetaRango("semana", "2026-11-24")).toBe("23 al 28 de noviembre");
+    expect(etiquetaRango("semana", "2026-12-01")).toBe("30 de noviembre al 5 de diciembre");
+    expect(etiquetaRango("mes", "2026-11-24")).toBe("Noviembre de 2026");
   });
 });
 
@@ -136,8 +134,8 @@ describe("agruparProximos", () => {
       ],
       hoy,
     );
-    expect(g.map((x) => [x.clave, x.turnos.map((y) => y.id)])).toEqual([
-      ["vencidos", ["v"]],
+    expect(g.map((x) => [x.clave, x.items.map((y) => y.id)])).toEqual([
+      ["atrasados", ["v"]],
       ["hoy", ["h"]],
       ["manana", ["m"]],
       ["semana", ["s"]],
@@ -146,6 +144,19 @@ describe("agruparProximos", () => {
   });
   it("omite grupos vacíos", () => {
     expect(agruparProximos([], hoy)).toEqual([]);
+  });
+  it("mezcla pedidos abiertos (primero en su día, sin hora) y saca entregados/cancelados", () => {
+    const p = (id: string, fechaEntrega: string, estado: Pedido["estado"] = "pedido") =>
+      ({ id, fechaEntrega, estado }) as Pedido;
+    const g = agruparProximos(
+      [t({ id: "h", fecha: hoy, hora: "09:00" }), t({ id: "v", fecha: "2026-11-22" })],
+      hoy,
+      [p("pa", "2026-11-20", "llego"), p("ph", hoy), p("pe", hoy, "entregado"), p("pc", hoy, "cancelado"), p("ph", hoy)],
+    );
+    expect(g.map((x) => [x.clave, x.items.map((y) => `${y.clase}:${y.id}`)])).toEqual([
+      ["atrasados", ["pedido:pa", "turno:v"]],
+      ["hoy", ["pedido:ph", "turno:h"]],
+    ]);
   });
 });
 
@@ -169,8 +180,10 @@ describe("turnosSuperpuestos", () => {
 });
 
 describe("kpisAgenda", () => {
-  it("cuenta hoy, sin confirmar, semana y vencidos sin duplicar ids", () => {
+  it("suma turnos y pedidos de hoy, pendientes, vencidos y atendidos de la semana sin duplicar ids", () => {
     const hoy = "2026-11-24";
+    const p = (o: Partial<Pedido>): Pedido =>
+      ({ id: "p", cliente: "Ana", clienteId: null, descripcion: "x", items: [], senaUsd: 0, fechaEntrega: hoy, estado: "pedido", nota: null, ...o }) as Pedido;
     const k = kpisAgenda(
       [
         t({ id: "1", fecha: hoy }),
@@ -178,10 +191,24 @@ describe("kpisAgenda", () => {
         t({ id: "2", fecha: "2026-11-26", estado: "pendiente" }),
         t({ id: "3", fecha: "2026-11-20", estado: "confirmado" }),
         t({ id: "4", fecha: hoy, estado: "cancelado" }),
+        t({ id: "5", fecha: "2026-11-19", estado: "atendido" }),
+        t({ id: "6", fecha: "2026-11-17", estado: "atendido" }),
+      ],
+      [
+        p({ id: "a" }),
+        p({ id: "a" }),
+        p({ id: "b", fechaEntrega: "2026-11-20", estado: "llego" }),
+        p({ id: "c", estado: "entregado" }),
+        p({ id: "d", fechaEntrega: "2026-12-01" }),
       ],
       hoy,
     );
-    expect(k).toEqual({ hoy: 1, sinConfirmar: 1, semana: 2, vencidos: 1 });
+    expect(k).toEqual({
+      hoy: { turnos: 1, pedidos: 1 },
+      pedidosPendientes: 3,
+      vencidos: { turnos: 1, pedidos: 1 },
+      atendidosSemana: 1,
+    });
   });
 });
 

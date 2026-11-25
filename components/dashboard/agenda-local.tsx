@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CircleCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ChartTitle } from "@/components/ui/chart-title";
 import { cn } from "@/lib/utils";
-import { bandClass } from "@/lib/status";
+import { turnoBlockClass } from "@/lib/status";
+import { TURNO_ICONO } from "@/components/agenda/turno-icono";
 import type { AgendaItem, AgendaLocal } from "@/lib/dashboard";
 
 /** "Agenda del local": tickets listos sin retirar + próximos turnos, como
- * tarjetas con banda de color (tono de `lib/status.ts`), y a la derecha los
+ * tarjetas con banda en un tono de la paleta índigo + ícono del tipo (mismos
+ * que la Agenda, `turnoBlockClass`/`TURNO_ICONO`), y a la derecha los
  * contadores del día. Con `enlaces={false}` (demo) las tarjetas no linkean:
  * Turnos y Reparaciones no existen fuera de la app. */
 export function AgendaLocalCard({
@@ -60,16 +62,20 @@ export function AgendaLocalCard({
 function ItemAgenda({ item, enlaces }: { item: AgendaItem; enlaces: boolean }) {
   const href = item.accion === "ticket" ? `/reparaciones?q=${item.ref}` : "/agenda";
   const accion = item.accion === "ticket" ? "Ver ticket" : "Ver turno";
+  // Ticket listo: mismo tono que «Retira reparación» (es lo que va a pasar).
+  const Icono = item.tipo === "listo" ? CircleCheck : TURNO_ICONO[item.tipo];
+  const banda = turnoBlockClass[item.tipo === "listo" ? "retira" : item.tipo].banda;
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
       <p
         className={cn(
-          "truncate px-3 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wider text-white",
-          bandClass[item.tone],
+          "flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white",
+          banda,
         )}
         title={item.banda}
       >
-        {item.banda}
+        <Icono aria-hidden className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{item.banda}</span>
       </p>
       <div className="flex flex-1 flex-col items-center px-3 py-3 text-center">
         <p className="w-full truncate text-sm font-semibold text-neutral-900">{item.cliente}</p>

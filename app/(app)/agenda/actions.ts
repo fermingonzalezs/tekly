@@ -5,7 +5,7 @@ import { requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
 import { createTurno, updateTurno, setTurnoEstado, deleteTurno } from "@/lib/db/turnos";
 import { createPedido, deletePedido, setPedidoEstado, updatePedido } from "@/lib/db/pedidos";
-import { errorPedido, limpiarItems, normalizarItems, redondearUsd } from "@/lib/pedidos";
+import { errorPedido, limpiarItems, normalizarItems, type SenaCaja } from "@/lib/pedidos";
 import type {
   ClienteSeleccion,
   Pago,
@@ -95,8 +95,8 @@ export async function deleteTurnoAction(id: string) {
 export type PedidoInput = {
   cliente: ClienteSeleccion;
   items: PedidoItem[];
-  /** `0` = no abonó seña. */
-  senaUsd: number;
+  /** `null` = no abonó seña. Monto en la moneda de la caja. */
+  sena: SenaCaja | null;
   fechaEntrega: string;
   nota: string;
 };
@@ -107,7 +107,9 @@ async function pedidoDatosDe(data: PedidoInput) {
   // El server nunca confía en el cliente: limpia filas vacías, revalida con la
   // misma lógica pura que el dialog y recién ahí normaliza.
   const items = limpiarItems(data.items);
-  const error = errorPedido({ items, senaUsd: data.senaUsd });
+  // La seña (contra el total) la valida `lib/db/pedidos.ts`, que la pasa a
+  // USD desde la caja elegida.
+  const error = errorPedido({ items, senaUsd: 0 });
   if (error) throw new Error(error);
   if (!FECHA_RE.test(data.fechaEntrega)) throw new Error("Fecha de entrega inválida.");
   const cliente =
@@ -119,7 +121,9 @@ async function pedidoDatosDe(data: PedidoInput) {
     cliente: cliente.nombre,
     clienteId: cliente.id,
     items: normalizarItems(items),
-    senaUsd: redondearUsd(data.senaUsd),
+    sena: data.sena
+      ? { cajaId: data.sena.cajaId, monto: data.sena.monto, cotizacion: data.sena.cotizacion }
+      : null,
     fechaEntrega: data.fechaEntrega,
     nota: data.nota,
   };
@@ -129,6 +133,7 @@ export async function createPedidoAction(data: PedidoInput) {
   await requireEscritura();
   const pedido = await createPedido(await pedidoDatosDe(data));
   revalidatePath("/agenda");
+  revalidatePath("/cajas");
   return pedido;
 }
 
@@ -136,6 +141,7 @@ export async function updatePedidoAction(id: string, data: PedidoInput) {
   await requireEscritura();
   const pedido = await updatePedido(id, await pedidoDatosDe(data));
   revalidatePath("/agenda");
+  revalidatePath("/cajas");
   return pedido;
 }
 
@@ -149,4 +155,5 @@ export async function deletePedidoAction(id: string) {
   await requireRoleEscritura("admin");
   await deletePedido(id);
   revalidatePath("/agenda");
+  revalidatePath("/cajas");
 }

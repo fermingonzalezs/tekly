@@ -1,5 +1,6 @@
 "use client";
 
+import { InputFecha } from "@/components/ui/input-fecha";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -113,11 +114,11 @@ export function PlanOrgCard({
           </Select>
         </Field>
         <Field label="Fin de la prueba">
-          <Input type="date" value={trial} onChange={(e) => setTrial(e.target.value)} />
+          <InputFecha value={trial} onChange={setTrial} />
         </Field>
         <Field label="Fin del período pago">
           <div className="flex gap-2">
-            <Input type="date" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
+            <InputFecha value={periodo} onChange={setPeriodo} className="w-full" />
             <Button
               variant="outline"
               size="sm"
