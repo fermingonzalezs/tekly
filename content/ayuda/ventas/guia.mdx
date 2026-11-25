@@ -19,9 +19,9 @@ Ventas registra todo lo que cobrás: celulares, notebooks, reparaciones, accesor
 La página se arma siempre en el mismo orden: barra de visibilidad («Gráficos» / «Tarjetas»), gráficos, tarjetas de KPIs, fila de filtros y tabla.
 
 - **Gráficos**: «Facturación por día» y «Mix por rubro».
-- **Tarjetas**: «Operaciones», «Facturado», «Ticket promedio» y — si tu rol no es vendedor — «Margen promedio».
+- **Tarjetas**: «Operaciones» y «Facturado»; si tu rol no es vendedor, además «Ganancia» (precio menos costo de lo vendido en el período) y «Margen promedio». Un vendedor ve «Ítems vendidos» y «Ticket promedio».
 - **Filtros**: tabs «Ventas» / «Ítems vendidos», buscador, período, vendedor y tipo. Todo queda **en la URL**: si copiás el link, la otra persona ve lo mismo.
-- **Tabla**: los headers «Venta», «Total» y «Margen» ordenan; tocá una fila para abrir el detalle.
+- **Tabla**: si tu rol no es vendedor, cada venta muestra su **Ganancia** (en U$) y su **Margen**. Los headers «Venta», «Total» y «Margen» ordenan; tocá una fila para abrir el detalle (bloque «Rentabilidad»: costo, ganancia y margen).
 
 ## Operaciones
 
@@ -40,7 +40,7 @@ La página se arma siempre en el mismo orden: barra de visibilidad («Gráficos�
 Una vez creada, una venta **no se puede modificar**: no se cambian ítems, montos, cliente ni forma de pago. Si algo salió mal, hay que eliminarla (solo admin) y cargarla de nuevo. Ver [Eliminar una venta](/ayuda/ventas/eliminar-venta).
 </Aviso>
 
-- El **vendedor** no ve costo, ganancia ni margen (tampoco el KPI «Margen promedio», en su lugar ve «Ítems vendidos»).
+- El **vendedor** no ve costo, ganancia ni margen en ninguna pantalla (ni al cargar la venta).
 - Los pagos en pesos anteriores a octubre de 2026 no tienen la cotización guardada: se muestran en dólares con una aclaración.
 
 ## Preguntas frecuentes
@@ -67,7 +67,7 @@ Escribí el número sin el prefijo (ej. `1042`) en el buscador. Ver [Filtrar y b
 No: es definitiva. Por eso solo el admin puede hacerlo.
 
 **¿Qué es «Ítems vendidos»?**
-Una vista con una fila por producto vendido (Venta, Cliente, Ítem, Serie, Precio, Margen), útil para buscar por IMEI. Ver [Filtrar y buscar](/ayuda/ventas/filtrar-y-buscar).
+Una vista con una fila por producto vendido (Venta, Cliente, Ítem, Serie, Precio, Ganancia, Margen), útil para buscar por IMEI. Ver [Filtrar y buscar](/ayuda/ventas/filtrar-y-buscar).
 
 ## Relacionados
 

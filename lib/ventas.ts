@@ -85,7 +85,7 @@ export function montoPagoLabel(p: Pago): string {
 /** Margen de una venta: solo sobre los ítems con `costoUsd` cargado
  * (mismo criterio que `margenPorTipo` en lib/analiticas.ts). `null` si
  * ningún ítem tiene costo -- "sin dato", no 100 %. */
-export function margenVenta(items: VentaItem[]): {
+export function margenVenta<T extends Pick<VentaItem, "cantidad" | "precioUsd" | "costoUsd">>(items: T[]): {
   costoUsd: number;
   gananciaUsd: number;
   margenPct: number | null;
@@ -105,6 +105,28 @@ export function margenVenta(items: VentaItem[]): {
     gananciaUsd: precio - costo,
     margenPct: precio > 0 ? ((precio - costo) / precio) * 100 : 0,
   };
+}
+
+/** Costo unitario efectivo de un ítem de venta: su costo propio más los
+ * repuestos usados (al costo del repuesto, repartido por la cantidad del
+ * ítem). `undefined` = sin dato: ni costo propio ni repuestos con costo
+ * conocido -- así un servicio o un ítem libre sin costo cargado no cuenta
+ * como 100 % de margen. */
+export function costoUnitarioItem(
+  item: Pick<VentaItem, "costoUsd" | "cantidad" | "repuestos">,
+  costoRepuesto: (repuestoId: string) => number | undefined,
+): number | undefined {
+  let repuestos = 0;
+  let conRepuestos = false;
+  for (const r of item.repuestos ?? []) {
+    const c = costoRepuesto(r.repuestoId);
+    if (c === undefined) continue;
+    conRepuestos = true;
+    repuestos += c * r.cantidad;
+  }
+  if (!conRepuestos) return item.costoUsd;
+  const unitario = (item.costoUsd ?? 0) + repuestos / Math.max(1, item.cantidad);
+  return Math.round(unitario * 100) / 100;
 }
 
 /** Margen agregado de un conjunto de ventas, ponderado por facturación:
@@ -193,6 +215,9 @@ export type ResumenVentas = {
   itemsVendidos: number;
   /** `margenPonderado` sobre todo el período filtrado; `null` sin costos. */
   margenPct: number | null;
+  /** Σ ganancia (precio − costo) de los ítems con costo; `null` sin costos.
+   * Mismo criterio que `margenVenta`. */
+  gananciaUsd: number | null;
 };
 
 /** KPIs del período filtrado completo (no solo la página). Lógica pura para
@@ -210,7 +235,22 @@ export function resumenDeVentas(ventas: VentaParaResumen[]): ResumenVentas {
     ticketPromedio: operaciones > 0 ? facturado / operaciones : 0,
     itemsVendidos,
     margenPct: margenPonderado(ventas),
+    gananciaUsd: gananciaTotal(ventas),
   };
+}
+
+/** Ganancia sumada de un conjunto de ventas (solo ítems con costo).
+ * `null` si ninguna venta tiene costos cargados. */
+export function gananciaTotal(ventas: Pick<VentaParaResumen, "items">[]): number | null {
+  let total = 0;
+  let conCosto = false;
+  for (const v of ventas) {
+    const m = margenVenta(v.items);
+    if (m.margenPct === null) continue;
+    conCosto = true;
+    total += m.gananciaUsd;
+  }
+  return conCosto ? total : null;
 }
 
 // ───────────────────── Gráficos de sección (plan 009) ─────────────────────
@@ -320,4 +360,90 @@ export function resolverVendedor(
     return { ok: false, error: `El nombre del vendedor no puede pasar de ${VENDEDOR_LIBRE_MAX} caracteres.` };
   }
   return { ok: true, vendedorId: "", vendedorNombre: nombre };
+}
+
+// ── Descuento de la venta y regalos (plan 026) ──────────────────────────────
+
+export type ItemParaDescuento = { cantidad: number; precioUsd: number; regalo?: boolean };
+
+export type ResultadoDescuento = {
+  /** Mismo orden que la entrada: precio unitario efectivo y, si cambió, el de lista. */
+  items: { precioUsd: number; precioListaUsd?: number }[];
+  subtotalUsd: number;
+  descuentoUsd: number;
+  totalUsd: number;
+};
+
+const aCentavos = (n: number) => Math.round(n * 100);
+
+/** Descuento en USD a partir de un %, redondeado a centavos. */
+export function descuentoDesdePct(subtotalUsd: number, pct: number): number {
+  if (!Number.isFinite(pct) || pct <= 0) return 0;
+  return aCentavos((subtotalUsd * pct) / 100) / 100;
+}
+
+/** `null` si el descuento es válido para ese subtotal (sin regalos). */
+export function errorDescuento(subtotalUsd: number, descuentoUsd: number): string | null {
+  if (!Number.isFinite(descuentoUsd) || descuentoUsd < 0) return "El descuento no puede ser negativo";
+  if (descuentoUsd > 0 && aCentavos(descuentoUsd) >= aCentavos(subtotalUsd)) {
+    return "El descuento tiene que ser menor que el subtotal";
+  }
+  return null;
+}
+
+/**
+ * Prorratea `descuentoUsd` entre los ítems que no son regalo, proporcional a
+ * su subtotal (cantidad × precio de lista), en centavos exactos. El resto de
+ * redondeo va a un ítem donde cierre exacto (preferentemente `cantidad = 1`,
+ * el de mayor subtotal). Regalos → precio 0, sin descuento.
+ */
+export function aplicarDescuentoVenta(
+  items: ItemParaDescuento[],
+  descuentoUsd: number,
+): ResultadoDescuento {
+  const precios = items.map((i) => (i.regalo ? 0 : Math.max(0, aCentavos(i.precioUsd))));
+  const cant = items.map((i) => Math.max(1, Math.round(i.cantidad)));
+  const subs = precios.map((p, k) => p * cant[k]);
+  const subtotal = subs.reduce((a, s) => a + s, 0);
+  const desc = Math.min(Math.max(0, aCentavos(descuentoUsd)), subtotal);
+
+  // Descuento por unidad de cada línea (en centavos, hacia abajo).
+  const porUnidad = subs.map((s, k) =>
+    subtotal > 0 ? Math.floor((desc * s) / subtotal / cant[k]) : 0,
+  );
+  let resto = desc - porUnidad.reduce((a, u, k) => a + u * cant[k], 0);
+
+  // Repartir el resto: primero en unidades enteras de cada línea (más caras primero),
+  // y lo que no divida exacto va a una línea de cantidad 1.
+  const orden = subs
+    .map((s, k) => k)
+    .filter((k) => subs[k] > 0)
+    .sort((a, b) => subs[b] - subs[a]);
+  for (const k of orden) {
+    if (resto <= 0) break;
+    const extra = Math.floor(resto / cant[k]);
+    const max = precios[k] - porUnidad[k];
+    const usar = Math.min(extra, max);
+    porUnidad[k] += usar;
+    resto -= usar * cant[k];
+  }
+  if (resto > 0) {
+    const k = orden.find((j) => cant[j] === 1 && precios[j] - porUnidad[j] >= resto);
+    if (k !== undefined) {
+      porUnidad[k] += resto;
+      resto = 0;
+    }
+  }
+  const aplicado = desc - resto; // si no cerró (caso extremo), se aplica lo que se pudo
+
+  return {
+    items: items.map((it, k) => {
+      const efectivo = (precios[k] - porUnidad[k]) / 100;
+      const lista = it.regalo ? 0 : precios[k] / 100;
+      return porUnidad[k] > 0 ? { precioUsd: efectivo, precioListaUsd: lista } : { precioUsd: efectivo };
+    }),
+    subtotalUsd: subtotal / 100,
+    descuentoUsd: aplicado / 100,
+    totalUsd: (subtotal - aplicado) / 100,
+  };
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { rentabilidadTicket } from "@/lib/reparaciones";
 import {
   Plus,
   Wrench,
@@ -209,6 +210,8 @@ export function ReparacionesClient({
   const { publish } = useRealtime();
   const actor = user.nombre;
   const esAdmin = user.rol === "admin";
+  // Costo y ganancia: admin y técnico (al vendedor ni le viaja el costo).
+  const puedeVerCosto = user.rol !== "vendedor";
   const [list, setList] = useState<Ticket[]>(initialTickets);
   const [tecFilter, setTecFilter] = useState("todos");
   const [estFilter, setEstFilter] = useState<"todos" | TicketStatus>("todos");
@@ -1027,6 +1030,9 @@ export function ReparacionesClient({
                   </div>
                 </>
               )}
+              {puedeVerCosto && open.servicios.length > 0 && (
+                <RentabilidadTicket servicios={open.servicios} repuestos={repuestos} />
+              )}
             </div>
             </div>
 
@@ -1355,6 +1361,43 @@ export function ReparacionesClient({
         }}
       />
     </>
+  );
+}
+
+/** Precio total del ticket menos el costo de los repuestos usados. */
+function RentabilidadTicket({
+  servicios,
+  repuestos,
+}: {
+  servicios: TicketServicio[];
+  repuestos: Repuesto[];
+}) {
+  const r = rentabilidadTicket(servicios, (id) => repuestos.find((x) => x.id === id)?.costoUsd);
+  return (
+    <div className="mt-4">
+      <p className="mb-1.5 border-b border-neutral-200 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+        Rentabilidad
+      </p>
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard align="left" label="Costo repuestos" value={fmtUsd(r.costoUsd)} />
+        <StatCard
+          align="left"
+          label="Ganancia"
+          value={fmtUsd(r.gananciaUsd)}
+          valueClassName={r.gananciaUsd < 0 ? "text-red-600" : undefined}
+        />
+        <StatCard
+          align="left"
+          label="Margen"
+          value={r.margenPct === null ? "—" : `${r.margenPct.toFixed(1)}%`}
+        />
+      </div>
+      <p className="mt-1.5 text-[11px] text-neutral-500">
+        Presupuesto total menos el costo de los repuestos usados (al costo de cuando se agregaron).
+        {r.sinCosto > 0 &&
+          ` ${r.sinCosto === 1 ? "Un repuesto no tiene" : `${r.sinCosto} repuestos no tienen`} costo cargado.`}
+      </p>
+    </div>
   );
 }
 

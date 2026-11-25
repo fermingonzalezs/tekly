@@ -5,6 +5,7 @@ import {
   requireEscritura,
   requireRoleEscritura,
   inviteMember,
+  setMemberInstagram,
   setMemberRole,
   deactivateMember,
   setMemberEmail,
@@ -43,8 +44,9 @@ export async function inviteMemberAction(
   email: string,
   nombre: string,
   rol: Rol,
+  instagram?: string,
 ): Promise<AuthResult> {
-  const result = await inviteMember({ email, nombre, rol });
+  const result = await inviteMember({ email, nombre, rol, instagram });
   if (!result.error) revalidatePath("/configuracion");
   return result;
 }
@@ -344,4 +346,13 @@ export async function retomarLecturaIaAction(
   await requireRoleEscritura("admin");
   if (!ENTIDADES_IMPORTACION.includes(entidad)) return null;
   return ultimaLecturaIa(entidad);
+}
+
+export async function setMemberInstagramAction(
+  targetProfileId: string,
+  instagram: string,
+): Promise<AuthResult> {
+  const result = await setMemberInstagram(targetProfileId, instagram);
+  if (!result.error) revalidatePath("/configuracion");
+  return result;
 }

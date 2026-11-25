@@ -4,6 +4,7 @@
  * inline en `analiticas-client.tsx` se movió acá para que el server lo haga
  * una sola vez y el cliente quede como presentación (plan 008). */
 
+import { rentabilidadTicket } from "@/lib/reparaciones";
 import type {
   Caja,
   Cliente,
@@ -309,16 +310,13 @@ export function resumenReparaciones(
 
   const repuestosPorId = new Map(repuestos.map((r) => [r.id, r]));
   const ticketsCobrados = tickets.filter((t) => cobrado.ticketIds.has(t.id));
-  const gastoRepuestos = ticketsCobrados.reduce((a, t) => {
-    const usados = t.servicios.filter((s) => s.origen === "repuesto");
-    return (
-      a +
-      usados.reduce((acc, s) => {
-        const repuesto = s.repuestoId ? repuestosPorId.get(s.repuestoId) : undefined;
-        return acc + (repuesto ? repuesto.costoUsd * (s.cantidad ?? 1) : 0);
-      }, 0)
-    );
-  }, 0);
+  // Costo congelado al agregar el repuesto al ticket; tickets viejos sin
+  // snapshot caen al costo actual (`rentabilidadTicket`).
+  const costoActual = (id: string) => repuestosPorId.get(id)?.costoUsd;
+  const gastoRepuestos = ticketsCobrados.reduce(
+    (a, t) => a + rentabilidadTicket(t.servicios, costoActual).costoUsd,
+    0,
+  );
 
   return {
     cantidad: filtrados.length,

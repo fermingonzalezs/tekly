@@ -13,6 +13,8 @@ export type SessionUser = {
   rol: Rol;
   nombre: string;
   alias: string | null;
+  /** Usuario de Instagram normalizado (`lib/instagram.ts`), o `null`. */
+  instagram: string | null;
   /** Versión de Términos/Privacidad aceptada (`lib/legal.ts`), o `null`. */
   terminosVersion: string | null;
   /** Plan y estado de la organización (`lib/planes.ts`). */

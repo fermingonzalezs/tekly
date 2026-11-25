@@ -1,3 +1,4 @@
+import type { ResumenVentas } from "@/lib/ventas";
 import { Section } from "@/components/section";
 import { listTiendas } from "@/lib/db/tiendas";
 import { requireUser } from "@/lib/auth";
@@ -96,14 +97,18 @@ export default async function VentasPage(
     listVariantes({ categoria: "todas" }),
   ]);
 
+  // Al vendedor no le viaja ni la ganancia ni el margen (se lee del payload).
+  const sinCostos = (r: ResumenVentas): ResumenVentas =>
+    puedeVerCosto ? r : { ...r, margenPct: null, gananciaUsd: null };
+
   return (
     <Section title="Ventas" ayuda="ventas">
       <VentasClient
         filtros={filtros}
         contexto={contextoPeriodo(filtros.preset, rango)}
         deltaHint={deltaHintDe(filtros.preset)}
-        resumen={resumen}
-        resumenAnterior={resumenAnterior}
+        resumen={sinCostos(resumen)}
+        resumenAnterior={resumenAnterior && sinCostos(resumenAnterior)}
         graficos={graficos}
         ventas={pagina.ventas}
         totalVentas={totalVentas}

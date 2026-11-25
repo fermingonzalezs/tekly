@@ -1424,7 +1424,14 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   editar en la fila (ícono de lápiz, `updateTicketItemPrecio` en
   `lib/db/reparaciones.ts` -- solo toca `precioUsd`, no descuenta/repone
   stock). `presupuesto_usd` se recalcula solo, suma de `precioUsd *
-  cantidad` de todos los ítems. Ticket de ingreso/egreso muestran una sola
+  cantidad` de todos los ítems. **Rentabilidad del ticket** (admin/técnico,
+  bloque bajo "Servicios asociados"): `rentabilidadTicket`
+  (`lib/reparaciones.ts`, con test) = presupuesto − costo de repuestos; la
+  mano de obra no tiene costo. `addTicketItem` **congela** el costo del
+  repuesto en `TicketServicio.costoUsd` (lo lee del server, nunca del
+  cliente); tickets viejos caen al costo actual. Analíticas («Gasto en
+  repuestos») usa lo mismo. `ticketParaRol` borra ese costo antes de mandar
+  tickets a un vendedor (page, actions, Agenda). Ticket de ingreso/egreso muestran una sola
   tabla de servicios (`ReciboLineas`, columna Garantía si algún ítem la
   trae). **Presupuesto** en cambio separa los ítems en hasta 3 tablas por
   `origen` (Servicios/Repuestos/Ítems extra, cada una oculta si no tiene
@@ -1484,7 +1491,16 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   alta. **Margen**: `margenVenta(items)` (`lib/ventas.ts`, con test) es la
   única fuente del costo/ganancia/margen de una venta — solo ítems con
   `costoUsd` cargado (mismo criterio que `margenPorTipo` en Analíticas);
-  venta sin ningún costo → "—" en tabla/detalle (sin dato, no 100 %). El KPI
+  venta sin ningún costo → "—" en tabla/detalle (sin dato, no 100 %).
+  **Ganancia a la vista** (admin/técnico): columna «Ganancia» (U$) en Ventas
+  e Ítems vendidos, tarjeta «Ganancia» (`ResumenVentas.gananciaUsd`,
+  `gananciaTotal`; para admin/técnico reemplaza a «Ticket promedio») y, en
+  Nueva venta, costo unitario editable por ítem (precargado del stock) +
+  `RentabilidadEnVivo` bajo el total. Servicios del catálogo e ítems libres
+  arrancan **sin costo** (`undefined`, no 0 → no inflan el margen); los
+  repuestos usados de un servicio se suman al costo guardado del ítem
+  (`costoUnitarioItem`, `lib/ventas.ts`). `page.tsx` borra `margenPct`/
+  `gananciaUsd` del resumen para el vendedor. El KPI
   "Margen promedio" usa `margenPonderado(ventas)` (ponderado por
   facturación, `null` → "—" con hint "sin costos cargados") — nunca el
   promedio simple de `margenPct`. La columna `margen_pct` se persiste con
@@ -1775,7 +1791,14 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   y conecta por primera vez `inviteMember`/`setMemberRole` de `lib/auth`
   (existían desde la Fase 0, ninguna UI los llamaba) — "Invitar usuario" y
   el pill de rol por fila (abre `CambiarRolDialog`), ambos validan admin
-  server-side adentro de esas funciones. "Datos del negocio" (tarjeta dentro
+  server-side adentro de esas funciones. **Instagram** de cada usuario
+  (`profiles.instagram`, opcional, **solo texto**: Instagram no tiene API
+  pública para buscar cuentas personales): `normalizarInstagram`
+  (`lib/instagram.ts`, con test) acepta `@usuario`/link y guarda el nombre en
+  minúscula; CHECK espejo en la base. Se carga al invitar (`inviteMember`),
+  lo edita el admin (`setMemberInstagram`, service role) o cada uno en Mi
+  cuenta (RPC `set_own_instagram`; `update_own_profile` no deja vaciar).
+  "Datos del negocio" (tarjeta dentro
   de «Cuenta y negocio») es 1:1
   con la organización — no es una tabla aparte, son columnas nuevas en
   `organizations` (`direccion`/`telefono`/`cuit`/`horario`, además del

@@ -1,3 +1,4 @@
+import { ticketParaRol } from "@/lib/reparaciones";
 import { Section } from "@/components/section";
 import { requireUser } from "@/lib/auth";
 import { listTurnosProximos, listTurnosRango } from "@/lib/db/turnos";
@@ -44,7 +45,9 @@ export default async function TurnosPage({
         proximos={proximos}
         celulares={celulares}
         otros={otros}
-        ticketsListos={tickets.filter((t) => t.estado === "listo")}
+        ticketsListos={tickets
+          .filter((t) => t.estado === "listo")
+          .map((t) => ticketParaRol(t, user.rol))}
         clientesOpciones={clientesOpciones}
         atendientes={atendientes}
         user={user}

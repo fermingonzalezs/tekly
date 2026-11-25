@@ -8,6 +8,7 @@ import {
   montoConRecargo,
   montoPagoLabel,
   margenVenta,
+  costoUnitarioItem,
   margenPonderado,
   resumenPorModalidad,
   motivoNoConfirmable,
@@ -158,6 +159,7 @@ describe("resumenDeVentas", () => {
     expect(r.itemsVendidos).toBe(3);
     // (400 + 300) / 1500 = 46.67%
     expect(r.margenPct).toBeCloseTo(46.67, 1);
+    expect(r.gananciaUsd).toBe(700);
   });
 
   it("sin ventas no divide por cero", () => {
@@ -168,6 +170,7 @@ describe("resumenDeVentas", () => {
       ticketPromedio: 0,
       itemsVendidos: 0,
       margenPct: null,
+      gananciaUsd: null,
     });
   });
 
@@ -384,5 +387,40 @@ describe("motivoNoConfirmable · tienda nueva", () => {
         totalPrecio: 10,
       }),
     ).toBe("Escribí el nombre de la tienda nueva");
+  });
+});
+
+describe("costoUnitarioItem", () => {
+  const costos: Record<string, number> = { pantalla: 40, bateria: 15 };
+  const costoDe = (id: string) => costos[id];
+
+  it("sin costo ni repuestos es sin dato", () => {
+    expect(costoUnitarioItem({ cantidad: 1 }, costoDe)).toBeUndefined();
+  });
+  it("sin repuestos devuelve el costo propio", () => {
+    expect(costoUnitarioItem({ cantidad: 1, costoUsd: 300 }, costoDe)).toBe(300);
+  });
+  it("suma los repuestos usados al costo propio", () => {
+    expect(
+      costoUnitarioItem(
+        { cantidad: 1, costoUsd: 5, repuestos: [{ repuestoId: "pantalla", nombre: "P", cantidad: 1 }, { repuestoId: "bateria", nombre: "B", cantidad: 2 }] },
+        costoDe,
+      ),
+    ).toBe(75);
+  });
+  it("un servicio sin costo propio toma solo los repuestos", () => {
+    expect(
+      costoUnitarioItem({ cantidad: 1, repuestos: [{ repuestoId: "pantalla", nombre: "P", cantidad: 1 }] }, costoDe),
+    ).toBe(40);
+  });
+  it("reparte los repuestos por la cantidad del ítem", () => {
+    expect(
+      costoUnitarioItem({ cantidad: 2, repuestos: [{ repuestoId: "pantalla", nombre: "P", cantidad: 1 }] }, costoDe),
+    ).toBe(20);
+  });
+  it("ignora repuestos de costo desconocido", () => {
+    expect(
+      costoUnitarioItem({ cantidad: 1, repuestos: [{ repuestoId: "x", nombre: "X", cantidad: 1 }] }, costoDe),
+    ).toBeUndefined();
   });
 });

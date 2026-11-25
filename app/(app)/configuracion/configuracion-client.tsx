@@ -18,8 +18,10 @@ import { dotClass, rolLabel, rolTone, medioPago as medioPagoCfg, MEDIOS_VENTA } 
 import { thDivider } from "@/lib/ui-styles";
 import { cn } from "@/lib/utils";
 import { updateOwnProfileAction } from "@/app/(app)/actions";
+import { instagramUrl, normalizarInstagram } from "@/lib/instagram";
 import {
   inviteMemberAction,
+  setMemberInstagramAction,
   setMemberRoleAction,
   setMemberEmailAction,
   deactivateMemberAction,
@@ -118,6 +120,7 @@ export function ConfiguracionClient({
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-neutral-900">{u.nombre}</p>
                       <p className="truncate text-xs text-neutral-500">{u.email}</p>
+                      <InstagramLink usuario={u.instagram} className="text-xs" />
                     </div>
                     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                       <span
@@ -152,6 +155,7 @@ export function ConfiguracionClient({
                   <tr className="border-b border-neutral-100 text-xs text-neutral-400">
                     <th className={cn("px-5 py-3 text-center", thDivider)}>Nombre</th>
                     <th className={cn("px-5 py-3 text-center", thDivider)}>Email</th>
+                    <th className={cn("px-5 py-3 text-center", thDivider)}>Instagram</th>
                     <th className={cn("px-5 py-3 text-center", thDivider)}>Rol</th>
                     <th className="px-5 py-3 text-center">Estado</th>
                   </tr>
@@ -165,6 +169,9 @@ export function ConfiguracionClient({
                     >
                       <td className="px-5 py-2 text-center font-medium">{u.nombre}</td>
                       <td className="px-5 py-2 text-center text-neutral-500">{u.email}</td>
+                      <td className="px-5 py-2 text-center">
+                        {u.instagram ? <InstagramLink usuario={u.instagram} /> : <span className="text-neutral-500">—</span>}
+                      </td>
                       <td className="px-5 py-2 text-center">
                         <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
                           <span
@@ -188,7 +195,7 @@ export function ConfiguracionClient({
                   ))}
                   {miembros.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-5 py-10 text-center text-sm text-neutral-400">
+                      <td colSpan={5} className="px-5 py-10 text-center text-sm text-neutral-400">
                         Sin usuarios todavía.
                       </td>
                     </tr>
@@ -231,9 +238,11 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
   const volverAlOnboarding = useVolverAlOnboarding();
   const [email, setEmail] = useState("");
   const [nombre, setNombre] = useState("");
+  const [instagram, setInstagram] = useState("");
   const [rol, setRol] = useState<Rol>("vendedor");
   const [error, setError] = useState<string | null>(null);
   const [enviada, setEnviada] = useState(false);
+  const igInvalido = errorInstagram(instagram);
   const [pending, startTransition] = useTransition();
 
   function cerrar() {
@@ -244,13 +253,14 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
   function enviar() {
     setError(null);
     startTransition(async () => {
-      const result = await inviteMemberAction(email.trim(), nombre.trim(), rol);
+      const result = await inviteMemberAction(email.trim(), nombre.trim(), rol, instagram);
       if (result.error) {
         setError(result.error);
         return;
       }
       setEmail("");
       setNombre("");
+      setInstagram("");
       setRol("vendedor");
       if (await volverAlOnboarding()) return;
       setEnviada(true);
@@ -275,7 +285,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
           </Button>
           <Button
             onClick={enviar}
-            disabled={pending || !email.trim() || !nombre.trim()}
+            disabled={pending || !email.trim() || !nombre.trim() || !!igInvalido}
             variant="primary" fullOnMobile
           >
             {pending ? "Invitando…" : "Invitar"}
@@ -299,6 +309,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
             ))}
           </Select>
         </Field>
+        <CampoInstagram value={instagram} onChange={setInstagram} error={igInvalido} className="sm:col-span-2" />
         {enviada && <p className="text-xs text-emerald-600 sm:col-span-3">Invitación enviada.</p>}
         {error && <p className="text-xs text-red-600 sm:col-span-3">{error}</p>}
       </GrillaCampos>
@@ -321,6 +332,8 @@ function EditarMiembroDialog({
   const router = useRouter();
   const [rol, setRol] = useState<Rol>(miembro?.rol ?? "vendedor");
   const [email, setEmail] = useState(miembro?.email ?? "");
+  const [instagram, setInstagram] = useState(miembro?.instagram ?? "");
+  const igInvalido = errorInstagram(instagram);
   const [error, setError] = useState<string | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -340,6 +353,13 @@ function EditarMiembroDialog({
       const emailLimpio = email.trim();
       if (emailLimpio && emailLimpio !== miembro.email) {
         const result = await setMemberEmailAction(miembro.id, emailLimpio);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+      }
+      if (instagram.trim() !== (miembro.instagram ?? "")) {
+        const result = await setMemberInstagramAction(miembro.id, instagram);
         if (result.error) {
           setError(result.error);
           return;
@@ -397,7 +417,7 @@ function EditarMiembroDialog({
               </Button>
               <Button
                 onClick={guardar}
-                disabled={pending || !email.trim()}
+                disabled={pending || !email.trim() || !!igInvalido}
                 variant="primary" fullOnMobile
               >
                 {pending ? "Guardando…" : "Guardar"}
@@ -426,6 +446,7 @@ function EditarMiembroDialog({
             <Field label="Email" className="sm:col-span-2">
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
+            <CampoInstagram value={instagram} onChange={setInstagram} error={igInvalido} className="sm:col-span-3" />
           </GrillaCampos>
         )}
         {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
@@ -867,6 +888,8 @@ function MiCuenta({ user, conTitulo = true }: { user: SessionUser; conTitulo?: b
   const router = useRouter();
   const [nombre, setNombre] = useState(user.nombre);
   const [alias, setAlias] = useState(user.alias ?? "");
+  const [instagram, setInstagram] = useState(user.instagram ?? "");
+  const igInvalido = errorInstagram(instagram);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -875,7 +898,7 @@ function MiCuenta({ user, conTitulo = true }: { user: SessionUser; conTitulo?: b
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      const result = await updateOwnProfileAction(nombre.trim(), alias.trim());
+      const result = await updateOwnProfileAction(nombre.trim(), alias.trim(), instagram);
       if (result.error) {
         setError(result.error);
         return;
@@ -902,18 +925,69 @@ function MiCuenta({ user, conTitulo = true }: { user: SessionUser; conTitulo?: b
         <Field label="Email">
           <Input value={user.email} disabled />
         </Field>
+        <CampoInstagram value={instagram} onChange={setInstagram} error={igInvalido} />
         {error && <p className="text-xs text-red-600">{error}</p>}
         {saved && !error && (
           <p className="text-xs text-emerald-600">Cambios guardados.</p>
         )}
         <Button
           onClick={guardar}
-          disabled={pending || !nombre.trim()}
+          disabled={pending || !nombre.trim() || !!igInvalido}
           variant="primary"
         >
           Guardar cambios
         </Button>
       </div>
     </Card>
+  );
+}
+
+/** Mensaje de error del campo Instagram mientras se escribe, o `null`. */
+function errorInstagram(valor: string): string | null {
+  const r = normalizarInstagram(valor);
+  return r.ok ? null : r.error;
+}
+
+function CampoInstagram({
+  value,
+  onChange,
+  error,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  error: string | null;
+  className?: string;
+}) {
+  const r = normalizarInstagram(value);
+  return (
+    <Field label="Instagram (opcional)" className={className}>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="@usuario o link al perfil"
+        aria-invalid={!!error}
+      />
+      {error ? (
+        <p className="mt-1 text-xs text-red-600">{error}</p>
+      ) : r.ok && r.usuario && r.usuario !== value.trim() ? (
+        <p className="mt-1 text-xs text-neutral-500">Se guarda como @{r.usuario}</p>
+      ) : null}
+    </Field>
+  );
+}
+
+function InstagramLink({ usuario, className }: { usuario: string | null; className?: string }) {
+  if (!usuario) return null;
+  return (
+    <a
+      href={instagramUrl(usuario)}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={cn("text-accent hover:underline", className)}
+    >
+      @{usuario}
+    </a>
   );
 }

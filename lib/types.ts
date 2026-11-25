@@ -157,6 +157,10 @@ export type TicketServicio = {
    * la columna Garantía del "Ticket de egreso". `undefined` para repuesto/
    * libre (no tienen garantía propia en el catálogo). */
   garantiaDias?: number;
+  /** Costo unitario (U$) congelado al agregar el ítem: en un `repuesto`, el
+   * `costoUsd` del repuesto en ese momento. Tickets anteriores no lo tienen
+   * (se usa el costo actual del repuesto, ver `rentabilidadTicket`). */
+  costoUsd?: number;
 };
 
 export type Ticket = {

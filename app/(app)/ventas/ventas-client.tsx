@@ -48,6 +48,7 @@ import {
   montoConRecargo,
   montoPagoLabel,
   margenVenta,
+  costoUnitarioItem,
   categoriaDe,
   motivoNoConfirmable,
   VENDEDOR_LIBRE_MAX,
@@ -127,6 +128,10 @@ function ventaGananciaLabel(v: Venta): string {
 function ventaMargenLabel(v: Venta): string {
   const m = margenVenta(v.items);
   return m.margenPct === null ? "—" : `${m.margenPct.toFixed(1)}%`;
+}
+
+function itemGananciaLabel(i: VentaItem): string {
+  return i.costoUsd !== undefined ? fmtUsd((i.precioUsd - i.costoUsd) * i.cantidad) : "—";
 }
 
 function itemMargenLabel(i: VentaItem): string {
@@ -585,6 +590,20 @@ export function VentasClient({
               delta={delta(resumen.facturado, resumenAnterior?.facturado)}
               deltaHint={deltaHint}
             />
+            {puedeVerCosto && (
+              <StatCard
+                align="left"
+                label="Ganancia"
+                value={resumen.gananciaUsd !== null ? fmtUsd(resumen.gananciaUsd) : "—"}
+                hint={resumen.gananciaUsd === null ? "sin costos cargados" : undefined}
+                delta={
+                  resumen.gananciaUsd !== null
+                    ? delta(resumen.gananciaUsd, resumenAnterior?.gananciaUsd ?? undefined)
+                    : undefined
+                }
+                deltaHint={deltaHint}
+              />
+            )}
             {puedeVerCosto ? (
               <StatCard
                 align="left"
@@ -603,13 +622,15 @@ export function VentasClient({
                 deltaHint={deltaHint}
               />
             )}
-            <StatCard
-              align="left"
-              label="Ticket promedio"
-              value={fmtUsd(resumen.ticketPromedio)}
-              delta={delta(resumen.ticketPromedio, resumenAnterior?.ticketPromedio)}
-              deltaHint={deltaHint}
-            />
+            {!puedeVerCosto && (
+              <StatCard
+                align="left"
+                label="Ticket promedio"
+                value={fmtUsd(resumen.ticketPromedio)}
+                delta={delta(resumen.ticketPromedio, resumenAnterior?.ticketPromedio)}
+                deltaHint={deltaHint}
+              />
+            )}
           </>
         }
         filtros={
@@ -1080,7 +1101,7 @@ function VentasTabla({
   onLimpiar: () => void;
   onNueva: () => void;
 }) {
-  const colSpan = puedeVerCosto ? 7 : 6;
+  const colSpan = puedeVerCosto ? 8 : 6;
   return (
     <>
       <div className="space-y-2 md:hidden">
@@ -1109,6 +1130,9 @@ function VentasTabla({
               <th className={cn("px-5 py-3", thDivider)}>Cliente</th>
               <th className={cn("px-5 py-3", thDivider)}>Detalle</th>
               <th className={cn("px-5 py-3", thDivider)}>Pago</th>
+              {puedeVerCosto && (
+                <th className={cn("px-5 py-3", thDivider)}>Ganancia</th>
+              )}
               {puedeVerCosto && (
                 <ThSort
                   label="Margen"
@@ -1157,6 +1181,11 @@ function VentasTabla({
                 <td className="px-5 py-2">
                   <PagoChip pagos={v.pagos} />
                 </td>
+                {puedeVerCosto && (
+                  <td className="px-5 py-2 text-center tabular-nums text-neutral-700">
+                    {ventaGananciaLabel(v)}
+                  </td>
+                )}
                 {puedeVerCosto && (
                   <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                     {ventaMargenLabel(v)}
@@ -1246,7 +1275,7 @@ function ItemsVendidosTabla({
   onLimpiar: () => void;
   onNueva: () => void;
 }) {
-  const colSpan = puedeVerCosto ? 7 : 6;
+  const colSpan = puedeVerCosto ? 8 : 6;
   return (
     <>
       <div className="space-y-2 md:hidden">
@@ -1300,6 +1329,9 @@ function ItemsVendidosTabla({
               <th className={cn("px-5 py-3", thDivider)}>Serie</th>
               <th className={cn("px-5 py-3 text-center", thDivider)}>Precio</th>
               {puedeVerCosto && (
+                <th className={cn("px-5 py-3 text-center", thDivider)}>Ganancia</th>
+              )}
+              {puedeVerCosto && (
                 <th className={cn("px-5 py-3 text-center", thDivider)}>Margen</th>
               )}
               <th className="w-px whitespace-nowrap px-5 py-3 text-center">Acciones</th>
@@ -1330,6 +1362,11 @@ function ItemsVendidosTabla({
                 <td className="px-5 py-2 text-center tabular-nums">
                   {fmtUsd(i.precioUsd)}
                 </td>
+                {puedeVerCosto && (
+                  <td className="px-5 py-2 text-center tabular-nums text-neutral-700">
+                    {itemGananciaLabel(i)}
+                  </td>
+                )}
                 {puedeVerCosto && (
                   <td className="px-5 py-2 text-center tabular-nums text-neutral-500">
                     {itemMargenLabel(i)}
@@ -1413,7 +1450,7 @@ function VentaCardMobile({
             <PagoChip pagos={v.pagos} />
             {puedeVerCosto && (
               <span className="text-[11px] text-neutral-500">
-                Margen {ventaMargenLabel(v)}
+                Ganancia {ventaGananciaLabel(v)} · Margen {ventaMargenLabel(v)}
               </span>
             )}
           </div>
@@ -1777,6 +1814,56 @@ const rid = () => Math.random().toString(36).slice(2);
 
 type Origen = "celular" | "notebook" | "otro" | "servicio" | "libre";
 type DraftItem = VentaItem & { _k: string; origen: Origen };
+
+/** Costo / ganancia / margen de la venta que se está cargando (solo
+ * admin/técnico). Los ítems sin costo no entran en el cálculo y se avisan. */
+function RentabilidadEnVivo({
+  costoUsd,
+  gananciaUsd,
+  margenPct,
+  sinCosto,
+}: {
+  costoUsd: number;
+  gananciaUsd: number;
+  margenPct: number | null;
+  sinCosto: number;
+}) {
+  const sinDato = margenPct === null;
+  return (
+    <div className="rounded-lg border border-neutral-200 px-4 py-2.5">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Costo</p>
+          <p className="text-sm font-semibold tabular-nums text-neutral-900">
+            {sinDato ? "—" : fmtUsd(costoUsd)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Ganancia</p>
+          <p
+            className={cn(
+              "text-sm font-semibold tabular-nums",
+              sinDato ? "text-neutral-900" : gananciaUsd < 0 ? "text-red-600" : "text-emerald-700",
+            )}
+          >
+            {sinDato ? "—" : fmtUsd(gananciaUsd)}
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Margen</p>
+          <p className="text-sm font-semibold tabular-nums text-neutral-900">
+            {sinDato ? "—" : `${margenPct.toFixed(1)}%`}
+          </p>
+        </div>
+      </div>
+      {sinCosto > 0 && (
+        <p className="mt-1.5 text-center text-[11px] text-neutral-500">
+          {sinCosto === 1 ? "1 ítem sin costo cargado no entra" : `${sinCosto} ítems sin costo cargado no entran`} en la ganancia.
+        </p>
+      )}
+    </div>
+  );
+}
 type DraftPago = Pago & { _k: string; canje?: CanjeEquipo };
 
 type CatItem = {
@@ -1784,7 +1871,8 @@ type CatItem = {
   origen: Exclude<Origen, "libre">;
   refId: string;
   nombre: string;
-  costoUsd: number;
+  /** `undefined` = sin costo conocido (servicios del catálogo). */
+  costoUsd?: number;
   precioUsd: number;
   serial?: string;
 };
@@ -1883,7 +1971,9 @@ function ItemBuscador({
           origen: "servicio" as const,
           refId: s.id,
           nombre: s.nombre,
-          costoUsd: 0,
+          // El catálogo no tiene costo: queda sin dato (no 100 % de margen)
+          // hasta que se cargue a mano o se sumen repuestos usados.
+          costoUsd: undefined,
           precioUsd: s.precioUsd,
         })),
     ],
@@ -2146,7 +2236,13 @@ function NuevaVentaDialog({
   const [pending, startTransition] = useTransition();
 
   const totalPrecio = items.reduce((a, i) => a + i.cantidad * i.precioUsd, 0);
-  const margenPct = margenVenta(items).margenPct ?? 0;
+  // Costo de cada ítem con sus repuestos usados: es lo que se guarda y lo
+  // que da la ganancia en vivo (solo la ven admin/técnico).
+  const puedeVerCosto = user.rol !== "vendedor";
+  const costoRepuesto = (id: string) => repuestos.find((r) => r.id === id)?.costoUsd;
+  const itemsConCosto = items.map((i) => ({ ...i, costoUsd: costoUnitarioItem(i, costoRepuesto) }));
+  const rentabilidad = margenVenta(itemsConCosto);
+  const margenPct = rentabilidad.margenPct ?? 0;
   const restante = calcularRestante(totalPrecio, pagos);
   const clienteNombre = cliente?.nombre ?? "";
 
@@ -2189,7 +2285,7 @@ function NuevaVentaDialog({
         origen: "libre",
         detalle: nombre,
         cantidad: 1,
-        costoUsd: 0,
+        costoUsd: undefined,
         precioUsd: 0,
       },
     ]);
@@ -2273,7 +2369,7 @@ function NuevaVentaDialog({
           tienda,
           procedencia,
           modalidad,
-          items: items.map(({ _k, origen, ...i }) => ({ ...i, categoria: origen })),
+          items: itemsConCosto.map(({ _k, origen, ...i }) => ({ ...i, categoria: origen })),
           totalUsd: totalPrecio,
           pagos: pagos.map(({ _k, ...p }) => p),
           margenPct: Math.round(margenPct * 10) / 10,
@@ -2430,6 +2526,7 @@ function NuevaVentaDialog({
               <div className="hidden items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500 sm:flex">
                 <span className="flex-1 text-start">Ítem</span>
                 <span className="w-12 text-right">Cant</span>
+                {puedeVerCosto && <span className="w-24 text-right">Costo</span>}
                 <span className="w-24 text-right">Precio</span>
                 <span className="w-9" />
               </div>
@@ -2455,11 +2552,28 @@ function NuevaVentaDialog({
                           updItem(it._k, { cantidad: Number(e.target.value) || 1 })
                         }
                       />
+                      {puedeVerCosto && (
+                        <Input
+                          className="flex-1 !text-right tabular-nums sm:w-24 sm:flex-none"
+                          type="number"
+                          min={0}
+                          placeholder="Costo"
+                          aria-label={`Costo unitario de ${it.detalle || "el ítem"}`}
+                          title="Costo unitario (U$). Vacío = sin dato."
+                          value={it.costoUsd ?? ""}
+                          onChange={(e) =>
+                            updItem(it._k, {
+                              costoUsd: e.target.value === "" ? undefined : Number(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      )}
                       <Input
                         className="flex-1 !text-right tabular-nums sm:w-24 sm:flex-none"
                         type="number"
                         min={0}
                         placeholder="U$"
+                        aria-label={`Precio unitario de ${it.detalle || "el ítem"}`}
                         value={it.precioUsd || ""}
                         onChange={(e) =>
                           updItem(it._k, {
@@ -2496,6 +2610,17 @@ function NuevaVentaDialog({
                           </div>
                         </div>
                       ))}
+                      {puedeVerCosto && (it.repuestos?.length ?? 0) > 0 && (
+                        <p className="text-[11px] text-neutral-500">
+                          Costo con repuestos:{" "}
+                          <span className="font-semibold tabular-nums text-neutral-700">
+                            {(() => {
+                              const c = costoUnitarioItem(it, costoRepuesto);
+                              return c === undefined ? "—" : fmtUsd(c * it.cantidad);
+                            })()}
+                          </span>
+                        </p>
+                      )}
                       <Select
                         key={it.repuestos?.length ?? 0}
                         defaultValue=""
@@ -2527,6 +2652,14 @@ function NuevaVentaDialog({
                   {fmtUsd(totalPrecio)}
                 </span>
               </div>
+              {puedeVerCosto && (
+                <RentabilidadEnVivo
+                  costoUsd={rentabilidad.costoUsd}
+                  gananciaUsd={rentabilidad.gananciaUsd}
+                  margenPct={rentabilidad.margenPct}
+                  sinCosto={itemsConCosto.filter((i) => i.costoUsd === undefined).length}
+                />
+              )}
             </div>
           )}
         </Card>

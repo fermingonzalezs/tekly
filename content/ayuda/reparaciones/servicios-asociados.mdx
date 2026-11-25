@@ -4,7 +4,7 @@ resumen: "Cómo agregar lo que se le hace al equipo, desde el catálogo, con un 
 seccion: reparaciones
 roles: []
 orden: 4
-actualizado: 2026-10-17
+actualizado: 2026-11-25
 ---
 
 En el detalle del ticket, el bloque **«Servicios asociados»** junta todo lo que se le hace al equipo. El botón **«Agregar»** abre un diálogo con tres orígenes.
@@ -24,6 +24,12 @@ El botón de quitar elimina el ítem. Si era un **repuesto**, **repone** el stoc
 </Paso>
 
 El **«Presupuesto total»** del bloque es la suma de todos los ítems y se recalcula solo.
+
+## Rentabilidad del ticket
+
+Si tu rol no es vendedor, debajo de «Servicios asociados» aparece **«Rentabilidad»**: **costo de los repuestos** usados, **ganancia** (presupuesto total menos ese costo) y **margen**. La mano de obra (servicios del catálogo e ítems libres) no tiene costo de mercadería, así que cuenta entera como ganancia.
+
+El costo de cada repuesto queda **congelado al agregarlo** al ticket: si después cambiás el costo del repuesto en Inventario, los tickets ya cargados no cambian. Los tickets de antes de esta función usan el costo actual del repuesto. Lo mismo usa Analíticas → Reparaciones («Gasto en repuestos» y «Ganancia final»).
 
 ## Qué pasa después
 

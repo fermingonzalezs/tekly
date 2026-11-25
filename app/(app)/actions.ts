@@ -34,8 +34,9 @@ export async function buscarGlobalAction(
 export async function updateOwnProfileAction(
   nombre: string,
   alias: string,
+  instagram?: string,
 ): Promise<AuthResult> {
-  const result = await updateOwnProfile(nombre, alias);
+  const result = await updateOwnProfile(nombre, alias, instagram);
   if (!result.error) revalidatePath("/", "layout");
   return result;
 }

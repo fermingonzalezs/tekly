@@ -12,6 +12,7 @@ type UsuarioDemo = {
   rol: "admin";
   nombre: string;
   alias: string | null;
+  instagram: string | null;
   terminosVersion: string | null;
   suscripcion: {
     plan: "business_plus";
@@ -29,6 +30,7 @@ export const USUARIO_DEMO: UsuarioDemo = {
   rol: "admin",
   nombre: "Visitante demo",
   alias: null,
+  instagram: null,
   terminosVersion: null,
   suscripcion: { plan: "business_plus", estado: "activo", trialTerminaAt: null, periodoTerminaAt: null },
 };

@@ -17,6 +17,7 @@ import { safeNextPath } from "@/lib/auth/next-path";
 import { authErrorMessage } from "@/lib/auth/error-messages";
 import { TERMINOS_VERSION } from "@/lib/legal";
 import { PLANES, cupoUsuarios, esPlanEstado, esPlanId, puedeEscribir } from "@/lib/planes";
+import { normalizarInstagram } from "@/lib/instagram";
 
 export type { Rol, SessionUser, AuthResult, SignUpResult } from "@/lib/auth/types";
 export { safeNextPath };
@@ -78,13 +79,14 @@ export async function getSession(): Promise<SessionUser | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("organization_id, rol, nombre, alias, terminos_version, organizations(nombre, plan, plan_estado, trial_termina_at, periodo_termina_at)")
+    .select("organization_id, rol, nombre, alias, instagram, terminos_version, organizations(nombre, plan, plan_estado, trial_termina_at, periodo_termina_at)")
     .eq("id", user.id)
     .maybeSingle<{
       organization_id: string;
       rol: Rol;
       nombre: string;
       alias: string | null;
+      instagram: string | null;
       terminos_version: string | null;
       organizations: {
         nombre: string;
@@ -105,6 +107,7 @@ export async function getSession(): Promise<SessionUser | null> {
     rol: profile.rol,
     nombre: profile.nombre,
     alias: profile.alias,
+    instagram: profile.instagram,
     terminosVersion: profile.terminos_version,
     suscripcion: {
       plan: org && esPlanId(org.plan) ? org.plan : "trial",
@@ -324,8 +327,12 @@ export async function inviteMember(params: {
   email: string;
   nombre: string;
   rol: Rol;
+  /** Opcional; se normaliza acá (`normalizarInstagram`), nunca se confía en el cliente. */
+  instagram?: string;
 }): Promise<AuthResult> {
   const caller = await requireRoleEscritura("admin");
+  const ig = normalizarInstagram(params.instagram);
+  if (!ig.ok) return { error: ig.error };
 
   const service = createServiceRoleClient();
 
@@ -364,6 +371,7 @@ export async function inviteMember(params: {
     rol: params.rol,
     nombre: params.nombre,
     email: params.email,
+    instagram: ig.usuario,
   });
   if (profileError) return { error: profileError.message };
 
@@ -459,13 +467,28 @@ export async function updatePassword(password: string): Promise<AuthResult> {
 export async function updateOwnProfile(
   nombre: string,
   alias?: string,
+  /** `undefined` = no tocarlo; `""` = borrarlo. */
+  instagram?: string,
 ): Promise<AuthResult> {
+  let igUsuario: string | null | undefined;
+  if (instagram !== undefined) {
+    const ig = normalizarInstagram(instagram);
+    if (!ig.ok) return { error: ig.error };
+    igUsuario = ig.usuario;
+  }
   const supabase = createServerClient();
   const { error } = await supabase.rpc("update_own_profile", {
     new_nombre: nombre,
     new_alias: alias ?? null,
   });
-  return { error: error?.message ?? null };
+  if (error) return { error: error.message };
+  if (igUsuario !== undefined) {
+    const { error: igError } = await supabase.rpc("set_own_instagram", {
+      new_instagram: igUsuario ?? "",
+    });
+    if (igError) return { error: igError.message };
+  }
+  return { error: null };
 }
 
 /** Cambia el rol de otro miembro de la organización -- vía RPC, que valida
@@ -568,4 +591,25 @@ export async function setMemberEmail(
   if (profileError) return { error: profileError.message };
 
   return { error: null };
+}
+
+/** El admin carga/corrige el Instagram de otro miembro de su organización
+ * (service role, mismo criterio que `setMemberEmail`). `""` lo borra. */
+export async function setMemberInstagram(
+  targetProfileId: string,
+  instagram: string,
+): Promise<AuthResult> {
+  const caller = await requireRoleEscritura("admin");
+  const ig = normalizarInstagram(instagram);
+  if (!ig.ok) return { error: ig.error };
+
+  const service = createServiceRoleClient();
+  const orgError = await requireMemberOfCallerOrg(service, caller.organizationId, targetProfileId);
+  if (orgError) return { error: orgError };
+
+  const { error } = await service
+    .from("profiles")
+    .update({ instagram: ig.usuario })
+    .eq("id", targetProfileId);
+  return { error: error?.message ?? null };
 }

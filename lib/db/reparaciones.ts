@@ -209,17 +209,27 @@ export async function addTicketItem(ticketId: number, item: TicketServicio): Pro
     .single();
   if (readError) throw readError;
 
-  const servicios: TicketServicio[] = [...((current.servicios as TicketServicio[]) ?? []), item];
-  const presupuesto = servicios.reduce((a, s) => a + s.precioUsd * (s.cantidad ?? 1), 0);
-
+  // El costo de un repuesto lo congela el server (nunca el que manda el
+  // cliente); servicio/libre no traen costo de mercadería.
+  const { costoUsd: _costoCliente, ...itemSinCosto } = item;
+  let nuevo: TicketServicio = itemSinCosto;
+  let rep: { stock: number; costo_usd: number | null } | null = null;
   if (item.origen === "repuesto" && item.repuestoId) {
-    const cantidad = item.cantidad ?? 1;
-    const { data: rep, error: repError } = await supabase
+    const { data, error: repError } = await supabase
       .from("repuestos")
-      .select("stock")
+      .select("stock, costo_usd")
       .eq("id", item.repuestoId)
       .single();
     if (repError) throw repError;
+    rep = data;
+    if (data.costo_usd !== null) nuevo = { ...itemSinCosto, costoUsd: Number(data.costo_usd) };
+  }
+
+  const servicios: TicketServicio[] = [...((current.servicios as TicketServicio[]) ?? []), nuevo];
+  const presupuesto = servicios.reduce((a, s) => a + s.precioUsd * (s.cantidad ?? 1), 0);
+
+  if (rep && item.repuestoId) {
+    const cantidad = item.cantidad ?? 1;
     const { error: stockError } = await supabase
       .from("repuestos")
       .update({ stock: rep.stock - cantidad })

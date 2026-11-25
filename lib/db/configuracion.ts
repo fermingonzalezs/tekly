@@ -12,6 +12,8 @@ export type Miembro = {
   id: string;
   nombre: string;
   email: string;
+  /** Usuario de Instagram normalizado, o `null`. */
+  instagram: string | null;
   rol: Rol;
   activo: boolean;
 };
@@ -20,7 +22,7 @@ export async function listMiembros(): Promise<Miembro[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, nombre, email, rol, activo")
+    .select("id, nombre, email, instagram, rol, activo")
     .order("nombre");
   if (error) throw error;
   return data;

@@ -5,6 +5,7 @@ import { listCajas } from "@/lib/db/cajas";
 import { listRepuestos } from "@/lib/db/inventario";
 import { listServicios, listTecnicos, listTickets } from "@/lib/db/reparaciones";
 import { getNegocio } from "@/lib/db/configuracion";
+import { ticketParaRol } from "@/lib/reparaciones";
 import { ReparacionesClient } from "./reparaciones-client";
 
 export default async function ReparacionesPage() {
@@ -23,7 +24,7 @@ export default async function ReparacionesPage() {
   return (
     <Section title="Reparaciones" ayuda="reparaciones">
       <ReparacionesClient
-        initialTickets={tickets}
+        initialTickets={tickets.map((t) => ticketParaRol(t, user.rol))}
         initialServicios={servicios}
         repuestos={repuestos}
         tecnicos={tecnicos}
