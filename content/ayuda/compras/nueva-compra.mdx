@@ -1,35 +1,52 @@
 ---
-titulo: "Cargar una compra a proveedor"
-resumen: "Cómo registrar una compra: proveedor, ítems, medio de pago, estado y su efecto en la caja."
+titulo: "Cargar una compra (y subirla al stock)"
+resumen: "Cómo registrar una compra: proveedor, pago, productos que entran al stock o ítems de gasto, costos adicionales y su efecto en la caja."
 seccion: compras
 roles: [admin, tecnico]
 orden: 2
-actualizado: 2026-10-17
+actualizado: 2026-11-25
 ---
 
-El botón **«Nueva compra»** registra mercadería que pagás a un proveedor.
+En **Compras / Ingresos**, el botón **«Nueva compra»** registra lo que comprás. **Es la única forma de cargar stock nuevo**: Inventario es para ver, editar y hacer recuentos.
 
 <Paso n={1} titulo="Proveedor y pago">
-Escribí el **Proveedor** (texto libre; si no existe, se crea solo), elegí el **Medio de pago** y, si corresponde, la **Caja**.
+Escribí el **Proveedor** (obligatorio en toda compra; texto libre, si no existe se crea solo), elegí el **Medio de pago** y la **Caja** de la que sale la plata. Si no hubo pago (un equipo propio, algo que apareció en un recuento), elegí **«Sin caja (no mueve plata)»**.
 </Paso>
 
-<Paso n={2} titulo="Ítems">
-Agregá una fila por ítem con **Detalle**, **Cant.** y **Costo unit. (USD)**. Podés sumar más con «Agregar ítem».
+<Paso n={2} titulo="¿Sube al stock?">
+Con **«Subir al stock»** tildado (lo normal), los productos se cargan en Inventario al guardar. Destildalo para una compra que es solo gasto (herramientas, insumos): ahí cargás ítems de texto libre, como siempre.
 </Paso>
 
-<Paso n={3} titulo="Guardá">
-La compra nace en estado **«Pendiente»**. Cuando llegue la mercadería, usá **«Marcar como recibida»**.
+<Paso n={3} titulo="Productos">
+Usá los botones **Celular**, **Notebook**, **Repuesto** u **Otro producto**. Cada uno abre el mismo formulario de alta de Inventario: en celulares y notebooks la **variante** es obligatoria. El costo que escribís es el **unitario**. Cada producto se suma a la lista de la compra; podés quitarlo antes de guardar.
+</Paso>
+
+<Paso n={4} titulo="Costos adicionales">
+Envío, flete o comisiones van en **Costos adicionales (USD)**: se reparten entre los productos según su costo, y el **Costo final** de cada uno ya los incluye (es el costo que queda en Inventario).
+</Paso>
+
+<Paso n={5} titulo="Guardá">
+**«Guardar y subir al stock»** crea la compra (en estado «Recibida»), los celulares y notebooks en **«En revisión»** y suma las unidades de repuestos y otros. Todo queda en la pestaña **Ingresos**.
 </Paso>
 
 <Aviso titulo="El movimiento de caja" tono="info">
-Si elegís una caja, se registra un **egreso** en esa caja al guardar. Si el medio no tiene caja, la compra se guarda sin movimiento de caja. Si pagás en pesos, se guarda la cotización.
+Si elegís una caja, se registra un **egreso** en esa caja al guardar. Sin caja, la compra se guarda sin movimiento. Si pagás en pesos, se guarda la cotización.
 </Aviso>
+
+## Pestaña Ingresos
+
+Una fila por producto que entró al stock con una compra: fecha, número de compra, tipo, producto, IMEI/serie, cantidad, costo final, proveedor y quién la cargó. El nombre del producto lleva a su ficha en Inventario; la fila abre la compra.
+
+## Eliminar una compra
+
+Al eliminar una compra que subió al stock podés tildar **«Sacar del stock lo que ingresó con esta compra»**. Los celulares y notebooks se dan de baja solo si siguen «En revisión» o «Disponible»; a repuestos y otros se les resta la cantidad. Lo que ya se vendió o se movió se conserva y te avisamos cuál.
 
 ## Qué no se puede
 
-- No se guarda sin **proveedor** y al menos un **ítem** con detalle, cantidad y un total mayor a cero.
-- No se elige un medio de pago sin caja para que entre a una caja: sin caja, no hay movimiento.
-- El proveedor es texto libre: escribilo siempre igual para no duplicar registros.
+- Una compra que sube al stock necesita al menos un producto; un IMEI o número de serie no puede repetirse ni existir ya en el stock.
+- **Toda compra necesita proveedor**, suba o no al stock.
+- Una compra que no sube al stock necesita además al menos un **ítem** con detalle, cantidad y un total mayor a cero.
+- El stock que ya tenías antes de empezar con Tekly se carga una vez desde **Configuración → Importar datos**, no con compras.
 
 ## Relacionados
 

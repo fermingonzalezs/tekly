@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Settings, UserPen, LogOut, CreditCard } from "lucide-react";
+import { Settings, UserPen, LogOut, CreditCard, ShieldCheck } from "lucide-react";
 import { dotClass, rolLabel, rolTone } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/(app)/actions";
@@ -14,7 +14,14 @@ function iniciales(nombre: string) {
   return letras.join("") || "?";
 }
 
-export function UserMenu({ user }: { user: SessionUser }) {
+export function UserMenu({
+  user,
+  adminPlataforma = false,
+}: {
+  user: SessionUser;
+  /** Muestra el acceso al panel de plataforma (`/admin`). */
+  adminPlataforma?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -87,6 +94,16 @@ export function UserMenu({ user }: { user: SessionUser }) {
               >
                 <CreditCard className="h-4 w-4" />
                 Plan y facturación
+              </Link>
+            )}
+            {adminPlataforma && (
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Panel de plataforma
               </Link>
             )}
             <Link

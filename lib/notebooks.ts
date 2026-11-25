@@ -19,6 +19,11 @@ export const notebookSchema = z.object({
   estado: z.enum(["en_revision", "disponible", "reservado", "vendido", "extraviado"]),
   condicion: z.enum(["nuevo", "usado"]),
   bateria: z.number().int().min(0).max(100).nullable().default(null),
+  /** Variante (SKU). Obligatoria al guardar: la exige `varianteParaUnidad`
+   * en `lib/db/notebooks.ts`. */
+  varianteId: z.string().optional().default(""),
+  /** false = el precio es el de la variante. */
+  precioPropio: z.boolean().optional().default(false),
 }).refine((n) => n.condicion === "nuevo" || n.bateria !== null, {
   path: ["bateria"],
   message: "Anotá el estado de la batería (0–100 %) de la notebook usada",

@@ -117,6 +117,8 @@ const NOTEBOOKS_BASE: Omit<Notebook, "id">[] = [
     estado: "disponible",
     condicion: "nuevo",
     bateria: null,
+    varianteId: "",
+    precioPropio: false,
   },
   {
     modelo: "MacBook Pro 14",
@@ -135,6 +137,8 @@ const NOTEBOOKS_BASE: Omit<Notebook, "id">[] = [
     estado: "disponible",
     condicion: "usado",
     bateria: 91,
+    varianteId: "",
+    precioPropio: false,
   },
   {
     modelo: "Lenovo IdeaPad 3",
@@ -153,6 +157,8 @@ const NOTEBOOKS_BASE: Omit<Notebook, "id">[] = [
     estado: "reservado",
     condicion: "nuevo",
     bateria: null,
+    varianteId: "",
+    precioPropio: false,
   },
   {
     modelo: "HP Pavilion 14",
@@ -171,6 +177,8 @@ const NOTEBOOKS_BASE: Omit<Notebook, "id">[] = [
     estado: "en_revision",
     condicion: "usado",
     bateria: 84,
+    varianteId: "",
+    precioPropio: false,
   },
 ];
 
@@ -275,6 +283,8 @@ export function crearSeedDemo(hoy: Date): DemoState {
       costoUsd: COSTOS[i],
       precioUsd: PRECIOS[i],
       estado: i < 6 ? "vendido" : i < 12 ? "disponible" : "reservado",
+      varianteId: "",
+      precioPropio: false,
     }),
   );
 

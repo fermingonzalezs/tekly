@@ -71,11 +71,12 @@ const estadoSchema = z
  * "1,300.50") → número como string ("1300", "1300.5"); "" si no hay dígitos.
  * Un separador seguido de 1-2 dígitos al final es decimal; si no, de miles. */
 export function normalizarMonto(v: string): string {
-  const sinMoneda = (v ?? "").replace(/u\$s|usd|u\$|\$|\s/gi, "");
+  const sinMoneda = (v ?? "").replace(/d[oó]lares|dolar|d[oó]lar|usd|u\$s|us\$|u\$|\$|\s/gi, "");
   if (sinMoneda === "") return "";
-  // Algo que no es un monto ("abc", "a consultar"): se deja tal cual para que
-  // la validación lo marque, en vez de convertirlo en 0 sin avisar.
-  if (/[^\d.,]/.test(sinMoneda) || !/\d/.test(sinMoneda)) return (v ?? "").trim();
+  // Algo que no es un monto ("abc", "a consultar") → "": la celda guarda solo
+  // números (el `U$` es solo cómo se muestra). `montoSchema` igual lo marca
+  // como error si llega así al server.
+  if (/[^\d.,]/.test(sinMoneda) || !/\d/.test(sinMoneda)) return "";
   const limpio = sinMoneda;
   const m = limpio.match(/^(.*?)[.,](\d{1,2})$/);
   const entero = (m ? m[1] : limpio).replace(/[.,]/g, "");
@@ -88,8 +89,13 @@ const montoSchema = (campo: string) =>
     .string()
     .optional()
     .default("")
+    .superRefine((v, ctx) => {
+      if (v.trim() && normalizarMonto(v) === "") {
+        ctx.addIssue({ code: "custom", message: `${campo} tiene que ser un número en dólares (ej. 1300)` });
+      }
+    })
     .transform((v) => Number(normalizarMonto(v) || "0"))
-    .pipe(z.number({ error: `${campo} debe ser un monto en dólares (ej. 1300)` }).min(0, `${campo} debe ser un número >= 0`));
+    .pipe(z.number().min(0, `${campo} debe ser un número >= 0`));
 
 /** Batería de un equipo usado: obligatoria, entero 0-100. `null` si no vale. */
 function bateriaUsado(v: string): number | null {
@@ -98,6 +104,9 @@ function bateriaUsado(v: string): number | null {
 }
 
 const celularCsvSchema = z.object({
+  // Columna virtual de la tabla de revisión (no está en el CSV): la variante
+  // se elige por fila y es obligatoria.
+  varianteId: z.string().trim().min(1, "Elegí la variante"),
   modelo: z.string().trim().min(1, "modelo es obligatorio"),
   almacenamiento: z.string().trim().optional().default(""),
   color: z.string().trim().optional().default(""),
@@ -141,6 +150,7 @@ export function parseCelularRow(raw: Record<string, string>, rowNum: number): Pa
     ok: true,
     rowNum,
     data: {
+      varianteId: d.varianteId,
       modelo: d.modelo,
       almacenamiento: d.almacenamiento,
       color: d.color,
@@ -150,6 +160,9 @@ export function parseCelularRow(raw: Record<string, string>, rowNum: number): Pa
       costoUsd: d.costoUsd,
       precioUsd: d.precioUsd,
       estado: (d.estado || ESTADO_IMPORT_DEFAULT) as CelularStatus,
+      // Lo importado conserva el precio de la planilla: no lo pisa el de la
+      // variante al editarla.
+      precioPropio: true,
     },
   };
 }
@@ -339,6 +352,8 @@ export const CONDICIONES_NOTEBOOK: NotebookCondicion[] = ["nuevo", "usado"];
 // para la columna de instrucciones de la plantilla). `bateria` solo cuenta en
 // las usadas, igual que en el alta manual (`notebookSchema`).
 const notebookCsvSchema = z.object({
+  // Columna virtual de la revisión (no está en el CSV), igual que celulares.
+  varianteId: z.string().trim().min(1, "Elegí la variante"),
   modelo: z.string().trim().min(1, "modelo es obligatorio"),
   cpu: z.string().trim().optional().default(""),
   memoria: z.string().trim().optional().default(""),
@@ -405,6 +420,9 @@ export function parseNotebookRow(
       estado: (d.estado || ESTADO_IMPORT_DEFAULT) as CelularStatus,
       condicion,
       bateria,
+      varianteId: d.varianteId,
+      // Lo importado conserva el precio de la planilla (como celulares).
+      precioPropio: true,
     },
   };
 }
@@ -508,6 +526,8 @@ export type ColumnaImport = {
   porDefecto?: string;
   /** Monto en dólares: se muestra como `U$ 1.300`. */
   monto?: boolean;
+  /** Solo dígitos (ej. batería: "100%" → "100"). */
+  entero?: boolean;
   /** La celda no aplica para esta fila (se deshabilita y se vacía). */
   deshabilitada?: (fila: Record<string, string>) => boolean;
 };
@@ -522,6 +542,7 @@ const COL_ESTADO: ColumnaImport = {
 
 export const COLUMNAS_CELULAR: Record<string, ColumnaImport> = {
   estado: COL_ESTADO,
+  varianteId: { label: "Variante" },
   modelo: { label: "Modelo" },
   almacenamiento: { label: "Almacenamiento" },
   color: { label: "Color" },
@@ -532,6 +553,7 @@ export const COLUMNAS_CELULAR: Record<string, ColumnaImport> = {
   },
   bateria: {
     label: "Batería",
+    entero: true,
     deshabilitada: (f) => (f.condicion ?? "").trim().toUpperCase() === "NUEVO",
   },
   costoUsd: { label: "Costo USD", monto: true },
@@ -540,6 +562,7 @@ export const COLUMNAS_CELULAR: Record<string, ColumnaImport> = {
 
 export const COLUMNAS_NOTEBOOK: Record<string, ColumnaImport> = {
   estado: COL_ESTADO,
+  varianteId: { label: "Variante" },
   modelo: { label: "Modelo" },
   cpu: { label: "CPU" },
   memoria: { label: "Memoria" },
@@ -557,6 +580,7 @@ export const COLUMNAS_NOTEBOOK: Record<string, ColumnaImport> = {
   },
   bateria: {
     label: "Batería",
+    entero: true,
     deshabilitada: (f) => (f.condicion ?? "").trim().toLowerCase() !== "usado",
   },
   costoUsd: { label: "Costo USD", monto: true },
@@ -587,6 +611,7 @@ export function completarFila(
     if (col.porDefecto && !v.trim()) out[campo] = col.porDefecto;
     else if (col.opciones) out[campo] = opcionDe(col, v)?.value ?? v;
     if (col.monto) out[campo] = normalizarMonto(v);
+    if (col.entero) out[campo] = v.replace(/\D/g, "");
     if (col.deshabilitada?.(out)) out[campo] = "";
   }
   return out;

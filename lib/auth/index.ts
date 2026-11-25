@@ -181,9 +181,15 @@ const PLATFORM_ADMIN_EMAILS = (process.env.PLATFORM_ADMIN_EMAILS ?? "")
  * cuelga de `/admin`: el layout de esa ruta y cada una de sus server
  * actions -- ver `lib/db/admin.ts` (que corre por service role y confía en
  * que quien la llama ya pasó por acá). */
+/** ¿El email está en la allowlist de plataforma? (para mostrar el acceso a
+ * `/admin` en el menú; el gate real sigue siendo `requirePlatformAdmin`). */
+export function esAdminPlataforma(email: string): boolean {
+  return PLATFORM_ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
 export async function requirePlatformAdmin(): Promise<SessionUser> {
   const session = await requireUser();
-  if (!PLATFORM_ADMIN_EMAILS.includes(session.email.toLowerCase())) {
+  if (!esAdminPlataforma(session.email)) {
     redirect("/");
   }
   return session;

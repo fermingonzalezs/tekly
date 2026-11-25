@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, X } from "lucide-react";
+import { Bell, CheckCircle2, X } from "lucide-react";
 import { describe, type AppEvent, type ToastView } from "@/lib/realtime";
 import { useRealtime } from "@/components/notifications/realtime-provider";
+import { marcarResolucionesVistasAction } from "@/app/(app)/actions";
+import { fmtDateSlash } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import type { ResolucionReporte } from "@/lib/types";
 
 type Notif = ToastView & { id: number; ts: number; read: boolean };
 
@@ -16,9 +21,26 @@ function ago(ts: number, now: number) {
   return `hace ${Math.round(m / 60)}h`;
 }
 
-export function NotificationsBell({ esAdmin }: { esAdmin: boolean }) {
+export function NotificationsBell({
+  esAdmin,
+  resoluciones = [],
+}: {
+  esAdmin: boolean;
+  /** Respuestas a «Reportar un problema» del usuario (persistidas, vienen del
+   * server en cada carga). Las no vistas cuentan como no leídas hasta que se
+   * abre la campanita. */
+  resoluciones?: ResolucionReporte[];
+}) {
   const { subscribe } = useRealtime();
   const [list, setList] = useState<Notif[]>([]);
+  // Las que se marcaron vistas en esta sesión (el server las devuelve con
+  // `visto: true` recién en la próxima carga). `resaltadas` = las que eran
+  // nuevas al abrir: siguen resaltadas mientras el panel está abierto.
+  const [vistasAhora, setVistasAhora] = useState<Set<string>>(new Set());
+  const [resaltadas, setResaltadas] = useState<Set<string>>(new Set());
+  // Respuesta abierta en el modal (click en la notificación).
+  const [detalle, setDetalle] = useState<ResolucionReporte | null>(null);
+  const noVistas = resoluciones.filter((r) => !r.visto && !vistasAhora.has(r.id));
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const ref = useRef<HTMLDivElement>(null);
@@ -53,7 +75,19 @@ export function NotificationsBell({ esAdmin }: { esAdmin: boolean }) {
     };
   }, [open]);
 
-  const unread = list.filter((n) => !n.read).length;
+  const unread = list.filter((n) => !n.read).length + noVistas.length;
+
+  function abrirCerrar() {
+    if (!open && noVistas.length > 0) {
+      const ids = noVistas.map((r) => r.id);
+      setResaltadas(new Set(ids));
+      setVistasAhora((prev) => new Set([...prev, ...ids]));
+      // Best-effort: si falla, vuelven a aparecer como nuevas en la próxima carga.
+      void marcarResolucionesVistasAction(ids).catch(() => {});
+    }
+    if (open) setResaltadas(new Set());
+    setOpen((v) => !v);
+  }
 
   function dismiss(id: number) {
     setList((p) => p.filter((n) => n.id !== id));
@@ -66,7 +100,7 @@ export function NotificationsBell({ esAdmin }: { esAdmin: boolean }) {
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={abrirCerrar}
         aria-label="Notificaciones"
         className={cn(
           "relative grid h-9 w-9 place-items-center rounded-full border bg-white text-neutral-500 transition-colors hover:bg-neutral-50",
@@ -97,7 +131,34 @@ export function NotificationsBell({ esAdmin }: { esAdmin: boolean }) {
             )}
           </div>
           <div className="max-h-[22rem] overflow-y-auto">
-            {list.length === 0 && (
+            {resoluciones.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  setDetalle(r);
+                  setOpen(false);
+                  setResaltadas(new Set());
+                }}
+                className={cn(
+                  "flex w-full items-start gap-2.5 border-b border-neutral-50 px-4 py-2.5 text-left transition-colors hover:bg-neutral-50",
+                  resaltadas.has(r.id) && "bg-accent-soft/60",
+                )}
+              >
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold leading-snug text-neutral-900">
+                    Arreglamos un problema que reportaste
+                  </p>
+                  <p className="line-clamp-2 text-xs text-neutral-700">{r.respuesta}</p>
+                  <p className="mt-0.5 flex items-center justify-between gap-2 text-[11px] text-neutral-400">
+                    {fmtDateSlash(r.resueltoAt)}
+                    <span className="font-semibold text-accent">Ver detalle</span>
+                  </p>
+                </div>
+              </button>
+            ))}
+            {list.length === 0 && resoluciones.length === 0 && (
               <p className="px-4 py-10 text-center text-sm text-neutral-400">
                 Sin notificaciones todavía.
               </p>
@@ -136,6 +197,41 @@ export function NotificationsBell({ esAdmin }: { esAdmin: boolean }) {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={!!detalle}
+        onClose={() => setDetalle(null)}
+        size="lg"
+        title="Problema resuelto"
+        description={detalle ? `Resuelto el ${fmtDateSlash(detalle.resueltoAt)}` : undefined}
+        footer={
+          <Button variant="primary" onClick={() => setDetalle(null)} fullOnMobile>
+            Entendido
+          </Button>
+        }
+      >
+        {detalle && (
+          <div className="space-y-5">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                Qué arreglamos
+              </p>
+              <div className="mt-1.5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                <p className="whitespace-pre-wrap text-sm text-neutral-800">{detalle.respuesta}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                Lo que reportaste
+              </p>
+              <p className="mt-1.5 whitespace-pre-wrap text-sm text-neutral-600">
+                {detalle.descripcion}
+              </p>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

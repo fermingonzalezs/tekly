@@ -4,16 +4,19 @@ resumen: "Celulares por IMEI, notebooks por número de serie, repuestos con stoc
 seccion: inventario
 roles: []
 orden: 1
-actualizado: 2026-10-17
+actualizado: 2026-11-25
 ---
 
-Inventario tiene **4 pestañas**: **Celulares**, **Notebooks**, **Repuestos** y **Otros**. Cada una tiene sus propios gráficos, tarjetas, filtros, buscador y una toolbar de acciones a la derecha.
+Inventario tiene **4 pestañas**: **Celulares**, **Notebooks**, **Repuestos** y **Otros**. Cada una tiene sus propios gráficos y tarjetas. Las pestañas van en una fila, con las acciones (Recuento, Agregar…) a la derecha; abajo, en otra fila, el buscador y los filtros. En **Celulares** y **Notebooks** se puede filtrar por **estado** y por **condición** (Nuevo, Usado —cualquier grado— o un grado puntual como A+).
+
+**Celulares** además tiene dos vistas: **Agrupado** (grupo › variante › unidad, la de por defecto) y **Unidades** (la tabla plana). Ver [Variantes (SKU)](/ayuda/inventario/variantes).
 
 <Captura alt="Pestañas Celulares / Notebooks / Repuestos / Otros con la tabla y las acciones." caption="La sección Inventario (datos demo)." />
 
 ## Operaciones
 
 - [Celulares por IMEI](/ayuda/inventario/celulares)
+- [Variantes (SKU) de celulares](/ayuda/inventario/variantes)
 - [Notebooks](/ayuda/inventario/notebooks)
 - [Repuestos y stock](/ayuda/inventario/repuestos)
 - [Otros productos (iPad, AirPods, accesorios)](/ayuda/inventario/otros)
@@ -36,19 +39,19 @@ El stock de repuestos y la cantidad de «Otros» no deberían quedar en negativo
 ## Preguntas frecuentes
 
 **¿Cómo agrego un iPhone al stock?**
-Pestaña Celulares → «Agregar celular». Completá modelo, costo y precio (obligatorios). Entra como «En revisión». Ver [Celulares](/ayuda/inventario/celulares).
+Con una compra: «Ingresar equipo» → «Celular» (ver [Cargar una compra](/ayuda/compras/nueva-compra)). Elegí (o creá) la **variante**, completá costo y precio (obligatorios). Entra como «En revisión». Ver [Celulares](/ayuda/inventario/celulares).
 
 **¿Cómo agrego una notebook?**
-Pestaña Notebooks → «Agregar notebook». Sólo el modelo es obligatorio; cargá serie, CPU, memoria, costo y precio. Ver [Notebooks](/ayuda/inventario/notebooks).
+Con una compra: «Ingresar equipo» → «Notebook». Sólo el modelo es obligatorio; cargá serie, CPU, memoria, costo y precio. Ver [Notebooks](/ayuda/inventario/notebooks).
 
 **¿El IMEI es obligatorio?**
 No, pero es lo que identifica una unidad única. Si no lo cargás, no vas a poder buscarla por serie.
 
 **¿Cómo repongo repuestos?**
-Con **«Ingreso»** (o «Reponer» desde la tarjeta «Reponer pronto»). Ver [Repuestos](/ayuda/inventario/repuestos).
+Con una compra: «Ingresar equipo» → «Repuesto» (o «Reponer» desde la tarjeta «Reponer pronto», que lleva al mismo lugar). Ver [Repuestos](/ayuda/inventario/repuestos).
 
 **¿Recuento e Ingreso son lo mismo?**
-No. **Ingreso** suma stock real; **Recuento** cuenta lo que hay y deja las diferencias para que un admin las revise. Ver [Recuento](/ayuda/inventario/recuento).
+No. Una **compra** suma stock real; **Recuento** cuenta lo que hay y deja las diferencias para que un admin las revise. Ver [Recuento](/ayuda/inventario/recuento).
 
 **¿Puedo importar mi stock del sistema anterior?**
 Sí, por CSV, en **Configuración → Importar datos** o desde Inventario. Ver [Importar stock por CSV](/ayuda/inventario/importar-csv).

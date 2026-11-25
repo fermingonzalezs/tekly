@@ -218,7 +218,8 @@ Acceso vía MCP con las tools `mcp__plugin_supabase_supabase__*` (el conector
 - Una tabla por dominio de negocio (`clientes`, `celulares`, `notebooks`, `repuestos`,
   `otros_items`, `movimientos_stock`, `proveedores`, `tickets`, `servicios`,
   `turnos`, `ventas`, `venta_items`, `cajas`, `movimientos_caja`,
-  `conciliaciones`, `movimientos_cc`, `compras`, `listas_difusion`), todas
+  `conciliaciones`, `movimientos_cc`, `compras`, `compra_items`,
+  `listas_difusion`, `variantes`, `tiendas`), todas
   con `organization_id` (con `DEFAULT current_user_org_id()` — un insert de
   la app no necesita pasarlo a mano, y la policy `WITH CHECK` lo sigue
   validando igual si alguien lo manda). Columnas en snake_case; los tipos de
@@ -486,6 +487,16 @@ cálculo de margen.
 - Logo (`uploadLogo`): solo PNG/JPG/WebP, ≤ 2 MB, extensión derivada del MIME.
 - Reportes de bug: tope de largo y 3 por minuto por usuario (cada uno manda
   un mensaje a Telegram); `reportarBugAction` devuelve `{ error }`.
+  Se leen en **`/admin/reportes`** (panel de plataforma; «Panel de
+  plataforma» en el `UserMenu` si el email está en `PLATFORM_ADMIN_EMAILS`,
+  `esAdminPlataforma`). «Resolver» guarda qué se arregló
+  (`reportes_bugs.estado/respuesta/resuelto_at`,
+  `20261125000000_reportes_bugs_resolucion.sql`) y al usuario que reportó le
+  aparece en la **campanita** (persistida: `listResolucionesPropias` en el
+  layout `(app)`, no vista = no leída hasta abrirla →
+  `marcarResolucionesVistasAction` pone `visto_at`). Todo por service role
+  filtrado por el id de la sesión: la tabla sigue sin policies de
+  select/update. Editar la respuesta la vuelve a mostrar como nueva.
 - Actions de Cajas/Compras/Cuentas corrientes exigen `admin`/`tecnico` (antes
   solo sesión; la nav las ocultaba al vendedor pero la action no).
 - `next.config.mjs`: headers de seguridad (nosniff, X-Frame-Options
@@ -1021,17 +1032,25 @@ Clientes, Cuentas corrientes, Recuentos) arma su página con `SeccionTabla`
    confirmadas: Reparaciones (8 del pipeline) y Cajas · Movimientos (5 por
    medio de pago) conservan su cantidad porque filtran la tabla —
    `columnasTarjetas={8}` / `columnasTarjetas={5}`.
-4. **Filtros** — una sola fila (`BarraFiltros`): tabs (de *entidad* y de
-   *vista de la misma entidad*) · buscador · selects · acción primaria a la
-   derecha. Los tabs van siempre visibles (`BarraFiltros.tabs`); en mobile
-   solo los selects se colapsan detrás de "Filtros · N".
+4. **Filtros** — `BarraFiltros`, siempre dentro de un **panel con borde**
+   (blanco, `rounded-2xl`, `border-neutral-200`, `shadow-sm`: el mismo
+   lenguaje que la `Card` de la tabla, para que no queden «flotando» sobre
+   el fondo). **Con tabs** (de *entidad* —Celulares/Notebooks/Repuestos— o
+   de *vista* —Ventas/Ítems vendidos—) son **dos filas**: arriba los tabs con
+   la acción primaria a la derecha; línea divisoria (`border-t`) y abajo,
+   sobre `bg-neutral-50/70`, buscador → selects. **Sin tabs**, una sola fila
+   (buscador → selects → acción). Los chips de filtros activos van debajo,
+   fuera del panel. En mobile solo los selects se colapsan detrás de
+   "Filtros · N". **Regla: toda fila de filtros/selector de categoría usa
+   `BarraFiltros`** — no armar la fila a mano (Ventas la tenía a mano y se
+   pasó) ni meter los tabs de categoría en la misma fila que los filtros.
 5. **Tabla** (con `Pagination` si es server-paginada).
 
 Los tabs (Inventario Celulares/Notebooks/Repuestos/Otros, Cajas
 Movimientos/Conciliaciones/Cajas, Recuentos Recuentos/Movimientos, Ventas
-Ventas/Ítems vendidos, Reparaciones Tickets/Servicios) van todos en la fila de
-filtros, con el resto de los filtros de la sección — no arriba de los
-gráficos.
+Ventas/Ítems vendidos, Reparaciones Tickets/Servicios) van todos en el panel
+de `BarraFiltros` (fila de arriba, con los filtros en la fila de abajo) — no
+arriba de los gráficos.
 
 Gráficos y tarjetas son **dos bloques independientes**: cada uno se oculta con
 su propio botón (persistido por sección en `localStorage`, `tekly:ui:<id>`) y
@@ -1096,7 +1115,7 @@ falla si aparece uno.
 | `Pagination` | `components/ui/pagination.tsx` | `{ page, total, pageSize?, onPageChange, className? }` — "Mostrando 1–50 de N" + números de página (‹ Anterior · 1 2 3 … N · Siguiente ›), se oculta con una sola página. `paginasVisibles` (helper puro, con test) en `lib/pagination.ts`; `PAGE_SIZE = 50` |
 | `SeccionTabla` | `components/ui/seccion-tabla.tsx` | Layout estándar de una sección con tabla (ver "Layout estándar de sección con tabla"): fija el orden tabs → visibilidad → gráficos → tarjetas → filtros → tabla. `{ id, tabs?, graficos?, tarjetas?, columnasTarjetas? (4\|5\|8), filtros?, children }` |
 | `GraficoCard` | `components/ui/grafico-card.tsx` | Contenedor de un gráfico de sección: `Card` con alto fijo `h-72` desde `sm`, encabezado `ChartTitle align="left" divider` y cuerpo `flex-1`. **Todo gráfico de una sección con tabla va adentro** — ninguno define su propia altura. `{ title, sub?, action?, children }` |
-| `BarraFiltros` | `components/ui/barra-filtros.tsx` | Fila de filtros estándar: tabs de vista → buscador → selects → chips → acción (`ml-auto`), con colapso mobile "Filtros · N". `{ tabs?, busqueda?, filtros?, chips?, accion?, contadorFiltros? }` |
+| `BarraFiltros` | `components/ui/barra-filtros.tsx` | Panel con borde de filtros estándar: con `tabs`, fila 1 = tabs + acción (`ml-auto`) y fila 2 (divisoria, fondo gris suave) = buscador → selects; sin `tabs`, una fila. Chips debajo del panel, colapso mobile "Filtros · N". `{ tabs?, busqueda?, filtros?, chips?, accion?, contadorFiltros? }` |
 | `useVisibilidadBloques` | `components/ui/use-visibilidad-bloques.ts` | Hook `{ graficos, tarjetas, toggle }` que persiste la visibilidad de los bloques en `localStorage` (`tekly:ui:<id>`). Lógica pura testeable en `lib/visibilidad-bloques.ts`; visible en SSR/primer render para no romper la hidratación |
 | Gráficos genéricos | `components/seccion/graficos.tsx` | `GraficoBarrasVerticales`, `GraficoRanking` (con `suffix`), `GraficoDona` y `GraficoBarrasAgrupadas` — cada uno ya envuelto en `GraficoCard` y con empty state. Reusar antes de crear un gráfico nuevo |
 | `Field` / `Input` / `Select` / `Textarea` / `Label` | `components/ui/field.tsx` | inputs con estilo consistente; `Field` = `Label` + control |
@@ -1308,6 +1327,45 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   base — `lib/db/inventario.ts` resuelve "buscar o crear por nombre". Cada
   alta/edición/recuento/ingreso deja un registro en `movimientos_stock`
   (historial por ítem, antes hardcodeado en el mock).
+  **Variantes (plan 024, solo celulares)**: una **variante** (`variantes`,
+  `lib/db/variantes.ts`) es `grupo` (nombre libre) + `modelo` + `almacenamiento`
+  + `condicion` + `color` opcional (`""` = cualquier color) + `sku` único por
+  org + `precio_usd` + `stock_minimo` + `activa`. La unidad (`celulares`)
+  apunta a su variante (`variante_id`, NOT NULL) y conserva `precio_propio`
+  (si es `false`, su `precio_usd` sigue al de la variante). Los datos clave
+  (`modelo`/`almacenamiento`/`condicion` y el color si la variante lo define)
+  **se copian de la variante** en `createCelular`/`updateCelular`/
+  `createCelularesBulk` — nunca se confía en los que manda el cliente. Lógica
+  pura en `lib/variantes.ts` (clave normalizada, `buscarVariante` con
+  preferencia de color, `skuSugerido` (condición en el SKU solo `NUEVO`/`USADO`,
+  `condicionSku`; la clave sí lleva el grado), stock/rango de precio, `cruzoMinimo`;
+  con test). Inventario → Celulares abre en vista **Agrupada** (grupo ›
+  variante › unidad, `components/inventario/variantes-tabla.tsx`, toggle
+  «Agrupado / Unidades» persistido en `localStorage`); herramientas:
+  renombrar grupo, editar variante, unir, desactivar/reactivar («Ver
+  desactivadas»), eliminar (solo sin unidades) y **stock mínimo** con chip
+  «Stock bajo» + evento `low_stock`. El selector
+  (`components/inventario/selector-variante.tsx`, 2 pasos + alta con
+  `VarianteDialog`) es **obligatorio** en las 3 vías de alta: formulario
+  manual, importación (columna virtual «Variante» por fila) y canje.
+  Roles: crear/editar/renombrar = `requireEscritura`; unir/desactivar/
+  eliminar = `requireRoleEscritura("admin")`.
+  **Variantes de notebooks** (`20261124230000_variantes_notebooks.sql`):
+  misma tabla `variantes` con `categoria = 'notebook'` + columna `memoria`
+  (`""` en celulares). Clave = modelo|memoria|almacenamiento|CONDICIÓN, sin
+  color (`claveVariante` con `categoria: "notebook"`, `clave_notebook` en
+  SQL); SKU `MACBOOK-AIR-M2-16GB-512GB-USADO`. `notebooks.variante_id` +
+  `precio_propio`; `createNotebook`/`updateNotebook`/`createNotebooksBulk`
+  copian modelo/memoria/almacenamiento/condición (y precio si no es propio)
+  de la variante. Todo `lib/db/variantes.ts` toma la categoría de la
+  variante (tabla de unidades, `item_type` de movimientos); `listVariantes`
+  trae solo celulares salvo `categoria` (`"todas"` en Inventario, Ventas y
+  Configuración). `SelectorVariante`/`VarianteDialog`/`VariantesTabla`
+  reciben `categoria`; Notebooks también abre **Agrupada** (toggle propio,
+  `tekly:ui:inventario-notebooks-vista`), la importación pide la variante
+  por fila y Nueva venta avisa `low_stock` también por notebooks.
+  `variante_id` de celulares **y** notebooks sigue nullable hasta aplicar
+  `20261124200000_variantes_not_null.sql` (después del deploy).
 - **Reparaciones** (`app/(app)/reparaciones/`, migrado): 2 tabs — **Tickets**
   (pipeline + tabla) y **Servicios** (`components/servicios-catalogo.tsx`,
   catálogo editable). **No hay sección `/servicios`**, vive acá. No hay
@@ -1449,12 +1507,26 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   blue en vivo (`useDolar()`) solo se usa dentro de `NuevaVentaDialog`
   (operación todavía no persistida). El recargo se muestra en el detalle
   ("+ 10 % recargo") cuando el pago lo tiene.
-  **Vendedor de la venta**: un vendedor/técnico registra siempre a su
-  propio nombre — `createVentaAction` ignora lo que venga del cliente y
-  fuerza `user.id`/`user.nombre` si `rol !== "admin"`; la UI lo refleja
-  (campo Vendedor como texto fijo con el look de input deshabilitado,
-  `NuevaVentaDialog` recibe `user`). Solo el admin elige (`Select` que
-  arranca en sí mismo; `listVendedores` incluye a los admin).
+  **Vendedor de la venta**: cualquier rol elige a cualquier usuario
+  **activo** de la organización (`listUsuariosVenta`, todos los roles) o
+  «Otro (escribir a mano)» (`vendedorId` vacío + nombre; columna
+  `ventas.vendedor_nombre`, solo cuando `vendedor_id` es null —
+  `toVenta` muestra `profiles.nombre ?? vendedor_nombre`). Arranca en el
+  usuario actual. `createVentaAction` valida con `resolverVendedor`
+  (`lib/ventas.ts`, con test): el nombre de un usuario sale de `profiles`,
+  nunca del cliente; un id que no es de un usuario activo de la org se
+  rechaza. Una venta a mano no entra en el filtro por vendedor (filtra por
+  `vendedor_id`) ni en las métricas propias del dashboard del empleado.
+  **Tienda / página** (`ventas.tienda_id` → tabla `tiendas`, `lib/db/tiendas.ts`):
+  para negocios que manejan más de una página desde la misma cuenta.
+  `null` = la principal (el nombre de la organización, no es una fila).
+  Nueva venta ofrece la principal (default), las `tiendas` activas y
+  «+ Nueva tienda…» (`TiendaSeleccion`, creación diferida al confirmar como
+  `ClienteSeleccion`); `resolverTienda` (`lib/tiendas.ts`, con test) reusa
+  una existente con el mismo nombre (sin mayúsculas/espacios) y trata el
+  nombre de la principal como principal. Se ve en el detalle y bajo el
+  número en la lista. Pendiente: filtro por tienda, administrarlas
+  (renombrar/desactivar) y membrete del recibo por tienda.
   `VentaItem.categoria`
   (`"celular" | "notebook" | "servicio" | "otro" | "libre"`) guarda el `origen` con el que
   se agregó el ítem en el modal -- alimenta `ventasPorRubro` de
@@ -1520,15 +1592,43 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   otras secciones): tabla CRUD de las `Caja` — alta con «Nueva caja», edición
   con «Editar» (`CajaDialog`, incluye el checkbox "Caja activa" para
   desactivar/reactivar — no hay botón de desactivar aparte en la fila).
-- **Compras** (`app/(app)/compras/`, migrado): espejo de Ventas del lado del
+- **Compras / Ingresos** (`app/(app)/compras/`, plan 025 fase 1): **toda
+  entrada de stock pasa por una compra** — Inventario ya no tiene altas
+  (su botón «Ingresar equipo» es un `ButtonLink` a `/compras?accion=nueva-compra`;
+  «Agregar unidad» de una variante agrega `&variante=<id>`; «Reponer» va a
+  Nueva compra) y se borraron las server actions de alta de
+  `inventario/actions.ts`. `compras.sube_stock`: con el switch «Subir al
+  stock» los ítems son tipados (`ItemCompraStock` en `lib/compras.ts`:
+  celular/notebook con variante, repuesto, otro) y se cargan con los mismos
+  `CelularFormDialog`/`NotebookFormDialog`/`IngresoDialog` de Inventario en
+  `modoCompra` (agregan al carrito, sin «Confirmar ingreso»). `createCompra`
+  recalcula `items`/`totalUsd` en el server (`snapshotItems`,
+  `resumenCompraStock`), valida (`erroresCompraStock`), nace `recibida`, y
+  `ingresarItems` crea cada unidad con el costo **prorrateado**
+  (`prorratearCostos`: `costos_adicionales_usd` en proporción al subtotal,
+  centavos exactos) + una fila en **`compra_items`** (vínculo a la unidad,
+  historial de la pestaña **Ingresos**, `listIngresos`). Unidades y
+  `movimientos_stock` llevan `compra_id`; el canje también lo llena. Si algo
+  falla a mitad, compensa con `deleteCompra({ quitarDelStock: true })`.
+  `deleteCompra` saca del stock solo celulares/notebooks `en_revision`/
+  `disponible` y resta repuestos/otros sin bajar de 0; devuelve
+  `conservados`. Sin subir al stock, la compra es la de siempre (gasto,
+  texto libre). «Sin caja» = no mueve plata. «Importar datos» sigue siendo la
+  carga inicial. Pendiente (fases 2–3): Leer con IA (texto/foto/PDF), lote y
+  QR.
+- **Compras** (detalle de siempre): espejo de Ventas del lado del
   gasto. `Compra.origen` distingue las dos formas en que se llega acá:
   `"proveedor"` (de siempre) — alta con proveedor (texto libre en la UI,
   resuelto a `proveedores` igual que en Inventario — `resolveProveedorId`,
   exportada desde `lib/db/inventario.ts` y reusada acá), ítems
   (detalle/cantidad/costo), medio de pago, estado `pendiente`/`recibida`; o
   `"canje"` — generada sola desde "Nueva venta" al cobrar con «Mercadería»
-  (plan 020, ver "Ventas" arriba): `clienteId`/`cliente` en vez de
-  `proveedor`, `ventaId` referencia esa venta, `estado` nace `"recibida"`
+  (plan 020, ver "Ventas" arriba): `clienteId`/`cliente` **y además el
+  cliente como proveedor** (`proveedor_nombre`/`proveedor_id`, **toda compra
+  tiene proveedor**: `createCompra` tira sin él, la UI lo exige también en
+  las que suben stock; CHECK `compras_proveedor_obligatorio` pendiente en
+  `20261125010000_compras_proveedor_obligatorio.sql`, paso 2, después del
+  deploy), `ventaId` referencia esa venta, `estado` nace `"recibida"`
   (el equipo ya está en mano), y `marca`/`imei`/`checklist`/`aclaraciones`
   documentan el equipo recibido — `checklist` es el mismo shape que
   `Ticket.checklistIngreso` de Reparaciones; el celular que entró al
@@ -1703,7 +1803,10 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   montos aceptan `U$ 1.300` (`normalizarMonto`). La tabla de revisión se
   configura por columna con `COLUMNAS_CELULAR`/`_NOTEBOOK`/`_CLIENTE`
   (`lib/importacion.ts`: título, desplegable, monto `U$`, "no aplica"):
-  `estado` va primero, la validez de la fila es un punto junto al número +
+  `estado` va primero, **`varianteId`** (columna virtual «Variante», solo
+  celulares: sugerida por `buscarVariante`, obligatoria por fila y reválidada
+  contra la org en `importCelularesAction`) va segunda, la validez de la fila
+  es un punto junto al número +
   línea de detalle debajo, todo centrado; `completarFila` aplica defaults en
   cada cambio. Admin-only vía `requireRole` en
   `importCelularesAction`/`importClientesAction` — el server revalida cada
@@ -1874,9 +1977,12 @@ nombre de actor** -- eso fue un bug real que quedó de la época mock.
   timestamp y las muestra en un dropdown al tocar la campanita, con contador
   de no leídas. Es en memoria del navegador -- se pierde al recargar, no hay
   tabla de notificaciones persistida.
-- De los 6 tipos de `AppEvent`, `low_stock` está definido pero **nada lo
-  dispara todavía** -- ninguna sección chequea stock contra el mínimo y
-  publica el evento. Pendiente si se decide conectarlo.
+- De los 6 tipos de `AppEvent`, `low_stock` lo dispara **Variantes de
+  celulares** (plan 024): cuando una variante **cruza** su `stock_minimo`
+  hacia abajo (`cruzoMinimo` en `lib/variantes.ts`), desde el client después
+  de que la action confirmó — en Nueva venta (unidades vendidas por variante)
+  y en Inventario (cambio de estado / baja de una unidad). `part` =
+  `nombreVariante(...)`, `qty` = disponibles resultantes.
 
 ## Qué NO hacer
 

@@ -1,8 +1,9 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { requireUser } from "@/lib/auth";
-import type { CelularStatus, Notebook, NotebookCondicion } from "@/lib/types";
-import { addMovimiento } from "@/lib/db/inventario";
+import type { CelularStatus, Notebook, NotebookCondicion, Variante } from "@/lib/types";
+import { addMovimiento, detalleIngreso, type IngresoCompra } from "@/lib/db/inventario";
+import { varianteParaUnidad, variantesParaUnidades } from "@/lib/db/variantes";
 import { notebookSchema, type NotebookInput } from "@/lib/notebooks";
 
 const ESTADOS: CelularStatus[] = [
@@ -33,6 +34,8 @@ type NotebookRow = {
   estado: CelularStatus;
   condicion: NotebookCondicion;
   bateria: number | null;
+  variante_id: string | null;
+  precio_propio: boolean;
 };
 
 function toNotebook(row: NotebookRow): Notebook {
@@ -54,11 +57,44 @@ function toNotebook(row: NotebookRow): Notebook {
     estado: row.estado,
     condicion: row.condicion,
     bateria: row.bateria,
+    // Nullable solo hasta aplicar el NOT NULL (ver plan 024).
+    varianteId: row.variante_id ?? "",
+    precioPropio: row.precio_propio,
+  };
+}
+
+/** Campos que la variante define en la notebook: modelo, memoria,
+ * almacenamiento, condición y (salvo precio propio) el precio. Lo que mande
+ * el cliente para esos campos no se usa. */
+function camposDeVariante(data: NotebookInput, variante: Variante) {
+  const condicion: NotebookCondicion = variante.condicion === "nuevo" ? "nuevo" : "usado";
+  return {
+    variante_id: variante.id,
+    modelo: variante.modelo,
+    memoria: variante.memoria || null,
+    almacenamiento: variante.almacenamiento || null,
+    condicion,
+    precio_usd: data.precioPropio ? data.precioUsd : variante.precioUsd,
+    precio_propio: data.precioPropio,
+    // La batería solo se guarda en las usadas (constraint en la base).
+    bateria: condicion === "usado" ? data.bateria : null,
+  };
+}
+
+/** El schema valida la batería contra la condición: se valida con la de la
+ * variante, no con la que mandó el cliente. */
+function conDatosDeVariante(data: NotebookInput, variante: Variante): NotebookInput {
+  return {
+    ...data,
+    modelo: variante.modelo,
+    memoria: variante.memoria,
+    almacenamiento: variante.almacenamiento,
+    condicion: variante.condicion === "nuevo" ? "nuevo" : "usado",
   };
 }
 
 const NOTEBOOK_COLS =
-  "id, modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numero_serie, garantia, notas, costo_usd, precio_usd, estado, condicion, bateria";
+  "id, modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numero_serie, garantia, notas, costo_usd, precio_usd, estado, condicion, bateria, variante_id, precio_propio";
 
 export async function listNotebooks(): Promise<Notebook[]> {
   const supabase = createServerClient();
@@ -94,17 +130,19 @@ function mensajeDeError(error: { code?: string; message: string }) {
   return error;
 }
 
-export async function createNotebook(data: NotebookInput): Promise<Notebook> {
-  const parsed = notebookSchema.parse(data);
+export async function createNotebook(
+  data: NotebookInput,
+  compra?: IngresoCompra,
+): Promise<Notebook> {
+  const variante = await varianteParaUnidad(data.varianteId, "notebook");
+  const parsed = notebookSchema.parse(conDatosDeVariante(data, variante));
   await validarSerieUnica(parsed.numeroSerie);
   const supabase = createServerClient();
   const { data: row, error } = await supabase
     .from("notebooks")
     .insert({
-      modelo: parsed.modelo,
+      ...camposDeVariante(parsed, variante),
       cpu: parsed.cpu || null,
-      memoria: parsed.memoria || null,
-      almacenamiento: parsed.almacenamiento || null,
       pantalla: parsed.pantalla || null,
       gpu: parsed.gpu || null,
       color: parsed.color || null,
@@ -113,21 +151,19 @@ export async function createNotebook(data: NotebookInput): Promise<Notebook> {
       garantia: parsed.garantia || null,
       notas: parsed.notas || null,
       costo_usd: parsed.costoUsd,
-      precio_usd: parsed.precioUsd,
       estado: parsed.estado,
-      condicion: parsed.condicion,
-      // La batería solo se guarda en las usadas (constraint en la base).
-      bateria: parsed.condicion === "usado" ? parsed.bateria : null,
+      ...(compra ? { compra_id: compra.compraId } : {}),
     })
     .select(NOTEBOOK_COLS)
     .single();
   if (error) throw mensajeDeError(error);
-  await addMovimiento("notebook", row.id, "Ingreso a inventario", "ingreso");
+  await addMovimiento("notebook", row.id, detalleIngreso(compra), "ingreso", compra?.compraId);
   return toNotebook(row);
 }
 
 export async function updateNotebook(id: string, data: NotebookInput): Promise<Notebook> {
-  const parsed = notebookSchema.parse(data);
+  const variante = await varianteParaUnidad(data.varianteId, "notebook");
+  const parsed = notebookSchema.parse(conDatosDeVariante(data, variante));
   await validarSerieUnica(parsed.numeroSerie, id);
   const supabase = createServerClient();
   const { data: antesRow } = await supabase
@@ -138,10 +174,8 @@ export async function updateNotebook(id: string, data: NotebookInput): Promise<N
   const { data: row, error } = await supabase
     .from("notebooks")
     .update({
-      modelo: parsed.modelo,
+      ...camposDeVariante(parsed, variante),
       cpu: parsed.cpu || null,
-      memoria: parsed.memoria || null,
-      almacenamiento: parsed.almacenamiento || null,
       pantalla: parsed.pantalla || null,
       gpu: parsed.gpu || null,
       color: parsed.color || null,
@@ -150,11 +184,7 @@ export async function updateNotebook(id: string, data: NotebookInput): Promise<N
       garantia: parsed.garantia || null,
       notas: parsed.notas || null,
       costo_usd: parsed.costoUsd,
-      precio_usd: parsed.precioUsd,
       estado: parsed.estado,
-      condicion: parsed.condicion,
-      // La batería solo se guarda en las usadas (constraint en la base).
-      bateria: parsed.condicion === "usado" ? parsed.bateria : null,
     })
     .eq("id", id)
     .select(NOTEBOOK_COLS)
@@ -224,16 +254,19 @@ export async function createNotebooksBulk(
 ): Promise<{ inserted: number; notebooks: Notebook[] }> {
   if (rows.length === 0) return { inserted: 0, notebooks: [] };
   const user = await requireUser();
-  const parsed = rows.map((r) => notebookSchema.parse(r));
+  const variantes = await variantesParaUnidades(rows.map((r) => r.varianteId), "notebook");
+  const filas = rows.map((r) => {
+    const variante = variantes.get(r.varianteId);
+    if (!variante) throw new Error("Alguna fila quedó sin una variante válida.");
+    return { variante, parsed: notebookSchema.parse(conDatosDeVariante(r, variante)) };
+  });
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("notebooks")
     .insert(
-      parsed.map((p) => ({
-        modelo: p.modelo,
+      filas.map(({ variante, parsed: p }) => ({
+        ...camposDeVariante(p, variante),
         cpu: p.cpu || null,
-        memoria: p.memoria || null,
-        almacenamiento: p.almacenamiento || null,
         pantalla: p.pantalla || null,
         gpu: p.gpu || null,
         color: p.color || null,
@@ -242,10 +275,7 @@ export async function createNotebooksBulk(
         garantia: p.garantia || null,
         notas: p.notas || null,
         costo_usd: p.costoUsd,
-        precio_usd: p.precioUsd,
         estado: p.estado,
-        condicion: p.condicion,
-        bateria: p.condicion === "usado" ? p.bateria : null,
       })),
     )
     .select(NOTEBOOK_COLS);

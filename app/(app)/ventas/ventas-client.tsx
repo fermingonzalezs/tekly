@@ -10,9 +10,7 @@ import {
   ShieldCheck,
   Printer,
   Search,
-  SlidersHorizontal,
   ChevronDown,
-  ChevronUp,
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
@@ -52,12 +50,14 @@ import {
   margenVenta,
   categoriaDe,
   motivoNoConfirmable,
+  VENDEDOR_LIBRE_MAX,
   RUBRO_LABEL,
   MODALIDAD_LABEL,
   MODALIDADES,
   type ResumenVentas,
   type GraficosVentas,
 } from "@/lib/ventas";
+import { TIENDA_NOMBRE_MAX } from "@/lib/tiendas";
 import {
   DATE_PRESETS,
   type DatePreset,
@@ -71,6 +71,9 @@ import {
 import { useDolar } from "@/lib/dolar";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
+import { BarraFiltros } from "@/components/ui/barra-filtros";
+import { SelectorVariante } from "@/components/inventario/selector-variante";
+import { cruzoMinimo, nombreVariante, stockDeVariante } from "@/lib/variantes";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type { DeleteVentaOpts, ItemVendido } from "@/lib/db/ventas";
 import type {
@@ -84,10 +87,13 @@ import type {
   Notebook,
   MedioPagoVenta,
   ModalidadVenta,
+  Tienda,
+  TiendaSeleccion,
   OtroItem,
   Pago,
   Repuesto,
   Servicio,
+  Variante,
   Venta,
   VentaItem,
 } from "@/lib/types";
@@ -167,12 +173,19 @@ function PagoChip({ pagos }: { pagos: Pago[] }) {
 
 type PersonaOpcion = { id: string; nombre: string };
 
+/** Valor del Select de Vendedor para «Otro (escribir a mano)». */
+const VENDEDOR_LIBRE = "__libre__";
+/** Valor del Select de Tienda para «+ Nueva tienda…». */
+const TIENDA_NUEVA = "__nueva__";
+
 /** Payload de "Nueva venta" -- el mismo que recibe `createVentaAction`. Se
  * expone para que la demo pueda inyectar su propia implementación. */
 export type CrearVentaInput = {
   cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
   vendedorId: string;
   vendedorNombre: string;
+  /** Tienda / página. Omitido = la principal. */
+  tienda?: TiendaSeleccion;
   procedencia?: string;
   modalidad: ModalidadVenta;
   items: VentaItem[];
@@ -211,8 +224,11 @@ export function VentasClient({
   servicios,
   repuestos,
   vendedores,
+  usuariosVenta,
+  tiendas = [],
   cajas,
   negocio,
+  variantes = [],
   user,
   basePath = "/ventas",
   modoDemo = false,
@@ -237,8 +253,15 @@ export function VentasClient({
   servicios: Servicio[];
   repuestos: Repuesto[];
   vendedores: PersonaOpcion[];
+  /** Opciones del campo Vendedor de Nueva venta: usuarios activos de la
+   * organización (cualquier rol). Default: `vendedores`. */
+  usuariosVenta?: PersonaOpcion[];
+  /** Tiendas extra de la organización (la principal es `negocio.nombre`). */
+  tiendas?: Tienda[];
   cajas: Caja[];
   negocio: Negocio;
+  /** Variantes activas de celulares (canje). */
+  variantes?: Variante[];
   user: SessionUser;
   /** Base de las URLs de filtros/deep-links (default `/ventas`). */
   basePath?: string;
@@ -263,7 +286,6 @@ export function VentasClient({
   };
   const [isPending, startTransition] = useTransition();
   const [creating, setCreating] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [openOverride, setOpenOverride] = useState<string | null | undefined>(
     undefined,
   );
@@ -591,158 +613,139 @@ export function VentasClient({
           </>
         }
         filtros={
-          <>
-
-        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
-          <div className="relative w-full md:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <Input
-              value={qInput}
-              onChange={(e) => setQInput(e.target.value)}
-              placeholder="Buscar por cliente, serie o producto…"
-              className={cn("w-full pl-9", filterPill)}
-              aria-label="Buscar ventas"
-            />
-          </div>
-
-          <Button
-            onClick={() => setFiltersOpen((v) => !v)}
-            variant="outline"
-            fullOnMobile
-            className="md:hidden"
-            aria-expanded={filtersOpen}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filtros{filtrosActivos > 0 ? ` · ${filtrosActivos}` : ""}
-            {filtersOpen ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </Button>
-
-          <div
-            className={cn(
-              "flex-col gap-2 md:contents",
-              filtersOpen ? "flex" : "hidden",
-            )}
-          >
-            <Tabs
-              value={filtros.vista}
-              onChange={(v) => actualizar({ vista: v })}
-              className="w-full justify-between md:w-auto md:justify-start"
-              options={[
-                { value: "ventas", label: "Ventas", count: totalVentas },
-                { value: "items", label: "Ítems vendidos", count: totalItems },
-              ]}
-            />
-            <Select
-              value={filtros.preset}
-              onChange={(e) => {
-                const preset = e.target.value as DatePreset;
-                actualizar({ preset, desde: "", hasta: "" });
-              }}
-              className={cn("w-full md:w-44", filterPill)}
-              aria-label="Filtrar por período"
-            >
-              {DATE_PRESETS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </Select>
-            {vendedores.length > 1 && (
-              <Select
-                value={filtros.vendedor}
-                onChange={(e) => actualizar({ vendedor: e.target.value })}
-                className={cn("w-full md:w-44", filterPill)}
-                aria-label="Filtrar por vendedor"
-              >
-                <option value="">Todos los vendedores</option>
-                {vendedores.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.nombre}
-                  </option>
-                ))}
-              </Select>
-            )}
-            <Select
-              value={filtros.tipo}
-              onChange={(e) => actualizar({ tipo: e.target.value as FiltrosVentas["tipo"] })}
-              className={cn("w-full md:w-40", filterPill)}
-              aria-label="Filtrar por tipo"
-            >
-              <option value="">Todo</option>
-              <option value="celular">Celulares</option>
-              <option value="servicio">Reparaciones</option>
-              <option value="otro">Accesorios</option>
-              <option value="libre">Otros</option>
-            </Select>
-            {filtros.preset === "personalizado" && (
-              <div className="flex items-center gap-2">
+          <BarraFiltros
+            contadorFiltros={filtrosActivos}
+            tabs={
+              <Tabs
+                value={filtros.vista}
+                onChange={(v) => actualizar({ vista: v })}
+                className="w-full justify-between md:w-auto md:justify-start"
+                options={[
+                  { value: "ventas", label: "Ventas", count: totalVentas },
+                  { value: "items", label: "Ítems vendidos", count: totalItems },
+                ]}
+              />
+            }
+            busqueda={
+              <div className="relative w-full md:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                 <Input
-                  type="date"
-                  value={filtros.desde}
-                  onChange={(e) => actualizar({ desde: e.target.value })}
-                  className={cn("w-full md:w-36", filterPill)}
-                  aria-label="Desde"
-                />
-                <span className="text-xs text-neutral-500">a</span>
-                <Input
-                  type="date"
-                  value={filtros.hasta}
-                  onChange={(e) => actualizar({ hasta: e.target.value })}
-                  className={cn("w-full md:w-36", filterPill)}
-                  aria-label="Hasta"
+                  value={qInput}
+                  onChange={(e) => setQInput(e.target.value)}
+                  placeholder="Buscar por cliente, serie o producto…"
+                  className={cn("w-full pl-9", filterPill)}
+                  aria-label="Buscar ventas"
                 />
               </div>
-            )}
-          </div>
-
-          <Button icon={Plus}
-            onClick={() => setCreating(true)}
-            variant="tonal" fullOnMobile className="md:ml-auto"
-          >
-            Nueva venta
-          </Button>
-        </div>
-
-        {hayFiltrosActivos(filtros) && (
-          <div className="flex flex-wrap items-center gap-2">
-            {filtros.vendedor && (
-              <FiltroChip
-                label={`Vendedor: ${vendedores.find((v) => v.id === filtros.vendedor)?.nombre ?? "—"}`}
-                onClear={() => actualizar({ vendedor: "" })}
-              />
-            )}
-            {filtros.tipo && (
-              <FiltroChip
-                label={`Tipo: ${RUBRO_LABEL[filtros.tipo]}`}
-                onClear={() => actualizar({ tipo: "" })}
-              />
-            )}
-            {filtros.q && (
-              <FiltroChip
-                label={`Búsqueda: «${filtros.q}»`}
-                onClear={() => actualizar({ q: "" })}
-              />
-            )}
-            {filtros.preset !== "mes" && (
-              <FiltroChip
-                label={`Período: ${DATE_PRESETS.find((p) => p.value === filtros.preset)?.label ?? ""}`}
-                onClear={() => actualizar({ preset: "mes", desde: "", hasta: "" })}
-              />
-            )}
-            <button
-              type="button"
-              onClick={limpiarTodo}
-              className="text-xs font-semibold text-accent hover:underline"
-            >
-              Limpiar todo
-            </button>
-          </div>
-        )}
-          </>
+            }
+            filtros={
+              <>
+                <Select
+                  value={filtros.preset}
+                  onChange={(e) => {
+                    const preset = e.target.value as DatePreset;
+                    actualizar({ preset, desde: "", hasta: "" });
+                  }}
+                  className={cn("w-full md:w-44", filterPill)}
+                  aria-label="Filtrar por período"
+                >
+                  {DATE_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </Select>
+                {vendedores.length > 1 && (
+                  <Select
+                    value={filtros.vendedor}
+                    onChange={(e) => actualizar({ vendedor: e.target.value })}
+                    className={cn("w-full md:w-44", filterPill)}
+                    aria-label="Filtrar por vendedor"
+                  >
+                    <option value="">Todos los vendedores</option>
+                    {vendedores.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.nombre}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+                <Select
+                  value={filtros.tipo}
+                  onChange={(e) => actualizar({ tipo: e.target.value as FiltrosVentas["tipo"] })}
+                  className={cn("w-full md:w-40", filterPill)}
+                  aria-label="Filtrar por tipo"
+                >
+                  <option value="">Todo</option>
+                  <option value="celular">Celulares</option>
+                  <option value="servicio">Reparaciones</option>
+                  <option value="otro">Accesorios</option>
+                  <option value="libre">Otros</option>
+                </Select>
+                {filtros.preset === "personalizado" && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={filtros.desde}
+                      onChange={(e) => actualizar({ desde: e.target.value })}
+                      className={cn("w-full md:w-36", filterPill)}
+                      aria-label="Desde"
+                    />
+                    <span className="text-xs text-neutral-500">a</span>
+                    <Input
+                      type="date"
+                      value={filtros.hasta}
+                      onChange={(e) => actualizar({ hasta: e.target.value })}
+                      className={cn("w-full md:w-36", filterPill)}
+                      aria-label="Hasta"
+                    />
+                  </div>
+                )}
+              </>
+            }
+            accion={
+              <Button icon={Plus} onClick={() => setCreating(true)} variant="tonal" fullOnMobile>
+                Nueva venta
+              </Button>
+            }
+            chips={
+              hayFiltrosActivos(filtros) ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {filtros.vendedor && (
+                    <FiltroChip
+                      label={`Vendedor: ${vendedores.find((v) => v.id === filtros.vendedor)?.nombre ?? "—"}`}
+                      onClear={() => actualizar({ vendedor: "" })}
+                    />
+                  )}
+                  {filtros.tipo && (
+                    <FiltroChip
+                      label={`Tipo: ${RUBRO_LABEL[filtros.tipo]}`}
+                      onClear={() => actualizar({ tipo: "" })}
+                    />
+                  )}
+                  {filtros.q && (
+                    <FiltroChip
+                      label={`Búsqueda: «${filtros.q}»`}
+                      onClear={() => actualizar({ q: "" })}
+                    />
+                  )}
+                  {filtros.preset !== "mes" && (
+                    <FiltroChip
+                      label={`Período: ${DATE_PRESETS.find((p) => p.value === filtros.preset)?.label ?? ""}`}
+                      onClear={() => actualizar({ preset: "mes", desde: "", hasta: "" })}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={limpiarTodo}
+                    className="text-xs font-semibold text-accent hover:underline"
+                  >
+                    Limpiar todo
+                  </button>
+                </div>
+              ) : undefined
+            }
+          />
         }
       >
 
@@ -791,9 +794,11 @@ export function VentasClient({
         otros={otros}
         servicios={servicios}
         repuestos={repuestos}
-        vendedores={vendedores}
+        vendedores={usuariosVenta ?? vendedores}
+        tiendas={tiendas}
         cajas={cajas}
         negocio={negocio}
+        variantes={variantes}
         dolarVenta={dolarVenta}
         user={user}
         crearVenta={acc.crearVenta}
@@ -808,6 +813,34 @@ export function VentasClient({
             ref: v.id,
             cliente: v.cliente,
           });
+          // Stock bajo: unidades de la venta por variante. `celulares` es la
+          // foto previa (la venta las deja vendidas), así el «antes» es el
+          // stock actual y el «después» descuenta las vendidas.
+          const vendidas = new Map<string, number>();
+          for (const item of v.items) {
+            const unidad = item.celularId
+              ? celulares.find((c) => c.id === item.celularId)
+              : item.notebookId
+                ? notebooks.find((n) => n.id === item.notebookId)
+                : undefined;
+            if (!unidad?.varianteId) continue;
+            vendidas.set(unidad.varianteId, (vendidas.get(unidad.varianteId) ?? 0) + 1);
+          }
+          for (const [id, cantidad] of vendidas) {
+            const variante = variantes.find((x) => x.id === id);
+            if (!variante) continue;
+            const unidades = variante.categoria === "notebook" ? notebooks : celulares;
+            const antes = stockDeVariante(variante, unidades).disponibles;
+            const despues = antes - cantidad;
+            if (cruzoMinimo(antes, despues, variante.stockMinimo)) {
+              publish({
+                type: "low_stock",
+                actor: user.nombre,
+                part: nombreVariante(variante, { cualquierColor: true }),
+                qty: despues,
+              });
+            }
+          }
           acc.refrescar();
         }}
       />
@@ -1111,6 +1144,11 @@ function VentasTabla({
                   <span className="block text-xs font-normal text-neutral-500">
                     {v.fecha}
                   </span>
+                  {v.tienda && (
+                    <span className="block max-w-[140px] truncate text-[11px] font-normal text-accent">
+                      {v.tienda}
+                    </span>
+                  )}
                 </td>
                 <td className="max-w-[160px] truncate px-5 py-2 text-start">{v.cliente}</td>
                 <td className="max-w-[260px] truncate px-5 py-2 text-neutral-600 text-start">
@@ -1498,6 +1536,7 @@ function VentaDetalle({
   const metaFields: { label: string; value: string }[] = [
     { label: "Cliente", value: venta.cliente },
     { label: "Vendedor", value: venta.vendedor },
+    ...(venta.tienda ? [{ label: "Tienda", value: venta.tienda }] : []),
     ...(venta.procedencia
       ? [{ label: "Procedencia", value: venta.procedencia }]
       : []),
@@ -1983,8 +2022,10 @@ function NuevaVentaDialog({
   servicios,
   repuestos,
   vendedores,
+  tiendas = [],
   cajas,
   negocio,
+  variantes = [],
   dolarVenta,
   user,
   crearVenta,
@@ -2000,17 +2041,33 @@ function NuevaVentaDialog({
   servicios: Servicio[];
   repuestos: Repuesto[];
   vendedores: PersonaOpcion[];
+  tiendas?: Tienda[];
   cajas: Caja[];
   negocio: Negocio;
+  variantes?: Variante[];
   dolarVenta: number;
   user: SessionUser;
   crearVenta: (input: CrearVentaInput) => Promise<Venta>;
   modoDemo?: boolean;
 }) {
   const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
-  const esAdmin = user.rol === "admin";
 
-  const [vendedorId, setVendedorId] = useState(user.id);
+  // Vendedor: un usuario de la organización o, con VENDEDOR_LIBRE, un
+  // nombre escrito a mano. Arranca en el usuario actual.
+  const [vendedorId, setVendedorId] = useState(
+    vendedores.some((v) => v.id === user.id) ? user.id : (vendedores[0]?.id ?? VENDEDOR_LIBRE),
+  );
+  const [vendedorLibre, setVendedorLibre] = useState("");
+  // Tienda: "" = la principal (nombre del negocio), un id, o TIENDA_NUEVA.
+  const [tiendaSel, setTiendaSel] = useState("");
+  const [tiendaNueva, setTiendaNueva] = useState("");
+  const tienda: TiendaSeleccion =
+    tiendaSel === TIENDA_NUEVA
+      ? { tipo: "nueva", nombre: tiendaNueva }
+      : tiendaSel
+        ? { tipo: "existente", id: tiendaSel }
+        : { tipo: "principal" };
+  const vendedorEsLibre = vendedorId === VENDEDOR_LIBRE;
   const [procedencia, setProcedencia] = useState(PROCEDENCIAS[0]);
   const [modalidad, setModalidad] = useState<ModalidadVenta>("minorista");
 
@@ -2095,6 +2152,10 @@ function NuevaVentaDialog({
 
   const motivo = motivoNoConfirmable({
     clienteNombre,
+    vendedorNombre: vendedorEsLibre
+      ? vendedorLibre
+      : (vendedores.find((v) => v.id === vendedorId)?.nombre ?? ""),
+    ...(tiendaSel === TIENDA_NUEVA ? { tiendaNueva } : {}),
     items: items.map((i) => ({ detalle: i.detalle, precioUsd: i.precioUsd })),
     pagos: pagos.map((p) => ({
       montoUsd: p.montoUsd,
@@ -2201,14 +2262,15 @@ function NuevaVentaDialog({
   function submit() {
     if (!cliente || cliente.tipo === "libre") return;
     startTransition(async () => {
-      const vendedorNombre = esAdmin
-        ? (vendedores.find((v) => v.id === vendedorId)?.nombre ?? "")
-        : user.nombre;
+      const vendedorNombre = vendedorEsLibre
+        ? vendedorLibre.trim().replace(/\s+/g, " ")
+        : (vendedores.find((v) => v.id === vendedorId)?.nombre ?? "");
       try {
         const venta = await crearVenta({
           cliente,
-          vendedorId: esAdmin ? vendedorId : user.id,
+          vendedorId: vendedorEsLibre ? "" : vendedorId,
           vendedorNombre,
+          tienda,
           procedencia,
           modalidad,
           items: items.map(({ _k, origen, ...i }) => ({ ...i, categoria: origen })),
@@ -2277,21 +2339,46 @@ function NuevaVentaDialog({
           <Eyebrow>Datos de la venta</Eyebrow>
           <GrillaCampos>
             <Field label="Vendedor">
-              {esAdmin ? (
-                <Select
-                  value={vendedorId}
-                  onChange={(e) => setVendedorId(e.target.value)}
-                >
-                  {vendedores.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.nombre}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <div className="flex h-9 w-full items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 text-start text-sm text-neutral-600">
-                  {user.nombre}
-                </div>
+              <Select value={vendedorId} onChange={(e) => setVendedorId(e.target.value)}>
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nombre}
+                  </option>
+                ))}
+                <option value={VENDEDOR_LIBRE}>Otro (escribir a mano)</option>
+              </Select>
+              {vendedorEsLibre && (
+                <Input
+                  className="mt-2"
+                  value={vendedorLibre}
+                  maxLength={VENDEDOR_LIBRE_MAX}
+                  onChange={(e) => setVendedorLibre(e.target.value)}
+                  placeholder="Nombre del vendedor"
+                  aria-label="Nombre del vendedor"
+                  autoFocus
+                />
+              )}
+            </Field>
+            <Field label="Tienda / página">
+              <Select value={tiendaSel} onChange={(e) => setTiendaSel(e.target.value)}>
+                <option value="">{negocio.nombre || "Tienda principal"}</option>
+                {tiendas.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+                <option value={TIENDA_NUEVA}>+ Nueva tienda…</option>
+              </Select>
+              {tiendaSel === TIENDA_NUEVA && (
+                <Input
+                  className="mt-2"
+                  value={tiendaNueva}
+                  maxLength={TIENDA_NOMBRE_MAX}
+                  onChange={(e) => setTiendaNueva(e.target.value)}
+                  placeholder="Ej. Heavenstore"
+                  aria-label="Nombre de la tienda nueva"
+                  autoFocus
+                />
               )}
             </Field>
             <Field label="Procedencia">
@@ -2600,6 +2687,8 @@ function NuevaVentaDialog({
         open={!!canjeModalKey}
         onClose={() => setCanjeModalKey(null)}
         initial={pagos.find((p) => p._k === canjeModalKey)?.canje}
+        variantes={variantes}
+        celulares={celulares}
         onSave={(canje) => {
           if (canjeModalKey) updPago(canjeModalKey, { canje });
           setCanjeModalKey(null);
@@ -2648,18 +2737,32 @@ function CanjeModal({
   open,
   onClose,
   initial,
+  variantes,
+  celulares,
   onSave,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: CanjeEquipo;
+  variantes: Variante[];
+  celulares: Celular[];
   onSave: (canje: CanjeEquipo) => void;
 }) {
+  const [varianteId, setVarianteId] = useState(initial?.varianteId ?? "");
   const [marca, setMarca] = useState(initial?.marca ?? "");
   const [equipo, setEquipo] = useState(initial?.equipo ?? "");
   const [imei, setImei] = useState(initial?.imei ?? "");
   const [checklist, setChecklist] = useState<Checklist>(initial?.checklist ?? CHECKLIST_VACIO);
   const [aclaraciones, setAclaraciones] = useState(initial?.aclaraciones ?? "");
+  const variante = variantes.find((v) => v.id === varianteId) ?? null;
+
+  function elegirVariante(v: Variante | null) {
+    setVarianteId(v?.id ?? "");
+    if (v) {
+      setEquipo(nombreVariante(v, { cualquierColor: true }));
+      if (v.color) setChecklist((c) => ({ ...c, color: v.color }));
+    }
+  }
 
   return (
     <Dialog
@@ -2678,8 +2781,10 @@ function CanjeModal({
             Cancelar
           </Button>
           <Button
-            disabled={!equipo.trim()}
-            onClick={() => onSave({ marca, equipo, imei, checklist, aclaraciones })}
+            disabled={!variante || !equipo.trim()}
+            onClick={() =>
+              onSave({ marca, equipo: equipo.trim(), varianteId, imei, checklist, aclaraciones })
+            }
             variant="primary" fullOnMobile
           >
             Guardar
@@ -2693,6 +2798,19 @@ function CanjeModal({
             Datos del equipo
           </p>
           <GrillaCampos>
+            <Field label="Variante" className="sm:col-span-3">
+              <SelectorVariante
+                variantes={variantes}
+                unidades={celulares}
+                value={varianteId || null}
+                onChange={elegirVariante}
+              />
+              <p className="mt-1 text-[11px] text-neutral-500">
+                {variante
+                  ? `Definido por la variante ${variante.sku}: el modelo, almacenamiento y condición salen de acá.`
+                  : "Obligatoria: elegí la variante del equipo recibido (o creala)."}
+              </p>
+            </Field>
             <Field label="Marca">
               <Input
                 value={marca}
@@ -2704,6 +2822,7 @@ function CanjeModal({
               <Input
                 value={equipo}
                 onChange={(e) => setEquipo(e.target.value)}
+                disabled={!!variante}
                 placeholder="iPhone 13 Pro 128GB"
               />
             </Field>
@@ -2714,6 +2833,7 @@ function CanjeModal({
               <Input
                 value={checklist.color}
                 onChange={(e) => setChecklist((c) => ({ ...c, color: e.target.value }))}
+                disabled={!!variante?.color}
                 placeholder="Ej: Negro"
               />
             </Field>

@@ -31,7 +31,7 @@ export type NavItem = {
 export const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/ventas", label: "Ventas", icon: ShoppingCart },
-  { href: "/compras", label: "Compras", icon: ShoppingBag, roles: ["admin", "tecnico"] },
+  { href: "/compras", label: "Compras / Ingresos", icon: ShoppingBag, roles: ["admin", "tecnico"] },
   { href: "/reparaciones", label: "Reparaciones", icon: Wrench },
   { href: "/agenda", label: "Agenda", icon: CalendarClock },
   { href: "/inventario", label: "Inventario", icon: Boxes },

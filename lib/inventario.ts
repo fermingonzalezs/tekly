@@ -329,3 +329,43 @@ export function valorInventario(input: {
     extraviadoACosto,
   };
 }
+
+// ── Filtro por condición (Inventario → Celulares / Notebooks) ──
+
+/** Valor del filtro: `todas`, `usado` (cualquier grado que no sea nuevo) o
+ * una condición puntual tal como está guardada (`A+`, `nuevo`, …). */
+export type FiltroCondicion = string;
+
+/** ¿La condición de la unidad pasa el filtro? Sin distinguir mayúsculas
+ * (celulares guardan `NUEVO`/`A+`, notebooks `nuevo`/`usado`). */
+export function coincideCondicion(condicion: string, filtro: FiltroCondicion): boolean {
+  if (filtro === "todas") return true;
+  const c = (condicion ?? "").trim().toUpperCase();
+  const f = filtro.trim().toUpperCase();
+  if (f === "USADO") return c !== "" && c !== "NUEVO";
+  return c === f;
+}
+
+/** Opciones del select de condición de celulares: Nuevo, Usado (todos los
+ * grados) y cada grado; suma al final cualquier condición cargada que no
+ * esté en la lista fija (datos viejos o importados). */
+export function opcionesCondicionCelular(
+  fijas: readonly string[],
+  cargadas: string[],
+): { value: string; label: string }[] {
+  const conocidas = new Set(fijas.map((c) => c.toUpperCase()));
+  // Dedupe sin distinguir mayúsculas (queda la primera forma que aparece).
+  const porClave = new Map<string, string>();
+  for (const bruto of cargadas) {
+    const c = (bruto ?? "").trim();
+    const k = c.toUpperCase();
+    if (c && !conocidas.has(k) && k !== "USADO" && !porClave.has(k)) porClave.set(k, c);
+  }
+  const extras = Array.from(porClave.values()).sort();
+  return [
+    { value: "NUEVO", label: "Nuevo" },
+    { value: "usado", label: "Usado (todos los grados)" },
+    ...fijas.filter((c) => c.toUpperCase() !== "NUEVO").map((c) => ({ value: c, label: `Usado ${c}` })),
+    ...extras.map((c) => ({ value: c, label: c })),
+  ];
+}

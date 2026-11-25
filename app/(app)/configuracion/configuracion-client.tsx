@@ -31,6 +31,7 @@ import { ImportarDatos } from "./importar-datos";
 import { PALETAS } from "@/lib/theme-presets";
 import type { SessionUser, Rol } from "@/lib/auth/types";
 import type { Miembro, Negocio } from "@/lib/db/configuracion";
+import type { Variante } from "@/lib/types";
 
 type Tab = "usuarios" | "cuenta-negocio" | "preferencias" | "recibos" | "importar";
 
@@ -53,12 +54,15 @@ export function ConfiguracionClient({
   miembros,
   negocio,
   iaRestantes,
+  variantes,
 }: {
   user: SessionUser;
   miembros: Miembro[];
   negocio: Negocio | null;
   /** Lecturas con IA que le quedan a la org por tipo de carga (solo admin). */
   iaRestantes: Record<EntidadImportacion, number>;
+  /** Variantes activas de celulares (Importar datos las exige por fila). */
+  variantes: Variante[];
 }) {
   const esAdmin = user.rol === "admin";
   const searchParams = useSearchParams();
@@ -206,7 +210,9 @@ export function ConfiguracionClient({
 
         {tab === "recibos" && negocio && <RecibosForm negocio={negocio} />}
 
-        {tab === "importar" && <ImportarDatos iaRestantes={iaRestantes} />}
+        {tab === "importar" && (
+          <ImportarDatos iaRestantes={iaRestantes} variantes={variantes} />
+        )}
       </div>
 
       <InvitarUsuarioDialog open={invitando} onClose={() => setInvitando(false)} />

@@ -262,6 +262,10 @@ export function graficosDeVentas(ventas: VentaParaGraficos[]): GraficosVentas {
 
 // ─────────────────── Motivo bloqueante de "Nueva venta" ───────────────────
 export type MotivoInput = {
+  /** Vendedor elegido; vacío = falta escribirlo a mano. Omitido = no se valida. */
+  vendedorNombre?: string;
+  /** Nombre de una tienda nueva escrita a mano; omitido = no se valida. */
+  tiendaNueva?: string;
   clienteNombre: string;
   items: { detalle?: string; precioUsd: number }[];
   pagos: { montoUsd: number; medio: MedioPagoVenta; canjeEquipo?: string }[];
@@ -273,6 +277,10 @@ export type MotivoInput = {
  * el botón deshabilitado muestra este texto en el footer. */
 export function motivoNoConfirmable(i: MotivoInput): string | null {
   if (!i.clienteNombre.trim()) return "Elegí un cliente";
+  if (i.vendedorNombre !== undefined && !i.vendedorNombre.trim())
+    return "Escribí el nombre del vendedor";
+  if (i.tiendaNueva !== undefined && !i.tiendaNueva.trim())
+    return "Escribí el nombre de la tienda nueva";
   if (i.items.length === 0) return "Agregá al menos un ítem";
   if (i.items.some((it) => !(it.detalle ?? "").trim()))
     return "Hay un ítem sin nombre";
@@ -285,4 +293,31 @@ export function motivoNoConfirmable(i: MotivoInput): string | null {
     return "Falta cargar el equipo del canje";
   if (i.pagos.some((p) => p.montoUsd <= 0)) return "Completá el monto de cada pago";
   return null;
+}
+
+/** Largo máximo de un vendedor escrito a mano (mismo tope que el CHECK de
+ * `ventas.vendedor_nombre`). */
+export const VENDEDOR_LIBRE_MAX = 80;
+
+/**
+ * Vendedor de una venta nueva. Cualquier rol puede elegir a otro usuario
+ * activo de la organización (`vendedorId`) o escribir un nombre a mano
+ * (`vendedorId` vacío + `vendedorNombre`). El nombre de un usuario sale
+ * siempre de `usuarios`, nunca del cliente.
+ */
+export function resolverVendedor(
+  input: { vendedorId: string; vendedorNombre: string },
+  usuarios: { id: string; nombre: string }[],
+): { ok: true; vendedorId: string; vendedorNombre: string } | { ok: false; error: string } {
+  if (input.vendedorId) {
+    const u = usuarios.find((x) => x.id === input.vendedorId);
+    if (!u) return { ok: false, error: "El vendedor elegido no es un usuario activo de la organización." };
+    return { ok: true, vendedorId: u.id, vendedorNombre: u.nombre };
+  }
+  const nombre = input.vendedorNombre.trim().replace(/\s+/g, " ");
+  if (!nombre) return { ok: false, error: "Escribí el nombre del vendedor." };
+  if (nombre.length > VENDEDOR_LIBRE_MAX) {
+    return { ok: false, error: `El nombre del vendedor no puede pasar de ${VENDEDOR_LIBRE_MAX} caracteres.` };
+  }
+  return { ok: true, vendedorId: "", vendedorNombre: nombre };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MEDIOS_CAJA, MEDIOS_VENTA } from "@/lib/status";
 import {
+  resolverVendedor,
   calcularMargenPct,
   calcularRestante,
   saldarUltimoPago,
@@ -323,5 +324,65 @@ describe("resumenPorModalidad", () => {
   it("margen null si la modalidad no tiene costos cargados", () => {
     const [, may] = resumenPorModalidad([v("minorista", 100, 50), v("mayorista", 500)]);
     expect(may.margenPct).toBeNull();
+  });
+});
+
+describe("resolverVendedor", () => {
+  const usuarios = [
+    { id: "u1", nombre: "Ana" },
+    { id: "u2", nombre: "Beto" },
+  ];
+
+  it("toma el nombre del usuario elegido, no el que manda el cliente", () => {
+    expect(resolverVendedor({ vendedorId: "u2", vendedorNombre: "Otro" }, usuarios)).toEqual({
+      ok: true,
+      vendedorId: "u2",
+      vendedorNombre: "Beto",
+    });
+  });
+
+  it("rechaza un usuario que no es de la organización o no está activo", () => {
+    expect(resolverVendedor({ vendedorId: "x", vendedorNombre: "" }, usuarios).ok).toBe(false);
+  });
+
+  it("acepta un nombre escrito a mano, limpio", () => {
+    expect(resolverVendedor({ vendedorId: "", vendedorNombre: "  Juan   Pérez " }, usuarios)).toEqual({
+      ok: true,
+      vendedorId: "",
+      vendedorNombre: "Juan Pérez",
+    });
+  });
+
+  it("a mano: vacío o demasiado largo es error", () => {
+    expect(resolverVendedor({ vendedorId: "", vendedorNombre: "   " }, usuarios).ok).toBe(false);
+    expect(resolverVendedor({ vendedorId: "", vendedorNombre: "a".repeat(81) }, usuarios).ok).toBe(false);
+  });
+});
+
+describe("motivoNoConfirmable · vendedor", () => {
+  it("pide el nombre si el vendedor se escribe a mano y está vacío", () => {
+    expect(
+      motivoNoConfirmable({
+        clienteNombre: "Ana",
+        vendedorNombre: "  ",
+        items: [{ detalle: "x", precioUsd: 10 }],
+        pagos: [{ montoUsd: 10, medio: "pesos" }],
+        totalPrecio: 10,
+      }),
+    ).toBe("Escribí el nombre del vendedor");
+  });
+});
+
+describe("motivoNoConfirmable · tienda nueva", () => {
+  it("pide el nombre de la tienda nueva si está vacío", () => {
+    expect(
+      motivoNoConfirmable({
+        clienteNombre: "Ana",
+        tiendaNueva: " ",
+        items: [{ detalle: "x", precioUsd: 10 }],
+        pagos: [{ montoUsd: 10, medio: "pesos" }],
+        totalPrecio: 10,
+      }),
+    ).toBe("Escribí el nombre de la tienda nueva");
   });
 });

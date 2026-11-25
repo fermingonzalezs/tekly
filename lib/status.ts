@@ -168,6 +168,19 @@ export const celularStatus: Record<
  * editable de Importar datos leen de acá. */
 export const CONDICIONES_CELULAR = ["NUEVO", "A+", "A", "B+", "B", "C"] as const;
 
+/** Un celular NUEVO no lleva batería cargada (no aplica): se guarda 100,
+ * mismo criterio que la importación (`lib/importacion.ts`). */
+export const BATERIA_CELULAR_NUEVO = 100;
+
+export function esCelularNuevo(condicion: string | null | undefined): boolean {
+  return (condicion ?? "").trim().toUpperCase() === "NUEVO";
+}
+
+/** Batería que se guarda: la cargada, salvo en un celular NUEVO. */
+export function bateriaCelular(condicion: string | null | undefined, bateria: number): number {
+  return esCelularNuevo(condicion) ? BATERIA_CELULAR_NUEVO : bateria;
+}
+
 // ── Turnos ─────────────────────────────────────────────────────
 
 export const turnoStatus: Record<

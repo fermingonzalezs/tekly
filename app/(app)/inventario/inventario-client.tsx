@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState, useTransition } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
   ClipboardCheck,
@@ -11,7 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button, IconButton } from "@/components/ui/button";
+import { Button, ButtonLink, IconButton } from "@/components/ui/button";
 import { Tabs } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, GrillaCampos, Input, Select, Textarea } from "@/components/ui/field";
@@ -23,6 +23,8 @@ import { BarraFiltros } from "@/components/ui/barra-filtros";
 import { GraficoDona, GraficoRanking } from "@/components/seccion/graficos";
 import {
   CONDICIONES_CELULAR,
+  bateriaCelular,
+  esCelularNuevo,
   celularStatus,
   otroCategoria,
   repuestoEstado,
@@ -45,6 +47,8 @@ import {
   unidadesPorCategoria,
   valorPorCategoria,
   valorPorProveedor,
+  coincideCondicion,
+  opcionesCondicionCelular,
 } from "@/lib/inventario";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
@@ -58,30 +62,40 @@ import type {
   OtroItem,
   OtroUnidad,
   Repuesto,
+  Variante,
 } from "@/lib/types";
 import {
-  createCelularAction,
   updateCelularAction,
   deleteCelularAction,
   crearRecuentoCelularesAction,
   updateRepuestoAction,
-  nuevoRepuestoAction,
-  ingresoRepuestoAction,
   crearRecuentoRepuestosAction,
   deleteRepuestoAction,
   updateOtroAction,
-  nuevoOtroAction,
-  ingresoOtroAction,
   crearRecuentoOtrosAction,
   deleteOtroAction,
   getMovimientosAction,
-  createNotebookAction,
   updateNotebookAction,
   deleteNotebookAction,
+  setVarianteActivaAction,
+  deleteVarianteAction,
 } from "./actions";
 import type { CelularInput, RepuestoInput } from "@/lib/db/inventario";
 import type { NotebookInput } from "@/lib/db/notebooks";
 import { CopiarTexto } from "@/components/copiar-texto";
+import { SelectorVariante } from "@/components/inventario/selector-variante";
+import { VarianteDialog } from "@/components/inventario/variante-dialog";
+import { VariantesTabla } from "@/components/inventario/variantes-tabla";
+import {
+  RenombrarGrupoDialog,
+  UnirVariantesDialog,
+} from "@/components/inventario/variantes-dialogs";
+import {
+  cruzoMinimo,
+  nombreVariante,
+  stockDeVariante,
+  type UnidadDeVariante,
+} from "@/lib/variantes";
 import { copyCelular, copyNotebook } from "@/lib/difusion";
 import { CopiarSeleccion } from "@/components/copiar-texto";
 import { CheckSeleccion } from "@/components/ui/check-seleccion";
@@ -198,6 +212,7 @@ export function InventarioClient({
   initialNotebooks,
   initialRepuestos,
   initialOtros,
+  initialVariantes,
   movimientos,
   hoy,
   user,
@@ -206,6 +221,9 @@ export function InventarioClient({
   initialNotebooks: Notebook[];
   initialRepuestos: Repuesto[];
   initialOtros: OtroItem[];
+  /** Variantes de celulares, incluidas las desactivadas (la vista agrupada
+   * las muestra con «Ver desactivadas»). */
+  initialVariantes: Variante[];
   /** Movimientos de stock de la org (ingreso/egreso/baja) -- alimentan el
    *  gráfico de antigüedad de Celulares. */
   movimientos: MovimientoStockBulk[];
@@ -215,6 +233,7 @@ export function InventarioClient({
   user: SessionUser;
 }) {
   const { publish } = useRealtime();
+  const router = useRouter();
   const esAdmin = user.rol === "admin";
   // Vendedor no ve precios de compra de ítems ya cargados (Costo, Margen,
   // "Valor de stock") -- sí puede seguir cargando un costo al dar de alta
@@ -236,6 +255,59 @@ export function InventarioClient({
   const [notebooks, setNotebooks] = useState<Notebook[]>(initialNotebooks);
   const [repuestos, setRepuestos] = useState<Repuesto[]>(initialRepuestos);
   const [otros, setOtros] = useState<OtroItem[]>(initialOtros);
+  const [variantes, setVariantes] = useState<Variante[]>(initialVariantes);
+
+  // Vista de Celulares: agrupada por grupo › variante (default) o la tabla
+  // plana de unidades. Persistida por sección en `localStorage`.
+  const [vistaCelulares, setVistaCelulares] = useState<"agrupado" | "unidades">("agrupado");
+  const [vistaNotebooks, setVistaNotebooks] = useState<"agrupado" | "unidades">("agrupado");
+  const [verVariantesDesactivadas, setVerVariantesDesactivadas] = useState(false);
+  const [varianteEditando, setVarianteEditando] = useState<Variante | null>(null);
+  const [grupoRenombrando, setGrupoRenombrando] = useState<string | null>(null);
+  const [varianteUniendo, setVarianteUniendo] = useState<Variante | null>(null);
+  const [varianteEliminando, setVarianteEliminando] = useState<Variante | null>(null);
+  const [errorEliminarVariante, setErrorEliminarVariante] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const guardada = localStorage.getItem("tekly:ui:inventario-celulares-vista");
+      if (guardada === "unidades" || guardada === "agrupado") setVistaCelulares(guardada);
+      const guardadaNb = localStorage.getItem("tekly:ui:inventario-notebooks-vista");
+      if (guardadaNb === "unidades" || guardadaNb === "agrupado") setVistaNotebooks(guardadaNb);
+    } catch {
+      // sin localStorage (modo privado): se queda con el default.
+    }
+  }, []);
+
+  function cambiarVistaNotebooks(vista: "agrupado" | "unidades") {
+    setVistaNotebooks(vista);
+    try {
+      localStorage.setItem("tekly:ui:inventario-notebooks-vista", vista);
+    } catch {
+      // sin localStorage: queda en memoria.
+    }
+  }
+
+  function cambiarVistaCelulares(vista: "agrupado" | "unidades") {
+    setVistaCelulares(vista);
+    try {
+      localStorage.setItem("tekly:ui:inventario-celulares-vista", vista);
+    } catch {
+      // idem
+    }
+  }
+
+  // Tras editar/unir/borrar una variante se llama `router.refresh()`: los
+  // props de la página llegan nuevos pero el `useState` no se reinicia solo.
+  useEffect(() => {
+    setCelulares(initialCelulares);
+  }, [initialCelulares]);
+  useEffect(() => {
+    setNotebooks(initialNotebooks);
+  }, [initialNotebooks]);
+  useEffect(() => {
+    setVariantes(initialVariantes);
+  }, [initialVariantes]);
 
   // Recuento (Celulares/Repuestos/Otros) siempre en un modal aparte
   // (`recuentoModalTipo` + `RecuentoCelularesModalDialog`/`RecuentoModalDialog`,
@@ -251,6 +323,9 @@ export function InventarioClient({
   const [notebookFiltro, setNotebookFiltro] = useState<"todos" | CelularStatus>(
     "todos",
   );
+  // Condición del equipo (Celulares y Notebooks): "todas", "usado" (cualquier
+  // grado) o una condición puntual -- ver `coincideCondicion`.
+  const [condicionFiltro, setCondicionFiltro] = useState("todas");
   const [repuestoFiltro, setRepuestoFiltro] = useState<
     "todos" | "bajo" | "sin"
   >("todos");
@@ -273,15 +348,10 @@ export function InventarioClient({
       ids.every((id) => prev.has(id)) ? new Set() : new Set(ids),
     );
   }
-  const [addCelular, setAddCelular] = useState(false);
-  const [addNotebook, setAddNotebook] = useState(false);
-  const [addRepuesto, setAddRepuesto] = useState(false);
-  const [addOtro, setAddOtro] = useState(false);
   const [openCelularId, setOpenCelularId] = useState<string | null>(null);
   const [openNotebookId, setOpenNotebookId] = useState<string | null>(null);
   const [openRepuestoId, setOpenRepuestoId] = useState<string | null>(null);
   const [openOtroId, setOpenOtroId] = useState<string | null>(null);
-  const [reponerId, setReponerId] = useState<string | null>(null);
   const [expandedOtros, setExpandedOtros] = useState<Set<string>>(new Set());
   const openCelular = celulares.find((e) => e.id === openCelularId) ?? null;
   const openNotebook = notebooks.find((n) => n.id === openNotebookId) ?? null;
@@ -296,9 +366,32 @@ export function InventarioClient({
     });
   }
 
-  function reponer(id: string) {
-    setReponerId(id);
-    setAddRepuesto(true);
+  /** Reponer = cargar una compra (plan 025). */
+  function reponer(_id: string) {
+    router.push("/compras?accion=nueva-compra");
+  }
+
+  /** Aviso de stock bajo: solo cuando la variante **cruza** su mínimo hacia
+   * abajo con este cambio (se dispara después de que la action confirmó). */
+  function avisarStockBajo(
+    ids: string[],
+    antes: UnidadDeVariante[],
+    despues: UnidadDeVariante[],
+  ) {
+    for (const id of new Set(ids.filter(Boolean))) {
+      const variante = variantes.find((v) => v.id === id);
+      if (!variante) continue;
+      const disponiblesAntes = stockDeVariante(variante, antes).disponibles;
+      const disponiblesAhora = stockDeVariante(variante, despues).disponibles;
+      if (cruzoMinimo(disponiblesAntes, disponiblesAhora, variante.stockMinimo)) {
+        publish({
+          type: "low_stock",
+          actor: user.nombre,
+          part: nombreVariante(variante, { cualquierColor: true }),
+          qty: disponiblesAhora,
+        });
+      }
+    }
   }
 
   function switchTab(t: Tab) {
@@ -307,6 +400,7 @@ export function InventarioClient({
     setQ("");
     setCelularFiltro("todos");
     setNotebookFiltro("todos");
+    setCondicionFiltro("todas");
     setRepuestoFiltro("todos");
     setOtroFiltro("todos");
     setTab(t);
@@ -327,6 +421,12 @@ export function InventarioClient({
       setTab("celulares");
       setOpenCelularId(celularParam);
     }
+    const notebookParam = urlParams.get("notebook");
+    if (notebookParam) {
+      // Deep link desde el historial de Compras / Ingresos (plan 025).
+      setTab("notebooks");
+      setOpenNotebookId(notebookParam);
+    }
     if (
       tabParam === "celulares" ||
       tabParam === "notebooks" ||
@@ -345,6 +445,7 @@ export function InventarioClient({
   const celularesFiltrados = celulares.filter(
     (e) =>
       (celularFiltro === "todos" || e.estado === celularFiltro) &&
+      coincideCondicion(e.condicion, condicionFiltro) &&
       (!needle ||
         e.modelo.toLowerCase().includes(needle) ||
         e.color.toLowerCase().includes(needle) ||
@@ -353,6 +454,7 @@ export function InventarioClient({
   const notebooksFiltrados = notebooks.filter(
     (n) =>
       (notebookFiltro === "todos" || n.estado === notebookFiltro) &&
+      coincideCondicion(n.condicion, condicionFiltro) &&
       (!needle ||
         n.modelo.toLowerCase().includes(needle) ||
         n.numeroSerie.toLowerCase().includes(needle) ||
@@ -404,6 +506,23 @@ export function InventarioClient({
   const categoriaUnidades = unidadesPorCategoria(otros);
   const categoriaValor = valorPorCategoria(otros);
 
+  /** Acciones de variante de la vista agrupada (Celulares y Notebooks). */
+  function cambiarActivaVariante(v: Variante, activa: boolean) {
+    setVariantes((p) => p.map((x) => (x.id === v.id ? { ...x, activa } : x)));
+    startDeleteTransition(async () => {
+      await setVarianteActivaAction(v.id, activa);
+      router.refresh();
+    });
+  }
+  const accionesVariante = {
+    onEditar: (v: Variante) => setVarianteEditando(v),
+    onRenombrarGrupo: (grupo: string) => setGrupoRenombrando(grupo),
+    onUnir: (v: Variante) => setVarianteUniendo(v),
+    onDesactivar: (v: Variante) => cambiarActivaVariante(v, false),
+    onReactivar: (v: Variante) => cambiarActivaVariante(v, true),
+    onEliminar: (v: Variante) => setVarianteEliminando(v),
+  };
+
   const busqueda = (
     <div className="relative w-full md:w-64">
       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
@@ -440,64 +559,92 @@ export function InventarioClient({
           Recuento
         </Button>
       )}
-      <Button
-        icon={Plus}
-        onClick={() =>
-          tab === "celulares"
-            ? setAddCelular(true)
-            : tab === "notebooks"
-              ? setAddNotebook(true)
-              : tab === "repuestos"
-                ? setAddRepuesto(true)
-                : setAddOtro(true)
-        }
-        variant="tonal"
-        fullOnMobile
-      >
-        {tab === "celulares"
-          ? "Agregar celular"
-          : tab === "notebooks"
-            ? "Agregar notebook"
-            : tab === "repuestos"
-              ? "Agregar / ingresar repuesto"
-              : "Agregar / ingresar producto"}
-      </Button>
+      {/* Plan 025: toda entrada de stock pasa por una compra. */}
+      <ButtonLink href="/compras?accion=nueva-compra" icon={Plus} variant="tonal" fullOnMobile>
+        Ingresar equipo
+      </ButtonLink>
     </div>
   );
 
   const filtrosTab =
     tab === "celulares" ? (
-      <Select
-        value={celularFiltro}
-        onChange={(e) =>
-          setCelularFiltro(e.target.value as "todos" | CelularStatus)
-        }
-        className={cn("w-full md:w-52", filterPill)}
-        aria-label="Filtrar por estado"
-      >
-        <option value="todos">Todos los estados</option>
-        {ESTADOS.map((s) => (
-          <option key={s} value={s}>
-            {celularStatus[s].label}
-          </option>
-        ))}
-      </Select>
+      <>
+        <Tabs
+          value={vistaCelulares}
+          onChange={(v) => cambiarVistaCelulares(v)}
+          options={[
+            { value: "agrupado" as const, label: "Agrupado" },
+            { value: "unidades" as const, label: "Unidades" },
+          ]}
+        />
+        <Select
+          value={celularFiltro}
+          onChange={(e) =>
+            setCelularFiltro(e.target.value as "todos" | CelularStatus)
+          }
+          className={cn("w-full md:w-52", filterPill)}
+          aria-label="Filtrar por estado"
+        >
+          <option value="todos">Todos los estados</option>
+          {ESTADOS.map((s) => (
+            <option key={s} value={s}>
+              {celularStatus[s].label}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={condicionFiltro}
+          onChange={(e) => setCondicionFiltro(e.target.value)}
+          className={cn("w-full md:w-56", filterPill)}
+          aria-label="Filtrar por condición"
+        >
+          <option value="todas">Todas las condiciones</option>
+          {opcionesCondicionCelular(
+            CONDICIONES_CELULAR,
+            celulares.map((c) => c.condicion),
+          ).map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
+      </>
     ) : tab === "notebooks" ? (
-      <Select
-        value={notebookFiltro}
-        onChange={(e) =>
-          setNotebookFiltro(e.target.value as "todos" | CelularStatus)
-        }
-        className={cn("w-full md:w-52", filterPill)}
-        aria-label="Filtrar por estado"
-      >
-        <option value="todos">Todos los estados</option>
-        {ESTADOS.map((s) => (
-          <option key={s} value={s}>
-            {celularStatus[s].label}
-          </option>
-        ))}
-      </Select>
+      <>
+        <Tabs
+          value={vistaNotebooks}
+          onChange={(v) => cambiarVistaNotebooks(v)}
+          options={[
+            { value: "agrupado" as const, label: "Agrupado" },
+            { value: "unidades" as const, label: "Unidades" },
+          ]}
+        />
+        <Select
+          value={notebookFiltro}
+          onChange={(e) =>
+            setNotebookFiltro(e.target.value as "todos" | CelularStatus)
+          }
+          className={cn("w-full md:w-52", filterPill)}
+          aria-label="Filtrar por estado"
+        >
+          <option value="todos">Todos los estados</option>
+          {ESTADOS.map((s) => (
+            <option key={s} value={s}>
+              {celularStatus[s].label}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={condicionFiltro}
+          onChange={(e) => setCondicionFiltro(e.target.value)}
+          className={cn("w-full md:w-48", filterPill)}
+          aria-label="Filtrar por condición"
+        >
+          <option value="todas">Todas las condiciones</option>
+          <option value="nuevo">Nuevas</option>
+          <option value="usado">Usadas</option>
+        </Select>
+      </>
     ) : tab === "repuestos" ? (
       <Select
         value={repuestoFiltro}
@@ -525,17 +672,19 @@ export function InventarioClient({
       </Select>
     );
 
-  const filtrosActivos = (
-    tab === "celulares"
+  const filtrosActivos =
+    (tab === "celulares"
       ? celularFiltro !== "todos"
       : tab === "notebooks"
         ? notebookFiltro !== "todos"
         : tab === "repuestos"
           ? repuestoFiltro !== "todos"
-          : otroFiltro !== "todos"
-  )
-    ? 1
-    : 0;
+          : otroFiltro !== "todos")
+      ? 1
+      : 0;
+  const filtrosActivosTotal =
+    filtrosActivos +
+    ((tab === "celulares" || tab === "notebooks") && condicionFiltro !== "todas" ? 1 : 0);
 
   return (
     <>
@@ -765,7 +914,7 @@ export function InventarioClient({
         }
         filtros={
           <BarraFiltros
-            contadorFiltros={filtrosActivos + (q ? 1 : 0)}
+            contadorFiltros={filtrosActivosTotal + (q ? 1 : 0)}
             tabs={
               <Tabs
                 value={tab}
@@ -783,6 +932,40 @@ export function InventarioClient({
         {/* ── Celulares ───────────────────────────── */}
         {tab === "celulares" &&
           (() => {
+            if (vistaCelulares === "agrupado") {
+              const desactivadas = variantes.filter(
+                (v) => !v.activa && v.categoria === "celular",
+              ).length;
+              return (
+                <div className="space-y-3">
+                  <div className="flex justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVerVariantesDesactivadas((v) => !v)}
+                    >
+                      {verVariantesDesactivadas
+                        ? "Ver activas"
+                        : `Ver desactivadas (${desactivadas})`}
+                    </Button>
+                  </div>
+                  <VariantesTabla
+                    variantes={variantes}
+                    celulares={celulares}
+                    unidadesFiltradas={celularesFiltrados}
+                    hayFiltro={needle !== "" || celularFiltro !== "todos" || condicionFiltro !== "todas"}
+                    verDesactivadas={verVariantesDesactivadas}
+                    esAdmin={esAdmin}
+                    puedeVerCosto={puedeVerCosto}
+                    onAbrirUnidad={(id) => setOpenCelularId(id)}
+                    onAgregarUnidad={(v) => {
+                      router.push(`/compras?accion=nueva-compra&variante=${v.id}`);
+                    }}
+                    {...accionesVariante}
+                  />
+                </div>
+              );
+            }
             return (
               <>
                 {celularesFiltrados.some((e) => seleccion.has(e.id)) && (
@@ -1002,7 +1185,39 @@ export function InventarioClient({
           })()}
 
         {/* ── Notebooks ─────────────────────────── */}
-        {tab === "notebooks" && (
+        {tab === "notebooks" && vistaNotebooks === "agrupado" && (
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVerVariantesDesactivadas((v) => !v)}
+              >
+                {verVariantesDesactivadas
+                  ? "Ver activas"
+                  : `Ver desactivadas (${
+                      variantes.filter((v) => !v.activa && v.categoria === "notebook").length
+                    })`}
+              </Button>
+            </div>
+            <VariantesTabla
+              categoria="notebook"
+              variantes={variantes}
+              notebooks={notebooks}
+              unidadesFiltradas={notebooksFiltrados}
+              hayFiltro={needle !== "" || notebookFiltro !== "todos" || condicionFiltro !== "todas"}
+              verDesactivadas={verVariantesDesactivadas}
+              esAdmin={esAdmin}
+              puedeVerCosto={puedeVerCosto}
+              onAbrirUnidad={(id) => setOpenNotebookId(id)}
+              onAgregarUnidad={(v) => {
+                router.push(`/compras?accion=nueva-compra&variante=${v.id}`);
+              }}
+              {...accionesVariante}
+            />
+          </div>
+        )}
+        {tab === "notebooks" && vistaNotebooks === "unidades" && (
           <>
             {notebooksFiltrados.some((n) => seleccion.has(n.id)) && (
               <CopiarSeleccion
@@ -1825,31 +2040,24 @@ export function InventarioClient({
           })()}
       </SeccionTabla>
 
-      {/* Agregar celular */}
-      <CelularFormDialog
-        key={addCelular ? "e" : "e0"}
-        celular={null}
-        open={addCelular}
-        onClose={() => setAddCelular(false)}
-        puedeVerCosto={puedeVerCosto}
-        onSubmit={async (data) => {
-          const nuevo = await createCelularAction(data);
-          setCelulares((p) => [nuevo, ...p]);
-        }}
-      />
-
       {/* Ver / editar celular */}
       <CelularFormDialog
         key={openCelularId ?? "celular-none"}
         celular={openCelular}
+        variantes={variantes}
+        unidades={celulares}
         open={!!openCelular}
         onClose={() => setOpenCelularId(null)}
+        onVarianteCreada={(v) => setVariantes((p) => [...p, v])}
         puedeVerCosto={puedeVerCosto}
         onSubmit={async (data) => {
+          const antes = celulares;
           const actualizado = await updateCelularAction(openCelular!.id, data);
-          setCelulares((p) =>
-            p.map((x) => (x.id === actualizado.id ? actualizado : x)),
+          const despues = celulares.map((x) =>
+            x.id === actualizado.id ? actualizado : x,
           );
+          setCelulares(despues);
+          avisarStockBajo([actualizado.varianteId], antes, despues);
           setOpenCelularId(null);
         }}
         onDelete={
@@ -1857,8 +2065,12 @@ export function InventarioClient({
             ? () => {
                 const id = openCelular!.id;
                 const modelo = openCelular!.modelo;
-                setCelulares((p) => p.filter((x) => x.id !== id));
+                const varianteId = openCelular!.varianteId;
+                const antes = celulares;
+                const despues = celulares.filter((x) => x.id !== id);
+                setCelulares(despues);
                 setOpenCelularId(null);
+                avisarStockBajo([varianteId], antes, despues);
                 startDeleteTransition(async () => {
                   await deleteCelularAction(id);
                 });
@@ -1873,33 +2085,102 @@ export function InventarioClient({
         }
       />
 
-      {/* Agregar notebook */}
-      <NotebookFormDialog
-        key={addNotebook ? "n" : "n0"}
-        notebook={null}
-        open={addNotebook}
-        onClose={() => setAddNotebook(false)}
-        puedeVerCosto={puedeVerCosto}
-        onSubmit={async (data) => {
-          const res = await createNotebookAction(data);
-          if (!res.ok) throw new Error(res.error);
-          setNotebooks((p) => [res.notebook, ...p]);
-        }}
-      />
+      {/* Variantes: editar / renombrar grupo / unir / eliminar */}
+      {varianteEditando && (
+        <VarianteDialog
+          key={`variante-${varianteEditando.id}`}
+          open
+          variante={varianteEditando}
+          grupos={Array.from(
+            new Set(
+              variantes
+                .filter((v) => v.categoria === varianteEditando.categoria)
+                .map((v) => v.grupo),
+            ),
+          )}
+          skus={variantes.map((v) => v.sku)}
+          onClose={() => setVarianteEditando(null)}
+          onSaved={(v) => {
+            setVariantes((p) => p.map((x) => (x.id === v.id ? v : x)));
+            setVarianteEditando(null);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {grupoRenombrando !== null && (
+        <RenombrarGrupoDialog
+          key={`grupo-${grupoRenombrando}`}
+          open
+          grupo={grupoRenombrando}
+          categoria={tab === "notebooks" ? "notebook" : "celular"}
+          onClose={() => setGrupoRenombrando(null)}
+          onSaved={() => router.refresh()}
+        />
+      )}
+
+      {varianteUniendo && (
+        <UnirVariantesDialog
+          key={`unir-${varianteUniendo.id}`}
+          open
+          origen={varianteUniendo}
+          variantes={variantes}
+          celulares={varianteUniendo.categoria === "notebook" ? notebooks : celulares}
+          onClose={() => setVarianteUniendo(null)}
+          onDone={() => router.refresh()}
+        />
+      )}
+
+      {varianteEliminando && (
+        <ConfirmDialog
+          open
+          onClose={() => {
+            setVarianteEliminando(null);
+            setErrorEliminarVariante(null);
+          }}
+          onConfirm={() => {
+            const variante = varianteEliminando;
+            startDeleteTransition(async () => {
+              const res = await deleteVarianteAction(variante.id);
+              if (!res.ok) {
+                setErrorEliminarVariante(res.error ?? "No se pudo eliminar la variante.");
+                return;
+              }
+              setVariantes((p) => p.filter((x) => x.id !== variante.id));
+              setVarianteEliminando(null);
+              setErrorEliminarVariante(null);
+              router.refresh();
+            });
+          }}
+          title={`¿Eliminar ${varianteEliminando.sku}?`}
+          confirmLabel="Eliminar variante"
+        >
+          <>
+            Se elimina la variante. Solo es posible si no tiene ningún equipo: si tiene, desactivala.
+            {errorEliminarVariante && (
+              <p className="text-xs text-red-600">{errorEliminarVariante}</p>
+            )}
+          </>
+        </ConfirmDialog>
+      )}
 
       {/* Ver / editar notebook */}
       <NotebookFormDialog
         key={openNotebookId ?? "notebook-none"}
         notebook={openNotebook}
+        variantes={variantes}
+        unidades={notebooks}
+        onVarianteCreada={(v) => setVariantes((p) => [...p, v])}
         open={!!openNotebook}
         onClose={() => setOpenNotebookId(null)}
         puedeVerCosto={puedeVerCosto}
         onSubmit={async (data) => {
           const res = await updateNotebookAction(openNotebook!.id, data);
           if (!res.ok) throw new Error(res.error);
-          setNotebooks((p) =>
-            p.map((x) => (x.id === res.notebook.id ? res.notebook : x)),
-          );
+          const antes = notebooks;
+          const despues = notebooks.map((x) => (x.id === res.notebook.id ? res.notebook : x));
+          setNotebooks(despues);
+          avisarStockBajo([res.notebook.varianteId], antes, despues);
           setOpenNotebookId(null);
         }}
         onDelete={
@@ -1907,8 +2188,12 @@ export function InventarioClient({
             ? () => {
                 const id = openNotebook!.id;
                 const modelo = openNotebook!.modelo;
-                setNotebooks((p) => p.filter((x) => x.id !== id));
+                const varianteId = openNotebook!.varianteId;
+                const antes = notebooks;
+                const despues = notebooks.filter((x) => x.id !== id);
+                setNotebooks(despues);
                 setOpenNotebookId(null);
+                avisarStockBajo([varianteId], antes, despues);
                 startDeleteTransition(async () => {
                   await deleteNotebookAction(id);
                 });
@@ -1923,74 +2208,6 @@ export function InventarioClient({
         }
       />
 
-      {/* Agregar / ingresar repuesto */}
-      <IngresoDialog
-        key={addRepuesto ? `r-${reponerId ?? "x"}` : "r0"}
-        open={addRepuesto}
-        onClose={() => {
-          setAddRepuesto(false);
-          setReponerId(null);
-        }}
-        titulo="repuesto"
-        defaultId={reponerId ?? undefined}
-        existentes={repuestos.map((r) => ({
-          id: r.id,
-          label: `${r.nombre} · ${r.modelo}`,
-        }))}
-        onIngreso={async (id, cantidad, precio) => {
-          const actualizado = await ingresoRepuestoAction(id, cantidad, precio);
-          setRepuestos((p) => p.map((r) => (r.id === id ? actualizado : r)));
-        }}
-        onNuevo={async (nombre, precioCompra, cantidad) => {
-          const nuevo = await nuevoRepuestoAction(
-            nombre,
-            precioCompra,
-            cantidad,
-          );
-          setRepuestos((p) => [nuevo, ...p]);
-        }}
-      />
-
-      {/* Agregar / ingresar otro producto */}
-      <IngresoDialog
-        key={addOtro ? "o" : "o0"}
-        open={addOtro}
-        onClose={() => setAddOtro(false)}
-        titulo="producto"
-        categoria
-        existentes={otros.map((o) => ({
-          id: o.id,
-          label: o.nombre,
-          serializado: o.serializado,
-        }))}
-        onIngreso={async (id, cantidad, precio, unidades) => {
-          const actualizado = await ingresoOtroAction(
-            id,
-            cantidad,
-            precio,
-            unidades,
-          );
-          setOtros((p) => p.map((o) => (o.id === id ? actualizado : o)));
-        }}
-        onNuevo={async (
-          nombre,
-          precioCompra,
-          cantidad,
-          cat,
-          unidades,
-          precioVenta,
-        ) => {
-          const nuevo = await nuevoOtroAction(
-            nombre,
-            precioCompra,
-            cantidad,
-            cat,
-            unidades,
-            precioVenta,
-          );
-          setOtros((p) => [nuevo, ...p]);
-        }}
-      />
 
       {/* Ver / editar repuesto */}
       <RepuestoFormDialog
@@ -2463,22 +2680,37 @@ const ESTADOS: CelularStatus[] = [
   "extraviado",
 ];
 
-function CelularFormDialog({
+export function CelularFormDialog({
   celular,
+  variantes,
+  unidades = [],
+  varianteInicialId,
   open,
   onClose,
   onSubmit,
   onDelete,
+  onVarianteCreada,
   puedeVerCosto,
+  modoCompra = false,
 }: {
   celular: Celular | null;
+  variantes: Variante[];
+  /** Para mostrar stock disponible en el selector (opcional). */
+  unidades?: Celular[];
+  /** Alta desde una variante puntual (menú «Agregar unidad»). */
+  varianteInicialId?: string | null;
   open: boolean;
   onClose: () => void;
   onSubmit: (e: CelularInput) => void | Promise<void>;
   onDelete?: () => void;
+  onVarianteCreada?: (variante: Variante) => void;
   /** false para vendedor -- oculta el costo de un celular YA cargado (no el
    * campo al dar de alta uno nuevo, ahí lo escribe la misma persona). */
   puedeVerCosto: boolean;
+  /** Plan 025: el formulario se usa para armar el carrito de una compra.
+   * `onSubmit` solo agrega el ítem (no guarda) y el dialog se cierra, sin el
+   * paso de «Confirmar ingreso al stock». */
+  modoCompra?: boolean;
 }) {
   const edit = !!celular;
   const [f, setF] = useState<Celular>(
@@ -2493,6 +2725,8 @@ function CelularFormDialog({
       costoUsd: 0,
       precioUsd: 0,
       estado: "en_revision",
+      varianteId: varianteInicialId ?? "",
+      precioPropio: false,
     },
   );
   const [pending, startTransition] = useTransition();
@@ -2501,9 +2735,25 @@ function CelularFormDialog({
   const [altaOk, setAltaOk] = useState(false);
   const set = <K extends keyof Celular>(k: K, v: Celular[K]) =>
     setF((p) => ({ ...p, [k]: v }));
-  const valid = f.modelo.trim() && f.costoUsd > 0 && f.precioUsd > 0;
+  const variante = variantes.find((v) => v.id === f.varianteId) ?? null;
+  // El precio efectivo: el de la variante salvo que la unidad tenga el propio.
+  const precioEfectivo = variante && !f.precioPropio ? variante.precioUsd : f.precioUsd;
+  const valid = !!variante && f.costoUsd > 0 && precioEfectivo > 0;
   const margen =
-    f.precioUsd > 0 ? ((f.precioUsd - f.costoUsd) / f.precioUsd) * 100 : 0;
+    precioEfectivo > 0 ? ((precioEfectivo - f.costoUsd) / precioEfectivo) * 100 : 0;
+
+  /** Los datos clave (y el precio si no es propio) salen de la variante. */
+  function elegirVariante(v: Variante | null) {
+    setF((p) => ({
+      ...p,
+      varianteId: v?.id ?? "",
+      modelo: v?.modelo ?? p.modelo,
+      almacenamiento: v?.almacenamiento || p.almacenamiento,
+      condicion: v?.condicion || p.condicion,
+      color: v?.color || p.color,
+      precioUsd: v && !p.precioPropio ? v.precioUsd : p.precioUsd,
+    }));
+  }
 
   const movimientos = useMovimientos("celular", edit ? celular!.id : null);
 
@@ -2511,17 +2761,20 @@ function CelularFormDialog({
     startTransition(async () => {
       try {
         await onSubmit({
+          varianteId: f.varianteId,
           modelo: f.modelo.trim(),
           almacenamiento: f.almacenamiento,
           color: f.color.trim() || "—",
           imei: f.imei.trim() || "—",
-          bateria: f.bateria,
+          bateria: bateriaCelular(variante?.condicion || f.condicion, f.bateria),
           condicion: f.condicion,
           costoUsd: f.costoUsd,
-          precioUsd: f.precioUsd,
+          precioUsd: precioEfectivo,
           estado: f.estado,
+          precioPropio: f.precioPropio,
         });
-        if (!edit) setAltaOk(true);
+        if (modoCompra) onClose();
+        else if (!edit) setAltaOk(true);
       } catch (e) {
         setConfirmAlta(false);
         throw e;
@@ -2536,13 +2789,15 @@ function CelularFormDialog({
         onClose={onClose}
         size="3xl"
         formulario={!edit}
-        title={edit ? `Celular · ${celular!.modelo}` : "Agregar celular"}
+        title={edit ? `Celular · ${celular!.modelo}` : modoCompra ? "Agregar celular a la compra" : "Agregar celular"}
         description={
           edit
             ? puedeVerCosto
               ? `Margen ${margen.toFixed(0)}%`
               : undefined
-            : "Ingresa en estado «En revisión»."
+            : modoCompra
+              ? "Entra al stock «En revisión» al guardar la compra. El costo es el unitario, antes de los costos adicionales."
+              : "Ingresa en estado «En revisión»."
         }
         footer={
           <>
@@ -2565,11 +2820,11 @@ function CelularFormDialog({
             </Button>
             <Button
               disabled={!valid || pending}
-              onClick={() => (edit ? guardar() : setConfirmAlta(true))}
+              onClick={() => (edit || modoCompra ? guardar() : setConfirmAlta(true))}
               variant="primary"
               fullOnMobile
             >
-              {pending ? "Guardando…" : edit ? "Guardar" : "Agregar"}
+              {pending ? "Guardando…" : edit ? "Guardar" : modoCompra ? "Agregar a la compra" : "Agregar"}
             </Button>
           </>
         }
@@ -2577,29 +2832,54 @@ function CelularFormDialog({
         <div className="space-y-5">
           <div>
             <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+              Variante
+            </p>
+            <SelectorVariante
+              variantes={variantes}
+              unidades={unidades}
+              value={f.varianteId || null}
+              onChange={elegirVariante}
+              onVarianteCreada={onVarianteCreada}
+            />
+            <p className="mt-1.5 text-[11px] text-neutral-500">
+              {variante
+                ? `Definido por la variante ${variante.sku}: el modelo, almacenamiento, condición y (si aplica) el color salen de acá.`
+                : "Obligatoria: elegí una variante o creá una nueva."}
+            </p>
+          </div>
+
+          <div>
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
               Información general
             </p>
             <GrillaCampos>
               <Field label="Modelo">
                 <Input
-                  value={f.modelo}
-                  onChange={(e) => set("modelo", e.target.value)}
+                  value={variante?.modelo ?? f.modelo}
+                  disabled={!!variante}
                   placeholder="iPhone 13"
                 />
               </Field>
               <Field label="Almacenamiento">
                 <Select
-                  value={f.almacenamiento}
-                  onChange={(e) => set("almacenamiento", e.target.value)}
+                  value={variante?.almacenamiento || f.almacenamiento}
+                  disabled={!!variante}
                 >
-                  {["64GB", "128GB", "256GB", "512GB", "1TB"].map((a) => (
+                  {Array.from(
+                    new Set(
+                      ["64GB", "128GB", "256GB", "512GB", "1TB"].concat(
+                        variante?.almacenamiento ? [variante.almacenamiento] : [],
+                      ),
+                    ),
+                  ).map((a) => (
                     <option key={a}>{a}</option>
                   ))}
                 </Select>
               </Field>
               <Field label="Color">
                 <Input
-                  value={f.color}
+                  value={variante?.color || f.color}
+                  disabled={!!variante?.color}
                   onChange={(e) => set("color", e.target.value)}
                 />
               </Field>
@@ -2610,18 +2890,22 @@ function CelularFormDialog({
                 />
               </Field>
               <Field label="Batería (%)">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={f.bateria}
-                  onChange={(e) => set("bateria", Number(e.target.value) || 0)}
-                />
+                {esCelularNuevo(variante?.condicion || f.condicion) ? (
+                  <Input value="" placeholder="No aplica (nuevo)" disabled aria-label="Batería: no aplica en un celular nuevo" />
+                ) : (
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={f.bateria}
+                    onChange={(e) => set("bateria", Number(e.target.value) || 0)}
+                  />
+                )}
               </Field>
               <Field label="Condición">
                 <Select
-                  value={f.condicion}
-                  onChange={(e) => set("condicion", e.target.value)}
+                  value={variante?.condicion || f.condicion}
+                  disabled={!!variante}
                 >
                   {CONDICIONES_CELULAR.map((c) => (
                     <option key={c}>{c}</option>
@@ -2644,7 +2928,8 @@ function CelularFormDialog({
                 <Input
                   type="number"
                   min={0}
-                  value={f.precioUsd || ""}
+                  disabled={!!variante && !f.precioPropio}
+                  value={precioEfectivo || ""}
                   onChange={(e) =>
                     set("precioUsd", Number(e.target.value) || 0)
                   }
@@ -2667,12 +2952,35 @@ function CelularFormDialog({
                 </Field>
               )}
             </GrillaCampos>
+            {variante && (
+              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-[13px] text-neutral-700">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-accent"
+                  checked={f.precioPropio}
+                  onChange={(e) => {
+                    const propio = e.target.checked;
+                    setF((p) => ({
+                      ...p,
+                      precioPropio: propio,
+                      precioUsd: propio
+                        ? p.precioUsd || variante.precioUsd
+                        : variante.precioUsd,
+                    }));
+                  }}
+                />
+                Precio propio para este equipo
+                <span className="text-[11px] text-neutral-500">
+                  (si no, sigue al de la variante)
+                </span>
+              </label>
+            )}
           </div>
 
           {edit && <MovimientosLog movimientos={movimientos} />}
         </div>
       </Dialog>
-      {!edit && (
+      {!edit && !modoCompra && (
         <ConfirmarAltaDialog
           open={confirmAlta}
           onClose={() => setConfirmAlta(false)}
@@ -2684,11 +2992,12 @@ function CelularFormDialog({
           pregunta="¿Agregar este celular al inventario? Ingresa en estado «En revisión»."
           confirmLabel="Agregar al stock"
           filas={[
-            { label: "Modelo", value: `${f.modelo.trim()} ${f.almacenamiento}`.trim() },
-            { label: "Color", value: f.color.trim() || "—" },
+            { label: "Variante", value: variante?.sku ?? "—" },
+            { label: "Modelo", value: `${variante?.modelo ?? f.modelo} ${variante?.almacenamiento ?? f.almacenamiento}`.trim() },
+            { label: "Color", value: variante?.color || f.color.trim() || "—" },
             { label: "IMEI", value: f.imei.trim() || "—" },
             { label: "Costo", value: fmtUsd(f.costoUsd) },
-            { label: "Precio", value: fmtUsd(f.precioUsd) },
+            { label: "Precio", value: fmtUsd(variante && !f.precioPropio ? variante.precioUsd : f.precioUsd) },
           ]}
         />
       )}
@@ -2715,20 +3024,35 @@ function condicionLabel(n: Pick<Notebook, "condicion">): string {
   return n.condicion === "usado" ? "Usada" : "Nueva";
 }
 
-function NotebookFormDialog({
+export function NotebookFormDialog({
   notebook,
+  variantes,
+  unidades,
+  varianteInicialId,
+  onVarianteCreada,
   open,
   onClose,
   onSubmit,
   onDelete,
   puedeVerCosto,
+  modoCompra = false,
 }: {
   notebook: Notebook | null;
+  /** Todas las variantes (el selector se queda con las de notebooks). */
+  variantes: Variante[];
+  unidades: Notebook[];
+  /** Alta desde una variante puntual (menú «Agregar unidad»). */
+  varianteInicialId?: string | null;
+  onVarianteCreada?: (variante: Variante) => void;
   open: boolean;
   onClose: () => void;
   onSubmit: (n: NotebookInput) => void | Promise<void>;
   onDelete?: () => void;
   puedeVerCosto: boolean;
+  /** Plan 025: el formulario se usa para armar el carrito de una compra.
+   * `onSubmit` solo agrega el ítem (no guarda) y el dialog se cierra, sin el
+   * paso de «Confirmar ingreso al stock». */
+  modoCompra?: boolean;
 }) {
   const edit = !!notebook;
   const [f, setF] = useState<Notebook>(
@@ -2750,6 +3074,8 @@ function NotebookFormDialog({
       estado: "en_revision",
       condicion: "nuevo",
       bateria: null,
+      varianteId: varianteInicialId ?? "",
+      precioPropio: false,
     },
   );
   const [pending, startTransition] = useTransition();
@@ -2759,12 +3085,32 @@ function NotebookFormDialog({
   const [altaOk, setAltaOk] = useState(false);
   const set = <K extends keyof Notebook>(k: K, v: Notebook[K]) =>
     setF((p) => ({ ...p, [k]: v }));
-  const usado = f.condicion === "usado";
+  const variante = variantes.find((v) => v.id === f.varianteId) ?? null;
+  // Modelo, memoria, almacenamiento y condición salen de la variante; el
+  // precio también, salvo que la unidad tenga el propio.
+  const condicion: NotebookCondicion = variante
+    ? variante.condicion === "nuevo"
+      ? "nuevo"
+      : "usado"
+    : f.condicion;
+  const precioEfectivo = variante && !f.precioPropio ? variante.precioUsd : f.precioUsd;
+  const usado = condicion === "usado";
   const bateriaOk =
     !usado || (f.bateria !== null && f.bateria >= 0 && f.bateria <= 100);
-  const valid = f.modelo.trim().length > 0 && bateriaOk;
+  const valid = !!variante && bateriaOk;
   const margen =
-    f.precioUsd > 0 ? ((f.precioUsd - f.costoUsd) / f.precioUsd) * 100 : 0;
+    precioEfectivo > 0 ? ((precioEfectivo - f.costoUsd) / precioEfectivo) * 100 : 0;
+
+  function elegirVariante(v: Variante | null) {
+    setF((p) => ({
+      ...p,
+      varianteId: v?.id ?? "",
+      modelo: v?.modelo ?? p.modelo,
+      memoria: v?.memoria ?? p.memoria,
+      almacenamiento: v?.almacenamiento ?? p.almacenamiento,
+      precioUsd: v && !p.precioPropio ? v.precioUsd : p.precioUsd,
+    }));
+  }
 
   const movimientos = useMovimientos("notebook", edit ? notebook!.id : null);
 
@@ -2774,10 +3120,12 @@ function NotebookFormDialog({
     startTransition(async () => {
       try {
         await onSubmit({
-          modelo: f.modelo.trim(),
+          varianteId: variante?.id ?? "",
+          precioPropio: f.precioPropio,
+          modelo: variante?.modelo ?? f.modelo.trim(),
           cpu: f.cpu,
-          memoria: f.memoria,
-          almacenamiento: f.almacenamiento,
+          memoria: variante?.memoria ?? f.memoria,
+          almacenamiento: variante?.almacenamiento ?? f.almacenamiento,
           pantalla: f.pantalla,
           gpu: f.gpu,
           color: f.color,
@@ -2786,12 +3134,13 @@ function NotebookFormDialog({
           garantia: f.garantia,
           notas: f.notas,
           costoUsd: f.costoUsd,
-          precioUsd: f.precioUsd,
+          precioUsd: precioEfectivo,
           estado: f.estado,
-          condicion: f.condicion,
+          condicion,
           bateria: usado ? f.bateria : null,
         });
-        if (!edit) setAltaOk(true);
+        if (modoCompra) onClose();
+        else if (!edit) setAltaOk(true);
       } catch (e) {
         setConfirmAlta(false);
         setError(e instanceof Error ? e.message : "No se pudo guardar.");
@@ -2806,13 +3155,15 @@ function NotebookFormDialog({
         onClose={onClose}
         size="3xl"
         formulario={!edit}
-        title={edit ? `Notebook · ${notebook!.modelo}` : "Agregar notebook"}
+        title={edit ? `Notebook · ${notebook!.modelo}` : modoCompra ? "Agregar notebook a la compra" : "Agregar notebook"}
         description={
           edit
             ? puedeVerCosto
               ? `Margen ${margen.toFixed(0)}%`
               : undefined
-            : "Ingresa en estado «En revisión»."
+            : modoCompra
+              ? "Entra al stock «En revisión» al guardar la compra. El costo es el unitario, antes de los costos adicionales."
+              : "Ingresa en estado «En revisión»."
         }
         footer={
           <>
@@ -2838,25 +3189,39 @@ function NotebookFormDialog({
               Cancelar
             </Button>
             <Button
-              onClick={() => (edit ? submit() : setConfirmAlta(true))}
+              onClick={() => (edit || modoCompra ? submit() : setConfirmAlta(true))}
               loading={pending}
-              disabled={!edit && !valid}
+              disabled={!valid}
               fullOnMobile
             >
-              {edit ? "Guardar cambios" : "Agregar notebook"}
+              {edit ? "Guardar cambios" : modoCompra ? "Agregar a la compra" : "Agregar notebook"}
             </Button>
           </>
         }
       >
         <div className="space-y-3">
           {error && <p className="text-sm text-red-500">{error}</p>}
+          <div>
+            <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+              Variante
+            </p>
+            <SelectorVariante
+              categoria="notebook"
+              variantes={variantes}
+              unidades={unidades}
+              value={variante?.id ?? null}
+              onChange={elegirVariante}
+              onVarianteCreada={onVarianteCreada}
+            />
+            <p className="mt-1.5 text-[11px] text-neutral-500">
+              {variante
+                ? `Definido por la variante ${variante.sku}: el modelo, la memoria, el almacenamiento y la condición salen de acá.`
+                : "Obligatoria: elegí una variante o creá una nueva."}
+            </p>
+          </div>
           <GrillaCampos>
             <Field label="Modelo">
-              <Input
-                value={f.modelo}
-                onChange={(e) => set("modelo", e.target.value)}
-                placeholder="MacBook Air M2"
-              />
+              <Input value={variante?.modelo ?? f.modelo} disabled placeholder="MacBook Air M2" />
             </Field>
             <Field label="N.º de serie">
               <Input
@@ -2872,16 +3237,12 @@ function NotebookFormDialog({
               />
             </Field>
             <Field label="Memoria">
-              <Input
-                value={f.memoria}
-                onChange={(e) => set("memoria", e.target.value)}
-                placeholder="8 GB"
-              />
+              <Input value={variante?.memoria ?? f.memoria} disabled placeholder="8 GB" />
             </Field>
             <Field label="Almacenamiento">
               <Input
-                value={f.almacenamiento}
-                onChange={(e) => set("almacenamiento", e.target.value)}
+                value={variante?.almacenamiento ?? f.almacenamiento}
+                disabled
                 placeholder="256 GB SSD"
               />
             </Field>
@@ -2924,18 +3285,7 @@ function NotebookFormDialog({
               </Select>
             </Field>
             <Field label="Condición">
-              <Select
-                value={f.condicion}
-                onChange={(e) => {
-                  const condicion = e.target.value as NotebookCondicion;
-                  setF((p) => ({
-                    ...p,
-                    condicion,
-                    // La batería solo existe en las usadas.
-                    bateria: condicion === "usado" ? p.bateria : null,
-                  }));
-                }}
-              >
+              <Select value={condicion} disabled>
                 <option value="nuevo">Nueva</option>
                 <option value="usado">Usada</option>
               </Select>
@@ -2979,11 +3329,33 @@ function NotebookFormDialog({
             <Field label="Precio USD">
               <Input
                 type="number"
-                value={f.precioUsd}
+                disabled={!!variante && !f.precioPropio}
+                value={precioEfectivo}
                 onChange={(e) => set("precioUsd", Number(e.target.value))}
               />
             </Field>
           </GrillaCampos>
+          {variante && (
+            <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-neutral-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-accent"
+                checked={f.precioPropio}
+                onChange={(e) => {
+                  const propio = e.target.checked;
+                  setF((p) => ({
+                    ...p,
+                    precioPropio: propio,
+                    precioUsd: propio ? p.precioUsd || variante.precioUsd : variante.precioUsd,
+                  }));
+                }}
+              />
+              Precio propio para esta notebook
+              <span className="text-[11px] text-neutral-500">
+                (si no, sigue al de la variante)
+              </span>
+            </label>
+          )}
           <Field label="Notas">
             <Textarea
               value={f.notas}
@@ -2993,7 +3365,7 @@ function NotebookFormDialog({
           {edit && <MovimientosLog movimientos={movimientos} />}
         </div>
       </Dialog>
-      {!edit && (
+      {!edit && !modoCompra && (
         <ConfirmarAltaDialog
           open={confirmAlta}
           onClose={() => setConfirmAlta(false)}
@@ -3005,14 +3377,15 @@ function NotebookFormDialog({
           pregunta="¿Agregar esta notebook al inventario? Ingresa en estado «En revisión»."
           confirmLabel="Agregar al stock"
           filas={[
-            { label: "Modelo", value: f.modelo.trim() },
+            { label: "Variante", value: variante?.sku ?? "—" },
+            { label: "Modelo", value: variante?.modelo ?? f.modelo.trim() },
             { label: "N.º de serie", value: f.numeroSerie.trim() || "—" },
             {
               label: "Condición",
               value: usado ? `Usada · batería ${f.bateria ?? "—"}%` : "Nueva",
             },
             { label: "Costo", value: fmtUsd(f.costoUsd) },
-            { label: "Precio", value: fmtUsd(f.precioUsd) },
+            { label: "Precio", value: fmtUsd(precioEfectivo) },
           ]}
         />
       )}
@@ -3593,7 +3966,7 @@ function OtroFormDialog({
 type DraftUnidad = { serial: string; color: string; costoUsd: number };
 const emptyUnidad = (): DraftUnidad => ({ serial: "", color: "", costoUsd: 0 });
 
-function IngresoDialog({
+export function IngresoDialog({
   open,
   onClose,
   titulo,
@@ -3602,6 +3975,7 @@ function IngresoDialog({
   existentes,
   onIngreso,
   onNuevo,
+  modoCompra = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -3623,6 +3997,10 @@ function IngresoDialog({
     unidades?: OtroUnidad[],
     precioVenta?: number,
   ) => void | Promise<void>;
+  /** Plan 025: el formulario se usa para armar el carrito de una compra.
+   * `onSubmit` solo agrega el ítem (no guarda) y el dialog se cierra, sin el
+   * paso de «Confirmar ingreso al stock». */
+  modoCompra?: boolean;
 }) {
   const [modo, setModo] = useState<"nuevo" | "existente">(
     existentes.length ? "existente" : "nuevo",
@@ -3722,7 +4100,8 @@ function IngresoDialog({
     startTransition(async () => {
       try {
         await ingresar();
-        setIngresoOk(true);
+        if (modoCompra) onClose();
+        else setIngresoOk(true);
       } catch (e) {
         setConfirmIngreso(false);
         throw e;
@@ -3737,7 +4116,13 @@ function IngresoDialog({
       onClose={onClose}
       size="3xl"
       formulario
-      title={locked ? "Reponer stock" : `Agregar / ingresar ${titulo}`}
+      title={
+        modoCompra
+          ? `Agregar ${titulo} a la compra`
+          : locked
+            ? "Reponer stock"
+            : `Agregar / ingresar ${titulo}`
+      }
       description={
         locked
           ? (existenteSel?.label ?? "")
@@ -3750,13 +4135,15 @@ function IngresoDialog({
           </Button>
           <Button
             disabled={!valid || pending}
-            onClick={() => setConfirmIngreso(true)}
+            onClick={() => (modoCompra ? submit() : setConfirmIngreso(true))}
             variant="primary"
             fullOnMobile
           >
             {pending
               ? "Guardando…"
-              : locked
+              : modoCompra
+                ? "Agregar a la compra"
+                : locked
                 ? "Reponer"
                 : modo === "existente"
                   ? "Ingresar stock"
@@ -4004,6 +4391,7 @@ function IngresoDialog({
         )}
       </div>
     </Dialog>
+    {!modoCompra && (
     <ConfirmarAltaDialog
       open={confirmIngreso}
       onClose={() => setConfirmIngreso(false)}
@@ -4034,6 +4422,7 @@ function IngresoDialog({
         { label: "Costo total", value: fmtUsd(costoTotal) },
       ]}
     />
+    )}
     </Fragment>
   );
 }

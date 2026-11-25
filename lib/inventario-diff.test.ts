@@ -13,6 +13,8 @@ const equipo: Celular = {
   costoUsd: 500,
   precioUsd: 700,
   estado: "disponible",
+  varianteId: "v1",
+  precioPropio: false,
 };
 
 const repuesto: Repuesto = {

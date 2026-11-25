@@ -228,6 +228,8 @@ describe("resumenInventario", () => {
       id: "e1", modelo: "iPhone 13", almacenamiento: "128", color: "Negro",
       imei: "", bateria: 90, condicion: "A+", costoUsd: 500, precioUsd: 800,
       estado: "disponible" as const,
+      varianteId: "v1",
+      precioPropio: false,
     };
     const ventas = [
       venta("2026-10-02", 800, {

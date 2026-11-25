@@ -332,3 +332,84 @@ export async function deleteOrganizacionPlatform(orgId: string): Promise<void> {
     await service.storage.from("logos").remove(archivos.map((a) => `${orgId}/${a.name}`));
   }
 }
+
+export type ReporteBug = {
+  id: string;
+  organizationId: string;
+  organizacion: string;
+  usuarioNombre: string;
+  usuarioEmail: string;
+  rol: string;
+  ruta: string | null;
+  accion: string | null;
+  descripcion: string;
+  createdAt: string;
+  estado: "abierto" | "resuelto";
+  respuesta: string | null;
+  resueltoAt: string | null;
+  /** El usuario ya vio la respuesta en su campanita. */
+  visto: boolean;
+};
+
+/** Reportes de «Reportar un problema» de todas las organizaciones, los más
+ * nuevos primero. Service role (la tabla no tiene policy de select): solo
+ * llamarla detrás de `requirePlatformAdmin`. */
+export async function listReportesBugs(limite = 300): Promise<ReporteBug[]> {
+  const service = createServiceRoleClient();
+  const { data, error } = await service
+    .from("reportes_bugs")
+    .select(
+      "id, organization_id, usuario_nombre, usuario_email, rol, ruta, accion, descripcion, created_at, estado, respuesta, resuelto_at, visto_at, organizations(nombre)",
+    )
+    .order("created_at", { ascending: false })
+    .limit(limite);
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const org = r.organizations as { nombre: string } | { nombre: string }[] | null;
+    const nombreOrg = Array.isArray(org) ? org[0]?.nombre : org?.nombre;
+    return {
+      id: r.id as string,
+      organizationId: r.organization_id as string,
+      organizacion: nombreOrg ?? "—",
+      usuarioNombre: r.usuario_nombre as string,
+      usuarioEmail: r.usuario_email as string,
+      rol: r.rol as string,
+      ruta: (r.ruta as string | null) ?? null,
+      accion: (r.accion as string | null) ?? null,
+      descripcion: r.descripcion as string,
+      createdAt: r.created_at as string,
+      estado: r.estado === "resuelto" ? "resuelto" : "abierto",
+      respuesta: (r.respuesta as string | null) ?? null,
+      resueltoAt: (r.resuelto_at as string | null) ?? null,
+      visto: r.visto_at !== null,
+    };
+  });
+}
+
+/** Marca el reporte como resuelto con lo que se arregló. Si ya estaba
+ * resuelto y cambia la respuesta, vuelve a quedar «sin ver» para el usuario
+ * (le aparece de nuevo en la campanita). Solo detrás de
+ * `requirePlatformAdmin`. */
+export async function resolverReporteBug(id: string, respuesta: string): Promise<void> {
+  const texto = respuesta.trim().slice(0, 2000);
+  if (!texto) throw new Error("Contá qué se arregló.");
+  const { error } = await createServiceRoleClient()
+    .from("reportes_bugs")
+    .update({
+      estado: "resuelto",
+      respuesta: texto,
+      resuelto_at: new Date().toISOString(),
+      visto_at: null,
+    })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Vuelve el reporte a «abierto» (y saca la notificación si no la vio). */
+export async function reabrirReporteBug(id: string): Promise<void> {
+  const { error } = await createServiceRoleClient()
+    .from("reportes_bugs")
+    .update({ estado: "abierto", respuesta: null, resuelto_at: null, visto_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}

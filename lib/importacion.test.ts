@@ -23,6 +23,7 @@ import {
 
 describe("parseCelularRow", () => {
   const filaValida = {
+    varianteId: "v-1",
     modelo: "iPhone 13",
     almacenamiento: "128GB",
     color: "Azul",
@@ -107,7 +108,9 @@ describe("celularTemplateCsv", () => {
     const remap = remapFilas(CELULAR_CSV_HEADERS, [raw]);
     expect(remap.ok).toBe(true);
     if (remap.ok) {
-      const out = parseCelularRow(remap.filas[0], 1);
+      // La variante no está en el CSV: se elige en la tabla de revisión.
+      expect(parseCelularRow(remap.filas[0], 1).ok).toBe(false);
+      const out = parseCelularRow({ ...remap.filas[0], varianteId: "v-1" }, 1);
       expect(out.ok).toBe(true);
     }
   });
@@ -220,6 +223,7 @@ describe("importación de notebooks", () => {
     memoria: "8GB",
     almacenamiento: "256GB",
     pantalla: "13.6",
+    varianteId: "v-nb",
     color: "Gris",
     idioma: "Español",
     numeroSerie: "C02XYZ",
@@ -240,6 +244,14 @@ describe("importación de notebooks", () => {
       expect(out.data.bateria).toBe(95);
       expect(out.data.estado).toBe("disponible");
     }
+  });
+
+  it("exige la variante", () => {
+    const sin = parseNotebookRow({ ...fila, varianteId: "" }, 1);
+    expect(sin.ok).toBe(false);
+    const con = parseNotebookRow(fila, 1);
+    expect(con.ok && con.data.varianteId).toBe("v-nb");
+    expect(con.ok && con.data.precioPropio).toBe(true);
   });
 
   it("exige batería en usadas y la ignora en nuevas", () => {
@@ -276,14 +288,15 @@ describe("importación de notebooks", () => {
     const raw = Object.fromEntries(headers.map((h, i) => [h, lineas[1].split(",")[i]]));
     const remap = remapFilas(NOTEBOOK_CSV_HEADERS, [raw]);
     expect(remap.ok).toBe(true);
-    if (remap.ok) expect(parseNotebookRow(remap.filas[0], 1).ok).toBe(true);
+    // La variante no está en el CSV: se elige por fila en la revisión.
+    if (remap.ok) expect(parseNotebookRow({ ...remap.filas[0], varianteId: "v-1" }, 1).ok).toBe(true);
   });
 });
 
 describe("evaluarFilas", () => {
   const fila = (rowNum: number, imei: string, modelo = "iPhone 13") => ({
     rowNum,
-    raw: { modelo, almacenamiento: "", color: "", imei, bateria: "90", condicion: "A", costoUsd: "300", precioUsd: "450", estado: "" },
+    raw: { varianteId: "v-1", modelo, almacenamiento: "", color: "", imei, bateria: "90", condicion: "A", costoUsd: "300", precioUsd: "450", estado: "" },
   });
   const dedupe = (validos: { rowNum: number; data: { imei: string } }[]) =>
     marcarImeiDuplicadoEnArchivo(validos.map((v) => ({ rowNum: v.rowNum, imei: v.data.imei })));
@@ -309,12 +322,16 @@ describe("tabla de revisión", () => {
     expect(normalizarMonto("U$ 1.300")).toBe("1300");
     expect(normalizarMonto("USD 1,300.50")).toBe("1300.5");
     expect(normalizarMonto("1.300,5")).toBe("1300.5");
+    expect(normalizarMonto("US$1,200.00")).toBe("1200");
+    expect(normalizarMonto("1200 dólares")).toBe("1200");
+    expect(normalizarMonto("U$S 1.300")).toBe("1300");
     expect(normalizarMonto("")).toBe("");
-    expect(normalizarMonto("a consultar")).toBe("a consultar");
+    expect(normalizarMonto("a consultar")).toBe("");
+    expect(parseCelularRow({ varianteId: "v-1", modelo: "x", almacenamiento: "", color: "", imei: "", bateria: "", condicion: "NUEVO", costoUsd: "a consultar", precioUsd: "1", estado: "" }, 1).ok).toBe(false);
   });
 
   it("celular: NUEVO no pide batería; usado sí", () => {
-    const base = { modelo: "iPhone 15", almacenamiento: "", color: "", imei: "", costoUsd: "1", precioUsd: "2", estado: "" };
+    const base = { varianteId: "v-1", modelo: "iPhone 15", almacenamiento: "", color: "", imei: "", costoUsd: "1", precioUsd: "2", estado: "" };
     const nuevo = parseCelularRow({ ...base, condicion: "nuevo", bateria: "" }, 1);
     expect(nuevo.ok && nuevo.data.bateria).toBe(100);
     expect(parseCelularRow({ ...base, condicion: "A", bateria: "" }, 1).ok).toBe(false);
@@ -324,10 +341,11 @@ describe("tabla de revisión", () => {
 
   it("completarFila: estado por defecto, opciones canónicas, batería vacía en NUEVO", () => {
     const f = completarFila(
-      { estado: "", condicion: "nuevo", bateria: "90", costoUsd: "U$ 1.200", precioUsd: "1300" },
+      { estado: "", condicion: "A", bateria: "90%", costoUsd: "U$ 1.200", precioUsd: "consultar" },
       COLUMNAS_CELULAR,
     );
-    expect(f).toMatchObject({ estado: "disponible", condicion: "NUEVO", bateria: "", costoUsd: "1200" });
+    expect(f).toMatchObject({ estado: "disponible", condicion: "A", bateria: "90", costoUsd: "1200", precioUsd: "" });
+    expect(completarFila({ condicion: "nuevo", bateria: "90" }, COLUMNAS_CELULAR)).toMatchObject({ condicion: "NUEVO", bateria: "" });
   });
 
   it("ordenColumnas pone estado primero", () => {

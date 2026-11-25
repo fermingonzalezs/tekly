@@ -9,7 +9,7 @@ import {
   updateOwnProfile,
   type AuthResult,
 } from "@/lib/auth";
-import { crearReporteBug } from "@/lib/db/reportes";
+import { crearReporteBug, marcarResolucionesVistas } from "@/lib/db/reportes";
 import {
   buscarGlobal,
   type ResultadoBusqueda,
@@ -47,4 +47,13 @@ export async function reportarBugAction(descripcion: string, accion: string) {
   const referer = (await headers()).get("referer");
   const ruta = referer ? new URL(referer).pathname : "desconocida";
   return crearReporteBug(descripcion, ruta, accion);
+}
+
+/** La campanita marca como vistas las respuestas a reportes propios al
+ * abrirse. Solo toca reportes del usuario de la sesión (lo filtra
+ * `marcarResolucionesVistas`). Sin `revalidatePath`: el estado local de la
+ * campanita ya refleja el cambio. */
+export async function marcarResolucionesVistasAction(ids: string[]): Promise<void> {
+  await requireUser();
+  await marcarResolucionesVistas(ids.slice(0, 50));
 }

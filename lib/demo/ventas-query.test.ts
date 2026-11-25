@@ -46,6 +46,8 @@ function celular(id: string, imei: string): Celular {
     costoUsd: 500,
     precioUsd: 700,
     estado: "vendido",
+    varianteId: "v1",
+    precioPropio: false,
   };
 }
 

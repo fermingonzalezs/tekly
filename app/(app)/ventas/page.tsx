@@ -1,4 +1,5 @@
 import { Section } from "@/components/section";
+import { listTiendas } from "@/lib/db/tiendas";
 import { requireUser } from "@/lib/auth";
 import { listClientesOpciones } from "@/lib/db/clientes";
 import { listCelulares, listOtros, listRepuestos } from "@/lib/db/inventario";
@@ -11,11 +12,13 @@ import {
   graficosVentas,
   listItemsVendidosPagina,
   listVendedores,
+  listUsuariosVenta,
   listVentasPagina,
   resumenVentas,
 } from "@/lib/db/ventas";
 import { listCajas } from "@/lib/db/cajas";
 import { getNegocio } from "@/lib/db/configuracion";
+import { listVariantes } from "@/lib/db/variantes";
 import { contextoPeriodo, periodoAnterior } from "@/lib/date-presets";
 import {
   deltaHintDe,
@@ -47,6 +50,8 @@ export default async function VentasPage(
     resumenAnterior,
     graficos,
     vendedores,
+    usuariosVenta,
+    tiendas,
     clientesOpciones,
     celulares,
     notebooks,
@@ -56,6 +61,7 @@ export default async function VentasPage(
     cajas,
     negocio,
     ventaAbierta,
+    variantes,
   ] = await Promise.all([
     filtros.vista === "ventas"
       ? listVentasPagina(filtros)
@@ -76,6 +82,8 @@ export default async function VentasPage(
       : Promise.resolve(null),
     graficosVentas(filtros),
     listVendedores(),
+    listUsuariosVenta(),
+    listTiendas(),
     listClientesOpciones(),
     listCelulares(),
     listNotebooks(),
@@ -85,6 +93,7 @@ export default async function VentasPage(
     listCajas(),
     getNegocio(),
     openId ? getVenta(openId) : Promise.resolve(null),
+    listVariantes({ categoria: "todas" }),
   ]);
 
   return (
@@ -109,8 +118,11 @@ export default async function VentasPage(
         servicios={servicios}
         repuestos={repuestos}
         vendedores={vendedores}
+        usuariosVenta={usuariosVenta}
+        tiendas={tiendas}
         cajas={cajas}
         negocio={negocio}
+        variantes={variantes}
         user={user}
       />
     </Section>

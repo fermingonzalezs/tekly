@@ -1,0 +1,70 @@
+---
+titulo: "Variantes (SKU) de celulares y notebooks"
+resumen: "Grupo › variante › unidad: cómo agrupar celulares y notebooks en variantes con SKU, precio y stock mínimo."
+seccion: inventario
+roles: []
+orden: 3
+actualizado: 2026-11-24
+---
+
+Un celular en Tekly es una **unidad** (con su IMEI). Arriba de las unidades hay una capa de **variantes**: el mismo modelo, almacenamiento y condición que comparten varias unidades y su **SKU**. Elegir la variante al cargar un equipo es **obligatorio**: es la que define el modelo, el almacenamiento, la condición y (si la variante tiene color) el color.
+
+## Grupo, variante y unidad
+
+- **Grupo**: un nombre libre para agrupar variantes del mismo modelo (`iPhone 15`, `iPhone 13`). Se puede renombrar sin tocar el modelo de las variantes ni de los equipos.
+- **Variante**: modelo + almacenamiento + condición (+ color opcional) + **SKU** único. Ej.: `IPHONE-15-128GB-USADO`. En el SKU la condición va solo como **NUEVO** o **USADO** (A+, A, B+, B y C son todos «USADO»); si dos variantes quedan con el mismo SKU, la segunda lleva `-2`.
+- **Unidad**: el equipo físico, con IMEI, batería, costo y estado propios.
+
+## Notebooks
+
+Las notebooks usan el mismo sistema. Una variante de notebook es **modelo + memoria (RAM) + almacenamiento + condición** (nueva o usada), **sin color**. Ej.: `MACBOOK-AIR-M2-16GB-512GB-USADO`. Cada notebook carga lo suyo: número de serie, CPU, pantalla, placa de video, color, idioma, batería (si es usada) y costo. Al elegir la variante, el modelo, la memoria, el almacenamiento y la condición quedan bloqueados en el formulario.
+
+## Color: de la variante o de la unidad
+
+<Paso n={1} titulo="Variante con color">
+Si cargás el color en la variante (ej. «Negro»), todas sus unidades comparten ese color y el campo queda bloqueado al cargar un equipo.
+</Paso>
+
+<Paso n={2} titulo="Variante sin color (cualquier color)">
+Si dejás el color vacío, la variante sirve para cualquier color y **cada unidad carga el suyo**. Pueden convivir una variante «cualquier color» y otra «Negro» del mismo modelo: son claves distintas.
+</Paso>
+
+## Precio y stock mínimo
+
+- El **precio de la variante** es el precio base. La unidad lo hereda y se actualiza solo cuando el precio de la variante cambia (mientras no esté vendida).
+- Si un equipo puntual tiene otro precio, tildá **«Precio propio para este equipo»** en el formulario: la unidad conserva su precio.
+- El **stock mínimo** de la variante (0 = sin aviso) hace que aparezca el chip **«Stock bajo»** en la vista agrupada y dispara un aviso **en vivo** al resto de las sesiones cuando el stock **cruza** el mínimo hacia abajo (una venta, un cambio de estado o una baja).
+
+## Vista agrupada
+
+Las pestañas **Celulares** y **Notebooks** se abren **agrupadas**: grupos plegables › variantes › unidades. El control **«Agrupado / Unidades»** de la fila de filtros vuelve a la tabla plana de siempre. Los filtros de la sección (buscador y estado) filtran **unidades**: las variantes y grupos sin unidades que coincidan se ocultan.
+
+En la fila de cada variante, el menú **⋯** tiene:
+
+- **Editar variante**: los datos clave se copian a sus unidades no vendidas; si el nuevo precio cambia, se actualizan las unidades sin precio propio.
+- **Agregar unidad**: abre el alta con la variante ya elegida.
+- **Unir con…**: mueve las unidades a otra variante y elimina la de origen. Avisa si se les pisa el color.
+- **Desactivar**: deja de aparecer en los selectores (las unidades que ya tiene se conservan). **Reactivar** desde «Ver desactivadas (N)».
+- **Eliminar**: sólo si no tiene **ningún** equipo; si tiene, desactivala.
+
+También podés **renombrar el grupo** con el lápiz de la fila del grupo.
+
+## Dónde se elige la variante
+
+- **Agregar / editar celular** (Inventario → Celulares) y **Agregar / editar notebook** (Inventario → Notebooks).
+- **Importar datos** (CSV o Leer con IA): la columna **Variante** de la tabla de revisión. Si los datos coinciden con una variante existente, viene **sugerida**; también podés crear una con los datos de la fila. Una fila sin variante no se importa.
+- **Canje** (Ventas → pago «Mercadería»): el equipo recibido necesita su variante.
+
+## Qué no se puede
+
+- Un SKU repetido en la organización, o una variante con los mismos datos clave que otra (usá **Unir**).
+- Elegir una variante desactivada desde el selector.
+- Eliminar una variante que tenga equipos.
+- Renombrar el grupo no cambia el modelo que se copia a los equipos.
+
+## Relacionados
+
+- [Celulares por IMEI](/ayuda/inventario/celulares)
+- [Notebooks](/ayuda/inventario/notebooks)
+- [Importar stock y clientes](/ayuda/inventario/importar-csv)
+- [Canje: recibir un equipo como pago](/ayuda/ventas/canje)

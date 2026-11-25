@@ -21,6 +21,8 @@ function celular(over: Partial<Celular> = {}): Celular {
     costoUsd: 600,
     precioUsd: 780,
     estado: "disponible",
+    varianteId: "v1",
+    precioPropio: false,
     ...over,
   };
 }
@@ -44,6 +46,8 @@ function notebook(over: Partial<Notebook> = {}): Notebook {
     estado: "disponible",
     condicion: "nuevo",
     bateria: null,
+    varianteId: "",
+    precioPropio: false,
     ...over,
   };
 }

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  coincideCondicion,
+  opcionesCondicionCelular,
   agingCelulares,
   celularesPorEstado,
   resumenCelulares,
@@ -25,6 +27,8 @@ function celular(id: string, estado: CelularStatus, costoUsd = 100, precioUsd = 
     costoUsd,
     precioUsd,
     estado,
+    varianteId: "v1",
+    precioPropio: false,
   };
 }
 
@@ -252,6 +256,8 @@ function notebook(id: string, estado: CelularStatus, costoUsd = 500, precioUsd =
     estado,
     condicion: "nuevo",
     bateria: null,
+    varianteId: "",
+    precioPropio: false,
   };
 }
 
@@ -310,5 +316,24 @@ describe("valorInventario", () => {
     const r = valorInventario({ celulares: [], repuestos: [], otros: [] });
     expect(r.total).toBe(0);
     expect(r.porCategoria.find((c) => c.key === "notebooks")!.unidades).toBe(0);
+  });
+});
+
+describe("coincideCondicion / opcionesCondicionCelular", () => {
+  it("todas, nuevo, usado y un grado puntual", () => {
+    expect(coincideCondicion("A+", "todas")).toBe(true);
+    expect(coincideCondicion("NUEVO", "NUEVO")).toBe(true);
+    expect(coincideCondicion("nuevo", "NUEVO")).toBe(true);
+    expect(coincideCondicion("A+", "usado")).toBe(true);
+    expect(coincideCondicion("NUEVO", "usado")).toBe(false);
+    expect(coincideCondicion("", "usado")).toBe(false);
+    expect(coincideCondicion("usado", "usado")).toBe(true);
+    expect(coincideCondicion("A", "A+")).toBe(false);
+    expect(coincideCondicion("b+", "B+")).toBe(true);
+  });
+
+  it("opciones: fijas + las cargadas que no están en la lista", () => {
+    const op = opcionesCondicionCelular(["NUEVO", "A+", "A"], ["A", "Sellado", "", "sellado", "nuevo"]);
+    expect(op.map((o) => o.value)).toEqual(["NUEVO", "usado", "A+", "A", "Sellado"]);
   });
 });

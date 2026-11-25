@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { listMiembros, getNegocio } from "@/lib/db/configuracion";
+import { listVariantes } from "@/lib/db/variantes";
 import { lecturasIaIlimitadas, lecturasIaUsadas } from "@/lib/db/ia-lecturas";
 import { ENTIDADES_IMPORTACION, lecturasRestantes, type EntidadImportacion } from "@/lib/ia-lecturas";
 import { ConfiguracionClient } from "./configuracion-client";
@@ -17,16 +18,23 @@ export default async function ConfiguracionPage() {
   if (user.rol !== "admin") {
     return (
       <Suspense>
-        <ConfiguracionClient user={user} miembros={[]} negocio={null} iaRestantes={IA_SIN_CUPO} />
+        <ConfiguracionClient
+          user={user}
+          miembros={[]}
+          negocio={null}
+          iaRestantes={IA_SIN_CUPO}
+          variantes={[]}
+        />
       </Suspense>
     );
   }
 
-  const [miembros, negocio, lecturasIa, iaIlimitadas] = await Promise.all([
+  const [miembros, negocio, lecturasIa, iaIlimitadas, variantes] = await Promise.all([
     listMiembros(),
     getNegocio(),
     lecturasIaUsadas(),
     lecturasIaIlimitadas(),
+    listVariantes({ categoria: "todas" }),
   ]);
 
   return (
@@ -35,6 +43,7 @@ export default async function ConfiguracionPage() {
         user={user}
         miembros={miembros}
         negocio={negocio}
+        variantes={variantes}
         iaRestantes={
           Object.fromEntries(
             ENTIDADES_IMPORTACION.map((e) => [e, lecturasRestantes(lecturasIa[e], iaIlimitadas)]),

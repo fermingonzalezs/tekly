@@ -3,13 +3,25 @@
 import { revalidatePath } from "next/cache";
 import { requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
-import { createVenta, deleteVenta, type DeleteVentaOpts } from "@/lib/db/ventas";
-import type { CanjeEquipo, ClienteSeleccion, ModalidadVenta, Pago, VentaItem } from "@/lib/types";
+import { createVenta, deleteVenta, listUsuariosVenta, type DeleteVentaOpts } from "@/lib/db/ventas";
+import { resolverVendedor } from "@/lib/ventas";
+import { resolveTiendaId } from "@/lib/db/tiendas";
+import { getNegocio } from "@/lib/db/configuracion";
+import type {
+  CanjeEquipo,
+  ClienteSeleccion,
+  ModalidadVenta,
+  Pago,
+  TiendaSeleccion,
+  VentaItem,
+} from "@/lib/types";
 
 export async function createVentaAction(input: {
   cliente: Exclude<ClienteSeleccion, { tipo: "libre" }>;
   vendedorId: string;
   vendedorNombre: string;
+  /** Omitido = la tienda principal. */
+  tienda?: TiendaSeleccion;
   procedencia?: string;
   modalidad: ModalidadVenta;
   items: VentaItem[];
@@ -19,13 +31,18 @@ export async function createVentaAction(input: {
   tipo: "venta" | "reparacion";
   dolarVenta: number;
 }) {
-  const user = await requireEscritura();
+  await requireEscritura();
 
-  // Un vendedor/técnico solo registra ventas a su propio nombre; el admin
-  // puede elegir a cualquiera. Se ignora lo que venga del cliente -- la
-  // UI ya lo respeta (campo fijo), esto es la validación de verdad.
-  const vendedorId = user.rol === "admin" ? input.vendedorId : user.id;
-  const vendedorNombre = user.rol === "admin" ? input.vendedorNombre : user.nombre;
+  // Cualquier rol puede registrar la venta a nombre de otro usuario activo
+  // de la organización o escribir el vendedor a mano. El nombre de un
+  // usuario se toma de `profiles`, nunca del cliente.
+  const vendedor = resolverVendedor(
+    { vendedorId: input.vendedorId, vendedorNombre: input.vendedorNombre },
+    await listUsuariosVenta(),
+  );
+  if (!vendedor.ok) throw new Error(vendedor.error);
+  const { vendedorId, vendedorNombre } = vendedor;
+  const tiendaId = await resolveTiendaId(input.tienda, (await getNegocio()).nombre);
 
   const cliente = await resolveCliente(input.cliente);
 
@@ -34,6 +51,7 @@ export async function createVentaAction(input: {
     cliente: cliente.nombre,
     vendedorId,
     vendedorNombre,
+    tiendaId,
     procedencia: input.procedencia,
     modalidad: input.modalidad,
     items: input.items,

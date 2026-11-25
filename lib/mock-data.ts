@@ -242,7 +242,7 @@ export const tickets: Ticket[] = [
 
 // ───────────────────────── Inventario ─────────────────────────
 
-export const celulares: Celular[] = [
+const celularesBase: Omit<Celular, "varianteId" | "precioPropio">[] = [
   { id: "e-1", modelo: "iPhone 11", almacenamiento: "64GB", color: "Negro", imei: "356111000000011", bateria: 84, condicion: "B+", costoUsd: 300, precioUsd: 410, estado: "disponible" },
   { id: "e-2", modelo: "iPhone 13", almacenamiento: "128GB", color: "Azul", imei: "356111000000024", bateria: 91, condicion: "A", costoUsd: 560, precioUsd: 735, estado: "disponible" },
   { id: "e-3", modelo: "iPhone 12", almacenamiento: "128GB", color: "Blanco", imei: "356111000000037", bateria: 88, condicion: "B", costoUsd: 420, precioUsd: 560, estado: "disponible" },
@@ -255,6 +255,14 @@ export const celulares: Celular[] = [
   { id: "e-10", modelo: "iPhone 16", almacenamiento: "128GB", color: "Negro", imei: "356111000000108", bateria: 100, condicion: "NUEVO", costoUsd: 650, precioUsd: 790, estado: "disponible" },
   { id: "e-11", modelo: "iPhone 16", almacenamiento: "128GB", color: "Rosa", imei: "356111000000111", bateria: 100, condicion: "NUEVO", costoUsd: 650, precioUsd: 790, estado: "disponible" },
 ];
+
+/** Datos de ejemplo de las secciones que todavía no están migradas: sin
+ * variantes reales, así que la unidad solo cruza el campo. */
+export const celulares: Celular[] = celularesBase.map((c) => ({
+  ...c,
+  varianteId: "—",
+  precioPropio: false,
+}));
 
 export const repuestos: Repuesto[] = [
   { id: "r-1", sku: "PANT-OLED-11", nombre: "Pantalla OLED", modelo: "iPhone 11", stock: 4, stockMin: 3, costoUsd: 42, proveedor: "Tecno Import" },

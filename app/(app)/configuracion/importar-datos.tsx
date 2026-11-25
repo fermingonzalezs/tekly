@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   ExternalLink,
+  Plus,
   RotateCcw,
   Trash2,
   FileSpreadsheet,
@@ -18,6 +19,15 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button, IconButton } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { VarianteDialog } from "@/components/inventario/variante-dialog";
+import {
+  agruparPorGrupo,
+  buscarVariante,
+  claveVariante,
+  nombreVariante,
+  ordenarGrupos,
+} from "@/lib/variantes";
+import type { Variante, VarianteCategoria } from "@/lib/types";
 import { Input, Select, Textarea } from "@/components/ui/field";
 import { IA_MAX_CARACTERES, etiquetaLecturasRestantes, type EntidadImportacion } from "@/lib/ia-lecturas";
 import { useVolverAlOnboarding } from "@/components/onboarding/volver-al-onboarding";
@@ -176,6 +186,9 @@ function TablaEditable({
   estados,
   onCambiar,
   onQuitar,
+  orden: ordenProp,
+  renderCeldaExtra,
+  bloqueadas,
 }: {
   headers: readonly string[];
   columnas: Record<string, ColumnaImport>;
@@ -183,8 +196,14 @@ function TablaEditable({
   estados: EstadoFilaPreview[];
   onCambiar: (rowNum: number, campo: string, valor: string) => void;
   onQuitar: (rowNum: number) => void;
+  /** Orden de columnas ya resuelto (celulares mete la virtual «varianteId»). */
+  orden?: string[];
+  /** Celda propia por columna (la variante, que no es un input de texto). */
+  renderCeldaExtra?: (campo: string, fila: FilaCruda) => React.ReactNode | null;
+  /** Columnas de solo lectura para esa fila (datos que define la variante). */
+  bloqueadas?: (fila: FilaCruda) => string[];
 }) {
-  const orden = ordenColumnas(headers);
+  const orden = ordenProp ?? ordenColumnas(headers);
   return (
     <div className="max-h-[28rem] overflow-auto rounded-xl border border-neutral-200">
       <table className="w-full text-center text-xs">
@@ -223,6 +242,14 @@ function TablaEditable({
                     const valor = fila.raw[h] ?? "";
                     const label = `${col.label}, fila ${fila.rowNum}`;
                     const cambiar = (v: string) => onCambiar(fila.rowNum, h, v);
+                    const extra = renderCeldaExtra?.(h, fila);
+                    if (extra) {
+                      return (
+                        <td key={h} className="px-1 py-1.5">
+                          {extra}
+                        </td>
+                      );
+                    }
                     if (col.monto) {
                       return (
                         <td key={h} className="px-1 py-1.5">
@@ -256,16 +283,21 @@ function TablaEditable({
                         </td>
                       );
                     }
-                    const noAplica = col.deshabilitada?.(fila.raw) ?? false;
+                    const noAplica =
+                      (col.deshabilitada?.(fila.raw) ?? false) ||
+                      (bloqueadas?.(fila) ?? []).includes(h);
                     return (
                       <td key={h} className="px-1 py-1.5">
                         <Input
                           value={noAplica ? "" : valor}
                           disabled={noAplica}
                           placeholder={noAplica ? "No aplica" : undefined}
-                          onChange={(e) => cambiar(e.target.value)}
+                          inputMode={col.entero ? "numeric" : undefined}
+                          onChange={(e) =>
+                            cambiar(col.entero ? e.target.value.replace(/\D/g, "") : e.target.value)
+                          }
                           aria-label={label}
-                          className={CELDA}
+                          className={col.entero ? `${CELDA} tabular-nums` : CELDA}
                         />
                       </td>
                     );
@@ -318,6 +350,7 @@ function ImportCard<T>({
   entidad,
   iaRestantes,
   onIaRestantes,
+  variantes,
 }: {
   entidad: EntidadImportacion;
   iaRestantes: number;
@@ -333,6 +366,9 @@ function ImportCard<T>({
   parseRow: (raw: Record<string, string>, rowNum: number) => ParseResult<T>;
   marcarDuplicados: (validos: { rowNum: number; data: T }[]) => Map<number, string>;
   action: (rows: FilaCruda[]) => Promise<ImportResult>;
+  /** Celulares y notebooks: variantes para elegir por fila (obligatoria).
+   * Pueden venir de todas las categorías: se usan las de la entidad. */
+  variantes?: Variante[];
 }) {
   const [estado, setEstado] = useState<"idle" | "preview" | "done">("idle");
   const [filas, setFilas] = useState<FilaCruda[]>([]);
@@ -344,7 +380,71 @@ function ImportCard<T>({
   const [textoIa, setTextoIa] = useState("");
   const [leyendo, startLectura] = useTransition();
   const [ayudaPlanilla, setAyudaPlanilla] = useState<"pegar" | "csv" | null>(null);
+  const categoriaVariante: VarianteCategoria = entidad === "notebooks" ? "notebook" : "celular";
+  const [listaVariantes, setListaVariantes] = useState<Variante[]>(
+    (variantes ?? []).filter((v) => v.categoria === categoriaVariante),
+  );
+  const [creandoVariante, setCreandoVariante] = useState<FilaCruda | null>(null);
   const volverAlOnboarding = useVolverAlOnboarding();
+
+  const conVariantes = variantes !== undefined;
+  const varianteDe = (fila: FilaCruda) =>
+    listaVariantes.find((v) => v.id === (fila.raw.varianteId ?? "")) ?? null;
+  const gruposVariantes = ordenarGrupos(
+    agruparPorGrupo(listaVariantes.filter((v) => v.activa)),
+  );
+
+  /** Columnas de la fila que define la variante (y que la fila no puede
+   * editar mientras la tenga elegida). */
+  function camposDeVariante(variante: Variante): Record<string, string> {
+    if (variante.categoria === "notebook") {
+      return {
+        modelo: variante.modelo,
+        memoria: variante.memoria,
+        almacenamiento: variante.almacenamiento,
+        condicion: variante.condicion,
+      };
+    }
+    return {
+      modelo: variante.modelo,
+      almacenamiento: variante.almacenamiento,
+      condicion: variante.condicion,
+      ...(variante.color ? { color: variante.color } : {}),
+    };
+  }
+
+  /** Datos clave de una fila, para sugerir/agrupar por variante. */
+  function datosDeFila(raw: Record<string, string>) {
+    return {
+      categoria: categoriaVariante,
+      modelo: raw.modelo ?? "",
+      memoria: raw.memoria ?? "",
+      almacenamiento: raw.almacenamiento ?? "",
+      condicion: raw.condicion ?? "",
+      color: categoriaVariante === "notebook" ? "" : (raw.color ?? ""),
+    };
+  }
+
+  /** Copia a la fila los datos clave de la variante elegida (el precio de la
+   * planilla se respeta: `precioPropio: true`). */
+  function aplicarVariante(rowNum: number, varianteId: string) {
+    const variante = listaVariantes.find((v) => v.id === varianteId);
+    if (!variante) return;
+    setFilas((prev) =>
+      prev.map((f) =>
+        f.rowNum === rowNum
+          ? {
+              ...f,
+              raw: {
+                ...f.raw,
+                varianteId: variante.id,
+                ...camposDeVariante(variante),
+              },
+            }
+          : f,
+      ),
+    );
+  }
 
   const estados = useMemo(
     () => evaluarFilas(filas, parseRow, marcarDuplicados),
@@ -370,10 +470,19 @@ function ImportCard<T>({
   /** Mismo preview editable para un CSV subido y para las filas de la IA. */
   function armarPreview(filasRaw: Record<string, string>[], desde: "csv" | "ia") {
     setFilas(
-      filasRaw.map((raw, i) => ({
-        rowNum: i + 1,
-        raw: completarFila(Object.fromEntries(headers.map((h) => [h, raw[h] ?? ""])), columnas),
-      })),
+      filasRaw.map((raw, i) => {
+        const filaRaw = completarFila(
+          Object.fromEntries(headers.map((h) => [h, raw[h] ?? ""])),
+          columnas,
+        );
+        if (conVariantes) {
+          // Sugerencia: la variante activa que coincide con los datos de la
+          // fila (la primera con su color y, si no, la de cualquier color).
+          const sugerida = buscarVariante(listaVariantes, datosDeFila(filaRaw));
+          filaRaw.varianteId = sugerida?.id ?? "";
+        }
+        return { rowNum: i + 1, raw: filaRaw };
+      }),
     );
     setOrigen(desde);
     setEstado("preview");
@@ -458,6 +567,40 @@ function ImportCard<T>({
     setFilas([]);
     setResultado(null);
     setErrorArchivo(null);
+  }
+
+  /** Celda de la columna virtual «variante»: selector agrupado + alta con los
+   * datos de la fila. */
+  function celdaVariante(fila: FilaCruda) {
+    const actual = varianteDe(fila);
+    return (
+      <Select
+        value={actual?.id ?? ""}
+        onChange={(e) => {
+          if (e.target.value === "__nueva") {
+            setCreandoVariante(fila);
+            return;
+          }
+          aplicarVariante(fila.rowNum, e.target.value);
+        }}
+        aria-label={`Variante, fila ${fila.rowNum}`}
+        className={`${CELDA} min-w-[12rem] [text-align-last:center]`}
+      >
+        <option value="" disabled>
+          Elegí…
+        </option>
+        {gruposVariantes.map((g) => (
+          <optgroup key={g.clave} label={g.grupo}>
+            {g.variantes.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.sku} · {nombreVariante(v)}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+        <option value="__nueva">+ Nueva variante con estos datos</option>
+      </Select>
+    );
   }
 
   const validas = estados.filter((f) => f.status === "ok").length;
@@ -579,6 +722,25 @@ function ImportCard<T>({
               estados={estados}
               onCambiar={cambiarCelda}
               onQuitar={quitarFila}
+              orden={
+                conVariantes
+                  ? ["estado", "varianteId", ...headers.filter((h) => h !== "estado")]
+                  : undefined
+              }
+              renderCeldaExtra={
+                conVariantes
+                  ? (campo, fila) => (campo === "varianteId" ? celdaVariante(fila) : null)
+                  : undefined
+              }
+              bloqueadas={
+                conVariantes
+                  ? (fila) => {
+                      const variante = varianteDe(fila);
+                      if (!variante) return [];
+                      return Object.keys(camposDeVariante(variante));
+                    }
+                  : undefined
+              }
             />
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={reiniciar} disabled={pending}>
@@ -621,6 +783,51 @@ function ImportCard<T>({
         filename={templateFilename}
         onClose={() => setAyudaPlanilla(null)}
       />
+
+      {creandoVariante && (
+        <VarianteDialog
+          key={`import-variante-${creandoVariante.rowNum}`}
+          open
+          categoria={categoriaVariante}
+          onClose={() => setCreandoVariante(null)}
+          inicial={{
+            grupo: creandoVariante.raw.modelo ?? "",
+            modelo: creandoVariante.raw.modelo ?? "",
+            memoria: creandoVariante.raw.memoria ?? "",
+            almacenamiento: creandoVariante.raw.almacenamiento ?? "",
+            condicion: creandoVariante.raw.condicion ?? "",
+            color: creandoVariante.raw.color ?? "",
+          }}
+          grupos={gruposVariantes.map((g) => g.grupo)}
+          skus={listaVariantes.map((v) => v.sku)}
+          onSaved={(v) => {
+            const clave = claveVariante(v);
+            const coincide = (f: FilaCruda) => {
+              const datos = datosDeFila(f.raw);
+              return (
+                claveVariante(datos) === clave ||
+                (v.color === "" && claveVariante({ ...datos, color: "" }) === clave)
+              );
+            };
+            setListaVariantes((prev) => [...prev, v]);
+            setFilas((prev) =>
+              prev.map((f) =>
+                !f.raw.varianteId && coincide(f)
+                  ? {
+                      ...f,
+                      raw: {
+                        ...f.raw,
+                        varianteId: v.id,
+                        ...camposDeVariante(v),
+                      },
+                    }
+                  : f,
+              ),
+            );
+            setCreandoVariante(null);
+          }}
+        />
+      )}
     </Card>
   );
 }
@@ -712,8 +919,11 @@ function AyudaPlanillaDialog({
 
 export function ImportarDatos({
   iaRestantes: iaRestantesInicial,
+  variantes,
 }: {
   iaRestantes: Record<EntidadImportacion, number>;
+  /** Variantes de celulares y notebooks (obligatorias al importar). */
+  variantes: Variante[];
 }) {
   // Una lectura con IA por tipo: lo actualiza la respuesta de cada lectura.
   const [iaRestantes, setIaRestantes] = useState(iaRestantesInicial);
@@ -730,6 +940,7 @@ export function ImportarDatos({
         headers={CELULAR_CSV_HEADERS}
         columnas={COLUMNAS_CELULAR}
         templateCsv={celularTemplateCsv}
+        variantes={variantes}
         entidad="celulares"
         {...ia("celulares")}
         templateFilename="plantilla-celulares.csv"
@@ -746,6 +957,7 @@ export function ImportarDatos({
         headers={NOTEBOOK_CSV_HEADERS}
         columnas={COLUMNAS_NOTEBOOK}
         templateCsv={notebookTemplateCsv}
+        variantes={variantes}
         entidad="notebooks"
         {...ia("notebooks")}
         templateFilename="plantilla-notebooks.csv"

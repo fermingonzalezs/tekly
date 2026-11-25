@@ -277,6 +277,40 @@ export type Celular = {
   costoUsd: number;
   precioUsd: number;
   estado: CelularStatus;
+  /** Variante (SKU) a la que pertenece. El modelo/almacenamiento/condición
+   * (y el color, si la variante lo define) salen de la variante. */
+  varianteId: string;
+  /** true = conserva su precio aunque cambie el de la variante; false = el
+   * precio de la unidad es el de la variante. */
+  precioPropio: boolean;
+};
+
+/** Qué tipo de unidad agrupa una variante. */
+export type VarianteCategoria = "celular" | "notebook";
+
+/** Variante (SKU): agrupa unidades iguales. Celulares: mismo modelo,
+ * almacenamiento y condición, y opcionalmente el mismo color (color `""` =
+ * cualquier color). Notebooks: modelo, memoria, almacenamiento y condición
+ * (sin color). La lógica pura vive en `lib/variantes.ts`. */
+export type Variante = {
+  id: string;
+  categoria: VarianteCategoria;
+  /** Nombre libre del grupo al que pertenece (se renombra sin tocar el
+   * modelo). */
+  grupo: string;
+  sku: string;
+  modelo: string;
+  almacenamiento: string;
+  condicion: string;
+  /** `""` = cualquier color: cada unidad carga el suyo. Siempre `""` en
+   * notebooks. */
+  color: string;
+  /** RAM de las notebooks (`"16GB"`); `""` en celulares. */
+  memoria: string;
+  precioUsd: number;
+  /** 0 = sin aviso de stock bajo. */
+  stockMinimo: number;
+  activa: boolean;
 };
 
 /** Condición de una notebook: las usadas además informan el estado de la
@@ -303,6 +337,11 @@ export type Notebook = {
   /** Salud de la batería en % (0–100). Solo si `condicion === "usado"`;
    * `null` en las nuevas. */
   bateria: number | null;
+  /** Variante (SKU): el modelo, memoria, almacenamiento y condición salen de
+   * ella. */
+  varianteId: string;
+  /** true = conserva su precio aunque cambie el de la variante. */
+  precioPropio: boolean;
 };
 
 /** Historial de stock de un ítem de inventario (equipo, repuesto u otro) —
@@ -504,6 +543,8 @@ export type Pago = {
 export type CanjeEquipo = {
   marca?: string;
   equipo: string;
+  /** Variante obligatoria del celular recibido (plan 024). */
+  varianteId?: string;
   imei?: string;
   checklist: Checklist;
   aclaraciones?: string;
@@ -524,6 +565,10 @@ export type Venta = {
   /** Canal / origen de la venta (Local, WhatsApp, Instagram, …). */
   procedencia?: string;
   modalidad: ModalidadVenta;
+  /** Tienda / página que hizo la venta (negocios que manejan más de una
+   * desde la misma cuenta). `undefined` = la tienda principal. */
+  tiendaId?: string;
+  tienda?: string;
   items: VentaItem[];
   totalUsd: number;
   /** 1+ medios con monto; la suma cubre el total. */
@@ -539,6 +584,17 @@ export type Venta = {
    * cargó sin IMEI (plan 020). */
   avisoCanje?: string;
 };
+
+/** Tienda / página extra de la organización (tabla `tiendas`). La tienda
+ * principal no es una fila: es el nombre de la organización. */
+export type Tienda = { id: string; nombre: string };
+
+/** Elección del campo «Tienda» de Nueva venta. `nueva` se crea recién
+ * cuando la venta se confirma (mismo criterio diferido que `ClienteSeleccion`). */
+export type TiendaSeleccion =
+  | { tipo: "principal" }
+  | { tipo: "existente"; id: string }
+  | { tipo: "nueva"; nombre: string };
 
 /** Caja física/específica — puede haber varias por moneda (ej. "Mostrador"
  * y "Taller" en ARS, "Caja USD" y "Bóveda USD" en USD). */
@@ -683,6 +739,33 @@ export type Compra = {
    * inventario con la venta que generó esta compra (plan 020). Se resuelve
    * desde `Pago.celularId` de la venta de origen; no es una columna. */
   celularId?: string;
+  /** Plan 025: la compra creó stock al guardarse (`compra_items` tiene el
+   * vínculo con cada unidad). `false` = gasto/historial, como siempre. */
+  subeStock?: boolean;
+  /** Envío, flete, comisiones: ya prorrateados en el costo de cada ítem. */
+  costosAdicionalesUsd?: number;
+  notas?: string;
+};
+
+/** Un renglón de una compra que subió al stock (tabla `compra_items`): el
+ * historial «Ingresos» de Compras / Ingresos. `costoUsd` es el unitario con
+ * su parte de los costos adicionales. */
+export type IngresoStock = {
+  id: string;
+  compraId: string;
+  fecha: string;
+  fechaISO: string;
+  tipo: "celular" | "notebook" | "repuesto" | "otro";
+  detalle: string;
+  cantidad: number;
+  costoUsd: number;
+  serie?: string;
+  proveedor?: string;
+  usuario?: string;
+  celularId?: string;
+  notebookId?: string;
+  repuestoId?: string;
+  otroId?: string;
 };
 
 /** Regla que trae TODOS los celulares vendibles (disponible) de una o más
@@ -749,4 +832,15 @@ export type ListaDifusion = {
   descuentoValor: number;
   secciones: DifusionSeccion[];
   creadaEl: string;
+};
+
+/** Respuesta de un reporte propio ya resuelto (campanita de notificaciones). */
+export type ResolucionReporte = {
+  id: string;
+  /** Lo que reportó el usuario. */
+  descripcion: string;
+  /** Lo que se arregló (lo escribe el admin de plataforma). */
+  respuesta: string;
+  resueltoAt: string;
+  visto: boolean;
 };

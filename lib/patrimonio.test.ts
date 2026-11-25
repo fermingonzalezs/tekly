@@ -87,6 +87,8 @@ function celular(id: string, estado: Celular["estado"], costoUsd = 100, precioUs
     costoUsd,
     precioUsd,
     estado,
+    varianteId: "v1",
+    precioPropio: false,
   };
 }
 

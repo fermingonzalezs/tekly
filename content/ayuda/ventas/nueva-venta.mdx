@@ -4,7 +4,7 @@ resumen: "Paso a paso del modal «Nueva venta»: cliente, vendedor, ítems desde
 seccion: ventas
 roles: []
 orden: 2
-actualizado: 2026-10-17
+actualizado: 2026-11-25
 ---
 
 El modal **«Nueva venta»** tiene cuatro bloques marcados con eyebrows: **Cliente**, **Datos de la venta**, **Ítems** y **Pago**. El número de venta (`V-…`) se asigna recién al confirmar.
@@ -14,7 +14,8 @@ Elegí uno existente o creá uno nuevo. La creación es **diferida**: recién se
 </Paso>
 
 <Paso n={2} titulo="Datos de la venta">
-- **Vendedor**: si sos admin, elegís entre los admin y vendedores de la organización. Si sos vendedor o técnico, el campo queda fijo con **tu** nombre y no lo podés cambiar.
+- **Vendedor**: arranca con **tu** nombre. Cualquier usuario puede elegir a otro usuario activo de la organización o **«Otro (escribir a mano)»** para alguien que no tiene usuario (por ejemplo, un vendedor por comisión). Una venta a mano no aparece en el filtro de vendedor ni en las métricas «propias» de nadie.
+- **Tienda / página** (opcional): si manejás más de una página desde la misma cuenta (por ejemplo Hellstore y Heavenstore), elegí de cuál salió la venta. Por defecto es la del negocio. **«+ Nueva tienda…»** la agrega a la lista (se guarda recién al confirmar la venta). La tienda se ve en el detalle de la venta y debajo del número en la lista.
 - **Procedencia**: de dónde vino el cliente (Local, WhatsApp, Instagram, MercadoLibre, Referido, Otro).
 - **Modalidad**: Minorista o Mayorista.
 </Paso>

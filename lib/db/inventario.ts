@@ -1,9 +1,12 @@
 import "server-only";
+import { bateriaCelular } from "@/lib/status";
 import { createServerClient } from "@/lib/auth/supabase";
 import { requireUser, requireRole } from "@/lib/auth";
 import type { SessionUser } from "@/lib/auth/types";
 import { fmtDayMonth, fmtTime } from "@/lib/format";
 import { diffCelular, diffRepuesto, diffOtro } from "@/lib/inventario-diff";
+import { camposDesdeVariante } from "@/lib/variantes";
+import { varianteParaUnidad, variantesParaUnidades } from "@/lib/db/variantes";
 import type {
   Celular,
   CelularStatus,
@@ -18,6 +21,7 @@ import type {
   RecuentoLineaCelular,
   RecuentoResolucion,
   Repuesto,
+  Variante,
 } from "@/lib/types";
 
 // ─────────────────────────── Celulares ───────────────────────────
@@ -33,6 +37,8 @@ type CelularRow = {
   costo_usd: number;
   precio_usd: number;
   estado: CelularStatus;
+  variante_id: string;
+  precio_propio: boolean;
 };
 
 function toCelular(row: CelularRow): Celular {
@@ -47,11 +53,13 @@ function toCelular(row: CelularRow): Celular {
     costoUsd: row.costo_usd,
     precioUsd: row.precio_usd,
     estado: row.estado,
+    varianteId: row.variante_id,
+    precioPropio: row.precio_propio,
   };
 }
 
 const CELULAR_COLS =
-  "id, modelo, almacenamiento, color, imei, bateria, condicion, costo_usd, precio_usd, estado";
+  "id, modelo, almacenamiento, color, imei, bateria, condicion, costo_usd, precio_usd, estado, variante_id, precio_propio";
 
 export async function listCelulares(): Promise<Celular[]> {
   const supabase = createServerClient();
@@ -64,7 +72,18 @@ export async function listCelulares(): Promise<Celular[]> {
   return data.map(toCelular);
 }
 
+/** Compra que originó un ingreso (plan 025): se guarda en la unidad y en
+ * `movimientos_stock.compra_id`. */
+export type IngresoCompra = { compraId: string; numero: number };
+
+export function detalleIngreso(compra: IngresoCompra | undefined, base = "Ingreso a inventario") {
+  return compra ? `${base} · compra C-${compra.numero}` : base;
+}
+
 export type CelularInput = {
+  /** Obligatoria: el modelo/almacenamiento/condición (y el color, si la
+   * variante lo define) se copian de acá, nunca del resto del input. */
+  varianteId: string;
   modelo: string;
   almacenamiento: string;
   color: string;
@@ -74,32 +93,52 @@ export type CelularInput = {
   costoUsd: number;
   precioUsd: number;
   estado: CelularStatus;
+  /** false (default) = el precio es el de la variante. */
+  precioPropio: boolean;
 };
 
-export async function createCelular(data: CelularInput): Promise<Celular> {
+/** Fila efectiva de una unidad: los datos clave salen de la variante (color
+ * y precio solo si la unidad no los define). */
+function camposDeUnidad(data: CelularInput, variante: Variante) {
+  const campos = camposDesdeVariante(variante);
+  return {
+    modelo: campos.modelo,
+    almacenamiento: campos.almacenamiento || null,
+    color: (campos.color || data.color) || null,
+    condicion: campos.condicion || null,
+    precio_usd: data.precioPropio ? data.precioUsd : variante.precioUsd,
+    precio_propio: data.precioPropio,
+    variante_id: variante.id,
+  };
+}
+
+export async function createCelular(
+  data: CelularInput,
+  compra?: IngresoCompra,
+): Promise<Celular> {
   const supabase = createServerClient();
+  const variante = await varianteParaUnidad(data.varianteId);
   const { data: row, error } = await supabase
     .from("celulares")
     .insert({
-      modelo: data.modelo,
-      almacenamiento: data.almacenamiento || null,
-      color: data.color || null,
+      ...camposDeUnidad(data, variante),
       imei: data.imei === "—" ? null : data.imei || null,
-      bateria: data.bateria,
-      condicion: data.condicion || null,
+      bateria: bateriaCelular(variante.condicion, data.bateria),
       costo_usd: data.costoUsd,
-      precio_usd: data.precioUsd,
       estado: data.estado,
+      ...(compra ? { compra_id: compra.compraId } : {}),
     })
     .select(CELULAR_COLS)
     .single();
+  // Sin traducir: `createVenta` (canje) mira `code === "23505"`.
   if (error) throw error;
-  await addMovimiento("celular", row.id, "Ingreso a inventario", "ingreso");
+  await addMovimiento("celular", row.id, detalleIngreso(compra), "ingreso", compra?.compraId);
   return toCelular(row);
 }
 
 export async function updateCelular(id: string, data: CelularInput): Promise<Celular> {
   const supabase = createServerClient();
+  const variante = await varianteParaUnidad(data.varianteId);
   const { data: antesRow } = await supabase
     .from("celulares")
     .select(CELULAR_COLS)
@@ -108,14 +147,10 @@ export async function updateCelular(id: string, data: CelularInput): Promise<Cel
   const { data: row, error } = await supabase
     .from("celulares")
     .update({
-      modelo: data.modelo,
-      almacenamiento: data.almacenamiento || null,
-      color: data.color || null,
+      ...camposDeUnidad(data, variante),
       imei: data.imei === "—" ? null : data.imei || null,
-      bateria: data.bateria,
-      condicion: data.condicion || null,
+      bateria: bateriaCelular(variante.condicion, data.bateria),
       costo_usd: data.costoUsd,
-      precio_usd: data.precioUsd,
       estado: data.estado,
     })
     .eq("id", id)
@@ -160,20 +195,21 @@ export async function createCelularesBulk(
   if (rows.length === 0) return { inserted: 0, celulares: [] };
   const user = await requireUser();
   const supabase = createServerClient();
+  const variantes = await variantesParaUnidades(rows.map((r) => r.varianteId));
   const { data, error } = await supabase
     .from("celulares")
     .insert(
-      rows.map((r) => ({
-        modelo: r.modelo,
-        almacenamiento: r.almacenamiento || null,
-        color: r.color || null,
-        imei: r.imei === "—" ? null : r.imei || null,
-        bateria: r.bateria,
-        condicion: r.condicion || null,
-        costo_usd: r.costoUsd,
-        precio_usd: r.precioUsd,
-        estado: r.estado,
-      })),
+      rows.map((r) => {
+        const variante = variantes.get(r.varianteId);
+        if (!variante) throw new Error("Alguna fila quedó sin una variante válida.");
+        return {
+          ...camposDeUnidad(r, variante),
+          imei: r.imei === "—" ? null : r.imei || null,
+          bateria: bateriaCelular(variante.condicion, r.bateria),
+          costo_usd: r.costoUsd,
+          estado: r.estado,
+        };
+      }),
     )
     .select(CELULAR_COLS);
   if (error) throw error;
@@ -356,6 +392,7 @@ export async function crearRepuesto(
   nombre: string,
   precioCompra: number,
   cantidad: number,
+  compra?: IngresoCompra,
 ): Promise<Repuesto> {
   const supabase = createServerClient();
   const { data: row, error } = await supabase
@@ -364,7 +401,13 @@ export async function crearRepuesto(
     .select(REPUESTO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("repuesto", row.id, `Ingreso: +${cantidad} unidades`, "ingreso");
+  await addMovimiento(
+    "repuesto",
+    row.id,
+    detalleIngreso(compra, `Ingreso: +${cantidad} unidades`),
+    "ingreso",
+    compra?.compraId,
+  );
   return toRepuesto(row as unknown as RepuestoRow);
 }
 
@@ -372,6 +415,7 @@ export async function ingresoRepuesto(
   id: string,
   cantidad: number,
   precioCompra: number,
+  compra?: IngresoCompra,
 ): Promise<Repuesto> {
   const supabase = createServerClient();
   const { data: actual, error: readError } = await supabase
@@ -387,7 +431,13 @@ export async function ingresoRepuesto(
     .select(REPUESTO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("repuesto", id, `Ingreso: +${cantidad} unidades`, "ingreso");
+  await addMovimiento(
+    "repuesto",
+    id,
+    detalleIngreso(compra, `Ingreso: +${cantidad} unidades`),
+    "ingreso",
+    compra?.compraId,
+  );
   return toRepuesto(row as unknown as RepuestoRow);
 }
 
@@ -525,6 +575,7 @@ export async function ingresoOtroExistente(
   cantidad: number,
   precioCompra: number,
   unidadesNuevas?: OtroUnidad[],
+  compra?: IngresoCompra,
 ): Promise<OtroItem> {
   const supabase = createServerClient();
   const { data: actual, error: readError } = await supabase
@@ -546,7 +597,13 @@ export async function ingresoOtroExistente(
     .select(OTRO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("otro", id, `Ingreso: +${cantidad} unidades`, "ingreso");
+  await addMovimiento(
+    "otro",
+    id,
+    detalleIngreso(compra, `Ingreso: +${cantidad} unidades`),
+    "ingreso",
+    compra?.compraId,
+  );
   return toOtro(updated as unknown as OtroRow);
 }
 
@@ -558,7 +615,7 @@ export async function crearOtro(data: {
   unidades?: OtroUnidad[];
   /** Precio de venta. Sin él (flujos viejos) se sugiere costo + 30 %. */
   precioVenta?: number;
-}): Promise<OtroItem> {
+}, compra?: IngresoCompra): Promise<OtroItem> {
   const supabase = createServerClient();
   const precioUsd =
     data.precioVenta && data.precioVenta > 0
@@ -579,7 +636,7 @@ export async function crearOtro(data: {
     .select(OTRO_COLS)
     .single();
   if (error) throw error;
-  await addMovimiento("otro", row.id, "Ingreso a inventario", "ingreso");
+  await addMovimiento("otro", row.id, detalleIngreso(compra), "ingreso", compra?.compraId);
   return toOtro(row as unknown as OtroRow);
 }
 
@@ -646,6 +703,7 @@ export async function addMovimiento(
   itemId: string,
   detalle: string,
   tipo: MovimientoTipo,
+  compraId?: string,
 ) {
   const user = await requireUser();
   const supabase = createServerClient();
@@ -654,6 +712,7 @@ export async function addMovimiento(
     item_id: itemId,
     detalle,
     tipo,
+    ...(compraId ? { compra_id: compraId } : {}),
     usuario_id: user.id,
     usuario_nombre: user.nombre,
   });

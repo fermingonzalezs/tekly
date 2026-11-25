@@ -30,6 +30,20 @@ export default async function AdminLayout({
           <span className="font-grotesk text-lg font-semibold text-neutral-900">
             Tekly
           </span>
+          <nav className="ml-4 flex items-center gap-1" aria-label="Panel de plataforma">
+            <Link
+              href="/admin"
+              className="rounded-full px-3 py-2 text-[13px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              Organizaciones
+            </Link>
+            <Link
+              href="/admin/reportes"
+              className="rounded-full px-3 py-2 text-[13px] font-semibold text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              Reportes
+            </Link>
+          </nav>
           <div className="ml-auto flex items-center gap-2">
             <Link
               href="/dashboard"

@@ -354,6 +354,8 @@ function celular(parcial: Partial<Celular> & Pick<Celular, "id" | "costoUsd" | "
     bateria: 90,
     condicion: "usado",
     estado: "disponible",
+    varianteId: "v1",
+    precioPropio: false,
     ...parcial,
   };
 }

@@ -3,18 +3,18 @@ titulo: "Importar stock y clientes"
 resumen: "Alta masiva de celulares, notebooks y clientes desde una planilla CSV o pegando el texto para que lo lea la IA: columnas, límites y duplicados."
 seccion: inventario
 roles: [admin]
-orden: 8
-actualizado: 2026-11-23
+orden: 9
+actualizado: 2026-11-24
 ---
 
 La importación es una **alta masiva** de **celulares**, **notebooks** y **clientes** existentes (no de ventas históricas). Vive en **Configuración → Importar datos** y es **solo para el admin**.
 
 <Paso n={1} titulo="Prepará la planilla">
-Cada tarjeta tiene dos botones. **«Google Sheets»** abre una planilla nueva en tu cuenta de Google y copia la plantilla: se abre vacía (Google no deja precargarla): tocá la celda A1 y pegá con **Ctrl+V** (**⌘V** en Mac). Cuando la completes, bajala con *Archivo → Descargar → CSV*. **«CSV»** descarga la plantilla para abrirla en Excel u otro programa.
+Cada tarjeta tiene dos botones y los dos abren un **modal con los pasos**. **«Google Sheets»** copia la plantilla y te deja abrir una planilla nueva: tocá la celda A1 y pegá con **Ctrl+V** (**⌘V** en Mac). **«CSV»** descarga la plantilla para abrirla en Excel u otro programa. Cuando la completes, bajala con *Archivo → Descargar → CSV* y subila acá.
 </Paso>
 
 <Paso n={2} titulo="Elegí el archivo y revisá">
-Se abre una **tabla editable** con todos los datos. La primera columna es el **Estado** del equipo (por defecto **Disponible**, se puede cambiar); el punto al lado del número de fila indica si está lista (verde), duplicada (ámbar) o con error (rojo), y el motivo aparece debajo de la fila. **Condición** y **Estado** se eligen de un desplegable; costo y precio se ven como `U$ 1.300`; la **Batería** se deshabilita en los equipos nuevos. Podés **corregir cualquier celda** (todo se revalida al instante) o **quitar** filas con el tacho.
+Se abre una **tabla editable** con todos los datos. La primera columna es el **Estado** del equipo (por defecto **Disponible**, se puede cambiar) y, en celulares y notebooks, la segunda es la **Variante**: viene **sugerida** si los datos coinciden con una variante existente, y podés cambiarla o crear una nueva con los datos de la fila. **Una fila de celulares o notebooks sin variante no se importa.** El punto al lado del número de fila indica si está lista (verde), duplicada (ámbar) o con error (rojo), y el motivo aparece debajo de la fila. **Condición** y **Estado** se eligen de un desplegable; costo y precio se ven como `U$ 1.300`; la **Batería** se deshabilita en los equipos nuevos. Podés **corregir cualquier celda** (todo se revalida al instante) o **quitar** filas con el tacho.
 </Paso>
 
 <Paso n={3} titulo="Confirmá">
@@ -32,10 +32,10 @@ Si tu lista está en WhatsApp, en notas o en un Excel con otras columnas, tocá 
 
 ## Columnas
 
-**Celulares**: `modelo, almacenamiento, color, imei, bateria, condicion, costoUsd, precioUsd, estado`.
+**Celulares**: `modelo, almacenamiento, color, imei, bateria, condicion, costoUsd, precioUsd, estado` + la columna **Variante** que se elige en la tabla de revisión (no va en la planilla).
 - `modelo`, `condicion`, `costoUsd` y `precioUsd` son obligatorios. `condicion` es uno de los grados del sistema: `NUEVO`, `A+`, `A`, `B+`, `B` o `C` (en la tabla de revisión se elige de un desplegable). `bateria` (0 a 100) es obligatoria en los usados y no aplica a los `NUEVO`. `estado` admite `en_revision/disponible/reservado/vendido`; si va vacío, se completa como **«Disponible»**.
 
-**Notebooks**: `modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numeroSerie, garantia, observaciones, condicion, bateria, costoUsd, precioUsd, estado`.
+**Notebooks**: `modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numeroSerie, garantia, observaciones, condicion, bateria, costoUsd, precioUsd, estado` + la columna **Variante** (modelo + memoria + almacenamiento + condición) que se elige en la revisión.
 - `modelo`, `condicion` (`nuevo` o `usado`), `costoUsd` y `precioUsd` son obligatorios. `bateria` es obligatoria si es usada. `estado` vacío se completa como **«Disponible»**. Se deduplica por **número de serie**.
 
 **Clientes**: `nombre, telefono, email, fechaNacimiento`.

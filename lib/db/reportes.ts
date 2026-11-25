@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient, createServiceRoleClient } from "@/lib/auth/supabase";
 import { requireUser } from "@/lib/auth";
 import { notifyTelegram } from "@/lib/telegram";
+import type { ResolucionReporte } from "@/lib/types";
 
 const MAX_DESCRIPCION = 2000;
 const MAX_ACCION = 300;
@@ -59,4 +60,42 @@ export async function crearReporteBug(
     ].join("\n"),
   );
   return { error: null };
+}
+
+
+/** Reportes del usuario de la sesión ya resueltos en los últimos 30 días
+ * (los no vistos siempre, aunque sean más viejos). Service role filtrado por
+ * el id de la sesión: la tabla no tiene policy de select. */
+export async function listResolucionesPropias(): Promise<ResolucionReporte[]> {
+  const user = await requireUser();
+  const desde = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await createServiceRoleClient()
+    .from("reportes_bugs")
+    .select("id, descripcion, respuesta, resuelto_at, visto_at")
+    .eq("usuario_id", user.id)
+    .eq("estado", "resuelto")
+    .or(`visto_at.is.null,resuelto_at.gte.${desde}`)
+    .order("resuelto_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    descripcion: r.descripcion as string,
+    respuesta: (r.respuesta as string | null) ?? "",
+    resueltoAt: r.resuelto_at as string,
+    visto: r.visto_at !== null,
+  }));
+}
+
+/** Marca como vistas respuestas del usuario de la sesión (nunca de otro). */
+export async function marcarResolucionesVistas(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const user = await requireUser();
+  const { error } = await createServiceRoleClient()
+    .from("reportes_bugs")
+    .update({ visto_at: new Date().toISOString() })
+    .eq("usuario_id", user.id)
+    .in("id", ids)
+    .is("visto_at", null);
+  if (error) throw error;
 }

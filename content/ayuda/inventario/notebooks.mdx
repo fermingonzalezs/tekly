@@ -3,16 +3,16 @@ titulo: "Notebooks"
 resumen: "Cómo cargar, editar y vender notebooks: unidad única con número de serie, CPU, memoria, almacenamiento, pantalla, garantía, costo y precio."
 seccion: inventario
 roles: []
-orden: 3
-actualizado: 2026-10-17
+orden: 4
+actualizado: 2026-11-25
 ---
 
-La pestaña **Notebooks** lista las notebooks como **unidades únicas**: cada una tiene su **número de serie** y sus propios datos. Usan los mismos estados que los celulares.
+La pestaña **Notebooks** lista las notebooks como **unidades únicas**: cada una tiene su **número de serie** y sus propios datos. Usan los mismos estados que los celulares y, como ellos, cada notebook pertenece a una **variante** (modelo + memoria + almacenamiento + condición, con su SKU): ver [Variantes (SKU)](/ayuda/inventario/variantes). La pestaña se abre **agrupada** (grupo › variante › notebooks); «Agrupado / Unidades» vuelve a la tabla plana.
 
 ## Ver y editar
 
-<Paso n={1} titulo="Agregar notebook">
-El botón **«Agregar notebook»** abre el formulario. Sólo **Modelo** es obligatorio; entra en estado **«En revisión»**.
+<Paso n={1} titulo="Cargar notebooks (con una compra)">
+Las notebooks nuevas entran con una compra: el botón **«Ingresar equipo»** lleva a [Compras / Ingresos](/ayuda/compras/nueva-compra), donde «Notebook» abre este formulario. La **variante** es obligatoria (elegila o creá una nueva desde el mismo selector): de ahí salen el modelo, la memoria, el almacenamiento, la condición y el precio (salvo que tildes «Precio propio para esta notebook»). Entra en estado **«En revisión»**.
 </Paso>
 
 <Paso n={2} titulo="Editar">
@@ -21,7 +21,8 @@ Tocá una fila para abrir el mismo formulario con todos los campos, incluido el 
 
 ## Campos
 
-- **Modelo**, **CPU**, **Memoria**, **Almacenamiento**, **Placa de video**, **Pantalla**, **Color**, **Idioma**, **N.º de serie** y **Garantía** (texto libre, ej. «6 meses»).
+- **Variante** (define **Modelo**, **Memoria**, **Almacenamiento** y **Condición**).
+- **CPU**, **Placa de video**, **Pantalla**, **Color**, **Idioma**, **N.º de serie** y **Garantía** (texto libre, ej. «6 meses»).
 - **Costo (U$)** y **Precio (U$)**.
 - **Estado** y **Notas**.
 

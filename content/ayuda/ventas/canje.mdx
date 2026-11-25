@@ -4,7 +4,7 @@ resumen: "Cuando el cliente paga con un equipo en parte de pago, Tekly lo suma a
 seccion: ventas
 roles: []
 orden: 4
-actualizado: 2026-10-17
+actualizado: 2026-11-24
 ---
 
 Un **canje** es cuando el cliente entrega un equipo (por ejemplo su iPhone viejo) como parte del pago. No es sólo un medio de pago: Tekly **registra el equipo recibido** como una compra y **lo ingresa al inventario**.
@@ -13,8 +13,8 @@ Un **canje** es cuando el cliente entrega un equipo (por ejemplo su iPhone viejo
 En el pago, elegí **Mercadería**. A diferencia del resto de los medios, **no pide caja** (el canje no es dinero) y se carga siempre en dólares. Se abre el modal **«Equipo recibido en canje»**.
 </Paso>
 
-<Paso n={2} titulo="Cargá el equipo y el checklist">
-Completá **marca, equipo, serial/IMEI, color**, el **checklist de ingreso** (22 ítems bien/mal/no aplica) y las **aclaraciones** libres. Sólo el campo «Equipo» es obligatorio.
+<Paso n={2} titulo="Elegí la variante y cargá el checklist">
+Primero elegí la **variante** del equipo recibido (obligatoria, la misma capa que en Inventario: ver [Variantes (SKU)](/ayuda/inventario/variantes)); de ahí salen modelo, almacenamiento y condición. Completá **marca, serial/IMEI, color** (si la variante no lo define), el **checklist de ingreso** (22 ítems bien/mal/no aplica) y las **aclaraciones** libres.
 </Paso>
 
 <Paso n={3} titulo="Confirmá la venta">
@@ -28,7 +28,7 @@ En **Compras**, abrí la compra del canje y usá **«Imprimir recibo de canje»*
 ## Qué pasa después
 
 - Se crea la compra de canje en estado **«Recibida»** (el equipo ya está en mano).
-- El equipo aparece en **Inventario → Celulares** como **«En revisión»**, con el **costo igual al valor del canje** y **precio 0**: lo completás al revisarlo (modelo, batería, condición, precio) y lo pasás a «Disponible» para venderlo.
+- El equipo aparece en **Inventario → Celulares** (en su variante) como **«En revisión»**, con el **costo igual al valor del canje** y **precio 0** (precio propio): lo completás al revisarlo (batería, costo, precio) y lo pasás a «Disponible» para venderlo.
 - El valor reconocido es el monto de ese pago.
 - La venta guarda los vínculos (`compraId` y `celularId`) para llegar a la compra y al celular desde el detalle.
 

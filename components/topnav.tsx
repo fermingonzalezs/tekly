@@ -10,6 +10,7 @@ import { navForRole, navCategoriesForRole } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
 import { NotificationsBell } from "@/components/notifications/bell";
+import type { ResolucionReporte } from "@/lib/types";
 import { DolarNavbar } from "@/components/dolar-navbar";
 import { UserMenu } from "@/components/auth/user-menu";
 import { MobileNavDrawer } from "@/components/mobile-nav-drawer";
@@ -19,8 +20,14 @@ export function TopNav({
   user,
   logoUrl,
   nombre,
+  adminPlataforma = false,
+  resoluciones = [],
 }: {
   user: SessionUser;
+  /** Respuestas a reportes propios (campanita). */
+  resoluciones?: ResolucionReporte[];
+  /** Email en `PLATFORM_ADMIN_EMAILS`: el menú ofrece el panel `/admin`. */
+  adminPlataforma?: boolean;
   /** Logo de la organización (Configuración → Datos del negocio) -- null
    * mientras no haya upload, se muestra el placeholder de siempre. */
   logoUrl?: string | null;
@@ -145,8 +152,8 @@ export function TopNav({
 
         <div className="ml-auto flex shrink-0 items-center gap-2.5">
           <DolarNavbar />
-          <NotificationsBell esAdmin={user.rol === "admin"} />
-          <UserMenu user={user} />
+          <NotificationsBell esAdmin={user.rol === "admin"} resoluciones={resoluciones} />
+          <UserMenu user={user} adminPlataforma={adminPlataforma} />
         </div>
       </header>
 

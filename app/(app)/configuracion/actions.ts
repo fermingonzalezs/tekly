@@ -12,6 +12,7 @@ import {
 import type { AuthResult, Rol } from "@/lib/auth/types";
 import { updateNegocio, uploadLogo, removeLogo, type Negocio } from "@/lib/db/configuracion";
 import { createCelularesBulk, listImeisExistentes, type CelularInput } from "@/lib/db/inventario";
+import { listVariantes } from "@/lib/db/variantes";
 import { createNotebooksBulk, listSeriesExistentes } from "@/lib/db/notebooks";
 import type { NotebookInput } from "@/lib/notebooks";
 import { createClientesBulk, listClientesContacto } from "@/lib/db/clientes";
@@ -135,10 +136,18 @@ export async function importCelularesAction(
 
   const results: ImportRowResult[] = [];
   const validos: { rowNum: number; data: CelularInput }[] = [];
+  // La variante viene de la tabla de revisión: se revalida contra la org.
+  const variantesValidas = new Set(
+    (await listVariantes({ incluirInactivas: true })).map((v) => v.id),
+  );
   for (const { rowNum, raw } of rawRows) {
     const parsed = parseCelularRow(raw, rowNum);
     if (!parsed.ok) {
       results.push({ rowNum, status: "error", detail: parsed.error });
+      continue;
+    }
+    if (!variantesValidas.has(parsed.data.varianteId)) {
+      results.push({ rowNum, status: "error", detail: "La variante elegida no existe" });
       continue;
     }
     validos.push({ rowNum, data: parsed.data });
@@ -181,10 +190,17 @@ export async function importNotebooksAction(
 
   const results: ImportRowResult[] = [];
   const validos: { rowNum: number; data: NotebookInput }[] = [];
+  const variantesValidas = new Set(
+    (await listVariantes({ incluirInactivas: true, categoria: "notebook" })).map((v) => v.id),
+  );
   for (const { rowNum, raw } of rawRows) {
     const parsed = parseNotebookRow(raw, rowNum);
     if (!parsed.ok) {
       results.push({ rowNum, status: "error", detail: parsed.error });
+      continue;
+    }
+    if (!variantesValidas.has(parsed.data.varianteId)) {
+      results.push({ rowNum, status: "error", detail: "La variante elegida no existe" });
       continue;
     }
     validos.push({ rowNum, data: parsed.data });

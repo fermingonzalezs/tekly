@@ -54,6 +54,9 @@ type VentaRow = {
   cliente_id: string | null;
   cliente: string;
   vendedor_id: string | null;
+  vendedor_nombre: string | null;
+  tienda_id: string | null;
+  tiendas: { nombre: string } | null;
   profiles: { nombre: string } | null;
   procedencia: string | null;
   modalidad: ModalidadVenta;
@@ -65,7 +68,7 @@ type VentaRow = {
 };
 
 const VENTA_COLS =
-  "id, numero, fecha, cliente_id, cliente, vendedor_id, profiles(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, costo_usd, celular_id, notebook_id, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, pagos, margen_pct, tipo";
+  "id, numero, fecha, cliente_id, cliente, vendedor_id, vendedor_nombre, profiles(nombre), tienda_id, tiendas(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, costo_usd, celular_id, notebook_id, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, pagos, margen_pct, tipo";
 
 function toVentaItem(row: VentaItemRow): VentaItem {
   return {
@@ -96,7 +99,10 @@ function toVenta(
     clienteId: row.cliente_id ?? "",
     cliente: row.cliente,
     vendedorId: row.vendedor_id ?? "",
-    vendedor: row.profiles?.nombre ?? "—",
+    // Usuario de la org → su nombre actual; escrito a mano → el guardado.
+    vendedor: row.profiles?.nombre ?? row.vendedor_nombre ?? "—",
+    tiendaId: row.tienda_id ?? undefined,
+    tienda: row.tiendas?.nombre ?? undefined,
     procedencia: row.procedencia ?? undefined,
     modalidad: row.modalidad,
     items: (row.venta_items ?? []).map(toVentaItem),
@@ -560,6 +566,8 @@ export type CreateVentaInput = {
   cliente: string;
   vendedorId: string;
   vendedorNombre: string;
+  /** `null`/omitido = la tienda principal. */
+  tiendaId?: string | null;
   procedencia?: string;
   modalidad: ModalidadVenta;
   items: VentaItem[];
@@ -595,6 +603,11 @@ export type CreateVentaInput = {
  * -- hoy no vale la complejidad para esta escala. */
 export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   const supabase = createServerClient();
+  // El equipo recibido en canje entra al inventario, así que necesita su
+  // variante (plan 024): se valida antes de escribir nada.
+  if (data.pagos.some((p) => p.medio === "canje" && !p.canje?.varianteId)) {
+    throw new Error("El equipo del canje necesita una variante.");
+  }
   // `canje` nunca se persiste en `Venta.pagos` -- solo viaja para crear la
   // `Compra` vinculada más abajo, que es donde vive el detalle completo.
   // Los pagos a una caja ARS llevan además el snapshot de cotización
@@ -624,6 +637,8 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       cliente_id: data.clienteId || null,
       cliente: data.cliente,
       vendedor_id: data.vendedorId || null,
+      vendedor_nombre: data.vendedorId ? null : data.vendedorNombre.trim() || null,
+      tienda_id: data.tiendaId ?? null,
       procedencia: data.procedencia ?? null,
       modalidad: data.modalidad,
       total_usd: data.totalUsd,
@@ -762,6 +777,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
         const imei = (pago.canje.imei ?? "").trim();
         const crear = (imeiACargar: string) =>
           createCelular({
+            varianteId: pago.canje!.varianteId ?? "",
             modelo: pago.canje!.equipo,
             almacenamiento: "",
             color: pago.canje!.checklist.color ?? "",
@@ -771,6 +787,8 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
             costoUsd: pago.montoUsd,
             precioUsd: 0,
             estado: "en_revision",
+            // Entra en revisión con precio 0: no hereda el de la variante.
+            precioPropio: true,
           });
 
         let celular: Celular;
@@ -797,7 +815,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
           clienteId: data.clienteId,
           clienteNombre: data.cliente,
           ventaId: ventaRow.id,
-          items: [{ detalle: pago.canje.equipo, cantidad: 1, costoUsd: pago.montoUsd }],
+          items: [{ detalle: celular.modelo, cantidad: 1, costoUsd: pago.montoUsd }],
           totalUsd: pago.montoUsd,
           medioPago: "canje",
           estado: "recibida",
@@ -805,6 +823,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
           imei: pago.canje.imei,
           checklist: pago.canje.checklist,
           aclaraciones: aclaraciones || undefined,
+          celularId: celular.id,
           usuarioNombre: data.vendedorNombre,
         });
         compraIdPorIndice.set(i, compra.id);
@@ -1029,6 +1048,19 @@ export async function deleteVenta(
 
 /** Vendedores posibles para el selector de "Nueva venta" -- admin y
  * vendedor pueden figurar como vendedor de una operación. */
+/** Usuarios activos de la organización (cualquier rol): las opciones del
+ * campo Vendedor de Nueva venta. */
+export async function listUsuariosVenta(): Promise<{ id: string; nombre: string }[]> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, nombre")
+    .eq("activo", true)
+    .order("nombre");
+  if (error) throw error;
+  return data;
+}
+
 export async function listVendedores(): Promise<{ id: string; nombre: string }[]> {
   const supabase = createServerClient();
   const { data, error } = await supabase
