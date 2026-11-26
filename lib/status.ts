@@ -244,6 +244,14 @@ export const turnoBlockClass: Record<
     texto: "text-[color:var(--chart-2)]",
     banda: "bg-[color:var(--chart-2)]",
   },
+  otro: {
+    solid: "border-[color:color-mix(in_srgb,var(--chart-4)_45%,white)] bg-[color:color-mix(in_srgb,var(--chart-4)_14%,white)] text-neutral-900",
+    soft: "border-dashed border-[color:var(--chart-4)] bg-white text-neutral-900",
+    icono: "text-[color:var(--chart-4)]",
+    fondo: "text-[color:color-mix(in_srgb,var(--chart-4)_28%,white)]",
+    texto: "text-[color:var(--chart-4)]",
+    banda: "bg-[color:var(--chart-4)]",
+  },
 };
 
 /** Motivo del turno → color en el calendario. */
@@ -252,6 +260,7 @@ export const turnoTipo: Record<TurnoTipo, { label: string; tone: Tone }> = {
   deja: { label: "Deja reparación", tone: "blue" },
   retira: { label: "Retira reparación", tone: "violet" },
   cotizar: { label: "Cotizar", tone: "amber" },
+  otro: { label: "Otro", tone: "gray" },
 };
 
 /** Categoría de un `movimientos_stock` (ingreso/edición/baja/recuento) --

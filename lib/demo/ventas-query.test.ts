@@ -61,6 +61,7 @@ function filtros(overrides: Partial<FiltrosVentas> = {}): FiltrosVentas {
     desde: "",
     hasta: "",
     vendedor: "",
+    tienda: "",
     tipo: "",
     q: "",
     vista: "ventas",

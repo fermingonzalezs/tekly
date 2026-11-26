@@ -77,6 +77,13 @@ function ventaCoincideClienteNumero(v: Venta, q: string): boolean {
   );
 }
 
+/** Mismo criterio que `aplicarFiltrosVentas`: `principal` = sin tienda. */
+function enTienda(v: Venta, tienda: string): boolean {
+  if (!tienda) return true;
+  if (tienda === "principal") return !v.tiendaId;
+  return v.tiendaId === tienda;
+}
+
 /** Filtros comunes a todas las vistas: rango + vendedor + rubro + `q`. */
 function filtrarVentas(
   state: DemoState,
@@ -88,6 +95,7 @@ function filtrarVentas(
     (v) =>
       enRango(v.fechaISO, rango) &&
       (!filtros.vendedor || v.vendedorId === filtros.vendedor) &&
+      enTienda(v, filtros.tienda) &&
       (!filtros.tipo || v.items.some((i) => categoriaDe(i) === filtros.tipo)) &&
       (!q || ventaCoincide(v, q, state.celulares, state.notebooks)),
   );
@@ -159,7 +167,8 @@ export function consultarVentas(
   const ventasBaseItems = state.ventas.filter(
     (v) =>
       enRango(v.fechaISO, rango) &&
-      (!filtros.vendedor || v.vendedorId === filtros.vendedor),
+      (!filtros.vendedor || v.vendedorId === filtros.vendedor) &&
+      enTienda(v, filtros.tienda),
   );
   const filas: ItemVendidoDemo[] = [];
   for (const venta of ordenar(ventasBaseItems, filtros.sort, filtros.dir)) {

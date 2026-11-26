@@ -479,11 +479,14 @@ async function quitarDelStock(compraUuid: string, numero: number): Promise<strin
       const id = (it.celular_id ?? it.notebook_id)!;
       const { data: u, error: e } = await supabase
         .from(tabla)
-        .select("estado, activo")
+        .select("estado, activo, compra_id")
         .eq("id", id)
         .maybeSingle();
       if (e) throw e;
       if (!u || !u.activo) continue;
+      // La unidad se dio de baja y volvió a entrar con otro ingreso (se
+      // reactiva la misma fila, ver `createCelular`): ya no es de esta compra.
+      if (u.compra_id !== compraUuid) continue;
       if (!ESTADOS_QUE_SE_SACAN.includes(u.estado)) {
         conservados.push(it.detalle);
         continue;

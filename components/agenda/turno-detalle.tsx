@@ -7,11 +7,13 @@ import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { thDivider } from "@/lib/ui-styles";
 import { fmtUsd } from "@/lib/format";
-import { etiquetaDia, horaFin } from "@/lib/agenda";
+import { etiquetaDia, horaFin, textoTurno } from "@/lib/agenda";
+import { CopiarTexto } from "@/components/copiar-texto";
 import { celularStatus, dotClass, medioPago, turnoBlockClass, turnoStatus, turnoTipo } from "@/lib/status";
 import { TURNO_ICONO } from "./turno-icono";
 import { TicketResumen } from "./ticket-resumen";
 import type { Celular, ClienteOpcion, Ticket, Turno, TurnoEstado } from "@/lib/types";
+import type { Negocio } from "@/lib/db/configuracion";
 
 /** Detalle de solo lectura de un turno + acciones de estado, editar y eliminar. */
 export function TurnoDetalle({
@@ -20,6 +22,7 @@ export function TurnoDetalle({
   ticketsListos,
   clientes,
   esAdmin,
+  negocio,
   onClose,
   onEstado,
   onEditar,
@@ -30,6 +33,8 @@ export function TurnoDetalle({
   ticketsListos: Ticket[];
   clientes: ClienteOpcion[];
   esAdmin: boolean;
+  /** Nombre (tienda principal) y dirección del local, para el texto a copiar. */
+  negocio: Pick<Negocio, "nombre" | "direccion">;
   onClose: () => void;
   onEstado: (t: Turno, estado: TurnoEstado) => void;
   onEditar: (t: Turno) => void;
@@ -38,6 +43,26 @@ export function TurnoDetalle({
   const abierto = turno && (turno.estado === "pendiente" || turno.estado === "confirmado");
   const IconoTipo = turno ? TURNO_ICONO[turno.tipo] : null;
   const cliente = turno?.clienteId ? clientes.find((c) => c.id === turno.clienteId) : undefined;
+  // Texto para mandarle al cliente: equipos = celulares + ítems del turno, o
+  // el equipo del ticket que viene a retirar.
+  const texto = turno
+    ? textoTurno(turno, {
+        equipos: [
+          ...(turno.celularIds ?? []).map((id) => {
+            const c = celulares.find((x) => x.id === id);
+            return c ? [c.modelo, c.almacenamiento, c.color].filter(Boolean).join(" ") : "";
+          }),
+          ...(turno.itemsOtros ?? []).map((i) =>
+            i.cantidad && i.cantidad > 1 ? `${i.cantidad}x ${i.nombre}` : i.nombre,
+          ),
+          ...(turno.tipo === "retira"
+            ? [ticketsListos.find((t) => t.id === turno.ticketId)?.equipo ?? ""]
+            : []),
+        ],
+        tienda: turno.tienda ?? negocio.nombre,
+        direccion: negocio.direccion,
+      })
+    : "";
   return (
     <Dialog
       open={!!turno}
@@ -57,6 +82,7 @@ export function TurnoDetalle({
                 Eliminar
               </Button>
             )}
+            <CopiarTexto texto={texto} label="Copiar texto del turno para el cliente" conTexto fullOnMobile />
             <Button onClick={onClose} variant="outline" fullOnMobile>
               Cerrar
             </Button>
@@ -101,6 +127,12 @@ export function TurnoDetalle({
             <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Atiende</p>
             <p className="text-neutral-900">{turno.atiende ?? "Sin asignar"}</p>
           </div>
+          {turno.tienda && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Tienda</p>
+              <p className="text-neutral-900">{turno.tienda}</p>
+            </div>
+          )}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Duración</p>
             <p className="tabular-nums text-neutral-900">{turno.duracionMin} min</p>

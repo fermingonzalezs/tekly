@@ -12,6 +12,7 @@ import { useOutsideClick } from "@/components/ui/use-outside-click";
 import { turnoTipo, medioPago, MEDIOS_CAJA } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
 import { montoConRecargo } from "@/lib/ventas";
+import { TIENDA_NOMBRE_MAX } from "@/lib/tiendas";
 import {
   DURACIONES,
   DURACION_POR_TIPO,
@@ -30,6 +31,8 @@ import type {
   OtroItem,
   Pago,
   Ticket,
+  Tienda,
+  TiendaSeleccion,
   Turno,
   TurnoOtroItem,
   TurnoTipo,
@@ -38,7 +41,7 @@ import type { Negocio } from "@/lib/db/configuracion";
 import type { TurnoInput } from "@/app/(app)/agenda/actions";
 
 const MEDIOS = MEDIOS_CAJA;
-const TIPOS: TurnoTipo[] = ["compra", "deja", "retira", "cotizar"];
+const TIPOS: TurnoTipo[] = ["compra", "deja", "retira", "cotizar", "otro"];
 
 /** Caja sugerida según el medio; el usuario la puede cambiar a mano. */
 function defaultCaja(medio: MedioPago): "usd" | "ars" {
@@ -46,6 +49,9 @@ function defaultCaja(medio: MedioPago): "usd" | "ars" {
 }
 
 const rid = () => Math.random().toString(36).slice(2);
+
+/** Valor del Select de Tienda para «+ Nueva tienda…» (como en Nueva venta). */
+const TIENDA_NUEVA = "__nueva__";
 
 type DraftPago = { _k: string; medio: MedioPago; montoUsd: number; caja: "usd" | "ars" };
 
@@ -61,6 +67,7 @@ export function AgendarDialog({
   turnosAgenda,
   negocio,
   cajas,
+  tiendas = [],
   onClose,
   onSubmit,
 }: {
@@ -80,6 +87,8 @@ export function AgendarDialog({
   /** Los turnos no eligen caja: el recargo informativo sale de la primera
    * caja activa del medio (0 si no hay). */
   cajas: Caja[];
+  /** Tiendas extra de la organización (la principal es `negocio.nombre`). */
+  tiendas?: Tienda[];
   onClose: () => void;
   onSubmit: (d: TurnoInput) => void;
 }) {
@@ -91,6 +100,15 @@ export function AgendarDialog({
         : { tipo: "libre", nombre: turno.cliente }
       : null,
   );
+  // «Solo nombre»: el cliente se escribe en texto plano, sin buscarlo ni
+  // registrarlo (`tipo: "libre"`, `Turno.clienteId` null).
+  const [soloNombre, setSoloNombre] = useState(!!turno && !turno.clienteId);
+  const [nombreLibre, setNombreLibre] = useState(turno && !turno.clienteId ? turno.cliente : "");
+  const clienteFinal: ClienteSeleccion | null = soloNombre
+    ? nombreLibre.trim()
+      ? { tipo: "libre", nombre: nombreLibre.trim() }
+      : null
+    : cliente;
   const [tipo, setTipo] = useState<TurnoTipo>(turno?.tipo ?? "cotizar");
   const [nota, setNota] = useState(turno?.nota ?? "");
   const [fecha, setFecha] = useState(turno?.fecha ?? inicial?.fecha ?? "");
@@ -98,6 +116,24 @@ export function AgendarDialog({
   const [duracionMin, setDuracionMin] = useState(turno?.duracionMin ?? DURACION_POR_TIPO.cotizar);
   const duracionTocada = useRef(editando);
   const [atiendeId, setAtiendeId] = useState<string>(turno?.atiendeId ?? "");
+
+  // Tienda: "" = la principal (nombre del negocio), un id, o TIENDA_NUEVA.
+  // Mismo criterio diferido que Nueva venta: la nueva se crea al guardar.
+  const [tiendaSel, setTiendaSel] = useState(turno?.tiendaId ?? "");
+  const [tiendaNueva, setTiendaNueva] = useState("");
+  const [tiendaModal, setTiendaModal] = useState(false);
+  const [tiendaModalNombre, setTiendaModalNombre] = useState("");
+  const tienda: TiendaSeleccion =
+    tiendaSel === TIENDA_NUEVA
+      ? { tipo: "nueva", nombre: tiendaNueva }
+      : tiendaSel
+        ? { tipo: "existente", id: tiendaSel }
+        : { tipo: "principal" };
+  // Un turno de una tienda ya desactivada: se sigue mostrando su nombre.
+  const tiendaInactiva =
+    turno?.tiendaId && !tiendas.some((t) => t.id === turno.tiendaId)
+      ? { id: turno.tiendaId, nombre: turno.tienda ?? "Tienda" }
+      : null;
 
   // "retira": ticket listo a retirar + cómo se espera cobrar el presupuesto.
   // Arranca en el primero de la lista -- el <Select> no tiene opción vacía
@@ -180,16 +216,17 @@ export function AgendarDialog({
 
   // "retira" sin ticket no tiene sentido -- sin uno listo para retirar, no
   // se agenda el turno (el selector avisa por qué).
-  const puedeAgendar = !!cliente && !!fecha && (tipo !== "retira" || !!ticketId);
+  const puedeAgendar = !!clienteFinal && !!fecha && (tipo !== "retira" || !!ticketId);
 
   function submit() {
-    if (!puedeAgendar) return;
+    if (!puedeAgendar || !clienteFinal) return;
     onSubmit({
       fecha,
       hora,
       duracionMin,
       atiendeId: atiendeId || null,
-      cliente,
+      tienda,
+      cliente: clienteFinal,
       tipo,
       celularIds: tipo === "compra" ? celularIds : [],
       ticketId: tipo === "retira" ? ticketId : null,
@@ -246,12 +283,37 @@ export function AgendarDialog({
           </p>
           <GrillaCampos>
             <Field label="Cliente" className="sm:col-span-2">
-              <ClientePicker
-                clientes={clientesOpciones}
-                value={cliente}
-                onChange={setCliente}
-                allowLibre
-              />
+              {soloNombre ? (
+                <Input
+                  value={nombreLibre}
+                  onChange={(e) => setNombreLibre(e.target.value)}
+                  placeholder="Nombre del cliente"
+                  maxLength={120}
+                  autoFocus
+                />
+              ) : (
+                <ClientePicker
+                  clientes={clientesOpciones}
+                  value={cliente}
+                  onChange={setCliente}
+                  allowLibre
+                />
+              )}
+              <Button
+                variant="link"
+                size="sm"
+                className="mt-1"
+                onClick={() => {
+                  if (soloNombre) {
+                    setSoloNombre(false);
+                  } else {
+                    if (cliente && !nombreLibre) setNombreLibre(cliente.nombre);
+                    setSoloNombre(true);
+                  }
+                }}
+              >
+                {soloNombre ? "Buscar un cliente registrado" : "Escribir solo el nombre (sin registrar)"}
+              </Button>
             </Field>
             <Field label="Motivo">
               <Select
@@ -300,7 +362,31 @@ export function AgendarDialog({
                 ))}
               </Select>
             </Field>
-            <Field label="Atiende" className="sm:col-span-3">
+            <Field label="Tienda / página">
+              <Select
+                value={tiendaSel}
+                onChange={(e) => {
+                  if (e.target.value === TIENDA_NUEVA) {
+                    setTiendaModalNombre("");
+                    setTiendaModal(true);
+                    return;
+                  }
+                  setTiendaSel(e.target.value);
+                }}
+              >
+                <option value="">{negocio.nombre || "Tienda principal"}</option>
+                {tiendaInactiva && <option value={tiendaInactiva.id}>{tiendaInactiva.nombre}</option>}
+                {tiendas.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombre}
+                  </option>
+                ))}
+                <option value={TIENDA_NUEVA}>
+                  {tiendaNueva ? `${tiendaNueva} (nueva)` : "+ Nueva tienda…"}
+                </option>
+              </Select>
+            </Field>
+            <Field label="Atiende" className="sm:col-span-2">
               <Select value={atiendeId} onChange={(e) => setAtiendeId(e.target.value)}>
                 <option value="">Sin asignar</option>
                 {atendientes.map((a) => (
@@ -320,7 +406,7 @@ export function AgendarDialog({
           </GrillaCampos>
         </div>
 
-        {(tipo === "cotizar" || tipo === "deja") && (
+        {(tipo === "cotizar" || tipo === "deja" || tipo === "otro") && (
           <ComentarioField value={nota} onChange={setNota} />
         )}
 
@@ -488,6 +574,41 @@ export function AgendarDialog({
           </>
         )}
       </div>
+
+      <Dialog
+        open={tiendaModal}
+        onClose={() => setTiendaModal(false)}
+        title="Nueva tienda"
+        formulario
+        footer={
+          <>
+            <Button onClick={() => setTiendaModal(false)} variant="outline" fullOnMobile>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!tiendaModalNombre.trim()}
+              onClick={() => {
+                setTiendaNueva(tiendaModalNombre.trim());
+                setTiendaSel(TIENDA_NUEVA);
+                setTiendaModal(false);
+              }}
+              variant="primary"
+              fullOnMobile
+            >
+              Usar esta tienda
+            </Button>
+          </>
+        }
+      >
+        <Field label="Nombre de la tienda">
+          <Input
+            value={tiendaModalNombre}
+            onChange={(e) => setTiendaModalNombre(e.target.value)}
+            maxLength={TIENDA_NOMBRE_MAX}
+            autoFocus
+          />
+        </Field>
+      </Dialog>
     </Dialog>
   );
 }

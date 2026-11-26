@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ArrowUp,
   ArrowDown,
+  Store,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +77,7 @@ import {
 import {
   hayFiltrosActivos,
   queryDeFiltros,
+  TIENDA_PRINCIPAL,
   type FiltrosVentas,
   type SortVentas,
 } from "@/lib/ventas-filtros";
@@ -434,6 +436,7 @@ export function VentasClient({
       desde: "",
       hasta: "",
       vendedor: "",
+      tienda: "",
       tipo: "",
       q: "",
       vista: "ventas",
@@ -553,9 +556,20 @@ export function VentasClient({
       ? resumen.margenPct - resumenAnterior.margenPct
       : undefined;
 
+  // Con tiendas extra, toda venta muestra la suya (la principal también);
+  // sin tiendas extra no se muestra nada (hay una sola).
+  const nombrePrincipal = negocio.nombre || "Tienda principal";
+  const tiendaDe = (v: Venta): string | null =>
+    v.tienda ?? (tiendas.length > 0 ? nombrePrincipal : null);
+  const nombreFiltroTienda =
+    filtros.tienda === TIENDA_PRINCIPAL
+      ? nombrePrincipal
+      : (tiendas.find((t) => t.id === filtros.tienda)?.nombre ?? "—");
+
   const filtrosActivos =
     (filtros.q ? 1 : 0) +
     (filtros.vendedor ? 1 : 0) +
+    (filtros.tienda ? 1 : 0) +
     (filtros.tipo ? 1 : 0) +
     (filtros.preset !== "mes" ? 1 : 0);
 
@@ -815,6 +829,27 @@ export function VentasClient({
                     ))}
                   </Select>
                 )}
+                {(tiendas.length > 0 || filtros.tienda) && (
+                  <Select
+                    value={filtros.tienda}
+                    onChange={(e) => actualizar({ tienda: e.target.value })}
+                    className={cn("w-full md:w-44", filterPill)}
+                    aria-label="Filtrar por tienda"
+                  >
+                    <option value="">Todas las tiendas</option>
+                    <option value={TIENDA_PRINCIPAL}>{nombrePrincipal}</option>
+                    {tiendas.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.nombre}
+                      </option>
+                    ))}
+                    {filtros.tienda &&
+                      filtros.tienda !== TIENDA_PRINCIPAL &&
+                      !tiendas.some((t) => t.id === filtros.tienda) && (
+                        <option value={filtros.tienda}>Tienda desactivada</option>
+                      )}
+                  </Select>
+                )}
                 <Select
                   value={filtros.tipo}
                   onChange={(e) => actualizar({ tipo: e.target.value as FiltrosVentas["tipo"] })}
@@ -862,6 +897,12 @@ export function VentasClient({
                       onClear={() => actualizar({ vendedor: "" })}
                     />
                   )}
+                  {filtros.tienda && (
+                    <FiltroChip
+                      label={`Tienda: ${nombreFiltroTienda}`}
+                      onClear={() => actualizar({ tienda: "" })}
+                    />
+                  )}
                   {filtros.tipo && (
                     <FiltroChip
                       label={`Tipo: ${RUBRO_LABEL[filtros.tipo]}`}
@@ -898,6 +939,7 @@ export function VentasClient({
           {filtros.vista === "items" ? (
             <ItemsVendidosTabla
               items={items}
+              tiendaDe={tiendaDe}
               puedeVerCosto={puedeVerCosto}
               onOpen={abrirDetalle}
               onGarantia={(v, i) => setRecibo({ venta: v, tipo: "garantia", item: i })}
@@ -909,6 +951,7 @@ export function VentasClient({
           ) : (
             <VentasTabla
               ventas={ventas}
+              tiendaDe={tiendaDe}
               puedeVerCosto={puedeVerCosto}
               filtros={filtros}
               onSort={toggleSort}
@@ -1047,6 +1090,7 @@ export function VentasClient({
         {abierta && (
           <VentaDetalle
             venta={abierta}
+            tienda={tiendaDe(abierta)}
             puedeVerCosto={puedeVerCosto}
             cajas={cajas}
             celulares={celularesPorId}
@@ -1220,6 +1264,7 @@ function ThSort({
 
 function VentasTabla({
   ventas,
+  tiendaDe,
   puedeVerCosto,
   filtros,
   onSort,
@@ -1231,6 +1276,7 @@ function VentasTabla({
   onNueva,
 }: {
   ventas: Venta[];
+  tiendaDe: (v: Venta) => string | null;
   puedeVerCosto: boolean;
   filtros: FiltrosVentas;
   onSort: (col: SortVentas) => void;
@@ -1249,6 +1295,7 @@ function VentasTabla({
           <VentaCardMobile
             key={v.id}
             venta={v}
+            tienda={tiendaDe(v)}
             onOpen={() => onOpen(v.id)}
             onImprimir={(tipo) => onImprimir(v, tipo)}
             puedeVerCosto={puedeVerCosto}
@@ -1308,11 +1355,7 @@ function VentasTabla({
                   <span className="block text-xs font-normal text-neutral-500">
                     {v.fecha}
                   </span>
-                  {v.tienda && (
-                    <span className="block max-w-[140px] truncate text-[11px] font-normal text-accent">
-                      {v.tienda}
-                    </span>
-                  )}
+                  {tiendaDe(v) && <TiendaTag nombre={tiendaDe(v)!} className="mt-1" />}
                 </td>
                 <td className="max-w-[160px] truncate px-5 py-2 text-center">{v.cliente}</td>
                 <td className="max-w-[260px] truncate px-5 py-2 text-neutral-600 text-center">
@@ -1398,6 +1441,7 @@ function EmptyState({
 // ─────────────────────── Tabla de ítems vendidos ───────────────────────
 
 function ItemsVendidosTabla({
+  tiendaDe,
   items,
   puedeVerCosto,
   onOpen,
@@ -1407,6 +1451,7 @@ function ItemsVendidosTabla({
   onLimpiar,
   onNueva,
 }: {
+  tiendaDe: (v: Venta) => string | null;
   items: ItemVendido[];
   puedeVerCosto: boolean;
   onOpen: (id: string) => void;
@@ -1493,6 +1538,7 @@ function ItemsVendidosTabla({
                   <span className="block text-xs font-normal text-neutral-500">
                     {v.fecha}
                   </span>
+                  {tiendaDe(v) && <TiendaTag nombre={tiendaDe(v)!} className="mt-1" />}
                 </td>
                 <td className="max-w-[160px] truncate px-5 py-2 text-center">{v.cliente}</td>
                 <td className="max-w-[260px] px-5 py-2 text-center">
@@ -1561,13 +1607,32 @@ function ItemsVendidosTabla({
 
 // ────────────────────── Tarjeta de venta (mobile) ──────────────────────
 
+/** Etiqueta de la tienda / página de una venta (chip gris con ícono, mismo
+ * lenguaje que los chips de estado de las tablas). */
+function TiendaTag({ nombre, className }: { nombre: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-[160px] items-center gap-1 rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-700",
+        className,
+      )}
+      title={`Tienda: ${nombre}`}
+    >
+      <Store aria-hidden className="h-3 w-3 shrink-0 text-accent" />
+      <span className="truncate">{nombre}</span>
+    </span>
+  );
+}
+
 function VentaCardMobile({
   venta: v,
+  tienda,
   onOpen,
   onImprimir,
   puedeVerCosto,
 }: {
   venta: Venta;
+  tienda: string | null;
   onOpen: () => void;
   onImprimir: (tipo: TipoImpresion) => void;
   puedeVerCosto: boolean;
@@ -1591,6 +1656,7 @@ function VentaCardMobile({
           <p className="mt-0.5 truncate text-xs text-neutral-500">
             {v.items.map((i) => i.detalle).join(" · ")}
           </p>
+          {tienda && <TiendaTag nombre={tienda} className="mt-1.5" />}
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5">
             <PagoChip pagos={v.pagos} />
             {puedeVerCosto && (
@@ -1707,11 +1773,14 @@ function cajaLabel(p: Pago, cajas: Caja[]): string {
 
 function VentaDetalle({
   venta,
+  tienda,
   puedeVerCosto,
   cajas,
   celulares,
 }: {
   venta: Venta;
+  /** Nombre a mostrar (la principal incluida si hay tiendas extra). */
+  tienda: string | null;
   puedeVerCosto: boolean;
   cajas: Caja[];
   celulares: Map<string, Celular>;
@@ -1719,7 +1788,7 @@ function VentaDetalle({
   const metaFields: { label: string; value: string }[] = [
     { label: "Cliente", value: venta.cliente },
     { label: "Vendedor", value: venta.vendedor },
-    ...(venta.tienda ? [{ label: "Tienda", value: venta.tienda }] : []),
+    ...(tienda ? [{ label: "Tienda", value: tienda }] : []),
     ...(venta.procedencia
       ? [{ label: "Procedencia", value: venta.procedencia }]
       : []),

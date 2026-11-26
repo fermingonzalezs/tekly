@@ -1,4 +1,4 @@
-import { Calculator, PackageCheck, ShoppingBag, Wrench, type LucideIcon } from "lucide-react";
+import { Calculator, Ellipsis, PackageCheck, ShoppingBag, Wrench, type LucideIcon } from "lucide-react";
 import type { TurnoTipo } from "@/lib/types";
 
 /** Ícono por motivo del turno: es lo que deja leer de un vistazo qué tipo de
@@ -8,4 +8,5 @@ export const TURNO_ICONO: Record<TurnoTipo, LucideIcon> = {
   deja: Wrench,
   retira: PackageCheck,
   cotizar: Calculator,
+  otro: Ellipsis,
 };

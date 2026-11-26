@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireEscritura, requireRoleEscritura } from "@/lib/auth";
 import { resolveCliente } from "@/lib/db/clientes";
+import { getNegocio } from "@/lib/db/configuracion";
+import { resolveTiendaId } from "@/lib/db/tiendas";
 import { createTurno, updateTurno, setTurnoEstado, deleteTurno } from "@/lib/db/turnos";
 import { createPedido, deletePedido, setPedidoEstado, updatePedido } from "@/lib/db/pedidos";
 import { errorPedido, limpiarItems, normalizarItems, type SenaCaja } from "@/lib/pedidos";
@@ -11,6 +13,7 @@ import type {
   Pago,
   PedidoEstado,
   PedidoItem,
+  TiendaSeleccion,
   TurnoEstado,
   TurnoOtroItem,
   TurnoTipo,
@@ -21,6 +24,8 @@ export type TurnoInput = {
   hora: string;
   duracionMin: number;
   atiendeId: string | null;
+  /** Omitido = la tienda principal. */
+  tienda?: TiendaSeleccion;
   cliente: ClienteSeleccion;
   tipo: TurnoTipo;
   /** Solo "retira": ticket listo que se viene a retirar. */
@@ -38,11 +43,15 @@ async function datosDe(data: TurnoInput) {
     data.cliente.tipo === "libre"
       ? { id: null, nombre: data.cliente.nombre }
       : await resolveCliente(data.cliente);
+  // Mismo circuito que Nueva venta: una tienda «nueva» se crea recién acá
+  // (o se reusa si ya existe con ese nombre); el id se valida contra la org.
+  const tiendaId = await resolveTiendaId(data.tienda, (await getNegocio()).nombre);
   return {
     fecha: data.fecha,
     hora: data.hora,
     duracionMin: data.duracionMin,
     atiendeId: data.atiendeId,
+    tiendaId,
     cliente: cliente.nombre,
     clienteId: cliente.id,
     tipo: data.tipo,

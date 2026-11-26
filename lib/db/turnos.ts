@@ -31,10 +31,12 @@ type TurnoRow = {
   nota: string | null;
   atiende_id: string | null;
   atiende: { nombre: string } | null;
+  tienda_id: string | null;
+  tiendas: { nombre: string } | null;
 };
 
 const TURNO_COLS =
-  "id, fecha, hora, duracion_min, cliente, cliente_id, tipo, estado, ticket_id, celular_ids, items_otros, pagos, nota, atiende_id, atiende:profiles!atiende_id(nombre)";
+  "id, fecha, hora, duracion_min, cliente, cliente_id, tipo, estado, ticket_id, celular_ids, items_otros, pagos, nota, atiende_id, atiende:profiles!atiende_id(nombre), tienda_id, tiendas(nombre)";
 
 function toTurno(row: TurnoRow): Turno {
   return {
@@ -56,6 +58,8 @@ function toTurno(row: TurnoRow): Turno {
     nota: row.nota ?? undefined,
     atiendeId: row.atiende_id,
     atiende: row.atiende?.nombre ?? null,
+    tiendaId: row.tienda_id ?? undefined,
+    tienda: row.tiendas?.nombre ?? undefined,
   };
 }
 
@@ -94,6 +98,8 @@ type TurnoDatos = {
   hora: string;
   duracionMin: number;
   atiendeId: string | null;
+  /** `null` = la tienda principal. */
+  tiendaId: string | null;
   cliente: string;
   clienteId: string | null;
   tipo: TurnoTipo;
@@ -117,6 +123,7 @@ function columnas(data: TurnoDatos) {
     hora: data.hora,
     duracion_min: data.duracionMin,
     atiende_id: data.atiendeId,
+    tienda_id: data.tiendaId,
     cliente: data.cliente,
     cliente_id: data.clienteId,
     tipo: data.tipo,

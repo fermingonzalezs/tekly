@@ -1340,7 +1340,15 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   alta con fecha/hora precargadas; «Editar» reusa `AgendarDialog` (al
   editar, los celulares/ítems quitados vuelven al stock si estaban
   reservados). Agendar con celulares vinculados los reserva si
-  `reservarStock`. `Turno.clienteId` es nullable a propósito (`ClientePicker`
+  `reservarStock`. **Tienda** (`turnos.tienda_id`, mismo circuito que
+  Ventas: `TiendaSeleccion` + `resolveTiendaId`, `null` = la principal;
+  se ve en el detalle). Motivo **«Otro»** (`tipo = 'otro'`, ícono
+  `Ellipsis`, tono `--chart-4`) con comentario. El cliente se puede
+  escribir **«solo el nombre»** (input de texto plano → `tipo: "libre"`),
+  además de buscarlo con el picker. **«Copiar texto»** en el detalle del turno:
+  `textoTurno` (`lib/agenda.ts`, con test) arma Nombre / Motivo / Equipos /
+  Día / Horario + Página (tienda del turno o el negocio) y Dirección del
+  local, para mandar por WhatsApp. `Turno.clienteId` es nullable a propósito (`ClientePicker`
   con `allowLibre`): turnos de gente aún no registrada. **Pedidos**
   (encargos): tabla `pedidos` (`cliente`/`cliente_id`, `descripcion`,
   `items` jsonb, `sena_usd`, `fecha_entrega`, `estado`
@@ -1674,9 +1682,12 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   «+ Nueva tienda…» (`TiendaSeleccion`, creación diferida al confirmar como
   `ClienteSeleccion`); `resolverTienda` (`lib/tiendas.ts`, con test) reusa
   una existente con el mismo nombre (sin mayúsculas/espacios) y trata el
-  nombre de la principal como principal. Se ve en el detalle y bajo el
-  número en la lista. Pendiente: filtro por tienda, administrarlas
-  (renombrar/desactivar) y membrete del recibo por tienda.
+  nombre de la principal como principal. Con tiendas extra, toda venta muestra
+  la suya (la principal incluida) en el detalle y como chip `TiendaTag` bajo
+  el número (Ventas e Ítems vendidos); filtro `?tienda=` (`principal` = sin
+  tienda, o el id; `TIENDA_PRINCIPAL` en `lib/ventas-filtros.ts`), que aplica
+  también a KPIs y gráficos. Pendiente: administrarlas (renombrar/desactivar)
+  y membrete del recibo por tienda.
   `VentaItem.categoria`
   (`"celular" | "notebook" | "servicio" | "otro" | "libre"`) guarda el `origen` con el que
   se agregó el ítem en el modal -- alimenta `ventasPorRubro` de
@@ -1776,7 +1787,14 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   falla a mitad, compensa con `deleteCompra({ quitarDelStock: true })`.
   `deleteCompra` saca del stock solo celulares/notebooks `en_revision`/
   `disponible` y resta repuestos/otros sin bajar de 0; devuelve
-  `conservados`. Sin subir al stock, la compra es la de siempre (gasto,
+  `conservados`. **Reingreso de un equipo dado de baja**: eliminar un
+  celular/notebook es baja lógica (`activo = false`) y el `UNIQUE` de
+  IMEI/serie incluye a los inactivos, así que `createCelular`/`createNotebook`
+  y sus `*Bulk` **reactivan esa misma fila** con los datos nuevos
+  (`compra_id` = el ingreso nuevo, movimiento «Reingreso a inventario…»).
+  La validación de duplicados (`listImeisExistentes`/`listSeriesExistentes`)
+  mira solo activos; `deleteCompra` saltea unidades cuyo `compra_id` ya es de
+  otra compra. Sin subir al stock, la compra es la de siempre (gasto,
   texto libre). Medio y caja salen de las cajas activas (medios sin caja «(sin caja)» deshabilitados + link a Cajas); el checkbox «Registrar movimiento» decide si se manda `cajaId` (egreso en esa caja) o la compra no mueve plata. «Importar datos» sigue siendo la
   carga inicial. Pendiente (fases 2–3): Leer con IA (texto/foto/PDF), lote y
   QR.

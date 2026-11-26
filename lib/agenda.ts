@@ -2,6 +2,7 @@
 // aritmética de calendario (nunca `new Date(iso)` ni `toISOString()` sobre
 // una fecha local). Portado de `agendaUtils.js` de sistema-update.
 import { sumarDias } from "@/lib/date-presets";
+import { turnoTipo } from "@/lib/status";
 import type { Pedido, Turno, TurnoTipo } from "@/lib/types";
 
 export type VistaAgenda = "semana" | "mes";
@@ -19,6 +20,7 @@ export const DURACION_POR_TIPO: Record<TurnoTipo, number> = {
   deja: 30,
   retira: 30,
   cotizar: 30,
+  otro: 30,
 };
 export const DURACIONES = [15, 30, 45, 60, 90] as const;
 
@@ -136,6 +138,34 @@ export function etiquetaRango(vista: VistaAgenda, fecha: string): string {
 export const diaCorto = (fecha: string) => DIAS_CORTOS[diaDeSemana(fecha)];
 export const fechaCorta = (fecha: string) => ddmm(fecha);
 export const etiquetaDia = (fecha: string) => `${diaCorto(fecha)} ${ddmm(fecha)}`;
+
+const DIAS_LARGOS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+/** «jueves 26 de noviembre» (para textos que se mandan al cliente). */
+export function fechaLarga(fecha: string): string {
+  const mes = MESES[Number(fecha.slice(5, 7)) - 1].toLowerCase();
+  return `${DIAS_LARGOS[diaDeSemana(fecha)]} ${Number(fecha.slice(8, 10))} de ${mes}`;
+}
+
+/** Texto del turno para copiar y mandarle al cliente (WhatsApp). `equipos`
+ * lo arma quien llama (celulares/ítems del turno o el equipo del ticket);
+ * vacío = no va la línea. `tienda` = la página del turno (o el nombre del
+ * negocio) y `direccion` la del local; vacías no se escriben. */
+export function textoTurno(
+  turno: Pick<Turno, "cliente" | "tipo" | "fecha" | "hora">,
+  extra: { equipos: string[]; tienda: string; direccion: string },
+): string {
+  const lineas = [`Nombre: ${turno.cliente}`, `Motivo: ${turnoTipo[turno.tipo].label}`];
+  const equipos = extra.equipos.map((e) => e.trim()).filter(Boolean);
+  if (equipos.length) lineas.push(`Equipos: ${equipos.join(", ")}`);
+  lineas.push(`Día: ${fechaLarga(turno.fecha)}`, `Horario: ${turno.hora} hs`);
+  const pie = [
+    extra.tienda.trim() && `Página: ${extra.tienda.trim()}`,
+    extra.direccion.trim() && `Dirección: ${extra.direccion.trim()}`,
+  ].filter(Boolean);
+  if (pie.length) lineas.push("", ...pie);
+  return lineas.join("\n");
+}
 
 // ── Filtros (la URL manda) ──────────────────────────────────────
 

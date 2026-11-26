@@ -86,7 +86,7 @@ export type CategoriaGasto =
 export type TurnoEstado = "pendiente" | "confirmado" | "atendido" | "no_vino" | "cancelado";
 
 /** Qué viene a hacer el cliente — define el color en el calendario. */
-export type TurnoTipo = "compra" | "deja" | "retira" | "cotizar";
+export type TurnoTipo = "compra" | "deja" | "retira" | "cotizar" | "otro";
 
 export type OtroCategoria =
   | "ipad"
@@ -280,6 +280,10 @@ export type Turno = {
   /** Quién atiende (`profiles`); `null` = sin asignar. */
   atiendeId: string | null;
   atiende: string | null;
+  /** Tienda / página del turno (mismo criterio que `Venta.tiendaId`).
+   * `undefined` = la tienda principal. */
+  tiendaId?: string;
+  tienda?: string;
   cliente: string;
   /** `null` si se agendó "sin registrar" (`ClientePicker` con `allowLibre`) --
    * `cliente` (el nombre) sigue completo igual, solo no hay fila real en

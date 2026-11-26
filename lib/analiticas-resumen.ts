@@ -711,13 +711,14 @@ export function resumenTurnos(turnos: Turno[]): ResumenTurnos {
     (t) => (t.estado === "pendiente" || t.estado === "confirmado") && t.dayOffset < 0,
   ).length;
 
-  const tipos = ["compra", "deja", "retira", "cotizar"] as const;
+  const tipos = ["compra", "deja", "retira", "cotizar", "otro"] as const;
   const estados = ["pendiente", "confirmado", "atendido", "no_vino", "cancelado"] as const;
   const TIPO_LABEL: Record<(typeof tipos)[number], string> = {
     compra: "Compra equipo",
     deja: "Deja reparación",
     retira: "Retira reparación",
     cotizar: "Cotizar",
+    otro: "Otro",
   };
   const ESTADO_LABEL: Record<(typeof estados)[number], string> = {
     pendiente: "Sin confirmar",

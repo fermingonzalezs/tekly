@@ -2,7 +2,12 @@ import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { requireUser } from "@/lib/auth";
 import type { CelularStatus, Notebook, NotebookCondicion, Variante } from "@/lib/types";
-import { addMovimiento, detalleIngreso, type IngresoCompra } from "@/lib/db/inventario";
+import {
+  addMovimiento,
+  DETALLE_REINGRESO,
+  detalleIngreso,
+  type IngresoCompra,
+} from "@/lib/db/inventario";
 import { varianteParaUnidad, variantesParaUnidades } from "@/lib/db/variantes";
 import { notebookSchema, type NotebookInput } from "@/lib/notebooks";
 
@@ -116,7 +121,9 @@ export async function listNotebooks(): Promise<Notebook[]> {
   return data.map(toNotebook);
 }
 
-async function validarSerieUnica(numeroSerie: string, excluirId?: string) {
+/** `soloActivas` = el alta, donde una notebook dada de baja con esa serie no
+ * es un duplicado (se reactiva, ver `createNotebook`). */
+async function validarSerieUnica(numeroSerie: string, excluirId?: string, soloActivas = false) {
   if (!numeroSerie) return;
   const supabase = createServerClient();
   let query = supabase
@@ -125,6 +132,7 @@ async function validarSerieUnica(numeroSerie: string, excluirId?: string) {
     .eq("numero_serie", numeroSerie)
     .limit(1);
   if (excluirId) query = query.neq("id", excluirId);
+  if (soloActivas) query = query.eq("activo", true);
   const { data, error } = await query;
   if (error) throw error;
   if (data.length > 0) {
@@ -145,24 +153,48 @@ export async function createNotebook(
 ): Promise<Notebook> {
   const variante = await varianteParaUnidad(data.varianteId, "notebook");
   const parsed = notebookSchema.parse(conDatosDeVariante(data, variante));
-  await validarSerieUnica(parsed.numeroSerie);
+  await validarSerieUnica(parsed.numeroSerie, undefined, true);
   const supabase = createServerClient();
+  const fila = {
+    ...camposDeVariante(parsed, variante),
+    cpu: parsed.cpu || null,
+    pantalla: parsed.pantalla || null,
+    gpu: parsed.gpu || null,
+    color: parsed.color || null,
+    idioma: parsed.idioma || null,
+    numero_serie: parsed.numeroSerie || null,
+    garantia: parsed.garantia || null,
+    notas: parsed.notas || null,
+    costo_usd: parsed.costoUsd,
+    estado: parsed.estado,
+  };
+
+  // Misma serie que una notebook dada de baja: se reactiva esa fila (mismo
+  // criterio que `createCelular` con el IMEI).
+  const deBaja = (await notebooksDeBajaPorSerie(fila.numero_serie ? [fila.numero_serie] : [])).get(
+    fila.numero_serie ?? "",
+  );
+  if (deBaja) {
+    const { data: row, error } = await supabase
+      .from("notebooks")
+      .update({ ...fila, activo: true, compra_id: compra?.compraId ?? null })
+      .eq("id", deBaja)
+      .select(NOTEBOOK_COLS)
+      .single();
+    if (error) throw mensajeDeError(error);
+    await addMovimiento(
+      "notebook",
+      row.id,
+      detalleIngreso(compra, DETALLE_REINGRESO),
+      "ingreso",
+      compra?.compraId,
+    );
+    return toNotebook(row);
+  }
+
   const { data: row, error } = await supabase
     .from("notebooks")
-    .insert({
-      ...camposDeVariante(parsed, variante),
-      cpu: parsed.cpu || null,
-      pantalla: parsed.pantalla || null,
-      gpu: parsed.gpu || null,
-      color: parsed.color || null,
-      idioma: parsed.idioma || null,
-      numero_serie: parsed.numeroSerie || null,
-      garantia: parsed.garantia || null,
-      notas: parsed.notas || null,
-      costo_usd: parsed.costoUsd,
-      estado: parsed.estado,
-      ...(compra ? { compra_id: compra.compraId } : {}),
-    })
+    .insert({ ...fila, ...(compra ? { compra_id: compra.compraId } : {}) })
     .select(NOTEBOOK_COLS)
     .single();
   if (error) throw mensajeDeError(error);
@@ -245,11 +277,29 @@ export function diffNotebook(antes: Notebook, despues: Notebook): string {
 
 export { ESTADOS as NOTEBOOK_ESTADOS };
 
+/** Serie → id de las notebooks **dadas de baja** con esas series. */
+async function notebooksDeBajaPorSerie(series: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (series.length === 0) return out;
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("notebooks")
+    .select("id, numero_serie")
+    .eq("activo", false)
+    .in("numero_serie", series);
+  if (error) throw error;
+  for (const r of data) out.set(r.numero_serie as string, r.id);
+  return out;
+}
+
+/** Series de notebooks **activas** (las dadas de baja se reactivan al
+ * volver a ingresar, no son duplicados). */
 export async function listSeriesExistentes(): Promise<Set<string>> {
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("notebooks")
     .select("numero_serie")
+    .eq("activo", true)
     .not("numero_serie", "is", null);
   if (error) throw error;
   return new Set(data.map((r) => r.numero_serie as string));
@@ -270,30 +320,48 @@ export async function createNotebooksBulk(
     return { variante, parsed: notebookSchema.parse(conDatosDeVariante(r, variante)) };
   });
   const supabase = createServerClient();
-  const { data, error } = await supabase
-    .from("notebooks")
-    .insert(
-      filas.map(({ variante, parsed: p }) => ({
-        ...camposDeVariante(p, variante),
-        cpu: p.cpu || null,
-        pantalla: p.pantalla || null,
-        gpu: p.gpu || null,
-        color: p.color || null,
-        idioma: p.idioma || null,
-        numero_serie: p.numeroSerie || null,
-        garantia: p.garantia || null,
-        notas: p.notas || null,
-        costo_usd: p.costoUsd,
-        estado: p.estado,
-      })),
-    )
-    .select(NOTEBOOK_COLS);
-  if (error) throw mensajeDeError(error);
+  const valores = filas.map(({ variante, parsed: p }) => ({
+    ...camposDeVariante(p, variante),
+    cpu: p.cpu || null,
+    pantalla: p.pantalla || null,
+    gpu: p.gpu || null,
+    color: p.color || null,
+    idioma: p.idioma || null,
+    numero_serie: p.numeroSerie || null,
+    garantia: p.garantia || null,
+    notas: p.notas || null,
+    costo_usd: p.costoUsd,
+    estado: p.estado,
+  }));
 
-  const movimientos = data.map((row) => ({
+  // Series de notebooks dadas de baja: se reactivan en vez de insertarse.
+  const deBaja = await notebooksDeBajaPorSerie(
+    valores.map((v) => v.numero_serie).filter((x): x is string => !!x),
+  );
+  const resultado: { row: Parameters<typeof toNotebook>[0]; detalle: string }[] = [];
+  const nuevas = valores.filter((v) => !v.numero_serie || !deBaja.has(v.numero_serie));
+  if (nuevas.length > 0) {
+    const { data, error } = await supabase.from("notebooks").insert(nuevas).select(NOTEBOOK_COLS);
+    if (error) throw mensajeDeError(error);
+    for (const row of data) resultado.push({ row, detalle: "Importación inicial" });
+  }
+  for (const v of valores) {
+    const id = v.numero_serie ? deBaja.get(v.numero_serie) : undefined;
+    if (!id) continue;
+    const { data: row, error } = await supabase
+      .from("notebooks")
+      .update({ ...v, activo: true, compra_id: null })
+      .eq("id", id)
+      .select(NOTEBOOK_COLS)
+      .single();
+    if (error) throw mensajeDeError(error);
+    resultado.push({ row, detalle: `Importación · ${DETALLE_REINGRESO}` });
+  }
+
+  const movimientos = resultado.map(({ row, detalle }) => ({
     item_type: "notebook" as const,
     item_id: row.id,
-    detalle: "Importación inicial",
+    detalle,
     tipo: "ingreso" as const,
     usuario_id: user.id,
     usuario_nombre: user.nombre,
@@ -301,5 +369,5 @@ export async function createNotebooksBulk(
   const { error: movError } = await supabase.from("movimientos_stock").insert(movimientos);
   if (movError) throw movError;
 
-  return { inserted: data.length, notebooks: data.map(toNotebook) };
+  return { inserted: resultado.length, notebooks: resultado.map(({ row }) => toNotebook(row)) };
 }

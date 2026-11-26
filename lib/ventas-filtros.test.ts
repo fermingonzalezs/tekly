@@ -17,6 +17,7 @@ describe("parseFiltrosVentas", () => {
       desde: "",
       hasta: "",
       vendedor: "",
+      tienda: "",
       tipo: "",
       q: "",
       vista: "ventas",
@@ -62,6 +63,13 @@ describe("parseFiltrosVentas", () => {
     expect(parseFiltrosVentas({ tipo: "equipo" }, ver).tipo).toBe("celular");
   });
 
+  it("tienda acepta «principal» o un uuid; cualquier otra cosa se descarta", () => {
+    expect(parseFiltrosVentas({ tienda: "principal" }, ver).tienda).toBe("principal");
+    const id = "3f2b6a8e-1c2d-4e5f-8a9b-0c1d2e3f4a5b";
+    expect(parseFiltrosVentas({ tienda: id }, ver).tienda).toBe(id);
+    expect(parseFiltrosVentas({ tienda: "x,or(1=1)" }, ver).tienda).toBe("");
+  });
+
   it("fechas inválidas de un rango personalizado se descartan", () => {
     const f = parseFiltrosVentas(
       { preset: "personalizado", desde: "2026-01-01", hasta: "ayer" },
@@ -80,6 +88,7 @@ describe("queryDeFiltros", () => {
         desde: "",
         hasta: "",
         vendedor: "",
+        tienda: "",
         tipo: "",
         q: "",
         vista: "ventas",
@@ -96,6 +105,7 @@ describe("queryDeFiltros", () => {
       desde: "2026-01-01",
       hasta: "2026-01-31",
       vendedor: "u-1",
+      tienda: "principal",
       tipo: "servicio" as const,
       q: "1042",
       vista: "items" as const,
@@ -117,6 +127,7 @@ describe("hayFiltrosActivos", () => {
   it("detecta búsqueda, vendedor, tipo y período", () => {
     expect(hayFiltrosActivos({ ...base, q: "x" })).toBe(true);
     expect(hayFiltrosActivos({ ...base, vendedor: "u1" })).toBe(true);
+    expect(hayFiltrosActivos({ ...base, tienda: "principal" })).toBe(true);
     expect(hayFiltrosActivos({ ...base, tipo: "celular" })).toBe(true);
     expect(hayFiltrosActivos({ ...base, preset: "todos" })).toBe(true);
   });

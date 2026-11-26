@@ -124,22 +124,66 @@ function camposDeUnidad(data: CelularInput, variante: Variante) {
   };
 }
 
+/** Id de un celular **dado de baja** (`activo = false`) con ese IMEI, o
+ * `null`. La baja es lógica y el `UNIQUE (organization_id, imei)` incluye a
+ * los inactivos: sin esto, un equipo eliminado nunca podría volver a
+ * ingresar. */
+async function celularDeBajaPorImei(imei: string | null): Promise<string | null> {
+  if (!imei) return null;
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("celulares")
+    .select("id")
+    .eq("imei", imei)
+    .eq("activo", false)
+    .limit(1);
+  if (error) throw error;
+  return data[0]?.id ?? null;
+}
+
+export const DETALLE_REINGRESO = "Reingreso a inventario (estaba dado de baja)";
+
 export async function createCelular(
   data: CelularInput,
   compra?: IngresoCompra,
 ): Promise<Celular> {
   const supabase = createServerClient();
   const variante = await varianteParaUnidad(data.varianteId);
+  const imei = data.imei === "—" ? null : data.imei || null;
+  const fila = {
+    ...camposDeUnidad(data, variante),
+    imei,
+    bateria: bateriaCelular(variante.condicion, data.bateria),
+    costo_usd: data.costoUsd,
+    estado: data.estado,
+  };
+
+  // Un IMEI que ya estuvo en el inventario y se eliminó: se reactiva la misma
+  // fila con los datos nuevos (conserva su historial y las ventas viejas que
+  // la referencian). `compra_id` pasa a ser el del ingreso nuevo (o null),
+  // así borrar la compra vieja ya no lo saca del stock.
+  const deBaja = await celularDeBajaPorImei(imei);
+  if (deBaja) {
+    const { data: row, error } = await supabase
+      .from("celulares")
+      .update({ ...fila, activo: true, compra_id: compra?.compraId ?? null })
+      .eq("id", deBaja)
+      .select(CELULAR_COLS)
+      .single();
+    if (error) throw error;
+    await addMovimiento(
+      "celular",
+      row.id,
+      detalleIngreso(compra, DETALLE_REINGRESO),
+      "ingreso",
+      compra?.compraId,
+    );
+    return toCelular(row);
+  }
+
   const { data: row, error } = await supabase
     .from("celulares")
-    .insert({
-      ...camposDeUnidad(data, variante),
-      imei: data.imei === "—" ? null : data.imei || null,
-      bateria: bateriaCelular(variante.condicion, data.bateria),
-      costo_usd: data.costoUsd,
-      estado: data.estado,
-      ...(compra ? { compra_id: compra.compraId } : {}),
-    })
+    .insert({ ...fila, ...(compra ? { compra_id: compra.compraId } : {}) })
     .select(CELULAR_COLS)
     .single();
   // Sin traducir: `createVenta` (canje) mira `code === "23505"`.
@@ -187,13 +231,16 @@ export async function deleteCelular(id: string): Promise<void> {
   await addMovimiento("celular", id, "Baja de inventario", "baja");
 }
 
-/** IMEIs ya cargados en la organización (sin nulos) -- usado por el
- * importador de celulares para descartar filas con IMEI repetido antes de
- * insertar (el bulk insert de abajo abortaría entero si alguna fila choca
- * con el `UNIQUE (organization_id, imei)` de la tabla). */
+/** IMEIs de celulares **activos** de la organización (sin nulos) -- usado
+ * por Nueva compra y el importador para rechazar IMEIs repetidos. Los dados
+ * de baja no cuentan: `createCelular`/`createCelularesBulk` los reactivan. */
 export async function listImeisExistentes(): Promise<Set<string>> {
   const supabase = createServerClient();
-  const { data, error } = await supabase.from("celulares").select("imei").not("imei", "is", null);
+  const { data, error } = await supabase
+    .from("celulares")
+    .select("imei")
+    .eq("activo", true)
+    .not("imei", "is", null);
   if (error) throw error;
   return new Set(data.map((r) => r.imei as string));
 }
@@ -208,28 +255,56 @@ export async function createCelularesBulk(
   const user = await requireUser();
   const supabase = createServerClient();
   const variantes = await variantesParaUnidades(rows.map((r) => r.varianteId));
-  const { data, error } = await supabase
-    .from("celulares")
-    .insert(
-      rows.map((r) => {
-        const variante = variantes.get(r.varianteId);
-        if (!variante) throw new Error("Alguna fila quedó sin una variante válida.");
-        return {
-          ...camposDeUnidad(r, variante),
-          imei: r.imei === "—" ? null : r.imei || null,
-          bateria: bateriaCelular(variante.condicion, r.bateria),
-          costo_usd: r.costoUsd,
-          estado: r.estado,
-        };
-      }),
-    )
-    .select(CELULAR_COLS);
-  if (error) throw error;
+  const filas = rows.map((r) => {
+    const variante = variantes.get(r.varianteId);
+    if (!variante) throw new Error("Alguna fila quedó sin una variante válida.");
+    return {
+      ...camposDeUnidad(r, variante),
+      imei: r.imei === "—" ? null : r.imei || null,
+      bateria: bateriaCelular(variante.condicion, r.bateria),
+      costo_usd: r.costoUsd,
+      estado: r.estado,
+    };
+  });
 
-  const movimientos = data.map((row) => ({
+  // IMEIs de celulares dados de baja: esas filas se reactivan (mismo
+  // criterio que `createCelular`) en vez de chocar con el UNIQUE.
+  const imeis = filas.map((f) => f.imei).filter((i): i is string => !!i);
+  const deBaja = new Map<string, string>();
+  if (imeis.length > 0) {
+    const { data: bajas, error: bajasError } = await supabase
+      .from("celulares")
+      .select("id, imei")
+      .eq("activo", false)
+      .in("imei", imeis);
+    if (bajasError) throw bajasError;
+    for (const b of bajas) deBaja.set(b.imei as string, b.id);
+  }
+
+  const nuevas = filas.filter((f) => !f.imei || !deBaja.has(f.imei));
+  const resultado: { row: Parameters<typeof toCelular>[0]; detalle: string }[] = [];
+  if (nuevas.length > 0) {
+    const { data, error } = await supabase.from("celulares").insert(nuevas).select(CELULAR_COLS);
+    if (error) throw error;
+    for (const row of data) resultado.push({ row, detalle: "Importación inicial" });
+  }
+  for (const f of filas) {
+    const id = f.imei ? deBaja.get(f.imei) : undefined;
+    if (!id) continue;
+    const { data: row, error } = await supabase
+      .from("celulares")
+      .update({ ...f, activo: true, compra_id: null })
+      .eq("id", id)
+      .select(CELULAR_COLS)
+      .single();
+    if (error) throw error;
+    resultado.push({ row, detalle: `Importación · ${DETALLE_REINGRESO}` });
+  }
+
+  const movimientos = resultado.map(({ row, detalle }) => ({
     item_type: "celular" as const,
     item_id: row.id,
-    detalle: "Importación inicial",
+    detalle,
     tipo: "ingreso" as const,
     usuario_id: user.id,
     usuario_nombre: user.nombre,
@@ -237,7 +312,7 @@ export async function createCelularesBulk(
   const { error: movError } = await supabase.from("movimientos_stock").insert(movimientos);
   if (movError) throw movError;
 
-  return { inserted: data.length, celulares: data.map(toCelular) };
+  return { inserted: resultado.length, celulares: resultado.map(({ row }) => toCelular(row)) };
 }
 
 /** Recuento (auditoría física): `draft` mapea id de equipo -> si se

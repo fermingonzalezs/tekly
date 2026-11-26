@@ -35,6 +35,7 @@ import type {
   Pedido,
   PedidoEstado,
   Ticket,
+  Tienda,
   Turno,
   TurnoEstado,
   TurnoTipo,
@@ -55,7 +56,7 @@ import {
   type TurnoInput,
 } from "./actions";
 
-const TIPOS: TurnoTipo[] = ["compra", "deja", "retira", "cotizar"];
+const TIPOS: TurnoTipo[] = ["compra", "deja", "retira", "cotizar", "otro"];
 
 type Dialogo = { modo: "nuevo"; fecha: string; hora: string } | { modo: "editar"; id: string };
 type DialogoPedido = { modo: "nuevo"; fecha: string } | { modo: "editar"; id: string };
@@ -76,6 +77,7 @@ export function AgendaClient({
   user,
   negocio,
   cajas,
+  tiendas,
 }: {
   vista: VistaAgenda;
   fecha: string;
@@ -96,6 +98,8 @@ export function AgendaClient({
   user: SessionUser;
   negocio: Negocio;
   cajas: Caja[];
+  /** Tiendas extra de la organización (la principal es `negocio.nombre`). */
+  tiendas: Tienda[];
 }) {
   const { publish } = useRealtime();
   const actor = user.nombre;
@@ -358,6 +362,7 @@ export function AgendaClient({
         ticketsListos={ticketsListos}
         clientes={clientesOpciones}
         esAdmin={esAdmin}
+        negocio={negocio}
         onClose={() => setSelId(null)}
         onEstado={cambiarEstado}
         onEditar={(t) => {
@@ -449,6 +454,7 @@ export function AgendaClient({
         turnosAgenda={todos}
         negocio={negocio}
         cajas={cajas}
+        tiendas={tiendas}
         onClose={() => setDialogo(null)}
         onSubmit={guardar}
       />

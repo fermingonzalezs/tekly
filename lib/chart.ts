@@ -26,6 +26,7 @@ export const TURNO_TIPO_COLOR = {
   deja: CHART_COLORS[0],
   retira: CHART_COLORS[1],
   cotizar: CHART_COLORS[2],
+  otro: CHART_COLORS[4],
 } as const;
 
 // Pista / fondo neutro de arcos y barras "fantasma".

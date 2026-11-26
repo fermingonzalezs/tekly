@@ -23,7 +23,7 @@ import {
   type ResumenVentas,
   type Rubro,
 } from "@/lib/ventas";
-import { rangoDe, type FiltrosVentas } from "@/lib/ventas-filtros";
+import { rangoDe, TIENDA_PRINCIPAL, type FiltrosVentas } from "@/lib/ventas-filtros";
 import { sumarDias, type Rango } from "@/lib/date-presets";
 import { PAGE_SIZE } from "@/lib/pagination";
 import type { CanjeEquipo, CelularStatus, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
@@ -282,6 +282,8 @@ function aplicarFiltrosVentas(query: any, f: FiltrosVentas, rango: Rango, ids: I
   if (rango.desde) query = query.gte("fecha", inicioART(rango.desde));
   if (rango.hasta) query = query.lt("fecha", finExclusivoART(rango.hasta));
   if (f.vendedor) query = query.eq("vendedor_id", f.vendedor);
+  if (f.tienda === TIENDA_PRINCIPAL) query = query.is("tienda_id", null);
+  else if (f.tienda) query = query.eq("tienda_id", f.tienda);
   if (ids.rubro) {
     if (ids.rubro.length === 0) return query.is("id", null);
     query = query.in("id", ids.rubro);
@@ -484,6 +486,8 @@ function aplicarFiltrosItems(
   if (rango.desde) query = query.gte("ventas.fecha", inicioART(rango.desde));
   if (rango.hasta) query = query.lt("ventas.fecha", finExclusivoART(rango.hasta));
   if (f.vendedor) query = query.eq("ventas.vendedor_id", f.vendedor);
+  if (f.tienda === TIENDA_PRINCIPAL) query = query.is("ventas.tienda_id", null);
+  else if (f.tienda) query = query.eq("ventas.tienda_id", f.tienda);
   if (f.tipo) {
     if (f.tipo === "celular") {
       query = query.or("categoria.eq.celular,and(categoria.is.null,celular_id.not.is.null)");

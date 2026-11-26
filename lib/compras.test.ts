@@ -223,6 +223,7 @@ describe("erroresCompraStock", () => {
   it("IMEI repetido en la compra o ya en stock", () => {
     expect(erroresCompraStock([celular("111"), celular("111")])).toHaveLength(1);
     expect(erroresCompraStock([celular("222")], ["222"])).toHaveLength(1);
+    expect(erroresCompraStock([celular("222")], ["222"])[0]).toMatch(/ya está cargado en el inventario/);
     expect(erroresCompraStock([celular("—"), celular("—")])).toEqual([]);
   });
 

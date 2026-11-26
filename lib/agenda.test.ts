@@ -16,6 +16,8 @@ import {
   semanaDe,
   semanasDelMes,
   turnosSuperpuestos,
+  fechaLarga,
+  textoTurno,
 } from "./agenda";
 import type { Pedido, Turno } from "./types";
 
@@ -244,5 +246,42 @@ describe("pedidos", () => {
     expect(pedidoVencido(p({ fechaEntrega: "2026-11-20", estado: "llego" }), "2026-11-24")).toBe(true);
     expect(pedidoVencido(p({ fechaEntrega: "2026-11-20", estado: "entregado" }), "2026-11-24")).toBe(false);
     expect(pedidoVencido(p({ fechaEntrega: "2026-11-24" }), "2026-11-24")).toBe(false);
+  });
+});
+
+describe("textoTurno", () => {
+  it("arma el texto con equipos, página y dirección", () => {
+    expect(
+      textoTurno(
+        { cliente: "Ana", tipo: "compra", fecha: "2026-11-26", hora: "16:00" },
+        { equipos: ["iPhone 13 128GB Azul", "Funda"], tienda: "Heavenstore", direccion: "Calle 7 123" },
+      ),
+    ).toBe(
+      [
+        "Nombre: Ana",
+        "Motivo: Compra equipo",
+        "Equipos: iPhone 13 128GB Azul, Funda",
+        "Día: jueves 26 de noviembre",
+        "Horario: 16:00 hs",
+        "",
+        "Página: Heavenstore",
+        "Dirección: Calle 7 123",
+      ].join("\n"),
+    );
+  });
+
+  it("sin equipos ni dirección omite esas líneas", () => {
+    const txt = textoTurno(
+      { cliente: "Ana", tipo: "otro", fecha: "2026-11-30", hora: "09:30" },
+      { equipos: [], tienda: "Mi Local", direccion: " " },
+    );
+    expect(txt).not.toContain("Equipos:");
+    expect(txt).not.toContain("Dirección:");
+    expect(txt).toContain("Motivo: Otro");
+    expect(txt.endsWith("Página: Mi Local")).toBe(true);
+  });
+
+  it("fechaLarga", () => {
+    expect(fechaLarga("2026-11-30")).toBe("lunes 30 de noviembre");
   });
 });

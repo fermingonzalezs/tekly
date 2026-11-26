@@ -26,6 +26,10 @@ const RUBROS: [Rubro, ...Rubro[]] = [
   "libre",
 ];
 
+/** Valor del filtro `tienda` para la tienda principal (`ventas.tienda_id`
+ * null). Cualquier otro valor no vacío es el id de una fila de `tiendas`. */
+export const TIENDA_PRINCIPAL = "principal";
+
 /** Filtros de la sección Ventas, con la URL como fuente de verdad. `vendedor`
  * y `tipo` (rubro) son `""` cuando no hay filtro. */
 export type FiltrosVentas = {
@@ -34,6 +38,8 @@ export type FiltrosVentas = {
   hasta: string;
   /** id de `profiles` (no el nombre -- ver plan 007). */
   vendedor: string;
+  /** `""` = todas, `TIENDA_PRINCIPAL` = la principal, o el id de una tienda. */
+  tienda: string;
   /** Rubro de los ítems (`categoriaDe`), no `Venta.tipo`. */
   tipo: Rubro | "";
   q: string;
@@ -53,6 +59,11 @@ const schema = z.object({
   page: z.coerce.number().int().min(1).catch(1),
   tipo: z.enum(RUBROS).optional().catch(undefined),
   vendedor: z.string().optional().catch(undefined),
+  tienda: z
+    .string()
+    .regex(/^(principal|[0-9a-f-]{36})$/i)
+    .optional()
+    .catch(undefined),
   q: z.string().optional().catch(undefined),
   desde: z
     .string()
@@ -88,6 +99,7 @@ export function parseFiltrosVentas(
     page: primero(params.page),
     tipo: tipoRaw === "equipo" ? "celular" : tipoRaw,
     vendedor: primero(params.vendedor),
+    tienda: primero(params.tienda),
     q: primero(params.q),
     desde: primero(params.desde),
     hasta: primero(params.hasta),
@@ -104,6 +116,7 @@ export function parseFiltrosVentas(
     desde: data.desde ?? "",
     hasta: data.hasta ?? "",
     vendedor: data.vendedor ?? "",
+    tienda: data.tienda ?? "",
     tipo: data.tipo ?? "",
     q: (data.q ?? "").trim(),
     vista: data.vista,
@@ -124,6 +137,7 @@ export function queryDeFiltros(f: FiltrosVentas): string {
     if (f.hasta) p.set("hasta", f.hasta);
   }
   if (f.vendedor) p.set("vendedor", f.vendedor);
+  if (f.tienda) p.set("tienda", f.tienda);
   if (f.tipo) p.set("tipo", f.tipo);
   if (f.vista !== "ventas") p.set("vista", f.vista);
   if (f.page > 1) p.set("page", String(f.page));
@@ -136,7 +150,7 @@ export function queryDeFiltros(f: FiltrosVentas): string {
  * vendedor ni tipo). Decide entre empty state "sin ventas" y "limpiar
  * filtros". */
 export function hayFiltrosActivos(f: FiltrosVentas): boolean {
-  return !!f.q || !!f.vendedor || !!f.tipo || f.preset !== "mes";
+  return !!f.q || !!f.vendedor || !!f.tienda || !!f.tipo || f.preset !== "mes";
 }
 
 /** Rango `{ desde, hasta }` (ISO, en hora de Argentina) para un preset. Para

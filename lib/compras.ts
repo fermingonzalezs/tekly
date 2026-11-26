@@ -242,7 +242,7 @@ export function erroresCompraStock(
     const serie = serieDeItem(it).toUpperCase();
     if (serie) {
       if (vistas.has(serie)) errores.push(`${n}: el IMEI/serie ${serie} está repetido en la compra.`);
-      else if (existentes.has(serie)) errores.push(`${n}: el IMEI/serie ${serie} ya está en el stock.`);
+      else if (existentes.has(serie)) errores.push(`${n}: el IMEI/serie ${serie} ya está cargado en el inventario (puede estar vendido o reservado).`);
       vistas.add(serie);
     }
   });
