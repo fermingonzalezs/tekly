@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Link2, Pencil, RotateCcw, Smartphone, Trash2, UserX, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, CircleCheck, Copy, Link2, Pencil, RotateCcw, Smartphone, Trash2, UserX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -8,12 +9,45 @@ import { cn } from "@/lib/utils";
 import { thDivider } from "@/lib/ui-styles";
 import { fmtUsd } from "@/lib/format";
 import { etiquetaDia, horaFin, textoTurno } from "@/lib/agenda";
-import { CopiarTexto } from "@/components/copiar-texto";
+import { MenuAcciones, type AccionMenu } from "@/components/ui/menu-acciones";
 import { celularStatus, dotClass, medioPago, turnoBlockClass, turnoStatus, turnoTipo } from "@/lib/status";
 import { TURNO_ICONO } from "./turno-icono";
 import { TicketResumen } from "./ticket-resumen";
 import type { Celular, ClienteOpcion, Ticket, Turno, TurnoEstado } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
+
+/** Texto del turno para mandarle al cliente (WhatsApp): equipos =
+ *  celulares + ítems del turno, o el equipo del ticket que viene a retirar.
+ *  Lo usan el detalle y las tarjetas de «Próximos». */
+export function textoParaCliente(
+  turno: Turno,
+  {
+    celulares,
+    ticketsListos,
+    negocio,
+  }: {
+    celulares: Celular[];
+    ticketsListos: Ticket[];
+    negocio: Pick<Negocio, "nombre" | "direccion">;
+  },
+): string {
+  return textoTurno(turno, {
+    equipos: [
+      ...(turno.celularIds ?? []).map((id) => {
+        const c = celulares.find((x) => x.id === id);
+        return c ? [c.modelo, c.almacenamiento, c.color].filter(Boolean).join(" ") : "";
+      }),
+      ...(turno.itemsOtros ?? []).map((i) =>
+        i.cantidad && i.cantidad > 1 ? `${i.cantidad}x ${i.nombre}` : i.nombre,
+      ),
+      ...(turno.tipo === "retira"
+        ? [ticketsListos.find((t) => t.id === turno.ticketId)?.equipo ?? ""]
+        : []),
+    ],
+    tienda: turno.tienda ?? negocio.nombre,
+    direccion: negocio.direccion,
+  });
+}
 
 /** Detalle de solo lectura de un turno + acciones de estado, editar y eliminar. */
 export function TurnoDetalle({
@@ -43,26 +77,44 @@ export function TurnoDetalle({
   const abierto = turno && (turno.estado === "pendiente" || turno.estado === "confirmado");
   const IconoTipo = turno ? TURNO_ICONO[turno.tipo] : null;
   const cliente = turno?.clienteId ? clientes.find((c) => c.id === turno.clienteId) : undefined;
-  // Texto para mandarle al cliente: equipos = celulares + ítems del turno, o
-  // el equipo del ticket que viene a retirar.
-  const texto = turno
-    ? textoTurno(turno, {
-        equipos: [
-          ...(turno.celularIds ?? []).map((id) => {
-            const c = celulares.find((x) => x.id === id);
-            return c ? [c.modelo, c.almacenamiento, c.color].filter(Boolean).join(" ") : "";
-          }),
-          ...(turno.itemsOtros ?? []).map((i) =>
-            i.cantidad && i.cantidad > 1 ? `${i.cantidad}x ${i.nombre}` : i.nombre,
-          ),
-          ...(turno.tipo === "retira"
-            ? [ticketsListos.find((t) => t.id === turno.ticketId)?.equipo ?? ""]
-            : []),
-        ],
-        tienda: turno.tienda ?? negocio.nombre,
-        direccion: negocio.direccion,
-      })
-    : "";
+  const texto = turno ? textoParaCliente(turno, { celulares, ticketsListos, negocio }) : "";
+
+  // «Copiar texto» vive en el menú (que se cierra al elegir): el aviso de
+  // copiado se muestra un instante al lado del botón.
+  const [copiado, setCopiado] = useState<"ok" | "error" | null>(null);
+  useEffect(() => {
+    if (!copiado) return;
+    const t = setTimeout(() => setCopiado(null), 1800);
+    return () => clearTimeout(t);
+  }, [copiado]);
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiado("ok");
+    } catch {
+      setCopiado("error");
+    }
+  }
+
+  const acciones: AccionMenu[] = turno
+    ? [
+        { label: "Copiar texto para el cliente", icon: Copy, onClick: copiar },
+        { label: "Editar", icon: Pencil, onClick: () => onEditar(turno) },
+        ...(abierto
+          ? [
+              ...(turno.estado === "pendiente"
+                ? [{ label: "Confirmar", icon: CircleCheck, onClick: () => onEstado(turno, "confirmado") }]
+                : []),
+              { label: "No vino", icon: UserX, onClick: () => onEstado(turno, "no_vino") },
+              { label: "Cancelar turno", icon: X, onClick: () => onEstado(turno, "cancelado") },
+            ]
+          : [{ label: "Volver a confirmado", icon: RotateCcw, onClick: () => onEstado(turno, "confirmado") }]),
+        ...(esAdmin
+          ? [{ label: "Eliminar", icon: Trash2, onClick: () => onEliminar(turno), peligro: true }]
+          : []),
+      ]
+    : [];
+
   return (
     <Dialog
       open={!!turno}
@@ -77,38 +129,20 @@ export function TurnoDetalle({
       footer={
         turno && (
           <>
-            {esAdmin && (
-              <Button icon={Trash2} onClick={() => onEliminar(turno)} variant="danger-outline" fullOnMobile className="sm:mr-auto">
-                Eliminar
-              </Button>
-            )}
-            <CopiarTexto texto={texto} label="Copiar texto del turno para el cliente" conTexto fullOnMobile />
+            <div className="flex w-full flex-col items-stretch gap-2 sm:mr-auto sm:w-auto sm:flex-row sm:items-center">
+              <MenuAcciones texto="Acciones" label="Acciones del turno" acciones={acciones} fullOnMobile />
+              {copiado && (
+                <span role="status" className={cn("text-center text-xs font-medium", copiado === "ok" ? "text-emerald-600" : "text-red-600")}>
+                  {copiado === "ok" ? "Texto copiado" : "El navegador no permitió copiar"}
+                </span>
+              )}
+            </div>
             <Button onClick={onClose} variant="outline" fullOnMobile>
               Cerrar
             </Button>
-            <Button icon={Pencil} onClick={() => onEditar(turno)} variant="outline" fullOnMobile>
-              Editar
-            </Button>
-            {abierto ? (
-              <>
-                <Button icon={X} onClick={() => onEstado(turno, "cancelado")} variant="tonal" fullOnMobile>
-                  Cancelar turno
-                </Button>
-                <Button icon={UserX} onClick={() => onEstado(turno, "no_vino")} variant="tonal" fullOnMobile>
-                  No vino
-                </Button>
-                {turno.estado === "pendiente" && (
-                  <Button onClick={() => onEstado(turno, "confirmado")} variant="tonal" fullOnMobile>
-                    Confirmar
-                  </Button>
-                )}
-                <Button icon={Check} onClick={() => onEstado(turno, "atendido")} variant="primary" fullOnMobile>
-                  Atendido
-                </Button>
-              </>
-            ) : (
-              <Button icon={RotateCcw} onClick={() => onEstado(turno, "confirmado")} variant="tonal" fullOnMobile>
-                Volver a confirmado
+            {abierto && (
+              <Button icon={Check} onClick={() => onEstado(turno, "atendido")} variant="primary" fullOnMobile>
+                Atendido
               </Button>
             )}
           </>

@@ -10,6 +10,7 @@ import { saldoPedido } from "@/lib/pedidos";
 import { pedidoEstado, turnoBlockClass, turnoStatus, turnoTipo } from "@/lib/status";
 import type { Pedido, Turno } from "@/lib/types";
 import { TURNO_ICONO } from "./turno-icono";
+import { CopiarTexto } from "@/components/copiar-texto";
 
 /** Panel «Próximos»: turnos y pedidos abiertos — atrasados (rojo) / hoy /
  * mañana / esta semana / más adelante. Tarjeta estilo sistema-update:
@@ -20,6 +21,7 @@ export function Proximos({
   hoy,
   onAbrirTurno,
   onAbrirPedido,
+  textoDe,
 }: {
   turnos: Turno[];
   /** Pedidos sin entregar (cualquier fecha); se deduplican por id. */
@@ -27,6 +29,8 @@ export function Proximos({
   hoy: string;
   onAbrirTurno: (id: string) => void;
   onAbrirPedido: (id: string) => void;
+  /** Texto para mandarle al cliente (botón de copiar de cada turno). */
+  textoDe: (t: Turno) => string;
 }) {
   const grupos = agruparProximos(turnos, hoy, pedidos);
   return (
@@ -52,7 +56,7 @@ export function Proximos({
                 {g.items.map((it) => (
                   <li key={`${it.clase}-${it.id}`}>
                     {it.clase === "turno" ? (
-                      <TarjetaTurno t={it.turno} grupo={g.clave} onClick={() => onAbrirTurno(it.id)} />
+                      <TarjetaTurno t={it.turno} grupo={g.clave} texto={textoDe(it.turno)} onClick={() => onAbrirTurno(it.id)} />
                     ) : (
                       <TarjetaPedido p={it.pedido} grupo={g.clave} onClick={() => onAbrirPedido(it.id)} />
                     )}
@@ -81,6 +85,7 @@ function Tarjeta({
   titulo,
   nombre,
   detalle,
+  copiar,
   onClick,
 }: {
   atrasado: boolean;
@@ -90,15 +95,21 @@ function Tarjeta({
   titulo: string;
   nombre: string;
   detalle: string;
+  /** Texto a copiar: suma un botón de copiar en la esquina (fuera del
+   *  botón de la tarjeta, no se anidan botones). */
+  copiar?: string;
   onClick: () => void;
 }) {
   return (
+    <div className="relative">
     <button
       type="button"
       onClick={onClick}
       title={[titulo, nombre, detalle].filter(Boolean).join(" · ")}
       className={cn(
-        "relative flex w-full flex-col items-center overflow-hidden rounded-xl border px-3 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
+        "relative flex w-full flex-col items-center overflow-hidden rounded-xl border py-2 text-center",
+        copiar ? "px-9" : "px-3",
+        " transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
         atrasado
           ? "border-2 border-red-400 bg-red-50/40 hover:bg-red-50"
           : "border-neutral-200 bg-white hover:bg-neutral-50",
@@ -124,10 +135,26 @@ function Tarjeta({
       <span className="relative w-full truncate text-base font-medium text-neutral-900">{nombre}</span>
       {detalle && <span className="relative w-full truncate text-xs text-neutral-500">{detalle}</span>}
     </button>
+      {copiar && (
+        <span className="absolute left-1.5 top-1.5">
+          <CopiarTexto texto={copiar} label={`Copiar texto del turno de ${nombre} para el cliente`} />
+        </span>
+      )}
+    </div>
   );
 }
 
-function TarjetaTurno({ t, grupo, onClick }: { t: Turno; grupo: Clave; onClick: () => void }) {
+function TarjetaTurno({
+  t,
+  grupo,
+  texto,
+  onClick,
+}: {
+  t: Turno;
+  grupo: Clave;
+  texto: string;
+  onClick: () => void;
+}) {
   const c = turnoBlockClass[t.tipo];
   // Confirmado es el estado por defecto: solo se avisa si no lo está.
   const estado = t.estado === "confirmado" ? null : turnoStatus[t.estado].label;
@@ -140,6 +167,7 @@ function TarjetaTurno({ t, grupo, onClick }: { t: Turno; grupo: Clave; onClick: 
       titulo={`${prefijoDia(grupo, t.fecha)}${t.hora}–${horaFin(t.hora, t.duracionMin)} · ${turnoTipo[t.tipo].label}`}
       nombre={t.cliente}
       detalle={[estado, t.atiende && `Atiende ${t.atiende}`].filter(Boolean).join(" · ")}
+      copiar={texto}
       onClick={onClick}
     />
   );

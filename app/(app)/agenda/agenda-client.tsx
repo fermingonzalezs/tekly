@@ -9,7 +9,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRealtime } from "@/components/notifications/realtime-provider";
 import { AgendarDialog } from "@/components/agenda/agendar-dialog";
-import { TurnoDetalle } from "@/components/agenda/turno-detalle";
+import { TurnoDetalle, textoParaCliente } from "@/components/agenda/turno-detalle";
 import { CalendarioGrilla } from "@/components/agenda/calendario-grilla";
 import { CalendarioMes } from "@/components/agenda/calendario-mes";
 import { Proximos } from "@/components/agenda/proximos";
@@ -353,6 +353,7 @@ export function AgendaClient({
           hoy={hoy}
           onAbrirTurno={setSelId}
           onAbrirPedido={setPedidoSelId}
+          textoDe={(t) => textoParaCliente(t, { celulares, ticketsListos, negocio })}
         />
       </div>
 

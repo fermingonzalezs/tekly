@@ -1345,7 +1345,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   se ve en el detalle). Motivo **«Otro»** (`tipo = 'otro'`, ícono
   `Ellipsis`, tono `--chart-4`) con comentario. El cliente se puede
   escribir **«solo el nombre»** (input de texto plano → `tipo: "libre"`),
-  además de buscarlo con el picker. **«Copiar texto»** en el detalle del turno:
+  además de buscarlo con el picker. **«Copiar texto»** en el menú «Acciones» del detalle del turno y en cada tarjeta de «Próximos» (esquina superior izquierda) (`textoParaCliente`, `components/agenda/turno-detalle.tsx`):
   `textoTurno` (`lib/agenda.ts`, con test) arma Nombre / Motivo / Equipos /
   Día / Horario + Página (tienda del turno o el negocio) y Dirección del
   local, para mandar por WhatsApp. `Turno.clienteId` es nullable a propósito (`ClientePicker`

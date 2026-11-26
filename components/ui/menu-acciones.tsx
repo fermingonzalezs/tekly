@@ -2,13 +2,16 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { MoreHorizontal, type LucideIcon } from "lucide-react";
-import { IconButton } from "@/components/ui/button";
+import { ChevronDown, MoreHorizontal, type LucideIcon } from "lucide-react";
+import { Button, IconButton } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export type AccionMenu = {
   label: string;
   icon: LucideIcon;
   onClick: () => void;
+  /** Acción destructiva (ej. Eliminar): va en rojo. */
+  peligro?: boolean;
 };
 
 const MENU_W = 232;
@@ -22,11 +25,17 @@ export function MenuAcciones({
   label,
   acciones,
   variant = "ghost",
+  texto,
+  fullOnMobile,
 }: {
   /** `aria-label` del botón, ej. «Imprimir V-1042». */
   label: string;
   acciones: AccionMenu[];
   variant?: "ghost" | "outline";
+  /** Si viene, el disparador es un botón con texto («Acciones ▾») en vez
+   *  de los tres puntos — para footers de dialogs. */
+  texto?: string;
+  fullOnMobile?: boolean;
 }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const btnRef = useRef<HTMLSpanElement>(null);
@@ -96,7 +105,22 @@ export function MenuAcciones({
 
   return (
     <>
-      <span ref={btnRef} className="inline-flex">
+      <span ref={btnRef} className={cn("inline-flex", fullOnMobile && "w-full sm:w-auto")}>
+        {texto ? (
+          <Button
+            aria-haspopup="menu"
+            aria-expanded={open}
+            icon={ChevronDown}
+            variant="outline"
+            fullOnMobile={fullOnMobile}
+            onClick={(e) => {
+              e.stopPropagation();
+              open ? setPos(null) : abrir();
+            }}
+          >
+            {texto}
+          </Button>
+        ) : (
         <IconButton
           aria-label={label}
           aria-haspopup="menu"
@@ -110,6 +134,7 @@ export function MenuAcciones({
             open ? setPos(null) : abrir();
           }}
         />
+        )}
       </span>
       {open &&
         createPortal(
@@ -129,9 +154,14 @@ export function MenuAcciones({
                   setPos(null);
                   a.onClick();
                 }}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-50 focus:bg-neutral-100 focus:outline-none"
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm focus:outline-none",
+                  a.peligro
+                    ? "text-red-600 hover:bg-red-50 focus:bg-red-50"
+                    : "text-neutral-700 hover:bg-neutral-50 focus:bg-neutral-100",
+                )}
               >
-                <a.icon className="h-4 w-4 text-neutral-500" />
+                <a.icon className={cn("h-4 w-4", a.peligro ? "text-red-500" : "text-neutral-500")} />
                 {a.label}
               </button>
             ))}
