@@ -1,4 +1,5 @@
 import "server-only";
+import { errorDiferencia, precioMayoristaDe } from "@/lib/precios";
 import { createServerClient } from "@/lib/auth/supabase";
 import { fmtDayMonth } from "@/lib/format";
 import { addMovimiento, deleteCelular, moverStockOtro } from "@/lib/db/inventario";
@@ -12,6 +13,7 @@ import {
   errorItemsVenta,
   esVentaRegalo,
   preciosDeVenta,
+  preciosConDiferencia,
   graficosDeVentas,
   margenVenta,
   montoConRecargo,
@@ -83,6 +85,7 @@ type VentaRow = {
   venta_items: VentaItemRow[];
   total_usd: number;
   ajuste_usd: number;
+  diferencia_usd?: number | string | null;
   regalo: boolean;
   pagos: Pago[];
   margen_pct: number | null;
@@ -90,7 +93,7 @@ type VentaRow = {
 };
 
 const VENTA_COLS =
-  "id, numero, fecha, cliente_id, cliente, vendedor_id, vendedor_nombre, profiles(nombre), tienda_id, tiendas(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, precio_lista_usd, regalo, costo_usd, celular_id, notebook_id, otro_id, otro_serial, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, ajuste_usd, regalo, pagos, margen_pct, tipo";
+  "id, numero, fecha, cliente_id, cliente, vendedor_id, vendedor_nombre, profiles(nombre), tienda_id, tiendas(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, precio_lista_usd, regalo, costo_usd, celular_id, notebook_id, otro_id, otro_serial, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, ajuste_usd, diferencia_usd, regalo, pagos, margen_pct, tipo";
 
 function toVentaItem(row: VentaItemRow): VentaItem {
   return {
@@ -135,6 +138,7 @@ function toVenta(
     totalUsd: row.total_usd,
     ajusteUsd: row.ajuste_usd !== 0 ? row.ajuste_usd : undefined,
     regalo: row.regalo || undefined,
+    diferenciaUsd: Number(row.diferencia_usd ?? 0) > 0 ? Number(row.diferencia_usd) : undefined,
     pagos: row.pagos ?? [],
     margenPct: row.margen_pct ?? 0,
     tipo: row.tipo,
@@ -610,6 +614,10 @@ export type CreateVentaInput = {
   items: VentaItem[];
   /** Diferencia total pedida, firmada (U$): >0 descuenta, <0 recarga. */
   ajusteUsd?: number;
+  /** Faltante de cobro que el usuario aceptó en el cartel de confirmación
+   * (U$). Se revalida contra el total recalculado: tiene que coincidir con
+   * total − cobrado (`errorDiferencia`). */
+  diferenciaAceptadaUsd?: number;
   /** La venta entera es un regalo (total 0, sin pagos). */
   regalo?: boolean;
   /** Ignorados: el server recalcula total y margen desde los ítems. */
@@ -668,6 +676,11 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   let itemsConPrecio: VentaItem[];
   let totalUsd: number;
   let ajusteUsd = 0;
+  let diferenciaUsd = 0;
+  // Lo cobrado (sin recargo: el recargo infla lo que se mueve, no la
+  // conciliación) contra el total recalculado. Un faltante solo pasa si se
+  // aceptó en el cartel; lo que sobra nunca.
+  const cobradoUsd = data.pagos.reduce((a, p) => a + p.montoUsd, 0);
   if (esRegalo) {
     itemsConPrecio = data.items.map((item) => ({
       ...item,
@@ -685,10 +698,20 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       .reduce((a, i) => a + Math.max(0, i.precioUsd) * i.cantidad, 0);
     const errorAjusteMsg = errorAjuste(subtotalUsd, data.ajusteUsd ?? 0);
     if (errorAjusteMsg) throw new Error(errorAjusteMsg);
-    const r = preciosDeVenta(data.items, data.ajusteUsd ?? 0);
+    const base = preciosDeVenta(data.items, data.ajusteUsd ?? 0);
+    const errorDif = errorDiferencia({
+      totalUsd: base.totalUsd,
+      cobradoUsd,
+      aceptadaUsd: data.diferenciaAceptadaUsd ?? 0,
+    });
+    if (errorDif) throw new Error(errorDif);
+    // La diferencia aceptada se reparte en los ítems como el descuento: el
+    // total queda = lo cobrado y la ganancia/margen la restan en todos lados.
+    const r = preciosConDiferencia(data.items, data.ajusteUsd ?? 0, cobradoUsd);
     itemsConPrecio = r.items;
     totalUsd = r.totalUsd;
     ajusteUsd = r.ajusteUsd;
+    diferenciaUsd = r.diferenciaUsd;
   }
   const margenPct = Math.round((margenVenta(itemsConPrecio).margenPct ?? 0) * 10) / 10;
   // `canje` nunca se persiste en `Venta.pagos` -- solo viaja para crear la
@@ -729,6 +752,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       modalidad: data.modalidad,
       total_usd: totalUsd,
       ajuste_usd: ajusteUsd,
+      diferencia_usd: diferenciaUsd,
       regalo: esRegalo,
       pagos: pagosSinCanje,
       margen_pct: margenPct,
@@ -1174,4 +1198,63 @@ export async function listVendedores(): Promise<{ id: string; nombre: string }[]
     .order("nombre");
   if (error) throw error;
   return data;
+}
+
+/** Precios del stock para los ítems de una venta nueva (`createVentaAction`
+ * los usa para que solo un admin pueda cambiar el precio de venta). Claves
+ * `c:<celularId>`, `n:<notebookId>`, `o:<otroId>`; el mayorista ya resuelto
+ * (el de la unidad o el de su variante, `precioMayoristaDe`). */
+export async function preciosDelStock(
+  items: Pick<VentaItem, "celularId" | "notebookId" | "otroId">[],
+): Promise<Map<string, { precioUsd: number; mayoristaUsd: number | null }>> {
+  const supabase = createServerClient();
+  const ids = (k: "celularId" | "notebookId" | "otroId") =>
+    [...new Set(items.map((i) => i[k]).filter((x): x is string => !!x))];
+  const celularIds = ids("celularId");
+  const notebookIds = ids("notebookId");
+  const otroIds = ids("otroId");
+  type UnidadRow = {
+    id: string;
+    precio_usd: number;
+    precio_mayorista_usd: number | string | null;
+    variantes: { precio_mayorista_usd: number | string | null } | null;
+  };
+  const num = (v: number | string | null | undefined) =>
+    v === null || v === undefined ? null : Number(v);
+  const [cel, nb, otros] = await Promise.all([
+    celularIds.length
+      ? supabase
+          .from("celulares")
+          .select("id, precio_usd, precio_mayorista_usd, variantes(precio_mayorista_usd)")
+          .in("id", celularIds)
+      : Promise.resolve({ data: [], error: null }),
+    notebookIds.length
+      ? supabase
+          .from("notebooks")
+          .select("id, precio_usd, precio_mayorista_usd, variantes(precio_mayorista_usd)")
+          .in("id", notebookIds)
+      : Promise.resolve({ data: [], error: null }),
+    otroIds.length
+      ? supabase.from("otros_items").select("id, precio_usd").in("id", otroIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  for (const r of [cel, nb, otros]) if (r.error) throw r.error;
+  const mapa = new Map<string, { precioUsd: number; mayoristaUsd: number | null }>();
+  const unidad = (prefijo: string, rows: UnidadRow[]) => {
+    for (const r of rows) {
+      mapa.set(prefijo + r.id, {
+        precioUsd: Number(r.precio_usd),
+        mayoristaUsd: precioMayoristaDe(
+          { precioMayoristaUsd: num(r.precio_mayorista_usd) },
+          { precioMayoristaUsd: num(r.variantes?.precio_mayorista_usd) },
+        ),
+      });
+    }
+  };
+  unidad("c:", (cel.data ?? []) as unknown as UnidadRow[]);
+  unidad("n:", (nb.data ?? []) as unknown as UnidadRow[]);
+  for (const r of (otros.data ?? []) as { id: string; precio_usd: number }[]) {
+    mapa.set("o:" + r.id, { precioUsd: Number(r.precio_usd), mayoristaUsd: null });
+  }
+  return mapa;
 }

@@ -24,6 +24,8 @@ export const notebookSchema = z.object({
   varianteId: z.string().optional().default(""),
   /** false = el precio es el de la variante. */
   precioPropio: z.boolean().optional().default(false),
+  /** Mayorista propio; `null` = el de la variante; omitido = no se toca. */
+  precioMayoristaUsd: z.number().min(0).nullable().optional(),
 }).refine((n) => n.condicion === "nuevo" || n.bateria !== null, {
   path: ["bateria"],
   message: "Anotá el estado de la batería (0–100 %) de la notebook usada",

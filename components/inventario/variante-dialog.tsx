@@ -56,6 +56,10 @@ export function VarianteDialog({
   // Al editar se conserva el SKU existente salvo que el usuario lo cambie.
   const [skuTocado, setSkuTocado] = useState(!!variante);
   const [precioUsd, setPrecioUsd] = useState(variante?.precioUsd ?? 0);
+  // Texto para que vacío = «sin precio mayorista» (no 0).
+  const [mayorista, setMayorista] = useState(
+    variante?.precioMayoristaUsd != null ? String(variante.precioMayoristaUsd) : "",
+  );
   const [stockMinimo, setStockMinimo] = useState(variante?.stockMinimo ?? 0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -86,6 +90,7 @@ export function VarianteDialog({
         condicion: condicion.trim(),
         color: esNotebook ? "" : color.trim(),
         precioUsd,
+        precioMayoristaUsd: mayorista.trim() === "" ? null : Number(mayorista) || 0,
         stockMinimo,
       };
       const res = editando
@@ -119,7 +124,7 @@ export function VarianteDialog({
           <Button onClick={onClose} variant="outline" fullOnMobile>
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={guardar}
             disabled={!valido || pending}
             variant="primary"
@@ -207,6 +212,15 @@ export function VarianteDialog({
               onChange={(e) => setPrecioUsd(Number(e.target.value) || 0)}
             />
           </Field>
+          <Field label="Precio mayorista (U$)">
+            <Input
+              type="number"
+              min={0}
+              value={mayorista}
+              placeholder="Opcional"
+              onChange={(e) => setMayorista(e.target.value)}
+            />
+          </Field>
           <Field label="Stock mínimo">
             <Input
               type="number"
@@ -219,7 +233,8 @@ export function VarianteDialog({
         <p className="text-xs text-neutral-500">
           {esNotebook
             ? "Cada notebook carga su color, CPU, pantalla y serie. Stock mínimo 0 = sin aviso."
-            : "Vacío en color = la variante sirve para cualquier color y cada equipo carga el suyo. Stock mínimo 0 = sin aviso."}
+            : "Vacío en color = la variante sirve para cualquier color y cada equipo carga el suyo. Stock mínimo 0 = sin aviso."}{" "}
+          El precio mayorista es el que toma cada equipo en una venta mayorista, salvo que el equipo tenga uno propio.
         </p>
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>

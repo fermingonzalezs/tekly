@@ -12,15 +12,13 @@ import {
   objetivoDelMes,
   ritmoDelMes,
   ticketsDeTecnico,
-  ventaGananciaPorPeriodo,
   ventasPorRubro,
   ventasRecientes,
 } from "@/lib/dashboard";
 import { DashboardAdmin } from "./dashboard-admin";
-import { DashboardEmpleado } from "./dashboard-empleado";
+import { DashboardEmpleado, type MisVentasDashboard } from "./dashboard-empleado";
 import { Bienvenida } from "@/components/dashboard/bienvenida";
 import { tieneRol } from "@/lib/roles";
-import type { DashPeriodo } from "@/lib/mock-data";
 
 /** La ramificación por rol vive acá, en el server, a propósito (regla de
  * oro del plan 005): al empleado no se le calcula ni se le pasa ninguna
@@ -66,38 +64,33 @@ export default async function DashboardPage({
       tickets,
       turnos,
       userId: user.id,
-      roles,
       hoy,
     });
 
     const misTickets = esTecnico ? ticketsDeTecnico(tickets, user.id) : undefined;
 
-    // Vendedor: solo SUS ventas -- nada de ganancia/margen viaja al cliente.
-    let trendByPeriodo: Record<DashPeriodo, { venta: number[]; fechas: string[] }> | undefined;
-    let rubroMix: Record<DashPeriodo, { label: string; value: number }[]> | undefined;
-    let recentSales: ReturnType<typeof ventasRecientes> | undefined;
+    // Siempre el mes en curso (sin navegador de meses). Vendedor: solo SUS
+    // ventas, sin ganancia/margen ni la meta de la org (el ritmo va sin meta).
+    const mesActual = mesDashboard(undefined, hoy);
+    let misVentas: MisVentasDashboard | undefined;
     if (esVendedor) {
-      const misVentas = ventas.filter((v) => v.vendedorId === user.id);
-      const trendCompleto = ventaGananciaPorPeriodo(misVentas, hoy);
-      trendByPeriodo = Object.fromEntries(
-        Object.entries(trendCompleto).map(([p, t]) => [
-          p,
-          { venta: t.venta, fechas: t.fechas },
-        ]),
-      ) as Record<DashPeriodo, { venta: number[]; fechas: string[] }>;
-      rubroMix = ventasPorRubro(misVentas, hoy);
-      recentSales = ventasRecientes(misVentas, 6, hoy);
+      const mias = ventas.filter((v) => v.vendedorId === user.id);
+      misVentas = {
+        ritmo: ritmoDelMes(mias, mesActual.ref, hoy),
+        rubros: ventasPorRubro(mias, mesActual.ref).mes,
+        totalMes: objetivoDelMes(mias, mesActual.ref).current,
+        recientes: ventasRecientes(mias, 6, hoy),
+      };
     }
 
     return (
       <DashboardEmpleado
         roles={roles}
         metrics={metrics}
-        trendByPeriodo={trendByPeriodo}
-        rubroMix={rubroMix}
-        recentSales={recentSales}
+        mes={mesActual}
+        agenda={agendaDelLocal(tickets, turnos, hoy)}
+        misVentas={misVentas}
         misTickets={misTickets}
-        turnos={turnos}
       />
     );
   }

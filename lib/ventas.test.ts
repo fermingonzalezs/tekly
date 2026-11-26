@@ -12,6 +12,8 @@ import {
   margenPonderado,
   resumenPorModalidad,
   motivoNoConfirmable,
+  preciosConDiferencia,
+  descuentoSinDiferencia,
   resumenDeVentas,
   graficosDeVentas,
   pagoGeneraMovimientoCaja,
@@ -206,6 +208,19 @@ describe("motivoNoConfirmable", () => {
     expect(motivoNoConfirmable({ ...base, pagos: [{ montoUsd: 530, medio: "pesos" }] })).toBe(
       "Sobran U$ 30",
     );
+  });
+
+  it("con permitirFaltante, lo que falta no bloquea (se confirma aparte); lo que sobra sí", () => {
+    expect(
+      motivoNoConfirmable({ ...base, permitirFaltante: true, pagos: [{ montoUsd: 380, medio: "pesos" }] }),
+    ).toBeNull();
+    expect(
+      motivoNoConfirmable({ ...base, permitirFaltante: true, pagos: [{ montoUsd: 530, medio: "pesos" }] }),
+    ).toBe("Sobran U$ 30");
+    // Un pago en 0 sigue sin ser válido.
+    expect(
+      motivoNoConfirmable({ ...base, permitirFaltante: true, pagos: [{ montoUsd: 0, medio: "pesos" }] }),
+    ).toBe("Completá el monto de cada pago");
   });
 
   it("exige cargar el equipo del canje", () => {
@@ -477,5 +492,42 @@ describe("costoUnitarioItem", () => {
     expect(
       costoUnitarioItem({ cantidad: 1, repuestos: [{ repuestoId: "x", nombre: "X", cantidad: 1 }] }, costoDe),
     ).toBeUndefined();
+  });
+});
+
+describe("preciosConDiferencia (faltante de cobro aceptado)", () => {
+  const items = [
+    { cantidad: 1, precioUsd: 600, costoUsd: 400 },
+    { cantidad: 1, precioUsd: 400, costoUsd: 300 },
+  ];
+
+  it("sin faltante: igual que preciosDeVenta, diferencia 0", () => {
+    const r = preciosConDiferencia(items, 0, 1000);
+    expect(r.totalUsd).toBe(1000);
+    expect(r.ajusteUsd).toBe(0);
+    expect(r.diferenciaUsd).toBe(0);
+  });
+
+  it("el faltante se reparte en los ítems: total = cobrado y la ganancia baja en ese monto", () => {
+    const r = preciosConDiferencia(items, 0, 900);
+    expect(r.diferenciaUsd).toBe(100);
+    expect(r.totalUsd).toBe(900);
+    expect(r.ajusteUsd).toBe(100);
+    const sumaItems = r.items.reduce((a, i) => a + i.precioUsd * i.cantidad, 0);
+    expect(sumaItems).toBeCloseTo(900, 2);
+    // Ganancia: 1000 − 700 = 300 sin diferencia → 200 con los 100 sin cobrar.
+    expect(margenVenta(r.items).gananciaUsd).toBeCloseTo(200, 2);
+  });
+
+  it("se suma al descuento propio; descuentoSinDiferencia lo separa", () => {
+    const r = preciosConDiferencia(items, 50, 850);
+    expect(r.diferenciaUsd).toBe(100); // 950 con descuento − 850 cobrado
+    expect(r.ajusteUsd).toBe(150);
+    expect(r.totalUsd).toBe(850);
+    expect(descuentoSinDiferencia({ ajusteUsd: r.ajusteUsd, diferenciaUsd: r.diferenciaUsd })).toBe(50);
+  });
+
+  it("pagos de más no generan diferencia", () => {
+    expect(preciosConDiferencia(items, 0, 1200).diferenciaUsd).toBe(0);
   });
 });

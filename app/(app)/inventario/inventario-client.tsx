@@ -83,6 +83,7 @@ import {
 import type { CelularInput, RepuestoInput } from "@/lib/db/inventario";
 import type { NotebookInput } from "@/lib/db/notebooks";
 import { CopiarTexto } from "@/components/copiar-texto";
+import { BotonCarrito } from "@/components/ventas/carrito-venta";
 import { SelectorVariante } from "@/components/inventario/selector-variante";
 import { VarianteDialog } from "@/components/inventario/variante-dialog";
 import { VariantesTabla } from "@/components/inventario/variantes-tabla";
@@ -1022,6 +1023,9 @@ export function InventarioClient({
                           <p className="text-base font-semibold tabular-nums">
                             {fmtUsd(e.precioUsd)}
                           </p>
+                          {e.estado === "disponible" && (
+                            <BotonCarrito tipo="celular" id={e.id} nombre={[e.modelo, e.almacenamiento, e.color].filter(Boolean).join(" ")} precioUsd={e.precioUsd} />
+                          )}
                           <CopiarTexto texto={copyCelular(e)} />
                         </div>
                       </div>
@@ -1164,7 +1168,12 @@ export function InventarioClient({
                             </span>
                           </td>
                           <td className="w-px whitespace-nowrap px-3 py-2 text-center">
-                            <CopiarTexto texto={copyCelular(e)} />
+                            <div className="inline-flex items-center gap-1">
+                              {e.estado === "disponible" && (
+                                <BotonCarrito tipo="celular" id={e.id} nombre={[e.modelo, e.almacenamiento, e.color].filter(Boolean).join(" ")} precioUsd={e.precioUsd} />
+                              )}
+                              <CopiarTexto texto={copyCelular(e)} />
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1281,6 +1290,9 @@ export function InventarioClient({
                       <p className="text-base font-semibold tabular-nums">
                         {fmtUsd(n.precioUsd)}
                       </p>
+                      {n.estado === "disponible" && (
+                        <BotonCarrito tipo="notebook" id={n.id} nombre={[n.modelo, n.cpu, n.memoria].filter(Boolean).join(" ")} precioUsd={n.precioUsd} />
+                      )}
                       <CopiarTexto texto={copyNotebook(n)} />
                     </div>
                   </div>
@@ -1417,7 +1429,12 @@ export function InventarioClient({
                         {fmtUsd(n.precioUsd)}
                       </td>
                       <td className="w-px whitespace-nowrap px-3 py-2 text-center">
-                        <CopiarTexto texto={copyNotebook(n)} />
+                        <div className="inline-flex items-center gap-1">
+                          {n.estado === "disponible" && (
+                            <BotonCarrito tipo="notebook" id={n.id} nombre={[n.modelo, n.cpu, n.memoria].filter(Boolean).join(" ")} precioUsd={n.precioUsd} />
+                          )}
+                          <CopiarTexto texto={copyNotebook(n)} />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -2431,7 +2448,7 @@ function RecuentoModalDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={guardar}
             disabled={pending || contadosCount === 0}
             variant="primary"
@@ -2591,7 +2608,7 @@ function RecuentoCelularesModalDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={guardar}
             disabled={pending}
             variant="primary"
@@ -2780,6 +2797,7 @@ export function CelularFormDialog({
           precioUsd: precioEfectivo,
           estado: f.estado,
           precioPropio: f.precioPropio,
+          precioMayoristaUsd: f.precioMayoristaUsd ?? null,
         });
         if (modoCompra) onClose();
         else if (!edit) setAltaOk(true);
@@ -2828,7 +2846,7 @@ export function CelularFormDialog({
             <Button onClick={onClose} variant="outline" fullOnMobile>
               Cancelar
             </Button>
-            <Button
+            <Button loading={pending}
               disabled={!valid || pending}
               onClick={() => (edit || modoCompra ? guardar() : setConfirmAlta(true))}
               variant="primary"
@@ -2942,6 +2960,25 @@ export function CelularFormDialog({
                   value={precioEfectivo || ""}
                   onChange={(e) =>
                     set("precioUsd", Number(e.target.value) || 0)
+                  }
+                />
+              </Field>
+              <Field label="Mayorista (U$)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={f.precioMayoristaUsd ?? ""}
+                  placeholder={
+                    variante?.precioMayoristaUsd != null
+                      ? `De la variante: ${fmtUsd(variante.precioMayoristaUsd)}`
+                      : "Opcional"
+                  }
+                  title="Precio para ventas mayoristas. Vacío = el de la variante."
+                  onChange={(e) =>
+                    set(
+                      "precioMayoristaUsd",
+                      e.target.value === "" ? null : Number(e.target.value) || 0,
+                    )
                   }
                 />
               </Field>
@@ -3132,6 +3169,7 @@ export function NotebookFormDialog({
         await onSubmit({
           varianteId: variante?.id ?? "",
           precioPropio: f.precioPropio,
+          precioMayoristaUsd: f.precioMayoristaUsd ?? null,
           modelo: variante?.modelo ?? f.modelo.trim(),
           cpu: f.cpu,
           memoria: variante?.memoria ?? f.memoria,
@@ -3344,6 +3382,25 @@ export function NotebookFormDialog({
                 onChange={(e) => set("precioUsd", Number(e.target.value))}
               />
             </Field>
+            <Field label="Mayorista (U$)">
+              <Input
+                type="number"
+                min={0}
+                value={f.precioMayoristaUsd ?? ""}
+                placeholder={
+                  variante?.precioMayoristaUsd != null
+                    ? `De la variante: ${fmtUsd(variante.precioMayoristaUsd)}`
+                    : "Opcional"
+                }
+                title="Precio para ventas mayoristas. Vacío = el de la variante."
+                onChange={(e) =>
+                  set(
+                    "precioMayoristaUsd",
+                    e.target.value === "" ? null : Number(e.target.value) || 0,
+                  )
+                }
+              />
+            </Field>
           </GrillaCampos>
           {variante && (
             <label className="inline-flex cursor-pointer items-center gap-2 text-[13px] text-neutral-700">
@@ -3479,7 +3536,7 @@ function RepuestoFormDialog({
             <Button onClick={onClose} variant="outline" fullOnMobile>
               Cancelar
             </Button>
-            <Button
+            <Button loading={pending}
               disabled={!valid || pending}
               onClick={() =>
                 startTransition(async () => {
@@ -3717,7 +3774,7 @@ function OtroFormDialog({
             <Button onClick={onClose} variant="outline" fullOnMobile>
               Cancelar
             </Button>
-            <Button
+            <Button loading={pending}
               disabled={!valid || !item || pending}
               onClick={() =>
                 item &&

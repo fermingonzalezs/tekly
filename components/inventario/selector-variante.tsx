@@ -103,6 +103,9 @@ export function SelectorVariante({
   function alTeclear(e: React.KeyboardEvent<HTMLInputElement>) {
     const lista = grupo ? variantesDelGrupo : gruposFiltrados;
     if (e.key === "Escape") {
+      // Con la lista abierta, Esc solo la cierra: sin esto también cerraba el
+      // Dialog que contiene al selector (escucha `keydown` en `window`).
+      if (abierto) e.stopPropagation();
       setAbierto(false);
       return;
     }
@@ -130,7 +133,12 @@ export function SelectorVariante({
     }
   }
 
-  if (elegida) {
+  // Con una variante elegida se muestra el resumen + «Cambiar»; mientras el
+  // buscador está abierto (después de tocar «Cambiar») se dibuja el buscador.
+  // Sin el `!abierto`, «Cambiar» abría la lista pero el resumen la tapaba.
+  // `!creando`: el `VarianteDialog` de «Nueva variante» vive en la rama del
+  // buscador; si se volviera al resumen se desmontaría apenas se abre.
+  if (elegida && !abierto && !creando) {
     const stock = stockDeVariante(elegida, unidades);
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2">
@@ -165,6 +173,9 @@ export function SelectorVariante({
           onClick={() => !abierto && abrir()}
           onKeyDown={alTeclear}
           disabled={disabled}
+          // Viniendo de «Cambiar»: el cursor ya queda en el buscador. Esc o
+          // un click afuera vuelven al resumen sin cambiar la variante.
+          autoFocus={!!elegida}
           placeholder={grupo ? "Buscar variante (SKU o datos)…" : "Buscar grupo o variante…"}
           aria-label="Elegir variante"
           className="pl-9"

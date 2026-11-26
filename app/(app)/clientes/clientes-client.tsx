@@ -549,7 +549,7 @@ function ClienteFormDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={submit}
             disabled={!valido || pending}
             variant="primary" fullOnMobile

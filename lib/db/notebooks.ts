@@ -36,6 +36,7 @@ type NotebookRow = {
   bateria: number | null;
   variante_id: string | null;
   precio_propio: boolean;
+  precio_mayorista_usd?: number | string | null;
 };
 
 function toNotebook(row: NotebookRow): Notebook {
@@ -60,6 +61,10 @@ function toNotebook(row: NotebookRow): Notebook {
     // Nullable solo hasta aplicar el NOT NULL (ver plan 024).
     varianteId: row.variante_id ?? "",
     precioPropio: row.precio_propio,
+    precioMayoristaUsd:
+      row.precio_mayorista_usd === null || row.precio_mayorista_usd === undefined
+        ? null
+        : Number(row.precio_mayorista_usd),
   };
 }
 
@@ -76,6 +81,10 @@ function camposDeVariante(data: NotebookInput, variante: Variante) {
     condicion,
     precio_usd: data.precioPropio ? data.precioUsd : variante.precioUsd,
     precio_propio: data.precioPropio,
+    // Omitido = no se toca (un cambio de estado no borra el mayorista).
+    ...(data.precioMayoristaUsd !== undefined
+      ? { precio_mayorista_usd: data.precioMayoristaUsd }
+      : {}),
     // La batería solo se guarda en las usadas (constraint en la base).
     bateria: condicion === "usado" ? data.bateria : null,
   };
@@ -94,7 +103,7 @@ function conDatosDeVariante(data: NotebookInput, variante: Variante): NotebookIn
 }
 
 const NOTEBOOK_COLS =
-  "id, modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numero_serie, garantia, notas, costo_usd, precio_usd, estado, condicion, bateria, variante_id, precio_propio";
+  "id, modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numero_serie, garantia, notas, costo_usd, precio_usd, estado, condicion, bateria, variante_id, precio_propio, precio_mayorista_usd";
 
 export async function listNotebooks(): Promise<Notebook[]> {
   const supabase = createServerClient();

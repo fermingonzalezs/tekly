@@ -1152,11 +1152,16 @@ por variante, `focus-visible:ring-2 ring-accent/40` (global, no lo pisa un
 `disabled:bg-neutral-50 disabled:text-neutral-400`, pero **sin** estado de
 error propio (ningún borde/texto rojo de validación) — replicar ese mismo
 patrón (`border-accent` en foco) si se agrega uno, no inventar un tercer
-estilo de borde. **Loading** hoy es a nivel de ruta (`app/(app)/loading.tsx`,
-`Loader2` girando) vía la convención de Next, no por-botón — no hay un
-`<Button loading>` con spinner interno; si una acción puntual lo necesita,
-seguir ese mismo ícono (`Loader2` de `lucide-react` + `animate-spin`) en vez
-de uno nuevo. **Empty states** son ad hoc por tabla (fila con celda
+estilo de borde. **Loading — regla (26/11): todo botón que dispara algo que
+tarda (server action, guardar/crear/borrar, importar, navegar a otra
+sección con `router.push`) lleva `loading` en el `Button`** (`loading={pending}`
+con el `pending` de `useTransition`/`useFormStatus`): muestra el spinner
+(`Loader2`) y deshabilita el botón mientras dura, y conviene cambiar el texto
+(«Guardando…», «Abriendo la venta…»). Nunca solo el texto sin spinner, ni un
+spinner propio. Para una navegación lenta: `startTransition(() =>
+router.push(...))` y el `isPending` de esa transición va a `loading` (ver
+«Pasar a la venta» en `components/ventas/carrito-venta.tsx`). Además está el
+loading de ruta (`app/(app)/loading.tsx`, mismo `Loader2`). **Empty states** son ad hoc por tabla (fila con celda
 `text-center`, texto tipo "Sin resultados") — no hay componente
 `EmptyState` compartido todavía.
 
@@ -1581,9 +1586,42 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   blue en vivo (`useDolar()`) solo se usa dentro de `NuevaVentaDialog`
   (operación todavía no persistida). El recargo se muestra en el detalle
   ("+ 10 % recargo") cuando el pago lo tiene.
+  **Precio mayorista, precio editable y diferencia (25/11)**:
+  `precio_mayorista_usd` (opcional) en `variantes`, `celulares` y
+  `notebooks`; el efectivo es el de la unidad o el de su variante
+  (`precioMayoristaDe`, `lib/precios.ts`, puro con test). Con modalidad
+  «Mayorista», Nueva venta usa ese precio (`precioSegunModalidad`) y cambiar la
+  modalidad re-precia lo que nadie tocó a mano. **Solo un admin edita el precio
+  de venta** de un ítem en el modal; `createVentaAction` lo revalida contra la
+  base (`preciosDelStock` + `errorPrecioItem`): un no-admin solo puede mandar
+  el de lista (o el mayorista en una venta mayorista). Servicios no se validan
+  (el ítem no guarda el id del servicio). **Faltante de cobro**: ya no bloquea
+  (`motivoNoConfirmable` con `permitirFaltante`); al confirmar aparece el cartel
+  «¿Seguro que querés pasar la venta con U$ X menos…?» y la venta guarda
+  `ventas.diferencia_usd` (`Venta.diferenciaUsd`), que `createVenta` revalida
+  (`errorDiferencia`: tiene que coincidir con total − cobrado; lo que sobra
+  sigue rechazado). **La diferencia resta de la ganancia**: `preciosConDiferencia`
+  (`lib/ventas.ts`, con test) la reparte en los ítems igual que el descuento
+  (`ajuste_usd` = descuento + diferencia, total = lo cobrado), así margen,
+  Analíticas, dashboard y resumen mensual la descuentan sin tratarla aparte.
+  `descuentoSinDiferencia` separa el descuento propio para mostrarlo; el
+  detalle muestra «Diferencia sin cobrar» y la lista «−U$ X sin cobrar». El
+  recibo del cliente la muestra dentro de «Descuento».
+  **Carrito «Vender desde el stock» (26/11)**: botón 🛒 (`BotonCarrito`) en
+  cada celular/notebook `disponible` de Inventario (vista Agrupada y
+  Unidades, tabla y mobile); el carrito vive en `sessionStorage`
+  (`tekly:carrito-venta:v1`, store `useSyncExternalStore` en
+  `components/ventas/carrito-venta.tsx`; lógica pura en `lib/carrito-venta.ts`,
+  con test) y se abre desde el botón 🛒 del `FabDock`, junto a la lupa
+  (`PanelCarrito`, con contador). «Pasar a la venta» →
+  `/ventas?accion=nueva-venta&carrito=1`: `VentasClient` filtra lo que sigue
+  disponible (`filtrarDisponibles`, avisa lo que quedó afuera) y lo pasa como
+  `precarga` a `NuevaVentaDialog`, que arma los ítems con los mismos
+  `catDeCelular`/`catDeNotebook`/`draftDeCatalogo` que el buscador. Se vacía
+  al confirmar la venta; cancelar lo conserva.
   **Descuento y regalos (plan 026, revisado 25/11)**: en «Nueva venta» los
-  **ítems no se editan** (cantidad, costo y precio salen del catálogo) y se
-  listan como «1x NOMBRE … U$850» (`usdPegado`, sin espacio). Para cobrar
+  ítems se listan como «1x NOMBRE … U$850» (`usdPegado`, sin espacio);
+  cantidad y costo salen del catálogo. Para cobrar
   menos hay un **descuento** en U$ o % (`ventas.ajuste_usd` ≥ 0; la columna
   admite signo por historia, pero `errorAjuste`/`errorItemsVenta` rechazan
   negativos: no hay recargo). Los **regalos son por ítem**: un segundo
@@ -1868,18 +1906,20 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `dashboard-empleado.tsx`. Regla de oro: **el filtrado por rol no es CSS ni
   esconder props — al empleado no se le calcula ni se le pasa ganancia,
   margen, `costoUsd` ni el objetivo de facturación de la org** (todo lo que
-  viaja en el payload RSC se lee desde DevTools). El vendedor ve su propia
-  facturación (tendencia SIN línea de ganancia — `TrendChart` tiene
-  `ganancia?: number[]`, `undefined` = sin curva/marcadores/columna/tooltip
-  de ganancia) y "Listos para retirar" de toda la org; el técnico ve sus
-  tickets (`ticketsDeTecnico`). Sin cabecera de saludo ni widget "Taller"
-  (se sacaron a pedido del usuario; la columna derecha es solo turnos
-  agendados + ventas recientes). Cálculo en `lib/dashboard.ts` (con tests):
+  viaja en el payload RSC se lee desde DevTools). **El de empleado usa el
+  mismo diseño que el de admin** (25/11): `KpisAdmin` con `metricasEmpleado`
+  → `AgendaLocalCard` → (vendedor) `RitmoChart` con `target={0}` (sin meta) y
+  título «Mi ritmo del mes» + `RubrosPie` + `VentasRecientesTabla`, todo con
+  **sus** ventas (`MisVentasDashboard`) → (técnico) `MisTickets`
+  (`ticketsDeTecnico`). Siempre el mes en curso, sin navegador de meses.
+  "Listos para retirar" es de toda la org. `TrendChart`/`MetricCards`/
+  `TurnosHeatmap`/`RecentSales` ya no los usa ningún dashboard de la app. Cálculo en `lib/dashboard.ts` (con tests):
   `metricasDashboard` (5 métricas, `delta` **opcional** — los conteos
   puntuales no van con el chip "+0.0%"; `destacada` = la principal sobre
-  `bg-accent` ocupando 2 columnas), `metricasEmpleado` (recibe `roles[]` y
-  concatena las métricas de cada rol sin duplicar «Turnos hoy»; Vendedor +
-  Técnico muestra **sus ventas y sus tickets** en el mismo dashboard),
+  `bg-accent` ocupando 2 columnas), `metricasEmpleado` (3 tarjetas iguales para cualquier rol
+  empleado: **Mis ventas** destacada con delta, **Turnos hoy** y **Tickets
+  abiertos** de todo el local; Vendedor + Técnico ve además sus bloques de
+  ventas y de tickets),
   `objetivoDelMes` (`target` = `organizations.objetivo_mes_usd`),
   `ventaGananciaPorPeriodo` (venta/ganancia/**fechas** ISO por día para los
   3 períodos), `ventasPorRubro` (mix del donut `RubrosPie` desde

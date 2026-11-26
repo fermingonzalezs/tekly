@@ -21,7 +21,9 @@ Elegí uno existente o tocá «Crear cliente nuevo»: se abre un modal **encima 
 </Paso>
 
 <Paso n={3} titulo="Ítems">
-Buscá en el catálogo por **nombre, color o IMEI/serial**: trae celulares y notebooks disponibles, productos de «Otros» **con stock** (los serializados, unidad por unidad) y servicios activos. **Solo se vende lo que está en el stock** (o un servicio del catálogo): no hay ítems libres. Lo que se vende —también los regalos— **descuenta el stock**, y si borrás la venta lo podés devolver. Los ítems **no se editan** en el modal: cantidad, costo y precio salen del catálogo (el costo solo lo ve admin/técnico).
+Buscá en el catálogo por **nombre, color o IMEI/serial**: trae celulares y notebooks disponibles, productos de «Otros» **con stock** (los serializados, unidad por unidad) y servicios activos. **Solo se vende lo que está en el stock** (o un servicio del catálogo): no hay ítems libres. Lo que se vende —también los regalos— **descuenta el stock**, y si borrás la venta lo podés devolver. Cantidad, costo y precio salen del catálogo (el costo solo lo ve admin/técnico). **Un admin puede cambiar el precio de venta** de cualquier ítem en la misma fila (por ejemplo, una venta mayorista con un descuento distinto por equipo); vendedores y técnicos no.
+
+**Venta mayorista**: con la modalidad **«Mayorista»**, cada celular y notebook entra con su **precio mayorista** (el del equipo o, si no tiene, el de su variante). Si no tiene ninguno cargado, entra con el precio de lista. Cambiar la modalidad vuelve a calcular los precios que nadie tocó a mano.
 
 **Descuento**: debajo de la lista elegí **U$** (monto fijo) o **%** y escribí el descuento. No puede cubrir todo el subtotal. Al guardar, Tekly lo **reparte entre los ítems** (precio efectivo), así el margen, la ganancia, Analíticas y el dashboard quedan correctos. En el detalle y el recibo ves el precio de lista y el descuento aparte.
 
@@ -39,7 +41,15 @@ Cada pago elige **medio** y **caja**. Si la caja es en pesos, escribís los **pe
 </Paso>
 
 <Aviso titulo="El botón no confirma: ¿por qué?" tono="warning">
-El footer te dice el motivo exacto, en este orden: «Elegí un cliente», «Agregá al menos un ítem», «Hay un ítem sin nombre», «Hay un ítem sin precio», «Un regalo no lleva pagos», «El descuento no puede cubrir todo el subtotal», «Faltan U$ … por cobrar», «Sobran U$ …», «Falta cargar el equipo del canje», «Completá el monto de cada pago».
+El footer te dice el motivo exacto, en este orden: «Elegí un cliente», «Agregá al menos un ítem», «Hay un ítem sin nombre», «Hay un ítem sin precio», «Un regalo no lleva pagos», «El descuento no puede cubrir todo el subtotal», «Sobran U$ …», «Falta cargar el equipo del canje», «Completá el monto de cada pago».
+</Aviso>
+
+<Aviso titulo="Armar la venta desde Inventario">
+En **Inventario**, cada celular o notebook **disponible** tiene un botón 🛒: tocalo para sumarlo a la «venta en armado» (otra vez, para sacarlo). El carrito está en el botón 🛒 de abajo a la derecha, al lado de la lupa: muestra los equipos y el total. **«Pasar a la venta»** abre Nueva venta con esos equipos ya cargados; si alguno se vendió mientras tanto, queda afuera con un aviso. El carrito se vacía al confirmar la venta (si la cancelás, queda) y vive en la pestaña del navegador.
+</Aviso>
+
+<Aviso titulo="Si falta cobrar una parte">
+Si los pagos no llegan al total, el footer avisa «Faltan U$ …: se va a guardar como diferencia». Al confirmar aparece el cartel **«¿Seguro que querés pasar la venta con U$ … menos del precio de venta?»**. Si aceptás, la venta se guarda por **lo que se cobró**: la diferencia **resta de la ganancia y del margen** (también en el dashboard y en Analíticas) y queda registrada como **«Diferencia sin cobrar»** en el detalle de la venta (y «−U$ … sin cobrar» debajo del total en la lista). En el recibo del cliente aparece dentro del descuento. Lo que **sobra** sigue sin poder guardarse.
 </Aviso>
 
 ## Qué pasa después
@@ -56,9 +66,9 @@ Al confirmar, Tekly:
 ## Qué no se puede
 
 - No se eligen **celulares o notebooks no disponibles**: sólo aparece en el buscador lo que está en stock/disponible.
-- No podés dejar la venta con un monto que no cierre: o cubre el total exacto o el sistema te frena.
+- No se puede cobrar **de más**: si los pagos superan el total, el sistema te frena. Si falta, se guarda como diferencia (ver arriba).
 - No se puede **editar** después. Si te equivocaste, hay que eliminarla (admin) y recargarla.
-- Los ítems no se editan en el modal: el descuento es sobre el total de la venta, no por ítem.
+- Sólo un **admin** cambia el precio de un ítem; el descuento general es sobre el total de la venta.
 - El descuento no puede dejar el total en 0, y no hay recargo sobre el total (los recargos van por medio de pago).
 - Un medio sin caja activa aparece «(sin caja)» y no se puede elegir (salvo «Cuenta corriente» y «Mercadería»): creá la caja en Cajas.
 

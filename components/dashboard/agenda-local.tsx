@@ -64,7 +64,8 @@ function ItemAgenda({ item, enlaces }: { item: AgendaItem; enlaces: boolean }) {
   const accion = item.accion === "ticket" ? "Ver ticket" : "Ver turno";
   // Ticket listo: mismo tono que «Retira reparación» (es lo que va a pasar).
   const Icono = item.tipo === "listo" ? CircleCheck : TURNO_ICONO[item.tipo];
-  const banda = turnoBlockClass[item.tipo === "listo" ? "retira" : item.tipo].banda;
+  const clases = turnoBlockClass[item.tipo === "listo" ? "retira" : item.tipo];
+  const banda = clases.banda;
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
       <p
@@ -77,13 +78,23 @@ function ItemAgenda({ item, enlaces }: { item: AgendaItem; enlaces: boolean }) {
         <Icono aria-hidden className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{item.banda}</span>
       </p>
-      <div className="flex flex-1 flex-col items-center px-3 py-3 text-center">
-        <p className="w-full truncate text-sm font-semibold text-neutral-900">{item.cliente}</p>
-        <p className="mt-0.5 w-full truncate text-[13px] text-neutral-600" title={item.detalle}>
+      {/* `justify-center`: en una fila con tarjetas más altas (las que traen
+          `sub`), el texto queda centrado en vez de pegado arriba con un hueco
+          hasta «Ver turno». */}
+      <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-3 py-3 text-center">
+        {/* Ícono grande de fondo, igual que las tarjetas de «Próximos» de la
+            sección Agenda (`components/agenda/proximos.tsx`). */}
+        <Icono
+          aria-hidden
+          strokeWidth={1.5}
+          className={cn("pointer-events-none absolute -bottom-3 -right-3 h-16 w-16", clases.fondo)}
+        />
+        <p className="relative w-full truncate text-sm font-semibold text-neutral-900">{item.cliente}</p>
+        <p className="relative mt-0.5 w-full truncate text-[13px] text-neutral-600" title={item.detalle}>
           {item.detalle}
         </p>
         {item.sub && (
-          <p className="mt-0.5 w-full truncate text-[11px] text-neutral-500" title={item.sub}>
+          <p className="relative mt-0.5 w-full truncate text-[11px] text-neutral-500" title={item.sub}>
             {item.sub}
           </p>
         )}

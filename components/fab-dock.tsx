@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Bug, Search } from "lucide-react";
+import { Bug, Search, ShoppingCart } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
 import { CommandPalette } from "@/components/command-palette/command-palette";
 import { ReportarBugFab } from "@/components/reportar-bug-fab";
+import { PanelCarrito, useCarritoVenta } from "@/components/ventas/carrito-venta";
 import type { Rol } from "@/lib/auth/types";
 
 /** Botones flotantes de la app, en una sola píldora vertical abajo a la
@@ -16,6 +17,8 @@ import type { Rol } from "@/lib/auth/types";
 export function FabDock({ roles }: { roles: Rol[] }) {
   const [paletaAbierta, setPaletaAbierta] = useState(false);
   const [bugAbierto, setBugAbierto] = useState(false);
+  const [carritoAbierto, setCarritoAbierto] = useState(false);
+  const { carrito } = useCarritoVenta();
 
   return (
     <>
@@ -29,6 +32,29 @@ export function FabDock({ roles }: { roles: Rol[] }) {
           className="hidden md:grid"
           onClick={() => setBugAbierto(true)}
         />
+        {/* Carrito «Vender desde el stock» (se llena con 🛒 en Inventario). */}
+        <span className="relative">
+          <IconButton
+            aria-label={`Venta en armado${carrito.length ? ` (${carrito.length})` : ""}`}
+            title="Venta en armado"
+            icon={ShoppingCart}
+            variant="ghost"
+            size="lg"
+            aria-expanded={carritoAbierto}
+            // El panel se cierra con un mousedown afuera: sin frenarlo acá,
+            // tocar el botón con el panel abierto lo cerraba y reabría.
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => setCarritoAbierto((v) => !v)}
+          />
+          {carrito.length > 0 && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-semibold tabular-nums text-white"
+            >
+              {carrito.length}
+            </span>
+          )}
+        </span>
         <IconButton
           aria-label="Buscar o crear"
           title="Buscar o crear (Ctrl K)"
@@ -39,6 +65,7 @@ export function FabDock({ roles }: { roles: Rol[] }) {
         />
       </div>
 
+      <PanelCarrito open={carritoAbierto} onClose={() => setCarritoAbierto(false)} />
       <ReportarBugFab open={bugAbierto} onOpenChange={setBugAbierto} />
       <CommandPalette roles={roles} open={paletaAbierta} onOpenChange={setPaletaAbierta} />
     </>

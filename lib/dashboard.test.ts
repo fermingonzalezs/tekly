@@ -131,70 +131,44 @@ describe("metricasDashboard", () => {
 });
 
 describe("metricasEmpleado", () => {
-  it("vendedor: solo sus ventas, y 'listos para retirar' de toda la org", () => {
-    const hoy = new Date(2026, 9, 7); // 7 oct 2026
-    const ventas = [
-      venta("2026-10-05", 100, 20, { vendedorId: "yo", id: "V-1" }),
-      venta("2026-10-06", 60, 20, { vendedorId: "otro", id: "V-2" }),
-      venta("2026-09-20", 50, 20, { vendedorId: "yo", id: "V-3" }),
-    ];
-    const tickets = [
-      ticket("2026-10-01", { estado: "listo" }),
-      ticket("2026-10-01", { estado: "en_reparacion" }),
-    ];
-    const turnos = [turno(0), turno(0, { estado: "cancelado" }), turno(1)];
-    const out = metricasEmpleado({ ventas, tickets, turnos, userId: "yo", roles: ["vendedor"], hoy });
-    const porKey = Object.fromEntries(out.map((m) => [m.key, m]));
-    expect(porKey["mis-ventas"].value).toBe("U$ 100"); // solo V-1, no la de "otro"
-    expect(porKey["mis-ventas"].delta).toBe(100); // 100 vs 50 de sep
-    expect(porKey["mis-ventas"].destacada).toBe(true);
-    expect(porKey["mis-operaciones"].value).toBe("1");
-    expect(porKey["listos-retirar"].value).toBe("1");
-    expect(porKey.turnos.value).toBe("1"); // el cancelado no cuenta
+  const hoy = new Date(2026, 9, 7); // 7 oct 2026
+  const ventas = [
+    venta("2026-10-05", 100, 20, { vendedorId: "yo", id: "V-1" }),
+    venta("2026-10-06", 60, 20, { vendedorId: "otro", id: "V-2" }),
+    venta("2026-09-20", 50, 20, { vendedorId: "yo", id: "V-3" }),
+  ];
+  const tickets = [
+    ticket("2026-10-01", { estado: "listo", tecnicoId: "otro", id: 1 }),
+    ticket("2026-10-01", { estado: "en_reparacion", tecnicoId: "yo", id: 2 }),
+    ticket("2026-09-01", { estado: "entregado", tecnicoId: "yo", id: 3 }),
+  ];
+  const turnos = [turno(0), turno(0, { estado: "cancelado" }), turno(1)];
+
+  it("3 tarjetas: Mis ventas (destacada), Turnos hoy y Tickets abiertos", () => {
+    const out = metricasEmpleado({ ventas, tickets, turnos, userId: "yo", hoy });
+    expect(out.map((m) => m.label)).toEqual(["Mis ventas", "Turnos hoy", "Tickets abiertos"]);
+    expect(out[0].destacada).toBe(true);
+    expect(out.slice(1).every((m) => !m.destacada)).toBe(true);
   });
 
-  it("técnico: solo sus tickets, listos de la semana (desde el lunes)", () => {
-    const hoy = new Date(2026, 9, 7); // mié 7 oct 2026 -> lunes 5 oct
-    const tickets = [
-      ticket("2026-10-06", { estado: "listo", tecnicoId: "yo", id: 11 }),
-      ticket("2026-09-20", { estado: "listo", tecnicoId: "yo", id: 12 }), // la semana pasada
-      ticket("2026-10-06", { estado: "listo", tecnicoId: "otro", id: 13 }),
-      ticket("2026-10-05", { estado: "esperando_repuesto", tecnicoId: "yo", id: 14 }),
-      ticket("2026-10-04", { estado: "recibido", tecnicoId: "yo", id: 15 }),
-      ticket("2026-10-01", { estado: "entregado", tecnicoId: "yo", id: 16 }),
-    ];
-    const out = metricasEmpleado({ ventas: [], tickets, turnos: [], userId: "yo", roles: ["tecnico"], hoy });
-    const porKey = Object.fromEntries(out.map((m) => [m.key, m]));
-    expect(porKey["mis-abiertos"].value).toBe("4"); // 11, 12, 14 y 15 (el 16 está entregado)
-    expect(porKey["esperando-repuesto"].value).toBe("1");
-    expect(porKey["listos-semana"].value).toBe("1"); // solo el 11 (ingreso 6 oct); el 12 es de la semana pasada
-    expect(porKey.turnos.value).toBe("0");
+  it("Mis ventas: solo las propias del mes, con variación vs el mes anterior", () => {
+    const [misVentas] = metricasEmpleado({ ventas, tickets, turnos, userId: "yo", hoy });
+    expect(misVentas.value).toBe("U$ 100"); // solo V-1, no la de "otro"
+    expect(misVentas.delta).toBe(100); // 100 vs 50 de sep
   });
 
-  it("Vendedor + Técnico: concatena las métricas de ambos sin duplicar Turnos", () => {
-    const hoy = new Date(2026, 9, 7);
-    const ventas = [
-      venta("2026-10-05", 100, 20, { vendedorId: "yo", id: "V-1" }),
-    ];
-    const tickets = [
-      ticket("2026-10-06", { estado: "listo", tecnicoId: "yo", id: 31 }),
-      ticket("2026-10-05", { estado: "esperando_repuesto", tecnicoId: "yo", id: 32 }),
-    ];
-    const turnos = [turno(0)];
-    const out = metricasEmpleado({
-      ventas,
-      tickets,
-      turnos,
-      userId: "yo",
-      roles: ["vendedor", "tecnico"],
-      hoy,
-    });
-    const porKey = Object.fromEntries(out.map((m) => [m.key, m]));
-    expect(porKey["mis-ventas"].value).toBe("U$ 100");
-    expect(porKey["mis-abiertos"].value).toBe("2");
-    expect(out.filter((m) => m.key === "turnos")).toHaveLength(1);
-    expect(out.filter((m) => m.destacada)).toHaveLength(1);
-    expect(out[0].key).toBe("mis-ventas");
+  it("Turnos hoy sin cancelados; Tickets abiertos de todo el local", () => {
+    const porKey = Object.fromEntries(
+      metricasEmpleado({ ventas, tickets, turnos, userId: "yo", hoy }).map((m) => [m.key, m]),
+    );
+    expect(porKey.turnos.value).toBe("1");
+    expect(porKey.abiertos.value).toBe("2"); // 1 y 2 (de cualquier técnico), no el entregado
+  });
+
+  it("no expone ganancia ni margen", () => {
+    const keys = metricasEmpleado({ ventas, tickets, turnos, userId: "yo", hoy }).map((m) => m.key);
+    expect(keys).not.toContain("ganancia");
+    expect(keys).not.toContain("margen");
   });
 });
 

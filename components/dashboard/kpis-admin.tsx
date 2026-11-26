@@ -8,8 +8,14 @@ import type { MetricaDashboard } from "@/lib/dashboard";
  * medio del tema, no negro) con el número en índigo claro. Los deltas de
  * margen vienen en puntos, el resto en %. */
 export function KpisAdmin({ metrics }: { metrics: MetricaDashboard[] }) {
+  // 3 tarjetas (dashboard de empleado) → 3 columnas parejas; 4 (admin) → 4.
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div
+      className={cn(
+        "grid gap-3",
+        metrics.length === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2 lg:grid-cols-4",
+      )}
+    >
       {metrics.map((m) => (
         <Card
           key={m.key}

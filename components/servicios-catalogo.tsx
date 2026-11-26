@@ -163,7 +163,7 @@ function ServicioDialog({
           <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             size="sm"
             className="w-full sm:w-auto"
             disabled={!draft.nombre.trim() || draft.precioUsd <= 0 || pending}

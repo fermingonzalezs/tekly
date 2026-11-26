@@ -13,7 +13,7 @@ import type {
   Venta,
   VentaItem,
 } from "@/lib/types";
-import { margenVenta, montoConRecargo, preciosDeVenta } from "@/lib/ventas";
+import { margenVenta, montoConRecargo, preciosConDiferencia } from "@/lib/ventas";
 import { fechaDisplayDe, fechaISOLocal, type DemoState } from "@/lib/demo/seed";
 
 export type CrearVentaDemoInput = {
@@ -30,6 +30,8 @@ export type CrearVentaDemoInput = {
   /** Ignorados: se recalculan desde los ítems + diferencia. */
   totalUsd: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
+  /** Faltante de cobro aceptado en el cartel «¿Seguro…?» (U$). */
+  diferenciaAceptadaUsd?: number;
   margenPct: number;
   tipo: "venta" | "reparacion";
   dolarVenta: number;
@@ -133,10 +135,18 @@ export function crearVentaDemo(
         precioUsd: 0,
         precioListaUsd: undefined,
       }))
-    : preciosDeVenta(input.items, input.ajusteUsd ?? 0).items;
-  const totalUsd = input.regalo
-    ? 0
-    : preciosDeVenta(input.items, input.ajusteUsd ?? 0).totalUsd;
+    : null;
+  // Mismo criterio que `createVenta`: el faltante aceptado se reparte en los
+  // ítems como el descuento (total = cobrado) y queda aparte en diferenciaUsd.
+  const conDif = input.regalo
+    ? null
+    : preciosConDiferencia(
+        input.items,
+        input.ajusteUsd ?? 0,
+        input.pagos.reduce((a, p) => a + p.montoUsd, 0),
+      );
+  const itemsFinales = items ?? conDif!.items;
+  const totalUsd = conDif ? conDif.totalUsd : 0;
 
   const venta: Venta = {
     id: `V-${numero}`,
@@ -148,12 +158,13 @@ export function crearVentaDemo(
     vendedor: input.vendedorNombre,
     procedencia: input.procedencia,
     modalidad: input.modalidad,
-    items,
+    items: itemsFinales,
     totalUsd,
-    ajusteUsd: input.regalo ? undefined : input.ajusteUsd || undefined,
+    ajusteUsd: conDif ? conDif.ajusteUsd || undefined : undefined,
     regalo: input.regalo || undefined,
     pagos,
-    margenPct: margenVenta(items).margenPct ?? 0,
+    diferenciaUsd: conDif?.diferenciaUsd || undefined,
+    margenPct: margenVenta(itemsFinales).margenPct ?? 0,
     tipo: input.tipo,
     tieneMovimientoCaja: pagos.some(
       (p) => p.medio !== "cuenta_corriente" && !!p.cajaId,

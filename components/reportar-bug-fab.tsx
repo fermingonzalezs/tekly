@@ -70,7 +70,7 @@ export function ReportarBugFab({
               >
                 Cancelar
               </Button>
-              <Button
+              <Button loading={pending}
                 disabled={!valido || pending}
                 onClick={enviar}
                 variant="primary"

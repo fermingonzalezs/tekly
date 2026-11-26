@@ -4,7 +4,7 @@ resumen: "Grupo › variante › unidad: cómo agrupar celulares y notebooks en 
 seccion: inventario
 roles: []
 orden: 3
-actualizado: 2026-11-24
+actualizado: 2026-11-25
 ---
 
 Un celular en Tekly es una **unidad** (con su IMEI). Arriba de las unidades hay una capa de **variantes**: el mismo modelo, almacenamiento y condición que comparten varias unidades y su **SKU**. Elegir la variante al cargar un equipo es **obligatorio**: es la que define el modelo, el almacenamiento, la condición y (si la variante tiene color) el color.
@@ -33,6 +33,7 @@ Si dejás el color vacío, la variante sirve para cualquier color y **cada unida
 
 - El **precio de la variante** es el precio base. La unidad lo hereda y se actualiza solo cuando el precio de la variante cambia (mientras no esté vendida).
 - Si un equipo puntual tiene otro precio, tildá **«Precio propio para este equipo»** en el formulario: la unidad conserva su precio.
+- **Precio mayorista** (opcional): se carga en la variante o en cada equipo (campo «Mayorista (U$)»; vacío = el de la variante). Es el precio con el que entra el equipo en una venta con modalidad «Mayorista».
 - El **stock mínimo** de la variante (0 = sin aviso) hace que aparezca el chip **«Stock bajo»** en la vista agrupada y dispara un aviso **en vivo** al resto de las sesiones cuando el stock **cruza** el mínimo hacia abajo (una venta, un cambio de estado o una baja).
 
 ## Vista agrupada

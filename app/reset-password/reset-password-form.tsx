@@ -13,7 +13,7 @@ const initialState: ResetPasswordState = { error: null };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full justify-center">
+    <Button loading={pending} type="submit" disabled={pending} className="w-full justify-center">
       {pending ? "Guardando…" : "Guardar contraseña"}
     </Button>
   );

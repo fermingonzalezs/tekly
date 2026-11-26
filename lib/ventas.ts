@@ -5,6 +5,7 @@
 import type { CelularStatus, MedioPagoVenta, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
 import { fmtArs, fmtUsd } from "@/lib/format";
 import { hoyISO } from "@/lib/date-presets";
+import { diferenciaDeVenta } from "@/lib/precios";
 
 export type PagoDraft = { montoUsd: number };
 
@@ -327,6 +328,10 @@ export type MotivoInput = {
   /** La venta entera es un regalo: total 0, sin pagos. */
   regalo?: boolean;
   totalPrecio: number;
+  /** Faltante de cobro permitido: no bloquea, se confirma con el cartel
+   * «¿Seguro…?» y se guarda como `Venta.diferenciaUsd`. Lo que sobra sigue
+   * bloqueando. */
+  permitirFaltante?: boolean;
 };
 
 /** Primer motivo por el que "Nueva venta" no se puede confirmar, o `null` si
@@ -359,7 +364,7 @@ export function motivoNoConfirmable(i: MotivoInput): string | null {
   }
 
   const restante = calcularRestante(i.totalPrecio, i.pagos);
-  if (restante > 0.005) return `Faltan ${fmtUsd(restante)} por cobrar`;
+  if (restante > 0.005 && !i.permitirFaltante) return `Faltan ${fmtUsd(restante)} por cobrar`;
   if (restante < -0.005) return `Sobran ${fmtUsd(Math.abs(restante))}`;
   if (i.pagos.some((p) => p.medio === "canje" && !(p.canjeEquipo ?? "").trim()))
     return "Falta cargar el equipo del canje";
@@ -642,4 +647,41 @@ export function errorItemsVenta(
 /** Una venta es «Regalo» (total 0, sin pagos) cuando todos sus ítems lo son. */
 export function esVentaRegalo(items: Pick<VentaItem, "regalo">[]): boolean {
   return items.length > 0 && items.every((i) => i.regalo);
+}
+
+/**
+ * Precios finales de una venta nueva **con el faltante de cobro aceptado**
+ * (cartel «¿Seguro…?»): la diferencia se reparte en los ítems igual que el
+ * descuento (`preciosDeVenta` con `ajuste + diferencia`), así la ganancia, el
+ * margen, Analíticas, el dashboard y el resumen mensual la restan sin
+ * tratarla aparte. El total queda = lo cobrado; `ajusteUsd` incluye la
+ * diferencia y `diferenciaUsd` la guarda por separado para mostrarla.
+ * La usan `createVenta`, la demo y Nueva venta.
+ */
+export function preciosConDiferencia<T extends Pick<VentaItem, "cantidad" | "precioUsd" | "regalo">>(
+  items: T[],
+  ajusteUsd: number,
+  cobradoUsd: number,
+): {
+  items: (T & { precioListaUsd?: number })[];
+  totalUsd: number;
+  ajusteUsd: number;
+  diferenciaUsd: number;
+} {
+  const base = preciosDeVenta(items, ajusteUsd);
+  const diferenciaUsd = diferenciaDeVenta(base.totalUsd, cobradoUsd);
+  if (diferenciaUsd === 0) return { ...base, diferenciaUsd: 0 };
+  const conDif = preciosDeVenta(items, base.ajusteUsd + diferenciaUsd);
+  return { ...conDif, diferenciaUsd };
+}
+
+/** Descuento «propio» de una venta (sin la diferencia sin cobrar, que vive
+ * dentro de `ajusteUsd` desde el 25/11): lo que se muestra como «Descuento». */
+export function descuentoSinDiferencia(v: Pick<Venta, "ajusteUsd" | "diferenciaUsd">): number {
+  const ajuste = v.ajusteUsd ?? 0;
+  // Ya no hay recargos sobre el total: un ajuste negativo es de una venta
+  // vieja y se muestra tal cual. Si la diferencia no está dentro del ajuste
+  // (no debería pasar), el descuento no baja de 0.
+  if (ajuste < 0) return ajuste;
+  return Math.max(0, Math.round((ajuste - (v.diferenciaUsd ?? 0)) * 100) / 100);
 }

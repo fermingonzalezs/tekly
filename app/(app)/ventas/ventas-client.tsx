@@ -56,6 +56,8 @@ import {
   montoConRecargo,
   montoPagoLabel,
   margenVenta,
+  descuentoSinDiferencia,
+  preciosConDiferencia,
   costoUnitarioItem,
   categoriaDe,
   motivoNoConfirmable,
@@ -111,6 +113,9 @@ import { tieneRol } from "@/lib/roles";
 import { ClientePicker } from "@/components/ui/cliente-picker";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
 import { createVentaAction, deleteVentaAction } from "./actions";
+import { diferenciaDeVenta, precioMayoristaDe, precioSegunModalidad } from "@/lib/precios";
+import { filtrarDisponibles, type ItemCarrito } from "@/lib/carrito-venta";
+import { leerCarrito, vaciarCarrito } from "@/components/ventas/carrito-venta";
 
 const PROCEDENCIAS = [
   "Local",
@@ -190,12 +195,27 @@ function DiferenciaLinea({ venta }: { venta: Venta }) {
       <span className="block text-[11px] font-normal text-neutral-500">Regalo</span>
     );
   }
-  const ajuste = venta.ajusteUsd ?? 0;
-  if (ajuste === 0) return null;
+  // `ajusteUsd` incluye la diferencia sin cobrar (se reparte como el
+  // descuento): acá se muestran por separado.
+  const ajuste = descuentoSinDiferencia(venta);
+  const diferencia = venta.diferenciaUsd ?? 0;
+  if (ajuste === 0 && diferencia === 0) return null;
   return (
-    <span className="block text-[11px] font-normal text-neutral-500">
-      {ajuste > 0 ? `−${fmtUsd(ajuste)} desc.` : `+${fmtUsd(-ajuste)} rec.`}
-    </span>
+    <>
+      {ajuste !== 0 && (
+        <span className="block text-[11px] font-normal text-neutral-500">
+          {ajuste > 0 ? `−${fmtUsd(ajuste)} desc.` : `+${fmtUsd(-ajuste)} rec.`}
+        </span>
+      )}
+      {diferencia > 0 && (
+        <span
+          className="block text-[11px] font-medium text-red-600"
+          title="Faltó cobrar este monto y se aceptó al confirmar la venta"
+        >
+          −{fmtUsd(diferencia)} sin cobrar
+        </span>
+      )}
+    </>
   );
 }
 
@@ -262,6 +282,8 @@ export type CrearVentaInput = {
   /** Solo para la UI/demo: el server recalcula total y margen. */
   totalUsd: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
+  /** Faltante de cobro aceptado en el cartel «¿Seguro…?» (U$, 0 = completo). */
+  diferenciaAceptadaUsd?: number;
   margenPct: number;
   tipo: "venta" | "reparacion";
   dolarVenta: number;
@@ -357,6 +379,8 @@ export function VentasClient({
   };
   const [isPending, startTransition] = useTransition();
   const [creating, setCreating] = useState(false);
+  /** Unidades que llegan del carrito de Inventario («Pasar a la venta»). */
+  const [precarga, setPrecarga] = useState<ItemCarrito[]>([]);
   const [openOverride, setOpenOverride] = useState<string | null | undefined>(
     undefined,
   );
@@ -429,10 +453,27 @@ export function VentasClient({
 
   // ?accion=nueva-venta: lo usa el CommandPalette. Efecto (no estado inicial)
   // para que también funcione ya parado en /ventas.
+  // Con `&carrito=1` (barra del carrito de Inventario) entra con esas unidades
+  // ya cargadas: solo las que siguen disponibles; el resto se avisa.
   useEffect(() => {
     if (searchParams.get("accion") !== "nueva-venta") return;
+    if (searchParams.get("carrito") === "1") {
+      const { entran, afuera } = filtrarDisponibles(leerCarrito(), {
+        celulares: new Set(celulares.filter((c) => c.estado === "disponible").map((c) => c.id)),
+        notebooks: new Set(notebooks.filter((n) => n.estado === "disponible").map((n) => n.id)),
+      });
+      setPrecarga(entran);
+      if (afuera.length > 0) {
+        setAviso(
+          `${afuera.map((i) => i.nombre).join(", ")} ya no ${afuera.length === 1 ? "está disponible" : "están disponibles"} y no se ${afuera.length === 1 ? "agregó" : "agregaron"} a la venta.`,
+        );
+      }
+    } else {
+      setPrecarga([]);
+    }
     setCreating(true);
     router.replace(basePath);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, router, basePath]);
 
   // q está en la URL (fuente de verdad); el input local la sincroniza. El
@@ -893,7 +934,12 @@ export function VentasClient({
       <NuevaVentaDialog
         key={creating ? "abierto" : "cerrado"}
         open={creating}
-        onClose={() => setCreating(false)}
+        onClose={() => {
+          setCreating(false);
+          // Cancelar no vacía el carrito (sigue en Inventario), pero el
+          // próximo «Nueva venta» arranca vacío.
+          setPrecarga([]);
+        }}
         clientesOpciones={clientesOpciones}
         celulares={celulares}
         notebooks={notebooks}
@@ -909,8 +955,14 @@ export function VentasClient({
         user={user}
         crearVenta={acc.crearVenta}
         modoDemo={modoDemo}
+        precarga={precarga}
         onCreate={(v) => {
           setCreating(false);
+          // La venta salió del carrito: se vacía (si se cancela, queda).
+          if (precarga.length > 0) {
+            vaciarCarrito();
+            setPrecarga([]);
+          }
           setVentaOk(
             [v.id, v.cliente, v.regalo ? "Regalo" : "U$" + fmtNum(Math.round(v.totalUsd))].join(" · "),
           );
@@ -1741,13 +1793,21 @@ function VentaDetalle({
                   {fmtUsd(venta.totalUsd + venta.ajusteUsd)}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] text-neutral-600">
-                <span>{venta.ajusteUsd > 0 ? "Descuento" : "Recargo"}</span>
-                <span className="tabular-nums">
-                  {venta.ajusteUsd > 0 ? "−" : "+"}
-                  {fmtUsd(Math.abs(venta.ajusteUsd))}
-                </span>
-              </div>
+              {descuentoSinDiferencia(venta) !== 0 && (
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] text-neutral-600">
+                  <span>{descuentoSinDiferencia(venta) > 0 ? "Descuento" : "Recargo"}</span>
+                  <span className="tabular-nums">
+                    {descuentoSinDiferencia(venta) > 0 ? "−" : "+"}
+                    {fmtUsd(Math.abs(descuentoSinDiferencia(venta)))}
+                  </span>
+                </div>
+              )}
+              {!!venta.diferenciaUsd && (
+                <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-[13px] text-red-600">
+                  <span>Diferencia sin cobrar</span>
+                  <span className="tabular-nums">−{fmtUsd(venta.diferenciaUsd)}</span>
+                </div>
+              )}
             </>
           )}
           <div
@@ -1817,18 +1877,33 @@ function VentaDetalle({
                       {fmtUsd(venta.totalUsd + venta.ajusteUsd)}
                     </td>
                   </tr>
-                  <tr className="border-t border-neutral-100 text-neutral-600">
-                    <td
-                      className="px-4 py-2 text-[13px]"
-                      colSpan={puedeVerCosto ? 4 : 3}
-                    >
-                      {venta.ajusteUsd > 0 ? "Descuento" : "Recargo"}
-                    </td>
-                    <td className="px-4 py-2 text-center text-[13px] tabular-nums">
-                      {venta.ajusteUsd > 0 ? "−" : "+"}
-                      {fmtUsd(Math.abs(venta.ajusteUsd))}
-                    </td>
-                  </tr>
+                  {descuentoSinDiferencia(venta) !== 0 && (
+                    <tr className="border-t border-neutral-100 text-neutral-600">
+                      <td
+                        className="px-4 py-2 text-[13px]"
+                        colSpan={puedeVerCosto ? 4 : 3}
+                      >
+                        {descuentoSinDiferencia(venta) > 0 ? "Descuento" : "Recargo"}
+                      </td>
+                      <td className="px-4 py-2 text-center text-[13px] tabular-nums">
+                        {descuentoSinDiferencia(venta) > 0 ? "−" : "+"}
+                        {fmtUsd(Math.abs(descuentoSinDiferencia(venta)))}
+                      </td>
+                    </tr>
+                  )}
+                  {!!venta.diferenciaUsd && (
+                    <tr className="border-t border-neutral-100 text-red-600">
+                      <td
+                        className="px-4 py-2 text-[13px]"
+                        colSpan={puedeVerCosto ? 4 : 3}
+                      >
+                        Diferencia sin cobrar
+                      </td>
+                      <td className="px-4 py-2 text-center text-[13px] tabular-nums">
+                        −{fmtUsd(venta.diferenciaUsd)}
+                      </td>
+                    </tr>
+                  )}
                 </>
               )}
               <tr
@@ -1968,7 +2043,16 @@ function VentaDetalle({
 const rid = () => Math.random().toString(36).slice(2);
 
 type Origen = "celular" | "notebook" | "otro" | "servicio" | "libre";
-type DraftItem = VentaItem & { _k: string; origen: Origen };
+type DraftItem = VentaItem & {
+  _k: string;
+  origen: Origen;
+  /** Solo en el modal (no viajan al server): precio de lista y mayorista del
+   * stock, para re-preciar al cambiar la modalidad, y si un admin escribió
+   * el precio a mano (entonces la modalidad ya no lo pisa). */
+  precioListaCat?: number;
+  precioMayoristaCat?: number | null;
+  precioManual?: boolean;
+};
 
 /** Costo / ganancia / margen de la venta que se está cargando (solo
  * admin/técnico). Los ítems sin costo no entran en el cálculo y se avisan. */
@@ -2063,6 +2147,59 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 // ── Buscador de ítems ──────────────────────────────────────────
 
+/** Ítem de la venta a partir de una opción del catálogo, con el precio que
+ * corresponde a la modalidad (mayorista si hay y la venta es mayorista). */
+function draftDeCatalogo(c: CatItem, mayorista: number | null, modalidad: ModalidadVenta): DraftItem {
+  return {
+    _k: rid(),
+    origen: c.origen,
+    celularId: c.origen === "celular" ? c.refId : undefined,
+    notebookId: c.origen === "notebook" ? c.refId : undefined,
+    otroId: c.origen === "otro" ? c.refId : undefined,
+    otroSerial: c.otroSerial,
+    detalle: c.nombre,
+    cantidad: 1,
+    costoUsd: c.costoUsd,
+    precioUsd: precioSegunModalidad(c.precioUsd, mayorista, modalidad),
+    precioListaCat: c.precioUsd,
+    precioMayoristaCat: mayorista,
+  };
+}
+
+/** Opción del catálogo para un celular / una notebook del stock. La usan el
+ * buscador y la precarga desde el carrito de Inventario (mismo nombre y
+ * precio en los dos caminos). */
+function catDeCelular(e: Celular): CatItem {
+  return {
+    key: `e-${e.id}`,
+    origen: "celular",
+    refId: e.id,
+    nombre: `${e.modelo} ${e.almacenamiento} ${e.color}`,
+    costoUsd: e.costoUsd,
+    precioUsd: e.precioUsd,
+    serial: e.imei,
+  };
+}
+
+function catDeNotebook(n: Notebook): CatItem {
+  return {
+    key: `n-${n.id}`,
+    origen: "notebook",
+    refId: n.id,
+    nombre: [
+      [n.modelo, n.cpu, n.memoria].filter(Boolean).join(" "),
+      n.condicion === "usado"
+        ? `Usada${n.bateria !== null ? ` · batería ${n.bateria}%` : ""}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    costoUsd: n.costoUsd,
+    precioUsd: n.precioUsd,
+    serial: n.numeroSerie || undefined,
+  };
+}
+
 function ItemBuscador({
   celulares,
   notebooks,
@@ -2097,35 +2234,8 @@ function ItemBuscador({
 
   const catalogo: CatItem[] = useMemo(
     () => [
-      ...celulares
-        .filter((e) => e.estado === "disponible")
-        .map((e) => ({
-          key: `e-${e.id}`,
-          origen: "celular" as const,
-          refId: e.id,
-          nombre: `${e.modelo} ${e.almacenamiento} ${e.color}`,
-          costoUsd: e.costoUsd,
-          precioUsd: e.precioUsd,
-          serial: e.imei,
-        })),
-      ...notebooks
-        .filter((n) => n.estado === "disponible")
-        .map((n) => ({
-          key: `n-${n.id}`,
-          origen: "notebook" as const,
-          refId: n.id,
-          nombre: [
-            [n.modelo, n.cpu, n.memoria].filter(Boolean).join(" "),
-            n.condicion === "usado"
-              ? `Usada${n.bateria !== null ? ` · batería ${n.bateria}%` : ""}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join(" · "),
-          costoUsd: n.costoUsd,
-          precioUsd: n.precioUsd,
-          serial: n.numeroSerie || undefined,
-        })),
+      ...celulares.filter((e) => e.estado === "disponible").map(catDeCelular),
+      ...notebooks.filter((n) => n.estado === "disponible").map(catDeNotebook),
       // «Otros»: solo lo que hay en stock. Serializados, una opción por
       // unidad disponible; por cantidad, una opción con su tope.
       ...otros.flatMap((o): CatItem[] =>
@@ -2338,6 +2448,7 @@ function NuevaVentaDialog({
   user,
   crearVenta,
   modoDemo = false,
+  precarga = [],
 }: {
   open: boolean;
   onClose: () => void;
@@ -2357,6 +2468,8 @@ function NuevaVentaDialog({
   user: SessionUser;
   crearVenta: (input: CrearVentaInput) => Promise<Venta>;
   modoDemo?: boolean;
+  /** Unidades que vienen del carrito de Inventario: entran ya cargadas. */
+  precarga?: ItemCarrito[];
 }) {
   const [cliente, setCliente] = useState<ClienteSeleccion | null>(null);
 
@@ -2443,7 +2556,16 @@ function NuevaVentaDialog({
     };
   };
 
-  const [items, setItems] = useState<DraftItem[]>([]);
+  const [items, setItems] = useState<DraftItem[]>(() =>
+    precarga.flatMap((p) => {
+      const c =
+        p.tipo === "celular"
+          ? celulares.filter((x) => x.id === p.id && x.estado === "disponible").map(catDeCelular)[0]
+          : notebooks.filter((x) => x.id === p.id && x.estado === "disponible").map(catDeNotebook)[0];
+      // La modalidad arranca en «Minorista»: precio de lista.
+      return c ? [draftDeCatalogo(c, mayoristaDe(c), "minorista")] : [];
+    }),
+  );
   const [pagos, setPagos] = useState<DraftPago[]>([
     {
       _k: rid(),
@@ -2463,6 +2585,8 @@ function NuevaVentaDialog({
 
   // ── Diferencia (descuento/recargo) y regalo de la venta (plan 026) ──
   const puedeVerCosto = tieneRol(user, "admin", "tecnico");
+  // Solo un admin cambia el precio de venta de un ítem (el server lo revalida).
+  const esAdmin = tieneRol(user, "admin");
   const costoRepuesto = (id: string) => repuestos.find((r) => r.id === id)?.costoUsd;
   const subtotalPrecio = items.reduce((a, i) => a + i.cantidad * i.precioUsd, 0);
   // Los regalos (ítems de regalo, del stock) no suman al subtotal ni
@@ -2516,25 +2640,56 @@ function NuevaVentaDialog({
     subtotalUsd: subtotalPrecio,
     ajusteUsd: ajustePedido,
     totalPrecio,
+    // Lo que falta cobrar no bloquea: se confirma con el cartel y queda como
+    // diferencia de la venta (`Venta.diferenciaUsd`).
+    permitirFaltante: !ventaRegalo,
   });
   const valid = motivo === null;
+  const diferenciaPendiente = ventaRegalo ? 0 : diferenciaDeVenta(totalPrecio, totalPrecio - restante);
+  // Rentabilidad en vivo con la diferencia ya restada (mismo reparto que hará
+  // `createVenta`): si falta cobrar, la ganancia baja en ese monto.
+  const rentabilidadFinal =
+    diferenciaPendiente > 0 && !errorAjusteMsg
+      ? margenVenta(
+          preciosConDiferencia(
+            items.map((i) => ({ ...i, costoUsd: costoUnitarioItem(i, costoRepuesto) })),
+            ajustePedido,
+            totalPrecio - restante,
+          ).items,
+        )
+      : rentabilidad;
+
+  /** Mayorista efectivo de un equipo del stock (el propio o el de su
+   * variante); `null` en el resto o si no hay uno cargado. */
+  function mayoristaDe(c: CatItem): number | null {
+    const unidad =
+      c.origen === "celular"
+        ? celulares.find((x) => x.id === c.refId)
+        : c.origen === "notebook"
+          ? notebooks.find((x) => x.id === c.refId)
+          : undefined;
+    if (!unidad) return null;
+    return precioMayoristaDe(unidad, variantes.find((v) => v.id === unidad.varianteId));
+  }
 
   function addCatalogo(c: CatItem) {
-    setItems((p) => [
-      ...p,
-      {
-        _k: rid(),
-        origen: c.origen,
-        celularId: c.origen === "celular" ? c.refId : undefined,
-        notebookId: c.origen === "notebook" ? c.refId : undefined,
-        otroId: c.origen === "otro" ? c.refId : undefined,
-        otroSerial: c.otroSerial,
-        detalle: c.nombre,
-        cantidad: 1,
-        costoUsd: c.costoUsd,
-        precioUsd: c.precioUsd,
-      },
-    ]);
+    setItems((p) => [...p, draftDeCatalogo(c, mayoristaDe(c), modalidad)]);
+  }
+
+  /** Cambiar la modalidad re-precia los equipos que nadie tocó a mano
+   * (mayorista ↔ lista). */
+  function cambiarModalidad(m: ModalidadVenta) {
+    setModalidad(m);
+    setItems((p) =>
+      p.map((i) =>
+        i.regalo || i.precioManual || i.precioListaCat === undefined
+          ? i
+          : {
+              ...i,
+              precioUsd: precioSegunModalidad(i.precioListaCat, i.precioMayoristaCat ?? null, m),
+            },
+      ),
+    );
   }
   /** Ítem de regalo, elegido del stock: no se cobra (precio 0) pero
    * conserva su costo, que baja la ganancia de la venta. */
@@ -2603,6 +2758,7 @@ function NuevaVentaDialog({
 
   function submit() {
     if (!cliente || cliente.tipo === "libre") return;
+    setErrorCrear(null);
     startTransition(async () => {
       const vendedorNombre = vendedorEsLibre
         ? vendedorLibre.trim().replace(/\s+/g, " ")
@@ -2615,7 +2771,7 @@ function NuevaVentaDialog({
           tienda,
           procedencia,
           modalidad,
-          items: items.map(({ _k, origen, ...i }) => ({
+          items: items.map(({ _k, origen, precioListaCat, precioMayoristaCat, precioManual, ...i }) => ({
             ...i,
             // El server prorratea la diferencia: se manda el precio de lista.
             costoUsd: costoUnitarioItem(i, costoRepuesto),
@@ -2624,6 +2780,7 @@ function NuevaVentaDialog({
           ajusteUsd: ajusteAplicado,
           totalUsd: totalPrecio,
           pagos: pagosEfectivos.map(({ _k, ...p }) => p),
+          diferenciaAceptadaUsd: diferenciaPendiente,
           margenPct: Math.round(margenPct * 10) / 10,
           tipo: items.some((i) => i.origen === "celular" || i.origen === "notebook")
             ? "venta"
@@ -2638,11 +2795,10 @@ function NuevaVentaDialog({
   }
 
   function confirmarClick() {
-    if (Math.abs(restante) < 0.005) {
-      submit();
-    } else {
-      setConfirmMonto(true);
-    }
+    // Falta cobrar: primero el cartel «¿Seguro…?»; si se acepta, la venta se
+    // guarda con esa diferencia.
+    if (diferenciaPendiente > 0) setConfirmMonto(true);
+    else submit();
   }
 
   return (
@@ -2655,18 +2811,26 @@ function NuevaVentaDialog({
       description="El número de venta se asigna al confirmar"
       footer={
         <>
-          {!valid && (
+          {errorCrear ? (
+            <p aria-live="polite" className="mr-auto text-sm text-red-600">
+              {errorCrear}
+            </p>
+          ) : !valid ? (
             <p aria-live="polite" className="mr-auto text-sm text-neutral-500">
               {motivo}
             </p>
-          )}
+          ) : diferenciaPendiente > 0 ? (
+            <p aria-live="polite" className="mr-auto text-sm text-amber-700">
+              Faltan {fmtUsd(diferenciaPendiente)}: se va a guardar como diferencia
+            </p>
+          ) : null}
           <Button
             onClick={onClose}
             variant="outline" fullOnMobile
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             disabled={!valid || pending}
             onClick={confirmarClick}
             variant="primary" fullOnMobile
@@ -2766,7 +2930,7 @@ function NuevaVentaDialog({
             <Field label="Modalidad">
               <Select
                 value={modalidad}
-                onChange={(e) => setModalidad(e.target.value as ModalidadVenta)}
+                onChange={(e) => cambiarModalidad(e.target.value as ModalidadVenta)}
               >
                 {MODALIDADES.map((m) => (
                   <option key={m} value={m}>
@@ -2805,6 +2969,39 @@ function NuevaVentaDialog({
                     </span>
                     {it.regalo ? (
                       <ChipRegalo />
+                    ) : esAdmin ? (
+                      // Solo un admin cambia el precio de venta (ej. una venta
+                      // mayorista con un descuento distinto por equipo). El
+                      // server lo vuelve a validar por rol.
+                      <span className="flex shrink-0 items-center gap-1">
+                        {it.cantidad > 1 && (
+                          <span className="text-[11px] text-neutral-500">c/u</span>
+                        )}
+                        <span className="text-xs font-semibold text-neutral-500">U$</span>
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="decimal"
+                          value={it.precioUsd || ""}
+                          onChange={(e) =>
+                            updItem(it._k, {
+                              precioUsd: Math.max(0, Number(e.target.value) || 0),
+                              precioManual: true,
+                            })
+                          }
+                          aria-label={`Precio de venta de ${it.detalle}`}
+                          title={
+                            it.precioListaCat !== undefined
+                              ? `Lista ${usdPegado(it.precioListaCat)}${
+                                  it.precioMayoristaCat != null
+                                    ? ` · mayorista ${usdPegado(it.precioMayoristaCat)}`
+                                    : ""
+                                }`
+                              : undefined
+                          }
+                          className="!h-8 !w-24 !rounded-md !border !border-neutral-300 !bg-white !px-2 text-sm font-semibold !text-right tabular-nums outline-none focus:!border-accent"
+                        />
+                      </span>
                     ) : (
                       <span className="shrink-0 font-semibold tabular-nums">
                         {usdPegado(it.cantidad * it.precioUsd)}
@@ -2885,9 +3082,9 @@ function NuevaVentaDialog({
               </div>
               {puedeVerCosto && (
                 <RentabilidadEnVivo
-                  costoUsd={rentabilidad.costoUsd}
-                  gananciaUsd={rentabilidad.gananciaUsd}
-                  margenPct={rentabilidad.margenPct}
+                  costoUsd={rentabilidadFinal.costoUsd}
+                  gananciaUsd={rentabilidadFinal.gananciaUsd}
+                  margenPct={rentabilidadFinal.margenPct}
                   sinCosto={itemsConCosto.filter((i) => i.costoUsd === undefined).length}
                 />
               )}
@@ -3138,17 +3335,14 @@ function NuevaVentaDialog({
       <Dialog
         open={confirmMonto}
         onClose={() => setConfirmMonto(false)}
-        title="El monto no coincide"
+        title="Falta cobrar parte de la venta"
         footer={
           <>
-            {errorCrear && (
-              <p className="mr-auto text-sm text-red-600">{errorCrear}</p>
-            )}
             <Button
-              onClick={onClose}
+              onClick={() => setConfirmMonto(false)}
               variant="outline" fullOnMobile
             >
-              Cancelar
+              Volver
             </Button>
             <Button
               disabled={pending}
@@ -3158,15 +3352,19 @@ function NuevaVentaDialog({
               }}
               variant="primary" fullOnMobile
             >
-              Confirmar de todas formas
+              Sí, pasar con diferencia
             </Button>
           </>
         }
       >
-        <p className="text-sm text-neutral-600">
-          Cargaste {fmtUsd(totalPrecio - restante)} en pagos, pero el total de la venta es{" "}
-          {fmtUsd(totalPrecio)} ({restante > 0 ? "faltan" : "sobran"}{" "}
-          {fmtUsd(Math.abs(restante))}). ¿Confirmar la venta igual?
+        <p className="text-sm text-neutral-700">
+          ¿Seguro que querés pasar la venta con{" "}
+          <span className="font-semibold text-red-600">{fmtUsd(diferenciaPendiente)} menos</span>{" "}
+          del precio de venta?
+        </p>
+        <p className="mt-2 text-xs text-neutral-500">
+          Total {fmtUsd(totalPrecio)} · cobrado {fmtUsd(totalPrecio - restante)}. La
+          diferencia queda registrada en el detalle de la venta.
         </p>
       </Dialog>
     </Dialog>

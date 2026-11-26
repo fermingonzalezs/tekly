@@ -15,12 +15,13 @@ type VarianteRow = {
   color: string;
   memoria: string;
   precio_usd: number;
+  precio_mayorista_usd: number | string | null;
   stock_minimo: number;
   activa: boolean;
 };
 
 const VARIANTE_COLS =
-  "id, categoria, grupo, sku, modelo, almacenamiento, condicion, color, memoria, precio_usd, stock_minimo, activa";
+  "id, categoria, grupo, sku, modelo, almacenamiento, condicion, color, memoria, precio_usd, precio_mayorista_usd, stock_minimo, activa";
 
 /** Tabla de las unidades de cada categoría (y su `item_type` en
  * `movimientos_stock`, que coincide con la categoría). */
@@ -57,6 +58,8 @@ function toVariante(row: VarianteRow): Variante {
     color: row.color ?? "",
     memoria: row.memoria ?? "",
     precioUsd: row.precio_usd,
+    precioMayoristaUsd:
+      row.precio_mayorista_usd === null ? null : Number(row.precio_mayorista_usd),
     stockMinimo: row.stock_minimo,
     activa: row.activa,
   };
@@ -74,6 +77,8 @@ export type VarianteInput = {
   /** Solo notebooks. */
   memoria?: string;
   precioUsd: number;
+  /** Opcional; `null`/omitido = sin precio mayorista. */
+  precioMayoristaUsd?: number | null;
   stockMinimo: number;
 };
 
@@ -205,6 +210,7 @@ export async function createVariante(input: VarianteInput): Promise<Variante> {
         activa: true,
         grupo: input.grupo.trim() || variante.grupo,
         precio_usd: input.precioUsd,
+        precio_mayorista_usd: input.precioMayoristaUsd ?? null,
         stock_minimo: input.stockMinimo,
         updated_at: new Date().toISOString(),
       })
@@ -228,6 +234,7 @@ export async function createVariante(input: VarianteInput): Promise<Variante> {
       memoria: datos.memoria ?? "",
       clave,
       precio_usd: input.precioUsd,
+      precio_mayorista_usd: input.precioMayoristaUsd ?? null,
       stock_minimo: input.stockMinimo,
     })
     .select(VARIANTE_COLS)
@@ -279,6 +286,7 @@ export async function updateVariante(id: string, input: VarianteInput): Promise<
       memoria: datos.memoria ?? "",
       clave: claveNueva,
       precio_usd: input.precioUsd,
+      precio_mayorista_usd: input.precioMayoristaUsd ?? null,
       stock_minimo: input.stockMinimo,
       updated_at: new Date().toISOString(),
     })

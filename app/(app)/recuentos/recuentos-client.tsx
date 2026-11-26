@@ -610,7 +610,7 @@ function RevisarRecuentoDialog({
             >
               Cancelar
             </Button>
-            <Button
+            <Button loading={pending}
               onClick={guardar}
               disabled={!todasResueltas || pending}
               variant="primary" fullOnMobile

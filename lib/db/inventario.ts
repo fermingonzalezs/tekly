@@ -40,6 +40,7 @@ type CelularRow = {
   estado: CelularStatus;
   variante_id: string;
   precio_propio: boolean;
+  precio_mayorista_usd?: number | string | null;
 };
 
 function toCelular(row: CelularRow): Celular {
@@ -56,11 +57,15 @@ function toCelular(row: CelularRow): Celular {
     estado: row.estado,
     varianteId: row.variante_id,
     precioPropio: row.precio_propio,
+    precioMayoristaUsd:
+      row.precio_mayorista_usd === null || row.precio_mayorista_usd === undefined
+        ? null
+        : Number(row.precio_mayorista_usd),
   };
 }
 
 const CELULAR_COLS =
-  "id, modelo, almacenamiento, color, imei, bateria, condicion, costo_usd, precio_usd, estado, variante_id, precio_propio";
+  "id, modelo, almacenamiento, color, imei, bateria, condicion, costo_usd, precio_usd, estado, variante_id, precio_propio, precio_mayorista_usd";
 
 export async function listCelulares(): Promise<Celular[]> {
   const supabase = createServerClient();
@@ -96,6 +101,8 @@ export type CelularInput = {
   estado: CelularStatus;
   /** false (default) = el precio es el de la variante. */
   precioPropio: boolean;
+  /** Mayorista propio; `null` = el de la variante; omitido = no se toca. */
+  precioMayoristaUsd?: number | null;
 };
 
 /** Fila efectiva de una unidad: los datos clave salen de la variante (color
@@ -110,6 +117,10 @@ function camposDeUnidad(data: CelularInput, variante: Variante) {
     precio_usd: data.precioPropio ? data.precioUsd : variante.precioUsd,
     precio_propio: data.precioPropio,
     variante_id: variante.id,
+    // Omitido = no se toca (un cambio de estado no borra el mayorista).
+    ...(data.precioMayoristaUsd !== undefined
+      ? { precio_mayorista_usd: data.precioMayoristaUsd }
+      : {}),
   };
 }
 

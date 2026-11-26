@@ -328,6 +328,8 @@ export type Celular = {
   /** true = conserva su precio aunque cambie el de la variante; false = el
    * precio de la unidad es el de la variante. */
   precioPropio: boolean;
+  /** Precio mayorista propio de la unidad; `null` = el de su variante. */
+  precioMayoristaUsd?: number | null;
 };
 
 /** Qué tipo de unidad agrupa una variante. */
@@ -353,6 +355,9 @@ export type Variante = {
   /** RAM de las notebooks (`"16GB"`); `""` en celulares. */
   memoria: string;
   precioUsd: number;
+  /** Precio para ventas mayoristas (U$), opcional. Lo hereda cada unidad que
+   * no tenga uno propio (`precioMayoristaDe`, `lib/precios.ts`). */
+  precioMayoristaUsd?: number | null;
   /** 0 = sin aviso de stock bajo. */
   stockMinimo: number;
   activa: boolean;
@@ -387,6 +392,8 @@ export type Notebook = {
   varianteId: string;
   /** true = conserva su precio aunque cambie el de la variante. */
   precioPropio: boolean;
+  /** Precio mayorista propio de la unidad; `null` = el de su variante. */
+  precioMayoristaUsd?: number | null;
 };
 
 /** Historial de stock de un ítem de inventario (equipo, repuesto u otro) —
@@ -642,8 +649,12 @@ export type Venta = {
   /** La venta entera es un regalo: total 0, sin pagos, con los costos
    * conservados para la ganancia. */
   regalo?: boolean;
-  /** 1+ medios con monto; la suma cubre el total. */
+  /** 1+ medios con monto; la suma cubre el total, salvo `diferenciaUsd`. */
   pagos: Pago[];
+  /** Lo que faltó cobrar y se aceptó igual al confirmar la venta (U$, ≥ 0;
+   * 0/ausente = se cobró completo). El total y los ítems no cambian: es la
+   * plata que no entró. */
+  diferenciaUsd?: number;
   margenPct: number;
   tipo: "venta" | "reparacion";
   /** Si algún pago generó un movimiento de caja / cuenta corriente --

@@ -334,7 +334,7 @@ function ListaEditorDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             disabled={!valid || pending}
             onClick={submit}
             variant="primary" fullOnMobile

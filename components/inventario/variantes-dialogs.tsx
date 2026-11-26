@@ -53,7 +53,7 @@ export function RenombrarGrupoDialog({
           <Button onClick={onClose} variant="outline" fullOnMobile>
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={guardar}
             disabled={pending || !nuevo.trim()}
             variant="primary"
@@ -142,7 +142,7 @@ export function UnirVariantesDialog({
           <Button onClick={onClose} variant="outline" fullOnMobile>
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={confirmar}
             disabled={!destino || pending}
             variant="danger"

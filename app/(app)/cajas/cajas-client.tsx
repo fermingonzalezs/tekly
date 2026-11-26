@@ -1047,7 +1047,7 @@ function NuevoMovimientoDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             disabled={!valid || pending}
             onClick={submit}
             variant="primary" fullOnMobile
@@ -1176,7 +1176,7 @@ function CajaDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             disabled={!draft.nombre.trim() || pending}
             onClick={submit}
             variant="primary" fullOnMobile
@@ -1443,7 +1443,7 @@ function ConciliarDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             disabled={!valid || pending}
             onClick={submit}
             variant="primary" fullOnMobile

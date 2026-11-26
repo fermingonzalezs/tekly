@@ -1,5 +1,6 @@
 "use client";
 
+import { BotonCarrito } from "@/components/ventas/carrito-venta";
 import { Fragment, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -507,7 +508,17 @@ function UnidadesSubtabla({
                 </span>
               </td>
               <td className="w-px px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                <CopiarTexto texto={copyCelular(u)} />
+                <div className="flex items-center gap-1">
+                  {u.estado === "disponible" && (
+                    <BotonCarrito
+                      tipo="celular"
+                      id={u.id}
+                      nombre={[u.modelo, u.almacenamiento, u.color].filter(Boolean).join(" ")}
+                      precioUsd={u.precioUsd}
+                    />
+                  )}
+                  <CopiarTexto texto={copyCelular(u)} />
+                </div>
               </td>
             </tr>
           ))}
@@ -591,7 +602,17 @@ function NotebooksSubtabla({
                 </span>
               </td>
               <td className="w-px px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                <CopiarTexto texto={copyNotebook(u)} />
+                <div className="flex items-center gap-1">
+                  {u.estado === "disponible" && (
+                    <BotonCarrito
+                      tipo="notebook"
+                      id={u.id}
+                      nombre={[u.modelo, u.cpu, u.memoria].filter(Boolean).join(" ")}
+                      precioUsd={u.precioUsd}
+                    />
+                  )}
+                  <CopiarTexto texto={copyNotebook(u)} />
+                </div>
               </td>
             </tr>
           ))}

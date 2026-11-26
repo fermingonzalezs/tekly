@@ -1490,7 +1490,7 @@ function AgregarItemDialog({
           <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             size="sm"
             className="w-full sm:w-auto"
             disabled={!puedeGuardar || pending}
@@ -1649,7 +1649,7 @@ function NuevoTicketDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={submit}
             disabled={!equipo || !falla || !cliente || pending}
             variant="primary" fullOnMobile
@@ -1910,7 +1910,7 @@ function EntregarEquipoDialog({
           >
             Cancelar
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={confirmarClick}
             disabled={!valid || pending}
             variant="primary" fullOnMobile

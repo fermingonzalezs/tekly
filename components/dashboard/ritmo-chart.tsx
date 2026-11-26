@@ -34,10 +34,14 @@ export function RitmoChart({
   className,
   ritmo,
   target,
+  title = "Ritmo del mes",
 }: {
   className?: string;
   ritmo: RitmoMes;
+  /** Meta del mes; `0` = sin línea de meta (el dashboard de empleado nunca
+   * recibe el objetivo de la org). */
   target: number;
+  title?: string;
 }) {
   const { acumulado, anterior, daysInMonth, dayOfMonth, esActual } = ritmo;
   const [hover, setHover] = useState<number | null>(null);
@@ -74,9 +78,13 @@ export function RitmoChart({
     <Card className={cn("flex flex-col p-5", className)}>
       <ChartTitle
         align="left"
-        sub="Venta acumulada día a día contra el ritmo de la meta y el mes anterior"
+        sub={
+          conMeta
+            ? "Venta acumulada día a día contra el ritmo de la meta y el mes anterior"
+            : "Venta acumulada día a día contra el mes anterior"
+        }
       >
-        Ritmo del mes
+        {title}
       </ChartTitle>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">

@@ -1,5 +1,4 @@
 import type { Celular, Ticket, TicketStatus, Turno, TurnoTipo, Venta } from "@/lib/types";
-import type { Rol } from "@/lib/auth/types";
 import type { DashPeriodo } from "@/lib/mock-data";
 import { fmtUsd } from "@/lib/format";
 import { RUBRO_LABEL, RUBRO_ORDEN, categoriaDe, margenPonderado, margenVenta } from "@/lib/ventas";
@@ -95,78 +94,42 @@ export function metricasDashboard(params: {
   ];
 }
 
-/** KPIs del dashboard de empleado (vendedor y/o técnico). Se calcula y se
+/** KPIs del dashboard de empleado (vendedor y/o técnico): las mismas 3
+ * tarjetas para cualquier rol empleado -- **Mis ventas** (solo las suyas, con
+ * variación vs el mes anterior; destacada), **Turnos hoy** y **Tickets
+ * abiertos** (de todo el local, mismo criterio que la agenda del admin; los
+ * tickets propios del técnico están en «Mis tickets»). Se calcula y se
  * consume en el server (`page.tsx`) -- al empleado no se le pasa ni
- * ganancia, margen, costos ni el objetivo de la org (ver plan 005).
- *
- * Con varios roles (plan 029) se concatenan las métricas de cada uno, sin
- * duplicar «Turnos hoy»; la primera queda destacada. */
+ * ganancia, margen, costos ni el objetivo de la org (ver plan 005). */
 export function metricasEmpleado(params: {
   ventas: Venta[];
   tickets: Ticket[];
   turnos: Turno[];
   userId: string;
-  roles: Rol[];
   hoy?: Date;
 }): MetricaDashboard[] {
   const hoy = params.hoy ?? new Date();
   const prev = mesAnterior(hoy.getFullYear(), hoy.getMonth());
-  const esVendedor = params.roles.includes("vendedor");
-  const esTecnico = params.roles.includes("tecnico");
+
+  const mias = params.ventas.filter((v) => v.vendedorId === params.userId);
+  const totalMes = mias
+    .filter((v) => esDelMes(v.fechaISO, hoy.getFullYear(), hoy.getMonth()))
+    .reduce((a, v) => a + v.totalUsd, 0);
+  const totalPrev = mias
+    .filter((v) => esDelMes(v.fechaISO, prev.anio, prev.mes0))
+    .reduce((a, v) => a + v.totalUsd, 0);
+  const delta = totalPrev > 0 ? ((totalMes - totalPrev) / totalPrev) * 100 : 0;
 
   const turnosHoy = params.turnos.filter(
     (t) => t.dayOffset === 0 && t.estado !== "cancelado",
   ).length;
+  const abiertos = params.tickets.filter((t) => t.estado !== "entregado").length;
 
-  const metricas: MetricaDashboard[] = [];
-
-  if (esVendedor) {
-    const mias = params.ventas.filter((v) => v.vendedorId === params.userId);
-    const mes = mias.filter((v) => esDelMes(v.fechaISO, hoy.getFullYear(), hoy.getMonth()));
-    const mesPrev = mias.filter((v) => esDelMes(v.fechaISO, prev.anio, prev.mes0));
-    const totalMes = mes.reduce((a, v) => a + v.totalUsd, 0);
-    const totalPrev = mesPrev.reduce((a, v) => a + v.totalUsd, 0);
-    const delta = totalPrev > 0 ? ((totalMes - totalPrev) / totalPrev) * 100 : 0;
-    // Listos para retirar de TODA la org: el vendedor es quien entrega en
-    // mostrador (ver plan 005).
-    const listos = params.tickets.filter((t) => t.estado === "listo").length;
-    metricas.push(
-      { key: "mis-ventas", label: "Mis ventas del mes", value: fmtUsd(totalMes), delta: round1(delta), deltaHint: "vs mes anterior" },
-      { key: "mis-operaciones", label: "Mis operaciones", value: String(mes.length), deltaHint: "del mes" },
-      { key: "listos-retirar", label: "Listos para retirar", value: String(listos), deltaHint: "para entregar" },
-    );
-  }
-
-  if (esTecnico) {
-    const mios = params.tickets.filter((t) => t.tecnicoId === params.userId);
-    const abiertos = mios.filter((t) => t.estado !== "entregado").length;
-    const esperando = mios.filter((t) => t.estado === "esperando_repuesto").length;
-    // "Listos esta semana": quedaron `listo` con ingreso desde el lunes -- no
-    // hay timestamp del cambio de estado, el ingreso es la fecha disponible.
-    const listosSemana = mios.filter(
-      (t) => t.estado === "listo" && esDeEstaSemana(t.fechaISO, hoy),
-    ).length;
-    metricas.push(
-      { key: "mis-abiertos", label: "Mis tickets abiertos", value: String(abiertos), deltaHint: "sin entregar" },
-      { key: "esperando-repuesto", label: "Esperando repuesto", value: String(esperando), deltaHint: "míos" },
-      { key: "listos-semana", label: "Listos esta semana", value: String(listosSemana), deltaHint: "míos" },
-    );
-  }
-
-  metricas.push({ key: "turnos", label: "Turnos hoy", value: String(turnosHoy), deltaHint: "agendados" });
-
-  return metricas.map((m, i) => (i === 0 ? { ...m, destacada: true } : m));
-}
-
-/** `fechaISO` (YYYY-MM-DD) cae entre el lunes de la semana de `hoy` y `hoy`
- * -- comparación de strings, sin `new Date(iso)` (huso horario). */
-function esDeEstaSemana(fechaISO: string, hoy: Date): boolean {
-  const lunes = new Date(
-    hoy.getFullYear(),
-    hoy.getMonth(),
-    hoy.getDate() - ((hoy.getDay() + 6) % 7),
-  );
-  return fechaISO.slice(0, 10) >= claveDia(lunes) && fechaISO.slice(0, 10) <= claveDia(hoy);
+  return [
+    { key: "mis-ventas", label: "Mis ventas", value: fmtUsd(totalMes), delta: round1(delta), deltaHint: "vs mes anterior", destacada: true },
+    { key: "turnos", label: "Turnos hoy", value: String(turnosHoy), deltaHint: "agendados" },
+    { key: "abiertos", label: "Tickets abiertos", value: String(abiertos), deltaHint: "sin entregar" },
+  ];
 }
 
 export type TicketTecnico = {

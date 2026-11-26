@@ -352,7 +352,7 @@ function InvitarUsuarioDialog({ open, onClose }: { open: boolean; onClose: () =>
           >
             {enviada ? "Cerrar" : "Cancelar"}
           </Button>
-          <Button
+          <Button loading={pending}
             onClick={enviar}
             disabled={pending || !email.trim() || !nombre.trim() || roles.length === 0}
             variant="primary" fullOnMobile
@@ -565,7 +565,7 @@ function EditarMiembroDialog({
               >
                 Cancelar
               </Button>
-              <Button
+              <Button loading={pending}
                 onClick={guardar}
                 disabled={pending || !email.trim() || !!igInvalido || roles.length === 0}
                 variant="primary" fullOnMobile
@@ -691,7 +691,7 @@ function NegocioForm({ negocio }: { negocio: Negocio }) {
         </Field>
       </div>
       <div className="mt-4 flex items-center gap-3">
-        <Button onClick={guardar} disabled={pending} variant="primary">
+        <Button loading={pending} onClick={guardar} disabled={pending} variant="primary">
           {pending ? "Guardando…" : "Guardar cambios"}
         </Button>
         {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
@@ -895,7 +895,7 @@ function PreferenciasForm({ negocio }: { negocio: Negocio }) {
         </Card>
       </div>
       <div className="flex items-center gap-3">
-        <Button
+        <Button loading={pending}
           onClick={guardar}
           disabled={pending}
           variant="primary"
@@ -1041,7 +1041,7 @@ function RecibosForm({ negocio }: { negocio: Negocio }) {
             </>
           )}
           {saved && <p className="text-xs text-emerald-600">Cambios guardados.</p>}
-          <Button
+          <Button loading={pending}
             onClick={guardar}
             disabled={pending}
             variant="primary"

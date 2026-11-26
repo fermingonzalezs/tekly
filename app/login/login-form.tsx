@@ -14,7 +14,7 @@ const initialState: LoginState = { error: null };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending} className="w-full justify-center">
+    <Button loading={pending} type="submit" disabled={pending} className="w-full justify-center">
       {pending ? "Entrando…" : "Entrar"}
     </Button>
   );
