@@ -3,6 +3,7 @@ import { notebookSchema } from "@/lib/notebooks";
 
 const base = {
   modelo: "MacBook Air",
+  numeroSerie: "C02XYZ",
   costoUsd: 500,
   precioUsd: 700,
   estado: "disponible" as const,
@@ -23,5 +24,20 @@ describe("notebookSchema · condición y batería", () => {
     expect(notebookSchema.safeParse({ ...base, condicion: "usado", bateria: 0 }).success).toBe(true);
     expect(notebookSchema.safeParse({ ...base, condicion: "usado", bateria: 101 }).success).toBe(false);
     expect(notebookSchema.safeParse({ ...base, condicion: "usado", bateria: -1 }).success).toBe(false);
+  });
+});
+
+describe("notebookSchema · número de serie y ciclos", () => {
+  it("el número de serie es obligatorio", () => {
+    expect(notebookSchema.safeParse({ ...base, numeroSerie: "  ", condicion: "nuevo" }).success).toBe(false);
+    const { numeroSerie: _omitida, ...sinSerie } = base;
+    expect(notebookSchema.safeParse({ ...sinSerie, condicion: "nuevo" }).success).toBe(false);
+  });
+
+  it("los ciclos son un entero >= 0 u omitidos", () => {
+    const usada = { ...base, condicion: "usado" as const, bateria: 90 };
+    expect(notebookSchema.parse(usada).ciclosBateria).toBeNull();
+    expect(notebookSchema.safeParse({ ...usada, ciclosBateria: 120 }).success).toBe(true);
+    expect(notebookSchema.safeParse({ ...usada, ciclosBateria: -3 }).success).toBe(false);
   });
 });

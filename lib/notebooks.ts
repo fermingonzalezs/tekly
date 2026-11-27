@@ -8,10 +8,11 @@ export const notebookSchema = z.object({
   memoria: z.string().optional().default(""),
   almacenamiento: z.string().optional().default(""),
   pantalla: z.string().optional().default(""),
+  resolucion: z.string().optional().default(""),
   gpu: z.string().optional().default(""),
   color: z.string().optional().default(""),
   idioma: z.string().optional().default(""),
-  numeroSerie: z.string().optional().default(""),
+  numeroSerie: z.string().trim().min(1, "El número de serie es obligatorio"),
   garantia: z.string().optional().default(""),
   notas: z.string().optional().default(""),
   costoUsd: z.number().min(0),
@@ -19,6 +20,8 @@ export const notebookSchema = z.object({
   estado: z.enum(["en_revision", "disponible", "reservado", "vendido", "extraviado"]),
   condicion: z.enum(["nuevo", "usado"]),
   bateria: z.number().int().min(0).max(100).nullable().default(null),
+  /** Ciclos de carga de la batería (solo usadas; `null` = sin dato). */
+  ciclosBateria: z.number().int().min(0, "Los ciclos no pueden ser negativos").nullable().default(null),
   /** Variante (SKU). Obligatoria al guardar: la exige `varianteParaUnidad`
    * en `lib/db/notebooks.ts`. */
   varianteId: z.string().optional().default(""),

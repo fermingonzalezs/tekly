@@ -8,6 +8,8 @@ export type DatosVariante = {
   modelo: string;
   memoria?: string;
   almacenamiento: string;
+  /** Solo notebooks: tamaño de pantalla (`13.6"`). */
+  pantalla?: string;
   condicion: string;
   color: string;
 };
@@ -35,18 +37,27 @@ export function normalizarAlmacenamiento(valor: string): string {
   return normalizar(valor).replace(/\s+/g, "");
 }
 
+/** «13,6"», «13.6 pulgadas» y «13.6''» son la misma pantalla. Igual que
+ * `norm_pantalla` en la base. */
+export function normalizarPantalla(valor: string): string {
+  return normalizar(valor)
+    .replace(/,/g, ".")
+    .replace(/pulgadas|pulg|["'”″]|\s/g, "");
+}
+
 /** Clave única de una variante dentro de la organización:
  * `modelo|almacenamiento|CONDICIÓN|color` (todo normalizado). La variante de
  * «cualquier color» lleva el color vacío, así que nunca choca con una
  * variante con color. */
 export function claveVariante(datos: DatosVariante): string {
   if (datos.categoria === "notebook") {
-    // `modelo|memoria|almacenamiento|CONDICIÓN` -- igual que `clave_notebook`
-    // en la base.
+    // `modelo|memoria|almacenamiento|pantalla|CONDICIÓN` -- igual que
+    // `clave_notebook` en la base.
     return [
       normalizar(datos.modelo),
       normalizarAlmacenamiento(datos.memoria ?? ""),
       normalizarAlmacenamiento(datos.almacenamiento),
+      normalizarPantalla(datos.pantalla ?? ""),
       (datos.condicion ?? "").trim().toUpperCase(),
     ].join("|");
   }
@@ -59,7 +70,8 @@ export function claveVariante(datos: DatosVariante): string {
 }
 
 /** Variante activa que corresponde a los datos de una unidad: primero busca
- * una con su mismo color y, si no hay, la de «cualquier color». */
+ * una con su mismo color y, si no hay, la de «cualquier color» (notebooks:
+ * la misma pantalla y, si no hay, una variante sin pantalla). */
 export function buscarVariante<T extends Variante>(
   variantes: T[],
   datos: DatosVariante,
@@ -69,6 +81,12 @@ export function buscarVariante<T extends Variante>(
   const conColor = claveVariante(datos);
   const exacta = activas.find((v) => claveVariante(v) === conColor);
   if (exacta) return exacta;
+  if (categoria === "notebook") {
+    // Una variante sin pantalla cargada (anterior a que la pantalla fuera
+    // parte de la clave) sirve para cualquier pantalla.
+    const sinPantalla = claveVariante({ ...datos, pantalla: "" });
+    return activas.find((v) => !v.pantalla && claveVariante(v) === sinPantalla);
+  }
   const sinColor = claveVariante({ ...datos, color: "" });
   return activas.find((v) => claveVariante({ ...v, color: "" }) === sinColor);
 }
@@ -82,7 +100,7 @@ export function condicionSku(condicion: string): "" | "NUEVO" | "USADO" {
 }
 
 /** SKU legible sugerido: `IPHONE-15-PRO-128GB-USADO` (+ `-NEGRO` si la
- * variante tiene color); notebooks `MACBOOK-AIR-M2-16GB-512GB-USADO`. Si ya
+ * variante tiene color); notebooks `MACBOOK-AIR-M2-16GB-512GB-13-6-USADO`. Si ya
  * existe, agrega `-2`, `-3`… */
 export function skuSugerido(datos: DatosVariante, existentes: Iterable<string>): string {
   const esNotebook = datos.categoria === "notebook";
@@ -91,6 +109,7 @@ export function skuSugerido(datos: DatosVariante, existentes: Iterable<string>):
       normalizar(datos.modelo),
       esNotebook ? normalizarAlmacenamiento(datos.memoria ?? "") : "",
       normalizarAlmacenamiento(datos.almacenamiento),
+      esNotebook ? normalizarPantalla(datos.pantalla ?? "") : "",
       normalizar(condicionSku(datos.condicion)),
       esNotebook ? "" : normalizar(datos.color),
     ]
@@ -115,14 +134,27 @@ export function camposDesdeVariante(variante: Variante): DatosVariante {
     modelo: variante.modelo,
     memoria: variante.memoria,
     almacenamiento: variante.almacenamiento,
+    pantalla: variante.pantalla,
     condicion: variante.condicion,
     color: variante.color,
   };
 }
 
+/** ¿La variante es de equipos usados? Celulares: cualquier grado que no sea
+ * `NUEVO`; notebooks: `usado`. */
+export function esVarianteUsada(variante: Pick<Variante, "condicion">): boolean {
+  return condicionSku(variante.condicion) === "USADO";
+}
+
+/** Los equipos usados arrancan con precio propio: cada uno vale según su
+ * estado, no el de la variante. Los nuevos siguen al precio de la variante. */
+export function precioPropioPorDefecto(variante: Pick<Variante, "condicion"> | null): boolean {
+  return !!variante && esVarianteUsada(variante);
+}
+
 /** «iPhone 15 Pro · 128 GB · A · Negro». Con `cualquierColor` agrega
  * «· Cualquier color» cuando la variante no define color. Notebooks:
- * «MacBook Air M2 · 16 GB · 512 GB · Usado». */
+ * «MacBook Air M2 · 16 GB · 512 GB · 13.6" · Usado». */
 export function nombreVariante(
   variante: Variante,
   { cualquierColor = false }: { cualquierColor?: boolean } = {},
@@ -132,6 +164,7 @@ export function nombreVariante(
       variante.modelo,
       variante.memoria,
       variante.almacenamiento,
+      variante.pantalla,
       condicionLabel(variante.condicion),
     ]
       .filter(Boolean)

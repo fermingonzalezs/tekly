@@ -110,7 +110,7 @@ const celularCsvSchema = z.object({
   modelo: z.string().trim().min(1, "modelo es obligatorio"),
   almacenamiento: z.string().trim().optional().default(""),
   color: z.string().trim().optional().default(""),
-  imei: z.string().trim().optional().default(""),
+  imei: z.string().trim().min(1, "imei es obligatorio (IMEI o número de serie)"),
   bateria: z.string().trim().optional().default(""),
   // Uno de los grados reales (`CONDICIONES_CELULAR`), sin importar mayúsculas.
   condicion: z
@@ -210,7 +210,7 @@ export function celularTemplateCsv(): string {
   const notas = [
     "estado: en_revision / disponible / reservado / vendido -- vacío se completa como disponible",
     `condicion: una de ${CONDICIONES_CELULAR.join(" / ")} (obligatoria)`,
-    "imei: no repetir -- si dos filas tienen el mismo IMEI (o ya existe en el inventario) esa fila se marca como duplicada y no se importa",
+    "imei: obligatorio y sin repetir -- si dos filas tienen el mismo IMEI (o ya existe en el inventario) esa fila se marca como duplicada y no se importa",
     "bateria: entero de 0 a 100 sin % -- obligatoria en los usados; en NUEVO dejala vacía",
     "color: el color del equipo si figura en el texto (en español: Negro / Blanco / Azul / Titanio natural...) -- vacío si no figura",
     "costoUsd / precioUsd: números en dólares sin símbolo ni puntos de miles (ej. 300) -- costoUsd es lo que costó y precioUsd el precio de venta",
@@ -333,6 +333,7 @@ export const NOTEBOOK_CSV_HEADERS = [
   "memoria",
   "almacenamiento",
   "pantalla",
+  "resolucion",
   "gpu",
   "color",
   "idioma",
@@ -341,6 +342,7 @@ export const NOTEBOOK_CSV_HEADERS = [
   "observaciones",
   "condicion",
   "bateria",
+  "ciclosBateria",
   "costoUsd",
   "precioUsd",
   "estado",
@@ -359,10 +361,11 @@ const notebookCsvSchema = z.object({
   memoria: z.string().trim().optional().default(""),
   almacenamiento: z.string().trim().optional().default(""),
   pantalla: z.string().trim().optional().default(""),
+  resolucion: z.string().trim().optional().default(""),
   gpu: z.string().trim().optional().default(""),
   color: z.string().trim().optional().default(""),
   idioma: z.string().trim().optional().default(""),
-  numeroSerie: z.string().trim().optional().default(""),
+  numeroSerie: z.string().trim().min(1, "numeroSerie es obligatorio"),
   garantia: z.string().trim().optional().default(""),
   observaciones: z.string().trim().optional().default(""),
   condicion: z
@@ -373,6 +376,7 @@ const notebookCsvSchema = z.object({
       message: `condicion debe ser una de: ${CONDICIONES_NOTEBOOK.join(", ")}`,
     }),
   bateria: z.string().trim().optional().default(""),
+  ciclosBateria: z.string().trim().optional().default(""),
   costoUsd: montoSchema("costoUsd"),
   precioUsd: montoSchema("precioUsd"),
   estado: estadoSchema,
@@ -400,6 +404,14 @@ export function parseNotebookRow(
     }
     bateria = n;
   }
+  let ciclosBateria: number | null = null;
+  if (condicion === "usado" && d.ciclosBateria !== "") {
+    const n = Number(d.ciclosBateria.replace(/\./g, ""));
+    if (!Number.isInteger(n) || n < 0) {
+      return { ok: false, rowNum, error: "ciclosBateria tiene que ser un entero >= 0" };
+    }
+    ciclosBateria = n;
+  }
   return {
     ok: true,
     rowNum,
@@ -409,6 +421,7 @@ export function parseNotebookRow(
       memoria: d.memoria,
       almacenamiento: d.almacenamiento,
       pantalla: d.pantalla,
+      resolucion: d.resolucion,
       gpu: d.gpu,
       color: d.color,
       idioma: d.idioma,
@@ -420,6 +433,7 @@ export function parseNotebookRow(
       estado: (d.estado || ESTADO_IMPORT_DEFAULT) as CelularStatus,
       condicion,
       bateria,
+      ciclosBateria,
       varianteId: d.varianteId,
       // Lo importado conserva el precio de la planilla (como celulares).
       precioPropio: true,
@@ -457,6 +471,7 @@ export function notebookTemplateCsv(): string {
     "8GB",
     "256GB",
     "13.6 pulgadas",
+    "2560 x 1664",
     "Integrada",
     "Gris espacial",
     "Español",
@@ -465,6 +480,7 @@ export function notebookTemplateCsv(): string {
     "",
     "usado",
     "95",
+    "120",
     "800",
     "1000",
     "disponible",
@@ -473,7 +489,10 @@ export function notebookTemplateCsv(): string {
   const notas = [
     "condicion: nuevo o usado (obligatoria)",
     "bateria: entero de 0 a 100 -- obligatoria si es usado; en las nuevas se ignora",
-    "numeroSerie: no repetir -- si ya existe en el inventario (o se repite en el archivo) la fila se marca como duplicada y no se importa",
+    "ciclosBateria: ciclos de carga (entero) -- opcional y solo en las usadas",
+    "pantalla: tamaño en pulgadas (ej. 13.6) -- es parte de la variante",
+    "resolucion: opcional (ej. 2560 x 1664)",
+    "numeroSerie: obligatorio y sin repetir -- si ya existe en el inventario (o se repite en el archivo) la fila se marca como duplicada y no se importa",
     "estado: en_revision / disponible / reservado / vendido -- vacío se completa como disponible",
     "costoUsd / precioUsd: números en dólares sin símbolo ni puntos de miles (ej. 800)",
     "observaciones: texto libre sin comas",
@@ -568,6 +587,7 @@ export const COLUMNAS_NOTEBOOK: Record<string, ColumnaImport> = {
   memoria: { label: "Memoria" },
   almacenamiento: { label: "Almacenamiento" },
   pantalla: { label: "Pantalla" },
+  resolucion: { label: "Resolución" },
   gpu: { label: "GPU" },
   color: { label: "Color" },
   idioma: { label: "Idioma" },
@@ -580,6 +600,11 @@ export const COLUMNAS_NOTEBOOK: Record<string, ColumnaImport> = {
   },
   bateria: {
     label: "Batería",
+    entero: true,
+    deshabilitada: (f) => (f.condicion ?? "").trim().toLowerCase() !== "usado",
+  },
+  ciclosBateria: {
+    label: "Ciclos",
     entero: true,
     deshabilitada: (f) => (f.condicion ?? "").trim().toLowerCase() !== "usado",
   },

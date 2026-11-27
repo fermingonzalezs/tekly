@@ -1431,13 +1431,25 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   Roles: crear/editar/renombrar = `requireEscritura`; unir/desactivar/
   eliminar = `requireRoleEscritura("admin")`.
   **Variantes de notebooks** (`20261124230000_variantes_notebooks.sql`):
-  misma tabla `variantes` con `categoria = 'notebook'` + columna `memoria`
-  (`""` en celulares). Clave = modelo|memoria|almacenamiento|CONDICIÓN, sin
-  color (`claveVariante` con `categoria: "notebook"`, `clave_notebook` en
-  SQL); SKU `MACBOOK-AIR-M2-16GB-512GB-USADO`. `notebooks.variante_id` +
+  misma tabla `variantes` con `categoria = 'notebook'` + columnas `memoria` y
+  **`pantalla`** (`""` en celulares; 27/11,
+  `20261127100000_notebooks_pantalla_resolucion_ciclos.sql`). Clave =
+  modelo|memoria|almacenamiento|pantalla|CONDICIÓN, sin color (`claveVariante`
+  con `categoria: "notebook"`, `clave_notebook` de 5 args en SQL; la pantalla
+  se compara con `normalizarPantalla`/`norm_pantalla`: 13,6" = 13.6 pulgadas);
+  SKU `MACBOOK-AIR-M2-16GB-512GB-13-6-USADO`. La pantalla es obligatoria al
+  crear/editar una variante de notebook; una variante vieja sin pantalla
+  sirve para cualquiera (`buscarVariante`). `notebooks.variante_id` +
   `precio_propio`; `createNotebook`/`updateNotebook`/`createNotebooksBulk`
-  copian modelo/memoria/almacenamiento/condición (y precio si no es propio)
-  de la variante. Todo `lib/db/variantes.ts` toma la categoría de la
+  copian modelo/memoria/almacenamiento/pantalla (si la variante la define)/
+  condición (y precio si no es propio) de la variante. Cada notebook además
+  tiene `resolucion` y `ciclos_bateria` (solo usadas) propios.
+  **Usados = precio propio por defecto** (`precioPropioPorDefecto`,
+  `lib/variantes.ts`): al elegir una variante usada en el alta, la unidad
+  arranca con precio propio (precargado con el de la variante), porque cada
+  equipo vale según su estado. **IMEI/serie obligatorio** en celulares y
+  notebooks (form, `createCelular`/`updateCelular`/bulk, `notebookSchema`,
+  importación). Todo `lib/db/variantes.ts` toma la categoría de la
   variante (tabla de unidades, `item_type` de movimientos); `listVariantes`
   trae solo celulares salvo `categoria` (`"todas"` en Inventario, Ventas y
   Configuración). `SelectorVariante`/`VarianteDialog`/`VariantesTabla`
@@ -1649,7 +1661,9 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   Unidades, tabla y mobile); el carrito vive en `sessionStorage`
   (`tekly:carrito-venta:v1`, store `useSyncExternalStore` en
   `components/ventas/carrito-venta.tsx`; lógica pura en `lib/carrito-venta.ts`,
-  con test) y se abre desde el botón 🛒 del `FabDock`, junto a la lupa
+  con test) y se abre desde el botón 🛒 del `FabDock` (píldora flotante abajo
+  a la derecha; se aparta sola al scrollear hacia abajo y se oculta a mano con
+  su flecha, dejando una pestaña en el borde — `tekly:ui:fab-dock`), junto a la lupa
   (`PanelCarrito`, con contador). «Pasar a la venta» →
   `/ventas?accion=nueva-venta&carrito=1`: `VentasClient` filtra lo que sigue
   disponible (`filtrarDisponibles`, avisa lo que quedó afuera) y lo pasa como

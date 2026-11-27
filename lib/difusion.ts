@@ -133,12 +133,13 @@ export function copyNotebook(n: Notebook): string {
   const partes = [
     n.modelo,
     n.pantalla,
+    n.resolucion,
     n.cpu,
     n.gpu,
     n.almacenamiento,
     n.memoria,
     n.condicion === "usado"
-      ? `Usada${n.bateria !== null ? ` 🔋${n.bateria}%` : ""}`
+      ? `Usada${n.bateria !== null ? ` 🔋${n.bateria}%` : ""}${n.ciclosBateria != null ? ` (${n.ciclosBateria} ciclos)` : ""}`
       : "Nuevo",
     n.color,
   ].filter(Boolean);

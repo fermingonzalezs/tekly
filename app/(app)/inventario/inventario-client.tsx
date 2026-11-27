@@ -93,6 +93,8 @@ import {
 } from "@/components/inventario/variantes-dialogs";
 import {
   cruzoMinimo,
+  esVarianteUsada,
+  precioPropioPorDefecto,
   nombreVariante,
   stockDeVariante,
   type UnidadDeVariante,
@@ -1270,6 +1272,9 @@ export function InventarioClient({
                         {n.condicion === "usado" && n.bateria !== null
                           ? ` · Batería ${n.bateria}%`
                           : ""}
+                        {n.condicion === "usado" && n.ciclosBateria != null
+                          ? ` · ${n.ciclosBateria} ciclos`
+                          : ""}
                       </p>
                       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 text-[11px] text-neutral-400">
                         {puedeVerCosto && (
@@ -1400,12 +1405,20 @@ export function InventarioClient({
                       </td>
                       <td className="px-5 py-2 text-center text-neutral-500">
                         {n.pantalla || "—"}
+                        {n.resolucion && (
+                          <p className="text-xs tabular-nums text-neutral-500">{n.resolucion}</p>
+                        )}
                       </td>
                       <td className="px-5 py-2 text-center">
                         <p className="text-neutral-700">{condicionLabel(n)}</p>
                         {n.condicion === "usado" && n.bateria !== null && (
                           <p className="text-xs tabular-nums text-neutral-500">
                             Batería {n.bateria}%
+                          </p>
+                        )}
+                        {n.condicion === "usado" && n.ciclosBateria != null && (
+                          <p className="text-xs tabular-nums text-neutral-500">
+                            {n.ciclosBateria} ciclos
                           </p>
                         )}
                       </td>
@@ -2747,10 +2760,13 @@ export function CelularFormDialog({
       bateria: 100,
       condicion: "A",
       costoUsd: 0,
-      precioUsd: 0,
       estado: "en_revision",
       varianteId: varianteInicialId ?? "",
-      precioPropio: false,
+      // Usados: precio propio por defecto (cada equipo vale según su estado).
+      precioPropio: precioPropioPorDefecto(
+        variantes.find((v) => v.id === varianteInicialId) ?? null,
+      ),
+      precioUsd: variantes.find((v) => v.id === varianteInicialId)?.precioUsd ?? 0,
       ...inicial,
     },
   );
@@ -2763,21 +2779,28 @@ export function CelularFormDialog({
   const variante = variantes.find((v) => v.id === f.varianteId) ?? null;
   // El precio efectivo: el de la variante salvo que la unidad tenga el propio.
   const precioEfectivo = variante && !f.precioPropio ? variante.precioUsd : f.precioUsd;
-  const valid = !!variante && f.costoUsd > 0 && precioEfectivo > 0;
+  const imeiOk = f.imei.trim() !== "" && f.imei.trim() !== "—";
+  const valid = !!variante && imeiOk && f.costoUsd > 0 && precioEfectivo > 0;
   const margen =
     precioEfectivo > 0 ? ((precioEfectivo - f.costoUsd) / precioEfectivo) * 100 : 0;
 
   /** Los datos clave (y el precio si no es propio) salen de la variante. */
   function elegirVariante(v: Variante | null) {
-    setF((p) => ({
-      ...p,
-      varianteId: v?.id ?? "",
-      modelo: v?.modelo ?? p.modelo,
-      almacenamiento: v?.almacenamiento || p.almacenamiento,
-      condicion: v?.condicion || p.condicion,
-      color: v?.color || p.color,
-      precioUsd: v && !p.precioPropio ? v.precioUsd : p.precioUsd,
-    }));
+    setF((p) => {
+      // En el alta, los usados arrancan con precio propio (precargado con el
+      // de la variante); al editar se respeta lo que ya tiene el equipo.
+      const propio = edit ? p.precioPropio : precioPropioPorDefecto(v);
+      return {
+        ...p,
+        varianteId: v?.id ?? "",
+        modelo: v?.modelo ?? p.modelo,
+        almacenamiento: v?.almacenamiento || p.almacenamiento,
+        condicion: v?.condicion || p.condicion,
+        color: v?.color || p.color,
+        precioPropio: propio,
+        precioUsd: v && (!propio || !p.precioUsd) ? v.precioUsd : p.precioUsd,
+      };
+    });
   }
 
   const movimientos = useMovimientos("celular", edit ? celular!.id : null);
@@ -2790,7 +2813,7 @@ export function CelularFormDialog({
           modelo: f.modelo.trim(),
           almacenamiento: f.almacenamiento,
           color: f.color.trim() || "—",
-          imei: f.imei.trim() || "—",
+          imei: f.imei.trim(),
           bateria: bateriaCelular(variante?.condicion || f.condicion, f.bateria),
           condicion: f.condicion,
           costoUsd: f.costoUsd,
@@ -2913,8 +2936,10 @@ export function CelularFormDialog({
               </Field>
               <Field label="IMEI/Serial">
                 <Input
-                  value={f.imei}
+                  value={f.imei === "—" ? "" : f.imei}
                   onChange={(e) => set("imei", e.target.value)}
+                  placeholder="Obligatorio"
+                  aria-required="true"
                 />
               </Field>
               <Field label="Batería (%)">
@@ -3018,7 +3043,9 @@ export function CelularFormDialog({
                 />
                 Precio propio para este equipo
                 <span className="text-[11px] text-neutral-500">
-                  (si no, sigue al de la variante)
+                  {esVarianteUsada(variante)
+                    ? "(usado: cada equipo vale según su estado)"
+                    : "(si no, sigue al de la variante)"}
                 </span>
               </label>
             )}
@@ -3109,7 +3136,8 @@ export function NotebookFormDialog({
       cpu: "",
       memoria: "",
       almacenamiento: "",
-      pantalla: "",
+      pantalla: variantes.find((v) => v.id === varianteInicialId)?.pantalla ?? "",
+      resolucion: "",
       gpu: "",
       color: "",
       idioma: "",
@@ -3117,12 +3145,16 @@ export function NotebookFormDialog({
       garantia: "",
       notas: "",
       costoUsd: 0,
-      precioUsd: 0,
+      precioUsd: variantes.find((v) => v.id === varianteInicialId)?.precioUsd ?? 0,
       estado: "en_revision",
       condicion: "nuevo",
       bateria: null,
+      ciclosBateria: null,
       varianteId: varianteInicialId ?? "",
-      precioPropio: false,
+      // Usadas: precio propio por defecto.
+      precioPropio: precioPropioPorDefecto(
+        variantes.find((v) => v.id === varianteInicialId) ?? null,
+      ),
     },
   );
   const [pending, startTransition] = useTransition();
@@ -3144,7 +3176,8 @@ export function NotebookFormDialog({
   const usado = condicion === "usado";
   const bateriaOk =
     !usado || (f.bateria !== null && f.bateria >= 0 && f.bateria <= 100);
-  const valid = !!variante && bateriaOk;
+  const serieOk = f.numeroSerie.trim() !== "";
+  const valid = !!variante && bateriaOk && serieOk;
   const margen =
     precioEfectivo > 0 ? ((precioEfectivo - f.costoUsd) / precioEfectivo) * 100 : 0;
 
@@ -3155,8 +3188,19 @@ export function NotebookFormDialog({
       modelo: v?.modelo ?? p.modelo,
       memoria: v?.memoria ?? p.memoria,
       almacenamiento: v?.almacenamiento ?? p.almacenamiento,
-      precioUsd: v && !p.precioPropio ? v.precioUsd : p.precioUsd,
+      pantalla: v?.pantalla || p.pantalla,
+      ...precioAlElegir(p, v),
     }));
+  }
+
+  /** En el alta, las usadas arrancan con precio propio (precargado con el de
+   * la variante); al editar se respeta lo que ya tiene la notebook. */
+  function precioAlElegir(p: Notebook, v: Variante | null) {
+    const propio = edit ? p.precioPropio : precioPropioPorDefecto(v);
+    return {
+      precioPropio: propio,
+      precioUsd: v && (!propio || !p.precioUsd) ? v.precioUsd : p.precioUsd,
+    };
   }
 
   const movimientos = useMovimientos("notebook", edit ? notebook!.id : null);
@@ -3174,11 +3218,12 @@ export function NotebookFormDialog({
           cpu: f.cpu,
           memoria: variante?.memoria ?? f.memoria,
           almacenamiento: variante?.almacenamiento ?? f.almacenamiento,
-          pantalla: f.pantalla,
+          pantalla: variante?.pantalla || f.pantalla,
+          resolucion: f.resolucion,
           gpu: f.gpu,
           color: f.color,
           idioma: f.idioma,
-          numeroSerie: f.numeroSerie,
+          numeroSerie: f.numeroSerie.trim(),
           garantia: f.garantia,
           notas: f.notas,
           costoUsd: f.costoUsd,
@@ -3186,6 +3231,7 @@ export function NotebookFormDialog({
           estado: f.estado,
           condicion,
           bateria: usado ? f.bateria : null,
+          ciclosBateria: usado ? f.ciclosBateria : null,
         });
         if (modoCompra) onClose();
         else if (!edit) setAltaOk(true);
@@ -3263,7 +3309,7 @@ export function NotebookFormDialog({
             />
             <p className="mt-1.5 text-[11px] text-neutral-500">
               {variante
-                ? `Definido por la variante ${variante.sku}: el modelo, la memoria, el almacenamiento y la condición salen de acá.`
+                ? `Definido por la variante ${variante.sku}: el modelo, la memoria, el almacenamiento, la pantalla y la condición salen de acá.`
                 : "Obligatoria: elegí una variante o creá una nueva."}
             </p>
           </div>
@@ -3275,7 +3321,8 @@ export function NotebookFormDialog({
               <Input
                 value={f.numeroSerie}
                 onChange={(e) => set("numeroSerie", e.target.value)}
-                placeholder="C02XXXXXXX"
+                placeholder="Obligatorio (ej. C02XXXXXXX)"
+                aria-required="true"
               />
             </Field>
             <Field label="CPU">
@@ -3303,9 +3350,17 @@ export function NotebookFormDialog({
             </Field>
             <Field label="Pantalla">
               <Input
-                value={f.pantalla}
+                value={variante?.pantalla || f.pantalla}
+                disabled={!!variante?.pantalla}
                 onChange={(e) => set("pantalla", e.target.value)}
                 placeholder="13.6''"
+              />
+            </Field>
+            <Field label="Resolución">
+              <Input
+                value={f.resolucion}
+                onChange={(e) => set("resolucion", e.target.value)}
+                placeholder="2560 × 1664"
               />
             </Field>
             <Field label="Color">
@@ -3357,6 +3412,24 @@ export function NotebookFormDialog({
                     )
                   }
                   placeholder="Ej. 87"
+                />
+              </Field>
+            )}
+            {usado && (
+              <Field label="Ciclos de batería">
+                <Input
+                  type="number"
+                  min={0}
+                  value={f.ciclosBateria ?? ""}
+                  onChange={(e) =>
+                    set(
+                      "ciclosBateria",
+                      e.target.value === ""
+                        ? null
+                        : Math.max(0, Math.round(Number(e.target.value))),
+                    )
+                  }
+                  placeholder="Ej. 120"
                 />
               </Field>
             )}
@@ -3419,7 +3492,9 @@ export function NotebookFormDialog({
               />
               Precio propio para esta notebook
               <span className="text-[11px] text-neutral-500">
-                (si no, sigue al de la variante)
+                {usado
+                  ? "(usada: cada notebook vale según su estado)"
+                  : "(si no, sigue al de la variante)"}
               </span>
             </label>
           )}
@@ -3449,7 +3524,9 @@ export function NotebookFormDialog({
             { label: "N.º de serie", value: f.numeroSerie.trim() || "—" },
             {
               label: "Condición",
-              value: usado ? `Usada · batería ${f.bateria ?? "—"}%` : "Nueva",
+              value: usado
+                ? `Usada · batería ${f.bateria ?? "—"}%${f.ciclosBateria != null ? ` · ${f.ciclosBateria} ciclos` : ""}`
+                : "Nueva",
             },
             { label: "Costo", value: fmtUsd(f.costoUsd) },
             { label: "Precio", value: fmtUsd(precioEfectivo) },

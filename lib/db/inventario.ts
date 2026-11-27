@@ -141,6 +141,14 @@ async function celularDeBajaPorImei(imei: string | null): Promise<string | null>
   return data[0]?.id ?? null;
 }
 
+/** IMEI/serie limpio y obligatorio (alta, edición e importación). `"—"` es
+ * el «sin dato» de la UI: tampoco vale. */
+function imeiObligatorio(imei: string): string {
+  const limpio = (imei ?? "").trim();
+  if (!limpio || limpio === "—") throw new Error("El IMEI/serial es obligatorio.");
+  return limpio;
+}
+
 export const DETALLE_REINGRESO = "Reingreso a inventario (estaba dado de baja)";
 
 export async function createCelular(
@@ -149,7 +157,7 @@ export async function createCelular(
 ): Promise<Celular> {
   const supabase = createServerClient();
   const variante = await varianteParaUnidad(data.varianteId);
-  const imei = data.imei === "—" ? null : data.imei || null;
+  const imei = imeiObligatorio(data.imei);
   const fila = {
     ...camposDeUnidad(data, variante),
     imei,
@@ -204,7 +212,7 @@ export async function updateCelular(id: string, data: CelularInput): Promise<Cel
     .from("celulares")
     .update({
       ...camposDeUnidad(data, variante),
-      imei: data.imei === "—" ? null : data.imei || null,
+      imei: imeiObligatorio(data.imei),
       bateria: bateriaCelular(variante.condicion, data.bateria),
       costo_usd: data.costoUsd,
       estado: data.estado,
@@ -260,7 +268,7 @@ export async function createCelularesBulk(
     if (!variante) throw new Error("Alguna fila quedó sin una variante válida.");
     return {
       ...camposDeUnidad(r, variante),
-      imei: r.imei === "—" ? null : r.imei || null,
+      imei: imeiObligatorio(r.imei) as string | null,
       bateria: bateriaCelular(variante.condicion, r.bateria),
       costo_usd: r.costoUsd,
       estado: r.estado,

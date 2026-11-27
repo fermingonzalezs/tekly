@@ -330,8 +330,31 @@ describe("tabla de revisión", () => {
     expect(parseCelularRow({ varianteId: "v-1", modelo: "x", almacenamiento: "", color: "", imei: "", bateria: "", condicion: "NUEVO", costoUsd: "a consultar", precioUsd: "1", estado: "" }, 1).ok).toBe(false);
   });
 
+  it("celular y notebook: el IMEI / número de serie es obligatorio", () => {
+    const cel = { varianteId: "v-1", modelo: "iPhone 15", almacenamiento: "", color: "", bateria: "", condicion: "NUEVO", costoUsd: "1", precioUsd: "2", estado: "" };
+    const sinImei = parseCelularRow({ ...cel, imei: "  " }, 1);
+    expect(sinImei.ok).toBe(false);
+    expect(!sinImei.ok && sinImei.error).toContain("imei es obligatorio");
+    expect(parseCelularRow({ ...cel, imei: "111" }, 1).ok).toBe(true);
+    const nb = { varianteId: "v-1", modelo: "MacBook Air", condicion: "nuevo", costoUsd: "1", precioUsd: "2", estado: "" };
+    expect(parseNotebookRow({ ...nb, numeroSerie: "" }, 1).ok).toBe(false);
+    expect(parseNotebookRow({ ...nb, numeroSerie: "C02" }, 1).ok).toBe(true);
+  });
+
+  it("notebook usada: ciclos de batería opcionales (entero >= 0)", () => {
+    const nb = { varianteId: "v-1", modelo: "MacBook Air", numeroSerie: "C02", condicion: "usado", bateria: "90", costoUsd: "1", precioUsd: "2", estado: "" };
+    const sin = parseNotebookRow(nb, 1);
+    expect(sin.ok && sin.data.ciclosBateria).toBe(null);
+    const con = parseNotebookRow({ ...nb, ciclosBateria: "1.200", resolucion: "2560 x 1664" }, 1);
+    expect(con.ok && con.data.ciclosBateria).toBe(1200);
+    expect(con.ok && con.data.resolucion).toBe("2560 x 1664");
+    expect(parseNotebookRow({ ...nb, ciclosBateria: "muchos" }, 1).ok).toBe(false);
+    const nueva = parseNotebookRow({ ...nb, condicion: "nuevo", ciclosBateria: "50" }, 1);
+    expect(nueva.ok && nueva.data.ciclosBateria).toBe(null);
+  });
+
   it("celular: NUEVO no pide batería; usado sí", () => {
-    const base = { varianteId: "v-1", modelo: "iPhone 15", almacenamiento: "", color: "", imei: "", costoUsd: "1", precioUsd: "2", estado: "" };
+    const base = { varianteId: "v-1", modelo: "iPhone 15", almacenamiento: "", color: "", imei: "353456789012345", costoUsd: "1", precioUsd: "2", estado: "" };
     const nuevo = parseCelularRow({ ...base, condicion: "nuevo", bateria: "" }, 1);
     expect(nuevo.ok && nuevo.data.bateria).toBe(100);
     expect(parseCelularRow({ ...base, condicion: "A", bateria: "" }, 1).ok).toBe(false);

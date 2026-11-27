@@ -49,7 +49,7 @@ export function SelectorVariante({
   const [creando, setCreando] = useState<{
     grupo: string;
     inicial?: Partial<
-      Pick<Variante, "modelo" | "almacenamiento" | "condicion" | "color" | "memoria">
+      Pick<Variante, "modelo" | "almacenamiento" | "condicion" | "color" | "memoria" | "pantalla">
     >;
   } | null>(null);
   const ref = useOutsideClick<HTMLDivElement>(() => {

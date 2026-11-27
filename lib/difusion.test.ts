@@ -35,6 +35,7 @@ function notebook(over: Partial<Notebook> = {}): Notebook {
     memoria: "8 GB",
     almacenamiento: "256 GB SSD",
     pantalla: '13.6"',
+    resolucion: "",
     gpu: "",
     color: "Medianoche",
     idioma: "Español",
@@ -46,6 +47,7 @@ function notebook(over: Partial<Notebook> = {}): Notebook {
     estado: "disponible",
     condicion: "nuevo",
     bateria: null,
+    ciclosBateria: null,
     varianteId: "",
     precioPropio: false,
     ...over,
@@ -154,6 +156,10 @@ describe("copyNotebook", () => {
 
   it("usada muestra la batería", () => {
     expect(copyNotebook(notebook({ condicion: "usado", bateria: 87 }))).toContain("Usada 🔋87%");
+    expect(copyNotebook(notebook({ condicion: "usado", bateria: 87, ciclosBateria: 120 }))).toContain(
+      "Usada 🔋87% (120 ciclos)",
+    );
+    expect(copyNotebook(notebook({ resolucion: "2560 × 1664" }))).toContain('13.6" - 2560 × 1664 - Apple M2');
   });
 
   it("omite datos vacíos", () => {

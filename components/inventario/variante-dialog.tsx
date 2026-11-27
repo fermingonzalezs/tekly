@@ -30,7 +30,7 @@ export function VarianteDialog({
   categoria?: VarianteCategoria;
   /** Precarga de grupo/datos clave (selector, fila de importación, canje). */
   inicial?: Partial<
-    Pick<Variante, "grupo" | "modelo" | "almacenamiento" | "condicion" | "color" | "memoria">
+    Pick<Variante, "grupo" | "modelo" | "almacenamiento" | "condicion" | "color" | "memoria" | "pantalla">
   >;
   grupos: string[];
   /** SKUs ya usados, para desambiguar la sugerencia. */
@@ -48,6 +48,7 @@ export function VarianteDialog({
   const [memoria, setMemoria] = useState(
     variante?.memoria ?? inicial?.memoria ?? (esNotebook ? "16GB" : ""),
   );
+  const [pantalla, setPantalla] = useState(variante?.pantalla ?? inicial?.pantalla ?? "");
   const [condicion, setCondicion] = useState(
     normalizarCondicion(variante?.condicion ?? inicial?.condicion, esNotebook),
   );
@@ -64,7 +65,7 @@ export function VarianteDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const datos = { categoria, modelo, memoria, almacenamiento, condicion, color };
+  const datos = { categoria, modelo, memoria, almacenamiento, pantalla, condicion, color };
   const sugerido = skuSugerido(
     datos,
     skus.filter((s) => s !== variante?.sku),
@@ -75,6 +76,7 @@ export function VarianteDialog({
     grupo.trim() !== "" &&
     modelo.trim() !== "" &&
     condicion.trim() !== "" &&
+    (!esNotebook || pantalla.trim() !== "") &&
     skuEfectivo.trim() !== "";
 
   function guardar() {
@@ -83,6 +85,7 @@ export function VarianteDialog({
       const payload = {
         categoria,
         memoria: esNotebook ? memoria.trim() : "",
+        pantalla: esNotebook ? pantalla.trim() : "",
         grupo: grupo.trim(),
         sku: skuEfectivo.trim(),
         modelo: modelo.trim(),
@@ -116,7 +119,7 @@ export function VarianteDialog({
         editando
           ? "Los datos clave se copian a sus equipos no vendidos."
           : esNotebook
-            ? "El SKU es obligatorio y único; modelo, memoria, almacenamiento y condición definen a qué notebooks aplica."
+            ? "El SKU es obligatorio y único; modelo, memoria, almacenamiento, pantalla y condición definen a qué notebooks aplica."
             : "El SKU es obligatorio y único; el resto define a qué equipos aplica."
       }
       footer={
@@ -154,7 +157,7 @@ export function VarianteDialog({
             <Input
               value={modelo}
               onChange={(e) => setModelo(e.target.value)}
-              placeholder={esNotebook ? "MacBook Air M2 13\"" : "iPhone 15 Pro"}
+              placeholder={esNotebook ? "MacBook Air M2" : "iPhone 15 Pro"}
             />
           </Field>
           {esNotebook && (
@@ -173,6 +176,15 @@ export function VarianteDialog({
               placeholder={esNotebook ? "512 GB" : "128 GB"}
             />
           </Field>
+          {esNotebook && (
+            <Field label="Pantalla">
+              <Input
+                value={pantalla}
+                onChange={(e) => setPantalla(e.target.value)}
+                placeholder={'13.6"'}
+              />
+            </Field>
+          )}
           <Field label="Condición">
             <Select value={condicion} onChange={(e) => setCondicion(e.target.value)}>
               {esNotebook ? (
@@ -232,7 +244,7 @@ export function VarianteDialog({
         </GrillaCampos>
         <p className="text-xs text-neutral-500">
           {esNotebook
-            ? "Cada notebook carga su color, CPU, pantalla y serie. Stock mínimo 0 = sin aviso."
+            ? "Cada notebook carga su color, CPU, resolución y serie. Stock mínimo 0 = sin aviso."
             : "Vacío en color = la variante sirve para cualquier color y cada equipo carga el suyo. Stock mínimo 0 = sin aviso."}{" "}
           El precio mayorista es el que toma cada equipo en una venta mayorista, salvo que el equipo tenga uno propio.
         </p>

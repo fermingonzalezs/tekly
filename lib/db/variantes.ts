@@ -14,6 +14,7 @@ type VarianteRow = {
   condicion: string;
   color: string;
   memoria: string;
+  pantalla: string;
   precio_usd: number;
   precio_mayorista_usd: number | string | null;
   stock_minimo: number;
@@ -21,7 +22,7 @@ type VarianteRow = {
 };
 
 const VARIANTE_COLS =
-  "id, categoria, grupo, sku, modelo, almacenamiento, condicion, color, memoria, precio_usd, precio_mayorista_usd, stock_minimo, activa";
+  "id, categoria, grupo, sku, modelo, almacenamiento, condicion, color, memoria, pantalla, precio_usd, precio_mayorista_usd, stock_minimo, activa";
 
 /** Tabla de las unidades de cada categoría (y su `item_type` en
  * `movimientos_stock`, que coincide con la categoría). */
@@ -30,7 +31,8 @@ function tablaUnidades(categoria: VarianteCategoria): "celulares" | "notebooks" 
 }
 
 /** Datos clave que la variante copia a sus unidades. En celulares el color
- * solo si la variante lo define; en notebooks también la memoria. */
+ * solo si la variante lo define; en notebooks también la memoria y la
+ * pantalla (si la variante la define). */
 function camposParaUnidades(v: Variante): Record<string, unknown> {
   const cambios: Record<string, unknown> = {
     modelo: v.modelo,
@@ -39,6 +41,7 @@ function camposParaUnidades(v: Variante): Record<string, unknown> {
   if (v.categoria === "notebook") {
     cambios.memoria = v.memoria || null;
     cambios.condicion = v.condicion;
+    if (v.pantalla) cambios.pantalla = v.pantalla;
   } else {
     cambios.condicion = v.condicion || null;
     if (v.color) cambios.color = v.color;
@@ -57,6 +60,7 @@ function toVariante(row: VarianteRow): Variante {
     condicion: row.condicion ?? "",
     color: row.color ?? "",
     memoria: row.memoria ?? "",
+    pantalla: row.pantalla ?? "",
     precioUsd: row.precio_usd,
     precioMayoristaUsd:
       row.precio_mayorista_usd === null ? null : Number(row.precio_mayorista_usd),
@@ -76,6 +80,8 @@ export type VarianteInput = {
   color: string;
   /** Solo notebooks. */
   memoria?: string;
+  /** Solo notebooks: tamaño de pantalla. */
+  pantalla?: string;
   precioUsd: number;
   /** Opcional; `null`/omitido = sin precio mayorista. */
   precioMayoristaUsd?: number | null;
@@ -190,6 +196,7 @@ export async function createVariante(input: VarianteInput): Promise<Variante> {
   if (!sku) throw new Error("El SKU es obligatorio.");
   const categoria = input.categoria ?? "celular";
   const datos = datosDeInput(input, categoria);
+  validarDatos(datos);
   const clave = claveVariante(datos);
 
   const { data: existente } = await supabase
@@ -232,6 +239,7 @@ export async function createVariante(input: VarianteInput): Promise<Variante> {
       condicion: datos.condicion,
       color: datos.color,
       memoria: datos.memoria ?? "",
+      pantalla: datos.pantalla ?? "",
       clave,
       precio_usd: input.precioUsd,
       precio_mayorista_usd: input.precioMayoristaUsd ?? null,
@@ -259,6 +267,7 @@ export async function updateVariante(id: string, input: VarianteInput): Promise<
   const sku = input.sku.trim().toUpperCase();
   if (!sku) throw new Error("El SKU es obligatorio.");
   const datos = datosDeInput(input, actual.categoria);
+  validarDatos(datos);
 
   const claveNueva = claveVariante(datos);
   if (claveNueva !== claveVariante(actual)) {
@@ -284,6 +293,7 @@ export async function updateVariante(id: string, input: VarianteInput): Promise<
       condicion: datos.condicion,
       color: datos.color,
       memoria: datos.memoria ?? "",
+      pantalla: datos.pantalla ?? "",
       clave: claveNueva,
       precio_usd: input.precioUsd,
       precio_mayorista_usd: input.precioMayoristaUsd ?? null,
@@ -368,7 +378,7 @@ export async function renombrarGrupo(
 }
 
 /** Datos clave normalizados de un input, según la categoría: las notebooks no
- * tienen color y su condición se guarda en minúscula (`nuevo`/`usado`); los
+ * tienen color (pero sí pantalla) y su condición se guarda en minúscula (`nuevo`/`usado`); los
  * celulares no tienen memoria. */
 function datosDeInput(input: VarianteInput, categoria: VarianteCategoria) {
   const esNotebook = categoria === "notebook";
@@ -379,7 +389,15 @@ function datosDeInput(input: VarianteInput, categoria: VarianteCategoria) {
     condicion: esNotebook ? input.condicion.trim().toLowerCase() : input.condicion.trim(),
     color: esNotebook ? "" : input.color.trim(),
     memoria: esNotebook ? (input.memoria ?? "").trim() : "",
+    pantalla: esNotebook ? (input.pantalla ?? "").trim() : "",
   };
+}
+
+/** Las variantes de notebooks llevan el tamaño de pantalla. */
+function validarDatos(datos: ReturnType<typeof datosDeInput>) {
+  if (datos.categoria === "notebook" && !datos.pantalla) {
+    throw new Error("Cargá el tamaño de pantalla de la variante.");
+  }
 }
 
 function claveGrupoDe(grupo: string): string {

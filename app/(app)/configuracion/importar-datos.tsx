@@ -402,6 +402,7 @@ function ImportCard<T>({
         modelo: variante.modelo,
         memoria: variante.memoria,
         almacenamiento: variante.almacenamiento,
+        ...(variante.pantalla ? { pantalla: variante.pantalla } : {}),
         condicion: variante.condicion,
       };
     }
@@ -420,6 +421,7 @@ function ImportCard<T>({
       modelo: raw.modelo ?? "",
       memoria: raw.memoria ?? "",
       almacenamiento: raw.almacenamiento ?? "",
+      pantalla: categoriaVariante === "notebook" ? (raw.pantalla ?? "") : "",
       condicion: raw.condicion ?? "",
       color: categoriaVariante === "notebook" ? "" : (raw.color ?? ""),
     };
@@ -795,6 +797,7 @@ function ImportCard<T>({
             modelo: creandoVariante.raw.modelo ?? "",
             memoria: creandoVariante.raw.memoria ?? "",
             almacenamiento: creandoVariante.raw.almacenamiento ?? "",
+            pantalla: creandoVariante.raw.pantalla ?? "",
             condicion: creandoVariante.raw.condicion ?? "",
             color: creandoVariante.raw.color ?? "",
           }}

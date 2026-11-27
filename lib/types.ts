@@ -362,6 +362,10 @@ export type Variante = {
   color: string;
   /** RAM de las notebooks (`"16GB"`); `""` en celulares. */
   memoria: string;
+  /** Tamaño de pantalla de las notebooks (`13.6"`), parte de la clave. `""`
+   * en celulares (y en variantes viejas de notebooks sin pantalla: cada
+   * unidad carga la suya). */
+  pantalla: string;
   precioUsd: number;
   /** Precio para ventas mayoristas (U$), opcional. Lo hereda cada unidad que
    * no tenga uno propio (`precioMayoristaDe`, `lib/precios.ts`). */
@@ -382,6 +386,8 @@ export type Notebook = {
   memoria: string;
   almacenamiento: string;
   pantalla: string;
+  /** Resolución de pantalla (`2560 × 1664`), opcional. */
+  resolucion: string;
   gpu: string;
   color: string;
   idioma: string;
@@ -395,8 +401,10 @@ export type Notebook = {
   /** Salud de la batería en % (0–100). Solo si `condicion === "usado"`;
    * `null` en las nuevas. */
   bateria: number | null;
-  /** Variante (SKU): el modelo, memoria, almacenamiento y condición salen de
-   * ella. */
+  /** Ciclos de carga de la batería. Solo en las usadas; `null` = sin dato. */
+  ciclosBateria: number | null;
+  /** Variante (SKU): el modelo, memoria, almacenamiento, pantalla (si la
+   * define) y condición salen de ella. */
   varianteId: string;
   /** true = conserva su precio aunque cambie el de la variante. */
   precioPropio: boolean;

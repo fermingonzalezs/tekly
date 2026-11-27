@@ -7,6 +7,7 @@ import {
   claveVariante,
   cruzoMinimo,
   nombreVariante,
+  precioPropioPorDefecto,
   normalizar,
   normalizarAlmacenamiento,
   ordenarGrupos,
@@ -22,6 +23,7 @@ function variante(partial: Partial<Variante> & { id: string }): Variante {
   return {
     categoria: "celular",
     memoria: "",
+    pantalla: "",
     grupo: "iPhone 15",
     sku: "IPHONE-15-128GB-A",
     modelo: "iPhone 15",
@@ -139,6 +141,7 @@ describe("camposDesdeVariante", () => {
     expect(camposDesdeVariante(variante({ id: "v1", color: "" }))).toEqual({
       categoria: "celular",
       memoria: "",
+      pantalla: "",
       modelo: "iPhone 15",
       almacenamiento: "128 GB",
       condicion: "A",
@@ -264,25 +267,30 @@ describe("variantes de notebooks", () => {
     modelo: "MacBook Air M2",
     memoria: "16 GB",
     almacenamiento: "512GB",
+    pantalla: '13.6"',
     condicion: "usado",
     color: "Gris",
   };
 
-  it("la clave es modelo|memoria|almacenamiento|CONDICIÓN, sin color", () => {
-    expect(claveVariante(datos)).toBe("macbook air m2|16gb|512gb|USADO");
+  it("la clave es modelo|memoria|almacenamiento|pantalla|CONDICIÓN, sin color", () => {
+    expect(claveVariante(datos)).toBe("macbook air m2|16gb|512gb|13.6|USADO");
+    expect(claveVariante({ ...datos, pantalla: "13,6 pulgadas" })).toBe(claveVariante(datos));
+    expect(claveVariante({ ...datos, pantalla: "15.3''" })).not.toBe(claveVariante(datos));
     expect(claveVariante({ ...datos, color: "" })).toBe(claveVariante(datos));
     expect(claveVariante({ ...datos, memoria: "8GB" })).not.toBe(claveVariante(datos));
   });
 
   it("SKU con memoria y NUEVO/USADO, sin color", () => {
-    expect(skuSugerido(datos, [])).toBe("MACBOOK-AIR-M2-16GB-512GB-USADO");
+    expect(skuSugerido(datos, [])).toBe("MACBOOK-AIR-M2-16GB-512GB-13-6-USADO");
     expect(skuSugerido({ ...datos, condicion: "nuevo" }, [])).toBe(
-      "MACBOOK-AIR-M2-16GB-512GB-NUEVO",
+      "MACBOOK-AIR-M2-16GB-512GB-13-6-NUEVO",
     );
-    expect(skuSugerido(datos, ["MACBOOK-AIR-M2-16GB-512GB-USADO"])).toBe(
-      "MACBOOK-AIR-M2-16GB-512GB-USADO-2",
+    expect(skuSugerido(datos, ["MACBOOK-AIR-M2-16GB-512GB-13-6-USADO"])).toBe(
+      "MACBOOK-AIR-M2-16GB-512GB-13-6-USADO-2",
     );
-    expect(skuSugerido({ ...datos, modelo: "", memoria: "", almacenamiento: "", condicion: "" }, [])).toBe(
+    expect(
+      skuSugerido({ ...datos, modelo: "", memoria: "", almacenamiento: "", pantalla: "", condicion: "" }, []),
+    ).toBe(
       "NOTEBOOK",
     );
   });
@@ -294,6 +302,7 @@ describe("variantes de notebooks", () => {
       modelo: "MacBook Air M2",
       memoria: "16GB",
       almacenamiento: "512 GB",
+      pantalla: "13.6''",
       condicion: "usado",
     });
     const cel = variante({ id: "c1" });
@@ -303,6 +312,29 @@ describe("variantes de notebooks", () => {
     ).toBeUndefined();
   });
 
+  it("una variante sin pantalla (vieja) sirve para cualquier pantalla", () => {
+    const vieja = variante({
+      id: "n0",
+      categoria: "notebook",
+      modelo: "MacBook Air M2",
+      memoria: "16GB",
+      almacenamiento: "512GB",
+      condicion: "usado",
+    });
+    const con = variante({ ...vieja, id: "n1", pantalla: '13.6"' });
+    expect(buscarVariante([vieja, con], datos)?.id).toBe("n1");
+    expect(buscarVariante([vieja], datos)?.id).toBe("n0");
+    expect(buscarVariante([con], { ...datos, pantalla: '15.3"' })).toBeUndefined();
+  });
+
+  it("los usados arrancan con precio propio", () => {
+    expect(precioPropioPorDefecto(variante({ id: "a", condicion: "A+" }))).toBe(true);
+    expect(precioPropioPorDefecto(variante({ id: "b", condicion: "NUEVO" }))).toBe(false);
+    expect(precioPropioPorDefecto(variante({ id: "c", categoria: "notebook", condicion: "usado" }))).toBe(true);
+    expect(precioPropioPorDefecto(variante({ id: "d", categoria: "notebook", condicion: "nuevo" }))).toBe(false);
+    expect(precioPropioPorDefecto(null)).toBe(false);
+  });
+
   it("nombre legible con la condición capitalizada", () => {
     const nb = variante({
       id: "n1",
@@ -310,9 +342,10 @@ describe("variantes de notebooks", () => {
       modelo: "MacBook Air M2",
       memoria: "16 GB",
       almacenamiento: "512 GB",
+      pantalla: '13.6"',
       condicion: "nuevo",
     });
-    expect(nombreVariante(nb)).toBe("MacBook Air M2 · 16 GB · 512 GB · Nuevo");
+    expect(nombreVariante(nb)).toBe('MacBook Air M2 · 16 GB · 512 GB · 13.6" · Nuevo');
     expect(condicionLabel("usado")).toBe("Usado");
     expect(condicionLabel("A+")).toBe("A+");
   });

@@ -28,6 +28,7 @@ type NotebookRow = {
   memoria: string | null;
   almacenamiento: string | null;
   pantalla: string | null;
+  resolucion: string | null;
   gpu: string | null;
   color: string | null;
   idioma: string | null;
@@ -39,6 +40,7 @@ type NotebookRow = {
   estado: CelularStatus;
   condicion: NotebookCondicion;
   bateria: number | null;
+  ciclos_bateria: number | null;
   variante_id: string | null;
   precio_propio: boolean;
   precio_mayorista_usd?: number | string | null;
@@ -52,6 +54,7 @@ function toNotebook(row: NotebookRow): Notebook {
     memoria: row.memoria ?? "",
     almacenamiento: row.almacenamiento ?? "",
     pantalla: row.pantalla ?? "",
+    resolucion: row.resolucion ?? "",
     gpu: row.gpu ?? "",
     color: row.color ?? "",
     idioma: row.idioma ?? "",
@@ -63,6 +66,7 @@ function toNotebook(row: NotebookRow): Notebook {
     estado: row.estado,
     condicion: row.condicion,
     bateria: row.bateria,
+    ciclosBateria: row.ciclos_bateria ?? null,
     // Nullable solo hasta aplicar el NOT NULL (ver plan 024).
     varianteId: row.variante_id ?? "",
     precioPropio: row.precio_propio,
@@ -74,7 +78,8 @@ function toNotebook(row: NotebookRow): Notebook {
 }
 
 /** Campos que la variante define en la notebook: modelo, memoria,
- * almacenamiento, condición y (salvo precio propio) el precio. Lo que mande
+ * almacenamiento, pantalla (si la define), condición y (salvo precio propio)
+ * el precio. Lo que mande
  * el cliente para esos campos no se usa. */
 function camposDeVariante(data: NotebookInput, variante: Variante) {
   const condicion: NotebookCondicion = variante.condicion === "nuevo" ? "nuevo" : "usado";
@@ -83,6 +88,7 @@ function camposDeVariante(data: NotebookInput, variante: Variante) {
     modelo: variante.modelo,
     memoria: variante.memoria || null,
     almacenamiento: variante.almacenamiento || null,
+    ...(variante.pantalla ? { pantalla: variante.pantalla } : {}),
     condicion,
     precio_usd: data.precioPropio ? data.precioUsd : variante.precioUsd,
     precio_propio: data.precioPropio,
@@ -92,6 +98,7 @@ function camposDeVariante(data: NotebookInput, variante: Variante) {
       : {}),
     // La batería solo se guarda en las usadas (constraint en la base).
     bateria: condicion === "usado" ? data.bateria : null,
+    ciclos_bateria: condicion === "usado" ? data.ciclosBateria : null,
   };
 }
 
@@ -103,12 +110,13 @@ function conDatosDeVariante(data: NotebookInput, variante: Variante): NotebookIn
     modelo: variante.modelo,
     memoria: variante.memoria,
     almacenamiento: variante.almacenamiento,
+    pantalla: variante.pantalla || data.pantalla,
     condicion: variante.condicion === "nuevo" ? "nuevo" : "usado",
   };
 }
 
 const NOTEBOOK_COLS =
-  "id, modelo, cpu, memoria, almacenamiento, pantalla, gpu, color, idioma, numero_serie, garantia, notas, costo_usd, precio_usd, estado, condicion, bateria, variante_id, precio_propio, precio_mayorista_usd";
+  "id, modelo, cpu, memoria, almacenamiento, pantalla, resolucion, gpu, color, idioma, numero_serie, garantia, notas, costo_usd, precio_usd, estado, condicion, bateria, ciclos_bateria, variante_id, precio_propio, precio_mayorista_usd";
 
 export async function listNotebooks(): Promise<Notebook[]> {
   const supabase = createServerClient();
@@ -159,6 +167,7 @@ export async function createNotebook(
     ...camposDeVariante(parsed, variante),
     cpu: parsed.cpu || null,
     pantalla: parsed.pantalla || null,
+    resolucion: parsed.resolucion || null,
     gpu: parsed.gpu || null,
     color: parsed.color || null,
     idioma: parsed.idioma || null,
@@ -218,6 +227,7 @@ export async function updateNotebook(id: string, data: NotebookInput): Promise<N
       ...camposDeVariante(parsed, variante),
       cpu: parsed.cpu || null,
       pantalla: parsed.pantalla || null,
+      resolucion: parsed.resolucion || null,
       gpu: parsed.gpu || null,
       color: parsed.color || null,
       idioma: parsed.idioma || null,
@@ -252,6 +262,7 @@ const CAMPOS_NOTEBOOK: { key: keyof Notebook; label: string }[] = [
   { key: "memoria", label: "memoria" },
   { key: "almacenamiento", label: "almacenamiento" },
   { key: "pantalla", label: "pantalla" },
+  { key: "resolucion", label: "resolución" },
   { key: "gpu", label: "placa de video" },
   { key: "color", label: "color" },
   { key: "idioma", label: "idioma" },
@@ -262,6 +273,7 @@ const CAMPOS_NOTEBOOK: { key: keyof Notebook; label: string }[] = [
   { key: "estado", label: "estado" },
   { key: "condicion", label: "condición" },
   { key: "bateria", label: "batería %" },
+  { key: "ciclosBateria", label: "ciclos de batería" },
 ];
 
 export function diffNotebook(antes: Notebook, despues: Notebook): string {
@@ -324,6 +336,7 @@ export async function createNotebooksBulk(
     ...camposDeVariante(p, variante),
     cpu: p.cpu || null,
     pantalla: p.pantalla || null,
+    resolucion: p.resolucion || null,
     gpu: p.gpu || null,
     color: p.color || null,
     idioma: p.idioma || null,
