@@ -2260,7 +2260,7 @@ function FilaPagoVacia({
 }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-dashed border-neutral-200">
-      <div className="flex min-w-max items-center justify-center gap-2 p-2">
+      <div className="flex min-w-max items-center justify-center gap-2 p-1">
         <EtiquetaFilaPago tono={tono}>{etiqueta}</EtiquetaFilaPago>
         <Select
           value=""
@@ -3329,7 +3329,7 @@ function NuevaVentaDialog({
             </p>
           ) : (
           <>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {[...pagosNormales, ...(pagoSena ? [pagoSena] : [])].map((p, idx) => {
                   const recargoPct = p.recargoPct ?? 0;
                   const cajasMedio =
@@ -3341,7 +3341,7 @@ function NuevaVentaDialog({
                       key={p._k}
                       className="overflow-x-auto rounded-lg border border-neutral-200"
                     >
-                      <div className="flex min-w-max items-center justify-center gap-2 p-2">
+                      <div className="flex min-w-max items-center justify-center gap-2 p-1">
                         <EtiquetaFilaPago tono={p.sena ? "sena" : "metodo"}>
                           {p.sena ? "Seña" : `Método ${idx + 1}`}
                         </EtiquetaFilaPago>
@@ -3503,7 +3503,7 @@ function NuevaVentaDialog({
                 )}
                 {vuelto && (
                   <div className="overflow-x-auto rounded-lg border border-neutral-200">
-                    <div className="flex min-w-max items-center justify-center gap-2 p-2">
+                    <div className="flex min-w-max items-center justify-center gap-2 p-1">
                       <EtiquetaFilaPago tono="vuelto">Vuelto</EtiquetaFilaPago>
                       <Select
                         value={vuelto.medio}
