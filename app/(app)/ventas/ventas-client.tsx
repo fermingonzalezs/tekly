@@ -287,7 +287,7 @@ export type CrearVentaInput = {
   totalUsd: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
   /** Vuelto entregado (caja + U$); el server lee medio/moneda de la caja. */
-  vuelto?: { cajaId: string; montoUsd: number };
+  vuelto?: { cajaId: string; montoUsd: number; medio: MedioPago };
   /** Faltante de cobro aceptado en el cartel «¿Seguro…?» (U$, 0 = completo). */
   diferenciaAceptadaUsd?: number;
   margenPct: number;
@@ -2954,9 +2954,16 @@ function NuevaVentaDialog({
   const saldar = () => setPagos((p) => saldarUltimoPago(p, restante));
 
   // ── Seña y vuelto (reportes de Mundo Phone, igual que sistema-update) ──
-  // Medios con caja (sin canje ni cuenta corriente): la seña entra a una
-  // caja y el vuelto sale de una.
-  const mediosCaja = MEDIOS_CAJA.filter((m) => cajasDeMedio(m).length > 0);
+  // El medio dice cómo pagó / cómo se le devolvió; la caja puede ser
+  // **cualquiera** de las activas (ej. una caja «SEÑA» para todas las señas).
+  const cajasSenaVuelto = cajasActivas.filter((c) => c.medioPago !== "canje");
+  const mediosCaja: MedioPago[] = cajasSenaVuelto.length > 0 ? MEDIOS_CAJA : [];
+  /** Caja por defecto al elegir un medio: la que ya estaba, si no una de
+   * ese medio, si no la primera. */
+  const cajaPara = (medio: MedioPago, actual?: string) =>
+    cajasSenaVuelto.find((c) => c.id === actual) ??
+    cajasSenaVuelto.find((c) => c.medioPago === medio) ??
+    cajasSenaVuelto[0];
   const pagoSena = pagos.find((p) => p.sena);
   const pagosNormales = pagos.filter((p) => !p.sena);
   // Fila «Seña» (siempre visible): «Sin seña» la saca; elegir un medio la
@@ -2964,19 +2971,32 @@ function NuevaVentaDialog({
   const elegirMedioSena = (medio: MedioPago | "") =>
     setPagos((p) => {
       if (!medio) return p.filter((x) => !x.sena);
-      if (p.some((x) => x.sena))
-        return p.map((x) => (x.sena ? { ...x, ...medioAPago(medio), canje: undefined } : x));
-      return [...p, { _k: rid(), ...medioAPago(medio), montoUsd: 0, sena: true } as DraftPago];
+      const actual = p.find((x) => x.sena);
+      const caja = cajaPara(medio, actual?.cajaId);
+      if (!caja) return p;
+      const datos = {
+        medio,
+        cajaId: caja.id,
+        caja: caja.moneda,
+        recargoPct: caja.recargoPct || undefined,
+        canje: undefined,
+      };
+      if (actual) return p.map((x) => (x.sena ? { ...x, ...datos } : x));
+      return [...p, { _k: rid(), ...datos, montoUsd: 0, sena: true } as DraftPago];
     });
-  const vueltoDeMedio = (medio: MedioPago, montoUsd: number): DraftVuelto | null => {
-    const caja = cajasDeMedio(medio)[0];
+  const vueltoDeMedio = (
+    medio: MedioPago,
+    montoUsd: number,
+    cajaActual?: string,
+  ): DraftVuelto | null => {
+    const caja = cajaPara(medio, cajaActual);
     return caja ? { medio, cajaId: caja.id, caja: caja.moneda, montoUsd } : null;
   };
   // Fila «Vuelto» (siempre visible): arranca con lo que sobra, si sobra algo.
   const elegirMedioVuelto = (medio: MedioPago | "") =>
     setVuelto((v) =>
       medio
-        ? vueltoDeMedio(medio, v?.montoUsd ?? (restante < 0 ? Math.abs(restante) : 0))
+        ? vueltoDeMedio(medio, v?.montoUsd ?? (restante < 0 ? Math.abs(restante) : 0), v?.cajaId)
         : null,
     );
 
@@ -3005,7 +3025,11 @@ function NuevaVentaDialog({
           totalUsd: totalPrecio,
           pagos: pagosEfectivos.map(({ _k, ...p }) => p),
           vuelto: vueltoEfectivo
-            ? { cajaId: vueltoEfectivo.cajaId, montoUsd: vueltoEfectivo.montoUsd }
+            ? {
+                cajaId: vueltoEfectivo.cajaId,
+                montoUsd: vueltoEfectivo.montoUsd,
+                medio: vueltoEfectivo.medio,
+              }
             : undefined,
           diferenciaAceptadaUsd: diferenciaPendiente,
           margenPct: Math.round(margenPct * 10) / 10,
@@ -3332,8 +3356,10 @@ function NuevaVentaDialog({
               <div className="space-y-1">
                 {[...pagosNormales, ...(pagoSena ? [pagoSena] : [])].map((p, idx) => {
                   const recargoPct = p.recargoPct ?? 0;
-                  const cajasMedio =
-                    p.medio !== "cuenta_corriente" && p.medio !== "canje"
+                  // La seña puede ir a cualquier caja; un pago, a las de su medio.
+                  const cajasMedio = p.sena
+                    ? cajasSenaVuelto
+                    : p.medio !== "cuenta_corriente" && p.medio !== "canje"
                       ? cajasDeMedio(p.medio)
                       : [];
                   return (
@@ -3521,13 +3547,13 @@ function NuevaVentaDialog({
                       <Select
                         value={vuelto.cajaId}
                         onChange={(e) => {
-                          const caja = cajasDeMedio(vuelto.medio).find((c) => c.id === e.target.value);
+                          const caja = cajasSenaVuelto.find((c) => c.id === e.target.value);
                           if (caja) setVuelto({ ...vuelto, cajaId: caja.id, caja: caja.moneda });
                         }}
                         className="w-32 shrink-0 !text-center ![text-align-last:center]"
                         aria-label="Caja de la que sale el vuelto"
                       >
-                        {cajasDeMedio(vuelto.medio).map((c) => (
+                        {cajasSenaVuelto.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.nombre} · {c.moneda === "ars" ? "$" : "U$"}
                           </option>

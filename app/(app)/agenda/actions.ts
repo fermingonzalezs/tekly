@@ -35,6 +35,8 @@ export type TurnoInput = {
   itemsOtros: TurnoOtroItem[];
   pagos: Pago[];
   reservarStock: boolean;
+  /** `null` = no abonó seña. Monto en la moneda de la caja. */
+  sena: SenaCaja | null;
   nota: string;
 };
 
@@ -60,12 +62,16 @@ async function datosDe(data: TurnoInput) {
     itemsOtros: data.itemsOtros,
     pagos: data.pagos,
     reservarStock: data.reservarStock,
+    sena: data.sena
+      ? { cajaId: data.sena.cajaId, monto: data.sena.monto, cotizacion: data.sena.cotizacion }
+      : null,
     nota: data.nota,
   };
 }
 
 function revalidar() {
   revalidatePath("/agenda");
+  revalidatePath("/cajas");
   revalidatePath("/inventario");
   revalidatePath("/dashboard");
 }

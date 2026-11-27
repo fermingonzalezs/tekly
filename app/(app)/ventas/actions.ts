@@ -18,6 +18,7 @@ import { getNegocio } from "@/lib/db/configuracion";
 import type {
   CanjeEquipo,
   ClienteSeleccion,
+  MedioPago,
   ModalidadVenta,
   Pago,
   TiendaSeleccion,
@@ -42,7 +43,7 @@ export async function createVentaAction(input: {
   totalUsd?: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
   /** Vuelto entregado: caja + monto en U$ (medio y moneda los pone la caja). */
-  vuelto?: { cajaId: string; montoUsd: number };
+  vuelto?: { cajaId: string; montoUsd: number; medio: MedioPago };
   /** Faltante de cobro aceptado en el cartel «¿Seguro…?» (U$). */
   diferenciaAceptadaUsd?: number;
   margenPct?: number;

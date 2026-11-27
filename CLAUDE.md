@@ -1379,6 +1379,14 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   null` deja la conciliada). Sin recargo de caja (es un adelanto).
   Fuera de alcance: reservas y convertir el pedido en venta (el saldo se
   cobra con una venta aparte).
+  **Seña en turnos** (26/11): cualquier tipo de turno tiene «Abonó seña»
+  (caja activa cualquiera + monto en su moneda, `SenaTurnoFields` en
+  `agendar-dialog.tsx`) → ingreso en `movimientos_caja` con `turno_id` y
+  etiqueta `sena` (`lib/db/senas.ts`, mismo `cambioSena`/`senaEnCaja` que
+  los pedidos; `Turno.sena` = `PedidoSena`). Editar reemplaza el movimiento
+  salvo que esté conciliado; borrar el turno borra la seña sin conciliar.
+  El viejo bloque «Pago» de los turnos de compra (sin caja, `Turno.pagos`)
+  ya no se ofrece: los turnos viejos lo conservan y se ven en el detalle.
 - **Inventario** (`app/(app)/inventario/`, migrado): 4 tabs — **Celulares**
   (unidades únicas por IMEI, con `Celular.almacenamiento`), **Notebooks**
   (unidades únicas por `Notebook.numeroSerie`, con CPU/memoria/pantalla/
@@ -1619,14 +1627,20 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   venta lleva su etiqueta («Método 1», «Método 2»…) y debajo van siempre
   las filas «Seña» y «Vuelto» (vacías en «Sin seña»/«Sin vuelto» hasta
   elegir un medio, `FilaPagoVacia`/`EtiquetaFilaPago`). La seña es un `Pago` más
-  con `sena: true` (solo medios con caja; suma a lo cobrado y su ingreso de
-  caja lleva «Seña · Venta V-…»). El vuelto es `Venta.vuelto` (`VueltoVenta`,
+  con `sena: true` (suma a lo cobrado; su ingreso de caja lleva «Seña ·
+  Venta V-…»). Seña y vuelto van a **cualquier caja activa** (el medio es
+  cómo pagó/se devolvió, la caja es independiente, `cajaPara`); la moneda
+  de cada pago la pone el server desde su caja (`monedasDeCajasActivas`). El vuelto es `Venta.vuelto` (`VueltoVenta`,
   columna `ventas.vuelto jsonb`, `20261126160000_ventas_vuelto.sql`): medio +
   caja + monto (pesos si la caja es ARS, snapshot `montoArs`); cobrado =
   Σ pagos − vuelto (`cobradoNeto`, `calcularRestante(total, pagos, vuelto)`,
   `errorVuelto`, `lib/ventas.ts`), y genera un **egreso** en esa caja con
   `venta_id` (se borra con «Borrar movimientos de caja»). El server toma
-  medio/moneda de la caja (`vueltoDeCaja`). «Ingresos por medio de pago»
+  la moneda de la caja (`vueltoDeCaja`). **Etiqueta en Cajas**:
+  `movimientos_caja.etiqueta` (`sena`|`vuelto`,
+  `20261126170000_caja_etiqueta_sena_turnos.sql`, `MovimientoCaja.etiqueta`)
+  la ponen las ventas, los pedidos y los turnos; Cajas la muestra como chip
+  al lado del concepto (`EtiquetaMov`). «Ingresos por medio de pago»
   (Analíticas y resumen mensual) usa `montosPorMedio` para restarlo. No hay
   todavía vínculo seña de un Pedido (Agenda) → venta: si la seña ya entró
   por un pedido, no volver a tildarla en la venta (se duplicaría en caja).

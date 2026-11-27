@@ -132,6 +132,7 @@ async function crearMovimientoSena(pedidoId: string, cliente: string, s: SenaRes
   const { error } = await supabase.from("movimientos_caja").insert({
     caja_id: s.cajaId,
     concepto: `Seña pedido · ${cliente}`,
+    etiqueta: "sena",
     medio_pago: s.medio,
     tipo: "ingreso",
     monto: s.monto,

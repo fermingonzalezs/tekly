@@ -1,6 +1,15 @@
 import "server-only";
 import { createServerClient } from "@/lib/auth/supabase";
 import { diasEntre, hoyISO, sumarDias } from "@/lib/date-presets";
+import { cambioSena, type SenaCaja } from "@/lib/pedidos";
+import {
+  borrarMovimientoSena,
+  crearMovimientoSenaTurno,
+  resolverSenaCaja,
+  senaDeMovimiento,
+  SENA_MOV_COLS,
+  type SenaMovRow,
+} from "@/lib/db/senas";
 import type {
   CelularStatus,
   OtroUnidad,
@@ -33,10 +42,10 @@ type TurnoRow = {
   atiende: { nombre: string } | null;
   tienda_id: string | null;
   tiendas: { nombre: string } | null;
+  movimientos_caja?: SenaMovRow[];
 };
 
-const TURNO_COLS =
-  "id, fecha, hora, duracion_min, cliente, cliente_id, tipo, estado, ticket_id, celular_ids, items_otros, pagos, nota, atiende_id, atiende:profiles!atiende_id(nombre), tienda_id, tiendas(nombre)";
+const TURNO_COLS = `id, fecha, hora, duracion_min, cliente, cliente_id, tipo, estado, ticket_id, celular_ids, items_otros, pagos, nota, atiende_id, atiende:profiles!atiende_id(nombre), tienda_id, tiendas(nombre), movimientos_caja(${SENA_MOV_COLS})`;
 
 function toTurno(row: TurnoRow): Turno {
   return {
@@ -55,6 +64,7 @@ function toTurno(row: TurnoRow): Turno {
     celularIds: row.celular_ids ?? undefined,
     itemsOtros: row.items_otros ?? undefined,
     pagos: row.pagos ?? undefined,
+    sena: senaDeMovimiento(row.movimientos_caja?.[0]),
     nota: row.nota ?? undefined,
     atiendeId: row.atiende_id,
     atiende: row.atiende?.nombre ?? null,
@@ -114,6 +124,8 @@ type TurnoDatos = {
   /** Solo relevante si hay `celularIds`/`itemsOtros`: reservarlos en el stock
    * al agendar (antes era obligatorio, ahora es opcional). */
   reservarStock: boolean;
+  /** Seña con caja (cualquier caja activa); `null` = sin seña. */
+  sena: SenaCaja | null;
   nota: string;
 };
 
@@ -185,6 +197,7 @@ async function moverStockOtros(items: TurnoOtroItem[], reservar: boolean) {
 
 export async function createTurno(data: TurnoDatos): Promise<Turno> {
   const supabase = createServerClient();
+  const sena = await resolverSenaCaja(data.sena);
   const { data: row, error } = await supabase
     .from("turnos")
     .insert({ ...columnas(data), estado: "confirmado" satisfies TurnoEstado })
@@ -200,8 +213,26 @@ export async function createTurno(data: TurnoDatos): Promise<Turno> {
     await setEstadoCelulares(data.celularIds, "reservado");
     await moverStockOtros(data.itemsOtros, true);
   }
+  if (sena) {
+    const turnoId = (row as unknown as TurnoRow).id;
+    try {
+      await crearMovimientoSenaTurno(turnoId, data.cliente, sena);
+    } catch (e) {
+      // Sin la seña en caja el turno quedaría a medias: se deshace.
+      await supabase.from("turnos").delete().eq("id", turnoId);
+      throw e;
+    }
+    return getTurno(turnoId);
+  }
 
   return toTurno(row as unknown as TurnoRow);
+}
+
+async function getTurno(id: string): Promise<Turno> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase.from("turnos").select(TURNO_COLS).eq("id", id).single();
+  if (error) throw error;
+  return toTurno(data as unknown as TurnoRow);
 }
 
 /** Edita un turno. Los celulares/ítems que se quitan vuelven al stock (solo
@@ -212,10 +243,24 @@ export async function updateTurno(id: string, data: TurnoDatos): Promise<Turno> 
   const supabase = createServerClient();
   const { data: previo, error: readError } = await supabase
     .from("turnos")
-    .select("celular_ids, items_otros")
+    .select(`celular_ids, items_otros, movimientos_caja(${SENA_MOV_COLS})`)
     .eq("id", id)
     .single();
   if (readError) throw readError;
+
+  // Seña: misma regla que los pedidos (`cambioSena`): igual → no se toca;
+  // cambió → se reemplaza el movimiento, salvo que ya esté conciliado.
+  const senaAnterior = senaDeMovimiento(
+    (previo.movimientos_caja as SenaMovRow[] | null)?.[0],
+  );
+  const sena = await resolverSenaCaja(data.sena);
+  const accionSena = cambioSena(
+    senaAnterior ?? null,
+    sena ? { cajaId: sena.cajaId, monto: sena.monto } : null,
+  );
+  if (accionSena === "bloqueado") {
+    throw new Error("La seña ya está conciliada en Cajas: no se puede cambiar.");
+  }
 
   const { data: row, error } = await supabase
     .from("turnos")
@@ -245,6 +290,12 @@ export async function updateTurno(id: string, data: TurnoDatos): Promise<Turno> 
   await moverStockOtros(quitados, false);
   if (data.reservarStock) await moverStockOtros(nuevos, true);
 
+  if (accionSena === "reemplazar") {
+    if (senaAnterior) await borrarMovimientoSena(senaAnterior.movimientoId);
+    if (sena) await crearMovimientoSenaTurno(id, data.cliente, sena);
+    return getTurno(id);
+  }
+
   return toTurno(row as unknown as TurnoRow);
 }
 
@@ -260,8 +311,16 @@ export async function setTurnoEstado(id: string, estado: TurnoEstado): Promise<T
   return toTurno(row as unknown as TurnoRow);
 }
 
+/** Borra el turno y su seña sin conciliar. Una seña conciliada queda en la
+ * caja (`turno_id` pasa a null): su conciliación ya la contó. */
 export async function deleteTurno(id: string): Promise<void> {
   const supabase = createServerClient();
+  const { error: movError } = await supabase
+    .from("movimientos_caja")
+    .delete()
+    .eq("turno_id", id)
+    .is("conciliacion_id", null);
+  if (movError) throw movError;
   const { error } = await supabase.from("turnos").delete().eq("id", id);
   if (error) throw error;
 }

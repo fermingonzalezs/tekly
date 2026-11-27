@@ -53,6 +53,7 @@ import { useRealtime } from "@/components/notifications/realtime-provider";
 import { cn } from "@/lib/utils";
 import { filterPill, thDivider } from "@/lib/ui-styles";
 import type {
+  EtiquetaMovimiento,
   Caja,
   CategoriaGasto,
   Conciliacion,
@@ -435,6 +436,7 @@ export function CajasClient({
                         <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-red-400" />
                       )}
                       <span className="truncate">{m.concepto}</span>
+                      {m.etiqueta && <EtiquetaMov etiqueta={m.etiqueta} />}
                     </p>
                     <p className="mt-0.5 truncate text-xs text-neutral-500">
                       {vista === "historial" ? `${m.fecha} · ` : ""}
@@ -505,6 +507,7 @@ export function CajasClient({
                           <ArrowUpRight className="h-4 w-4 shrink-0 text-red-400" />
                         )}
                         <span className="truncate">{m.concepto}</span>
+                        {m.etiqueta && <EtiquetaMov etiqueta={m.etiqueta} />}
                       </span>
                       {m.categoria && (
                         <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-500">
@@ -1730,5 +1733,19 @@ function ConciliacionesTab({
         );
       })}
     </div>
+  );
+}
+
+/** Chip «Seña» / «Vuelto» al lado del concepto de un movimiento. */
+function EtiquetaMov({ etiqueta }: { etiqueta: EtiquetaMovimiento }) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+        etiqueta === "sena" ? "bg-accent-soft text-accent" : "bg-neutral-200 text-neutral-700",
+      )}
+    >
+      {etiqueta === "sena" ? "Seña" : "Vuelto"}
+    </span>
   );
 }

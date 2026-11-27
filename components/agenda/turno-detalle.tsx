@@ -7,13 +7,13 @@ import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { thDivider } from "@/lib/ui-styles";
-import { fmtUsd } from "@/lib/format";
+import { fmtArs, fmtUsd } from "@/lib/format";
 import { etiquetaDia, horaFin, textoTurno } from "@/lib/agenda";
 import { MenuAcciones, type AccionMenu } from "@/components/ui/menu-acciones";
 import { celularStatus, dotClass, medioPago, turnoBlockClass, turnoStatus, turnoTipo } from "@/lib/status";
 import { TURNO_ICONO } from "./turno-icono";
 import { TicketResumen } from "./ticket-resumen";
-import type { Celular, ClienteOpcion, Ticket, Turno, TurnoEstado } from "@/lib/types";
+import type { Caja, Celular, ClienteOpcion, Ticket, Turno, TurnoEstado } from "@/lib/types";
 import type { Negocio } from "@/lib/db/configuracion";
 
 /** Texto del turno para mandarle al cliente (WhatsApp): equipos =
@@ -57,6 +57,7 @@ export function TurnoDetalle({
   clientes,
   esAdmin,
   negocio,
+  cajas = [],
   onClose,
   onEstado,
   onEditar,
@@ -69,6 +70,8 @@ export function TurnoDetalle({
   esAdmin: boolean;
   /** Nombre (tienda principal) y dirección del local, para el texto a copiar. */
   negocio: Pick<Negocio, "nombre" | "direccion">;
+  /** Para mostrar la caja y la moneda de la seña. */
+  cajas?: Caja[];
   onClose: () => void;
   onEstado: (t: Turno, estado: TurnoEstado) => void;
   onEditar: (t: Turno) => void;
@@ -284,6 +287,25 @@ export function TurnoDetalle({
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+
+            {turno.sena && (
+              <div>
+                <p className="mb-2 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                  Seña
+                </p>
+                <p className="text-center text-sm tabular-nums text-neutral-700">
+                  {(() => {
+                    const caja = cajas.find((c) => c.id === turno.sena!.cajaId);
+                    const monto =
+                      caja?.moneda === "ars" ? fmtArs(turno.sena!.monto) : fmtUsd(turno.sena!.monto);
+                    return `${monto} · ${caja?.nombre ?? "Caja"}`;
+                  })()}
+                  {turno.sena.conciliado && (
+                    <span className="ml-2 text-xs text-neutral-500">(conciliada)</span>
+                  )}
+                </p>
               </div>
             )}
 

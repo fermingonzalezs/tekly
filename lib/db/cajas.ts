@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { fmtDayMonth, fmtMonthYear, fmtTime } from "@/lib/format";
 import { getNegocio } from "@/lib/db/configuracion";
 import type {
+  EtiquetaMovimiento,
   Caja,
   CategoriaGasto,
   Conciliacion,
@@ -59,6 +60,21 @@ export async function recargosPorCaja(ids: string[]): Promise<Map<string, number
       Number(c.recargo_pct ?? 0),
     ]),
   );
+}
+
+/** Moneda de cada caja **activa** por id (las inactivas o ajenas no
+ * aparecen): para no confiar en la moneda que manda el cliente. */
+export async function monedasDeCajasActivas(ids: string[]): Promise<Map<string, "usd" | "ars">> {
+  const unicos = [...new Set(ids.filter(Boolean))];
+  if (unicos.length === 0) return new Map();
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("cajas")
+    .select("id, moneda")
+    .eq("activa", true)
+    .in("id", unicos);
+  if (error) throw error;
+  return new Map((data as { id: string; moneda: "usd" | "ars" }[]).map((c) => [c.id, c.moneda]));
 }
 
 /** Pisa el `recargoPct` de cada pago con el de **su caja** (o el de cuenta
@@ -130,10 +146,11 @@ type MovimientoRow = {
   ticket_id: number | null;
   usuario_nombre: string;
   conciliacion_id: string | null;
+  etiqueta: EtiquetaMovimiento | null;
 };
 
 const MOV_COLS =
-  "id, fecha, concepto, medio_pago, tipo, categoria, caja_id, monto, cotizacion, ticket_id, usuario_nombre, conciliacion_id";
+  "id, fecha, concepto, medio_pago, tipo, categoria, caja_id, monto, cotizacion, ticket_id, usuario_nombre, conciliacion_id, etiqueta";
 
 function toMovimiento(row: MovimientoRow): MovimientoCaja {
   return {
@@ -151,6 +168,7 @@ function toMovimiento(row: MovimientoRow): MovimientoCaja {
     ticketId: row.ticket_id ?? null,
     usuario: row.usuario_nombre,
     conciliacionId: row.conciliacion_id ?? null,
+    etiqueta: row.etiqueta ?? undefined,
   };
 }
 

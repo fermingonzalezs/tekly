@@ -11,7 +11,8 @@ import { ClientePicker } from "@/components/ui/cliente-picker";
 import { useOutsideClick } from "@/components/ui/use-outside-click";
 import { turnoTipo, medioPago, MEDIOS_CAJA } from "@/lib/status";
 import { fmtUsd } from "@/lib/format";
-import { montoConRecargo } from "@/lib/ventas";
+import { senaEnCaja } from "@/lib/pedidos";
+import { useDolar } from "@/lib/dolar";
 import { TIENDA_NOMBRE_MAX } from "@/lib/tiendas";
 import {
   DURACIONES,
@@ -152,11 +153,21 @@ export function AgendarDialog({
   // opcional y reserva de stock opcional (antes la reserva era obligatoria).
   const [celularIds, setCelularIds] = useState<string[]>(turno?.celularIds ?? []);
   const [carritoOtros, setCarritoOtros] = useState<TurnoOtroItem[]>(turno?.itemsOtros ?? []);
-  const [pagos, setPagos] = useState<DraftPago[]>(
-    turno?.tipo === "compra" && turno.pagos?.length
-      ? turno.pagos.map((p) => ({ _k: rid(), medio: p.medio as MedioPago, montoUsd: p.montoUsd, caja: p.caja }))
-      : [{ _k: rid(), medio: "pesos", montoUsd: 0, caja: defaultCaja("pesos") }],
+  // Seña con caja (cualquier tipo de turno): ingreso en la caja elegida,
+  // etiquetado «Seña» en Cajas. Mismo circuito que la seña de un pedido.
+  const dolar = useDolar().venta;
+  const cajasSena = cajas.filter((c) => c.activa || c.id === turno?.sena?.cajaId);
+  const [abonaSena, setAbonaSena] = useState(!!turno?.sena);
+  const [senaCajaId, setSenaCajaId] = useState(
+    turno?.sena?.cajaId ?? cajasSena.find((c) => c.activa)?.id ?? "",
   );
+  const [senaMonto, setSenaMonto] = useState(turno?.sena ? String(turno.sena.monto) : "");
+  const senaFija = !!turno?.sena?.conciliado;
+  const cajaSena = cajasSena.find((c) => c.id === senaCajaId);
+  const montoSena = senaMonto.trim() === "" ? Number.NaN : Number(senaMonto);
+  const senaUsd =
+    abonaSena && cajaSena ? (senaEnCaja(cajaSena.moneda, montoSena, dolar)?.senaUsd ?? null) : null;
+  const senaValida = !abonaSena || senaFija || senaUsd !== null;
   const [reservarStock, setReservarStock] = useState(true);
 
   const choques = turnosSuperpuestos(
@@ -172,7 +183,6 @@ export function AgendarDialog({
   const totalCarrito =
     seleccionados.reduce((a, e) => a + e.precioUsd, 0) +
     carritoOtros.reduce((a, i) => a + i.precioUsd * (i.cantidad ?? 1), 0);
-  const totalPagado = pagos.reduce((a, p) => a + p.montoUsd, 0);
   const hayItems = celularIds.length > 0 || carritoOtros.length > 0;
 
   function toggleCelular(id: string) {
@@ -203,20 +213,11 @@ export function AgendarDialog({
     );
   }
 
-  const updPago = (k: string, patch: Partial<DraftPago>) =>
-    setPagos((p) => p.map((x) => (x._k === k ? { ...x, ...patch } : x)));
-  const rmPago = (k: string) =>
-    setPagos((p) => (p.length > 1 ? p.filter((x) => x._k !== k) : p));
-  const addPago = () =>
-    setPagos((p) => {
-      const medio =
-        MEDIOS.find((m) => !p.some((x) => x.medio === m)) ?? "transferencia";
-      return [...p, { _k: rid(), medio, montoUsd: 0, caja: defaultCaja(medio) }];
-    });
 
   // "retira" sin ticket no tiene sentido -- sin uno listo para retirar, no
   // se agenda el turno (el selector avisa por qué).
-  const puedeAgendar = !!clienteFinal && !!fecha && (tipo !== "retira" || !!ticketId);
+  const puedeAgendar =
+    !!clienteFinal && !!fecha && (tipo !== "retira" || !!ticketId) && senaValida;
 
   function submit() {
     if (!puedeAgendar || !clienteFinal) return;
@@ -232,10 +233,12 @@ export function AgendarDialog({
       ticketId: tipo === "retira" ? ticketId : null,
       itemsOtros: tipo === "compra" ? carritoOtros : [],
       pagos:
+        // Los pagos sin caja de turnos viejos de compra se conservan tal cual;
+        // lo nuevo va como seña (con caja).
         tipo === "compra"
-          ? pagos
-              .filter((p) => p.montoUsd > 0)
-              .map(({ medio, montoUsd, caja }) => ({ medio, montoUsd, caja }))
+          ? turno?.tipo === "compra"
+            ? (turno.pagos ?? [])
+            : []
           : tipo === "retira" && ticket
             ? [
                 {
@@ -246,6 +249,11 @@ export function AgendarDialog({
               ]
             : [],
       reservarStock: tipo === "compra" && reservarStock,
+      sena: abonaSena
+        ? senaFija && turno?.sena
+          ? { cajaId: turno.sena.cajaId, monto: turno.sena.monto, cotizacion: turno.sena.cotizacion ?? dolar }
+          : { cajaId: senaCajaId, monto: montoSena, cotizacion: dolar }
+        : null,
       nota,
     });
   }
@@ -491,72 +499,11 @@ export function AgendarDialog({
               )}
             </div>
 
-            <div>
-              <div className="mb-2 flex items-center justify-between border-b border-neutral-200 pb-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                  Pago
-                </p>
-                <span className="text-xs font-semibold tabular-nums text-neutral-500">
-                  Total {fmtUsd(totalCarrito)}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {pagos.map((p) => {
-                  const recargoPct =
-                    cajas.find((c) => c.activa && c.medioPago === p.medio)?.recargoPct ?? 0;
-                  return (
-                    <div key={p._k} className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={p.medio}
-                          onChange={(e) => {
-                            const medio = e.target.value as MedioPago;
-                            updPago(p._k, { medio, caja: defaultCaja(medio) });
-                          }}
-                          className="w-40"
-                        >
-                          {MEDIOS.map((m) => (
-                            <option key={m} value={m}>
-                              {medioPago[m].label}
-                            </option>
-                          ))}
-                        </Select>
-                        <Input
-                          className="flex-1"
-                          type="number"
-                          min={0}
-                          placeholder="U$"
-                          value={p.montoUsd || ""}
-                          onChange={(e) =>
-                            updPago(p._k, { montoUsd: Number(e.target.value) || 0 })
-                          }
-                        />
-                        <IconButton aria-label="Quitar" icon={Trash2} variant="danger-ghost" size="lg" onClick={() => rmPago(p._k)} disabled={pagos.length === 1} />
-                      </div>
-                      {recargoPct > 0 && p.montoUsd > 0 && (
-                        <p className="pl-1 text-[11px] text-amber-600">
-                          + {recargoPct}% recargo → cobra{" "}
-                          {fmtUsd(montoConRecargo(p.montoUsd, recargoPct))}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={addPago}
-                  disabled={pagos.length >= MEDIOS.length}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline disabled:opacity-40"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Agregar medio
-                </button>
-                <span className="text-xs font-semibold tabular-nums text-neutral-500">
-                  Abona ahora {fmtUsd(totalPagado)}
-                </span>
-              </div>
-            </div>
+            {hayItems && (
+              <p className="text-center text-xs font-semibold tabular-nums text-neutral-500">
+                Total {fmtUsd(totalCarrito)}
+              </p>
+            )}
 
             {hayItems && (
               <label className="flex items-center justify-center gap-2 text-sm text-neutral-600">
@@ -573,6 +520,21 @@ export function AgendarDialog({
             <ComentarioField value={nota} onChange={setNota} />
           </>
         )}
+
+        <SenaTurnoFields
+          abona={abonaSena}
+          onAbona={(v) => {
+            setAbonaSena(v);
+            if (!v) setSenaMonto("");
+          }}
+          cajas={cajasSena}
+          cajaId={senaCajaId}
+          onCaja={setSenaCajaId}
+          monto={senaMonto}
+          onMonto={setSenaMonto}
+          senaUsd={senaUsd}
+          fija={senaFija}
+        />
       </div>
 
       <Dialog
@@ -845,6 +807,95 @@ function CarritoBuscador({
             </p>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Seña del turno: casilla «Abonó seña» + caja (cualquiera activa) + monto
+ * en la moneda de esa caja. Mismo armado que la seña de un pedido. */
+function SenaTurnoFields({
+  abona,
+  onAbona,
+  cajas,
+  cajaId,
+  onCaja,
+  monto,
+  onMonto,
+  senaUsd,
+  fija,
+}: {
+  abona: boolean;
+  onAbona: (v: boolean) => void;
+  cajas: Caja[];
+  cajaId: string;
+  onCaja: (id: string) => void;
+  monto: string;
+  onMonto: (v: string) => void;
+  senaUsd: number | null;
+  fija: boolean;
+}) {
+  const caja = cajas.find((c) => c.id === cajaId);
+  return (
+    <div className="space-y-3">
+      <p className="border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+        Seña
+      </p>
+      <label className="flex items-center justify-center gap-2 text-sm text-neutral-600">
+        <input
+          type="checkbox"
+          checked={abona}
+          disabled={fija}
+          onChange={(e) => onAbona(e.target.checked)}
+          className="h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent/40"
+        />
+        Abonó seña
+      </label>
+      {abona && cajas.length === 0 && (
+        <p className="text-sm text-amber-700">
+          No hay cajas activas: creá una en{" "}
+          <a href="/cajas" className="font-medium underline">
+            Cajas
+          </a>{" "}
+          para registrar la seña.
+        </p>
+      )}
+      {abona && cajas.length > 0 && (
+        <GrillaCampos>
+          <Field label="Caja" className="sm:col-span-2">
+            <Select value={cajaId} disabled={fija} onChange={(e) => onCaja(e.target.value)}>
+              {!caja && <option value="">Elegí una caja</option>}
+              {cajas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre} · {medioPago[c.medioPago].label} ({c.moneda.toUpperCase()})
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={caja?.moneda === "ars" ? "Monto ($)" : "Monto (U$)"}>
+            <Input
+              type="number"
+              min={0}
+              step={caja?.moneda === "ars" ? "1" : "0.01"}
+              inputMode="decimal"
+              value={monto}
+              disabled={fija}
+              onChange={(e) => onMonto(e.target.value)}
+              placeholder="0"
+              className="!text-center"
+            />
+            {caja?.moneda === "ars" && senaUsd !== null && senaUsd > 0 && (
+              <p className="mt-1 text-xs tabular-nums text-neutral-500">≈ {fmtUsd(senaUsd)}</p>
+            )}
+          </Field>
+        </GrillaCampos>
+      )}
+      {abona && (
+        <p className="text-xs text-neutral-500">
+          {fija
+            ? "La seña ya está conciliada en Cajas: no se puede cambiar."
+            : "Se registra como ingreso «Seña» en la caja elegida."}
+        </p>
       )}
     </div>
   );

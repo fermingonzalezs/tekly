@@ -364,6 +364,7 @@ export function AgendaClient({
         clientes={clientesOpciones}
         esAdmin={esAdmin}
         negocio={negocio}
+        cajas={cajas}
         onClose={() => setSelId(null)}
         onEstado={cambiarEstado}
         onEditar={(t) => {

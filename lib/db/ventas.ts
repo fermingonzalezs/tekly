@@ -5,7 +5,8 @@ import { fmtDayMonth } from "@/lib/format";
 import { addMovimiento, deleteCelular, moverStockOtro } from "@/lib/db/inventario";
 import { createMovimientoCC } from "@/lib/db/cuentas-corrientes";
 import { createCompra } from "@/lib/db/compras";
-import { conRecargoDeCaja } from "@/lib/db/cajas";
+import { conRecargoDeCaja, monedasDeCajasActivas } from "@/lib/db/cajas";
+import { MEDIOS_CAJA } from "@/lib/status";
 import { bateriaCanje, erroresCanje } from "@/lib/canje";
 import {
   celularCanjeBorrable,
@@ -636,7 +637,7 @@ export type CreateVentaInput = {
   pagos: (Pago & { canje?: CanjeEquipo })[];
   /** Vuelto entregado al cliente: solo `cajaId` + `montoUsd` cuentan, medio
    * y moneda se leen de la caja. Omitido = sin vuelto. */
-  vuelto?: Pick<VueltoVenta, "cajaId" | "montoUsd">;
+  vuelto?: Pick<VueltoVenta, "cajaId" | "montoUsd" | "medio">;
   margenPct?: number;
   tipo: "venta" | "reparacion";
   /** Cotización blue vigente al momento de la venta -- para convertir a
@@ -666,9 +667,12 @@ export type CreateVentaInput = {
  * tiene que ser una caja activa de la organización; si es en pesos, guarda
  * los pesos entregados a la cotización de la venta. */
 async function vueltoDeCaja(
-  v: Pick<VueltoVenta, "cajaId" | "montoUsd">,
+  v: Pick<VueltoVenta, "cajaId" | "montoUsd" | "medio">,
   dolarVenta: number,
 ): Promise<VueltoVenta> {
+  // El medio es cómo se devolvió (lo elige el usuario); la caja puede ser
+  // cualquiera de las activas. Canje no es una forma de dar vuelto.
+  if (!MEDIOS_CAJA.includes(v.medio)) throw new Error("Elegí cómo diste el vuelto.");
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("cajas")
@@ -680,10 +684,10 @@ async function vueltoDeCaja(
   if (!caja || !caja.activa) throw new Error("La caja del vuelto no existe o no está activa.");
   const montoUsd = Math.round(v.montoUsd * 100) / 100;
   if (caja.moneda !== "ars") {
-    return { medio: caja.medio_pago, cajaId: caja.id, caja: "usd", montoUsd };
+    return { medio: v.medio, cajaId: caja.id, caja: "usd", montoUsd };
   }
   return {
-    medio: caja.medio_pago,
+    medio: v.medio,
     cajaId: caja.id,
     caja: "ars",
     montoUsd,
@@ -773,7 +777,17 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   let avisoCanje: string | undefined;
   // Recargo: sale de la caja elegida (o de la organización para cuenta
   // corriente), nunca del cliente. Queda como snapshot en cada pago.
-  const pagos = await conRecargoDeCaja(data.pagos);
+  const monedas = await monedasDeCajasActivas(
+    data.pagos.map((p) => p.cajaId).filter((id): id is string => !!id),
+  );
+  // La moneda de cada pago sale de su caja, nunca del cliente (la seña
+  // puede ir a cualquier caja, no solo a las de su medio).
+  const pagos = (await conRecargoDeCaja(data.pagos)).map((p) => {
+    if (!p.cajaId) return p;
+    const moneda = monedas.get(p.cajaId);
+    if (!moneda) throw new Error("Una de las cajas elegidas no existe o no está activa.");
+    return { ...p, caja: moneda };
+  });
   const pagosSinCanje: Pago[] = pagos.map(({ canje, ...p }) => {
     // El canje no es una caja: no lleva `cajaId` ni snapshot en pesos
     // (siempre se carga en USD). Plan 020.
@@ -919,6 +933,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       const { error: vueltoError } = await supabase.from("movimientos_caja").insert({
         caja_id: vuelto.cajaId,
         concepto: `Vuelto · ${concepto}`,
+        etiqueta: "vuelto",
         medio_pago: vuelto.medio,
         tipo: "egreso",
         monto: vuelto.caja === "ars" ? (vuelto.montoArs ?? 0) : vuelto.montoUsd,
@@ -953,6 +968,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
         const { error: movError } = await supabase.from("movimientos_caja").insert({
           caja_id: pago.cajaId,
           concepto: pago.sena ? `Seña · ${concepto}` : concepto,
+          etiqueta: pago.sena ? "sena" : null,
           medio_pago: pago.medio,
           tipo: "ingreso",
           monto,

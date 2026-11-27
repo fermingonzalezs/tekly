@@ -297,8 +297,12 @@ export type Turno = {
   /** Ítems de "Otros" del carrito de un turno de compra -- snapshot
    * embebido, no una relación viva (mismo criterio que `CompraItem`). */
   itemsOtros?: TurnoOtroItem[];
-  /** Seña o pago tomado al agendar (turnos de compra/retira). */
+  /** Seña o pago tomado al agendar (turnos de compra/retira). Viejo: sin
+   * caja. La seña con caja va en `sena`. */
   pagos?: Pago[];
+  /** Seña cobrada al agendar, con su ingreso en caja (`movimientos_caja.
+   * turno_id`, etiqueta «Seña»). Mismo shape que la de un pedido. */
+  sena?: PedidoSena;
   nota?: string;
 };
 
@@ -754,7 +758,12 @@ export type MovimientoCaja = {
    * conciliación no se puede eliminar (rompería la diferencia ya calculada
    * de esa conciliación pasada). */
   conciliacionId: string | null;
+  /** Seña (ingreso de una venta, pedido o turno) o vuelto (egreso de una
+   * venta). `undefined` = movimiento común. */
+  etiqueta?: EtiquetaMovimiento;
 };
+
+export type EtiquetaMovimiento = "sena" | "vuelto";
 
 /** Una línea de conciliación: lo que el sistema esperaba tener en una caja
  * (neto de movimientos desde la última conciliación) vs. lo contado a mano. */
