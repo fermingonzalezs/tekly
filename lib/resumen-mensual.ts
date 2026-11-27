@@ -31,6 +31,7 @@ import {
 } from "@/lib/analiticas-resumen";
 import { armarPatrimonio } from "@/lib/patrimonio";
 import { medioPago as medioPagoCfg } from "@/lib/status";
+import { montosPorMedio } from "@/lib/ventas";
 
 export const RESUMEN_VERSION = 1;
 
@@ -180,7 +181,7 @@ export function armarResumenMensual(i: InputResumenMensual): ResumenMensual {
   const ventasMes = i.ventas.filter((v) => enRango(v.fechaISO, rango));
   const porMedioMap = new Map<string, number>();
   for (const v of ventasMes) {
-    for (const p of v.pagos) {
+    for (const p of montosPorMedio(v)) {
       porMedioMap.set(p.medio, (porMedioMap.get(p.medio) ?? 0) + p.montoUsd);
     }
   }

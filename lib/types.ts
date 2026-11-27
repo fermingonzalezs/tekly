@@ -601,6 +601,24 @@ export type Pago = {
    * inventario `en_revision` con el valor acordado. Permite linkear al
    * celular desde el detalle de la venta y borrarlo con la venta. */
   celularId?: string;
+  /** El pago es la **seña** que dejó el cliente (tilde «Abonó seña» de Nueva
+   * venta). Es un pago más (suma a lo cobrado y genera su ingreso de caja),
+   * solo cambia cómo se rotula. Nunca canje ni cuenta corriente. */
+  sena?: boolean;
+};
+
+/** Vuelto que se le dio al cliente al cobrar una venta (tilde «Dio vuelto»
+ * de Nueva venta): sale de una caja (egreso en `movimientos_caja` con
+ * `venta_id`) y se resta de lo cobrado: Σ pagos − vuelto = total. Mismo
+ * snapshot en pesos que un `Pago` a una caja ARS. */
+export type VueltoVenta = {
+  medio: MedioPago;
+  cajaId: string;
+  caja: "usd" | "ars";
+  montoUsd: number;
+  cotizacion?: number;
+  /** Pesos entregados = `monto` del egreso de caja. Solo caja ARS. */
+  montoArs?: number;
 };
 
 /** Datos del equipo recibido en canje, cargados en el modal de "Nueva
@@ -659,6 +677,8 @@ export type Venta = {
    * 0/ausente = se cobró completo). El total y los ítems no cambian: es la
    * plata que no entró. */
   diferenciaUsd?: number;
+  /** Vuelto entregado al cliente (`ventas.vuelto`, `null` = sin vuelto). */
+  vuelto?: VueltoVenta;
   margenPct: number;
   tipo: "venta" | "reparacion";
   /** Si algún pago generó un movimiento de caja / cuenta corriente --

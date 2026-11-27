@@ -9,6 +9,8 @@ import { conRecargoDeCaja } from "@/lib/db/cajas";
 import { bateriaCanje, erroresCanje } from "@/lib/canje";
 import {
   celularCanjeBorrable,
+  cobradoNeto,
+  errorVuelto,
   errorAjuste,
   errorItemsVenta,
   esVentaRegalo,
@@ -26,7 +28,7 @@ import {
 import { rangoDe, TIENDA_PRINCIPAL, type FiltrosVentas } from "@/lib/ventas-filtros";
 import { sumarDias, type Rango } from "@/lib/date-presets";
 import { PAGE_SIZE } from "@/lib/pagination";
-import type { CanjeEquipo, CelularStatus, ModalidadVenta, Pago, Venta, VentaItem } from "@/lib/types";
+import type { CanjeEquipo, CelularStatus, MedioPago, ModalidadVenta, Pago, Venta, VentaItem, VueltoVenta } from "@/lib/types";
 
 /** Cantidad de ventas por procedencia (canal) -- usado por
  * `FuenteClientes` en Clientes. */
@@ -88,12 +90,13 @@ type VentaRow = {
   diferencia_usd?: number | string | null;
   regalo: boolean;
   pagos: Pago[];
+  vuelto?: VueltoVenta | null;
   margen_pct: number | null;
   tipo: "venta" | "reparacion";
 };
 
 const VENTA_COLS =
-  "id, numero, fecha, cliente_id, cliente, vendedor_id, vendedor_nombre, profiles(nombre), tienda_id, tiendas(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, precio_lista_usd, regalo, costo_usd, celular_id, notebook_id, otro_id, otro_serial, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, ajuste_usd, diferencia_usd, regalo, pagos, margen_pct, tipo";
+  "id, numero, fecha, cliente_id, cliente, vendedor_id, vendedor_nombre, profiles(nombre), tienda_id, tiendas(nombre), procedencia, modalidad, venta_items(detalle, cantidad, precio_usd, precio_lista_usd, regalo, costo_usd, celular_id, notebook_id, otro_id, otro_serial, categoria, venta_item_repuestos(repuesto_id, cantidad, repuestos(nombre))), total_usd, ajuste_usd, diferencia_usd, regalo, pagos, vuelto, margen_pct, tipo";
 
 function toVentaItem(row: VentaItemRow): VentaItem {
   return {
@@ -140,6 +143,7 @@ function toVenta(
     regalo: row.regalo || undefined,
     diferenciaUsd: Number(row.diferencia_usd ?? 0) > 0 ? Number(row.diferencia_usd) : undefined,
     pagos: row.pagos ?? [],
+    vuelto: row.vuelto ?? undefined,
     margenPct: row.margen_pct ?? 0,
     tipo: row.tipo,
     tieneMovimientoCaja,
@@ -630,6 +634,9 @@ export type CreateVentaInput = {
    * la `Compra` vinculada -- nunca se persiste en `Venta.pagos`, ver
    * `createVenta`. */
   pagos: (Pago & { canje?: CanjeEquipo })[];
+  /** Vuelto entregado al cliente: solo `cajaId` + `montoUsd` cuentan, medio
+   * y moneda se leen de la caja. Omitido = sin vuelto. */
+  vuelto?: Pick<VueltoVenta, "cajaId" | "montoUsd">;
   margenPct?: number;
   tipo: "venta" | "reparacion";
   /** Cotización blue vigente al momento de la venta -- para convertir a
@@ -655,6 +662,36 @@ export type CreateVentaInput = {
  * Si aparecen fallas reales que la compensación no alcance a cubrir, el
  * siguiente paso es subir todo esto a una función de Postgres transaccional
  * -- hoy no vale la complejidad para esta escala. */
+/** Arma el snapshot del vuelto desde la caja real (nunca desde el cliente):
+ * tiene que ser una caja activa de la organización; si es en pesos, guarda
+ * los pesos entregados a la cotización de la venta. */
+async function vueltoDeCaja(
+  v: Pick<VueltoVenta, "cajaId" | "montoUsd">,
+  dolarVenta: number,
+): Promise<VueltoVenta> {
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("cajas")
+    .select("id, moneda, medio_pago, activa")
+    .eq("id", v.cajaId)
+    .maybeSingle();
+  if (error) throw error;
+  const caja = data as { id: string; moneda: "usd" | "ars"; medio_pago: MedioPago; activa: boolean } | null;
+  if (!caja || !caja.activa) throw new Error("La caja del vuelto no existe o no está activa.");
+  const montoUsd = Math.round(v.montoUsd * 100) / 100;
+  if (caja.moneda !== "ars") {
+    return { medio: caja.medio_pago, cajaId: caja.id, caja: "usd", montoUsd };
+  }
+  return {
+    medio: caja.medio_pago,
+    cajaId: caja.id,
+    caja: "ars",
+    montoUsd,
+    cotizacion: dolarVenta,
+    montoArs: Math.round(montoUsd * dolarVenta),
+  };
+}
+
 export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   const supabase = createServerClient();
   // El equipo recibido en canje se valida acá (nunca se confía en el
@@ -676,7 +713,15 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     throw new Error("Un regalo no lleva pagos.");
   }
   // Sin pagos: ni movimientos de caja en 0 ni cargos en cuenta corriente.
-  if (esRegalo) data = { ...data, pagos: [] };
+  if (esRegalo) data = { ...data, pagos: [], vuelto: undefined };
+  // La seña es un pago a una caja: nunca canje ni cuenta corriente.
+  if (data.pagos.some((p) => p.sena && !pagoGeneraMovimientoCaja(p))) {
+    throw new Error("La seña tiene que ir a una caja.");
+  }
+  const errVuelto = errorVuelto(data.vuelto, data.pagos);
+  if (errVuelto) throw new Error(errVuelto);
+  // Medio y moneda del vuelto salen de la caja (activa, de la org).
+  const vuelto = data.vuelto ? await vueltoDeCaja(data.vuelto, data.dolarVenta) : undefined;
   let itemsConPrecio: VentaItem[];
   let totalUsd: number;
   let ajusteUsd = 0;
@@ -684,7 +729,8 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
   // Lo cobrado (sin recargo: el recargo infla lo que se mueve, no la
   // conciliación) contra el total recalculado. Un faltante solo pasa si se
   // aceptó en el cartel; lo que sobra nunca.
-  const cobradoUsd = data.pagos.reduce((a, p) => a + p.montoUsd, 0);
+  // El vuelto se resta: Σ pagos − vuelto es lo que realmente quedó.
+  const cobradoUsd = cobradoNeto(data.pagos, vuelto?.montoUsd ?? 0);
   if (esRegalo) {
     itemsConPrecio = data.items.map((item) => ({
       ...item,
@@ -759,6 +805,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
       diferencia_usd: diferenciaUsd,
       regalo: esRegalo,
       pagos: pagosSinCanje,
+      vuelto: vuelto ?? null,
       margen_pct: margenPct,
       tipo: data.tipo,
     })
@@ -866,6 +913,22 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     // un pago en canje además genera la `Compra` que documenta el equipo
     // recibido (checklist + PDF firmable, ver "Ventas" en CLAUDE.md).
     const concepto = `Venta V-${ventaRow.numero} · ${data.cliente}`;
+    if (vuelto) {
+      // Egreso de la caja de donde salió el vuelto; `venta_id` hace que se
+      // borre con «Borrar movimientos de caja» al eliminar la venta.
+      const { error: vueltoError } = await supabase.from("movimientos_caja").insert({
+        caja_id: vuelto.cajaId,
+        concepto: `Vuelto · ${concepto}`,
+        medio_pago: vuelto.medio,
+        tipo: "egreso",
+        monto: vuelto.caja === "ars" ? (vuelto.montoArs ?? 0) : vuelto.montoUsd,
+        cotizacion: data.dolarVenta,
+        usuario_id: data.vendedorId || null,
+        usuario_nombre: data.vendedorNombre,
+        venta_id: ventaRow.id,
+      });
+      if (vueltoError) throw vueltoError;
+    }
     const compraIdPorIndice = new Map<number, string>();
     for (let i = 0; i < pagos.length; i++) {
       const pago = pagos[i];
@@ -889,7 +952,7 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
             : montoReal;
         const { error: movError } = await supabase.from("movimientos_caja").insert({
           caja_id: pago.cajaId,
-          concepto,
+          concepto: pago.sena ? `Seña · ${concepto}` : concepto,
           medio_pago: pago.medio,
           tipo: "ingreso",
           monto,
@@ -968,9 +1031,8 @@ export async function createVenta(data: CreateVentaInput): Promise<Venta> {
     .single();
   if (selectError) throw selectError;
 
-  const tieneMovimientoCaja = pagos.some(
-    (p) => pagoGeneraMovimientoCaja(p) && !!p.cajaId,
-  );
+  const tieneMovimientoCaja =
+    !!vuelto || pagos.some((p) => pagoGeneraMovimientoCaja(p) && !!p.cajaId);
   const tieneMovimientoCC = pagos.some((p) => p.medio === "cuenta_corriente");
   return {
     ...toVenta(row as unknown as VentaRow, tieneMovimientoCaja, tieneMovimientoCC),

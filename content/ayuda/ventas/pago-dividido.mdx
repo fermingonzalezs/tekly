@@ -4,7 +4,7 @@ resumen: "Cobrar una venta con varios medios a la vez, y cómo funciona vender �
 seccion: ventas
 roles: []
 orden: 3
-actualizado: 2026-10-17
+actualizado: 2026-11-26
 ---
 
 Una venta puede cobrarse con **varios medios** al mismo tiempo: un poco en efectivo, otro en transferencia, el resto a cuenta corriente.
@@ -21,6 +21,10 @@ La suma de los pagos tiene que cubrir el total de la venta. El indicador muestra
 Si la caja elegida es en **pesos**, escribís los pesos cobrados en «Cobrado $» y debajo Tekly muestra el equivalente en USD a la cotización del momento. Es el único lugar de la app donde se tipea en ARS en vez de USD.
 </Paso>
 
+<Paso n={4} titulo="Seña y vuelto">
+Abajo de los pagos hay dos tildes. **«Abonó seña»** agrega una fila **Seña** (medio, caja y monto): es un pago más, suma a lo cobrado y entra a la caja elegida con el concepto «Seña · Venta V-…». **«Dio vuelto»** agrega una fila **Vuelto**: elegís de qué medio y caja salió la plata que le devolviste al cliente y cuánto (en pesos si la caja es en pesos). El vuelto **se resta** de lo cobrado, así que si el cliente pagó U$1.000 por una venta de U$850 y le diste U$150 de vuelto, el pago queda completo. Al confirmar, el vuelto genera un **egreso** en esa caja.
+</Paso>
+
 <Aviso titulo="Cuenta corriente" tono="info">
 El medio **Cuenta corriente** no entra a ninguna caja: genera una **deuda** del cliente (un cargo). Se cobra después desde el módulo **Cuentas corrientes**.
 </Aviso>
@@ -34,6 +38,7 @@ Si cobrás una cifra distinta al total (por un redondeo o un descuento de últim
 Cada pago genera su movimiento al confirmar la venta:
 
 - El medio «Cuenta corriente» → un **cargo** en `Cuentas corrientes` del cliente.
+- El vuelto → un **egreso** en la caja de la que salió (se borra junto con los movimientos de caja si eliminás la venta).
 - El resto → un **ingreso** en la **caja** elegida, guardando la cotización y el recargo aplicado. **Mercadería (canje)** es la excepción: no es una caja, no genera movimiento y el equipo entra al inventario (ver [Canje](/ayuda/ventas/canje)).
 
 ## Qué no se puede

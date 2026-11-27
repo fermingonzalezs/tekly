@@ -1615,6 +1615,19 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `descuentoSinDiferencia` separa el descuento propio para mostrarlo; el
   detalle muestra «Diferencia sin cobrar» y la lista «−U$ X sin cobrar». El
   recibo del cliente la muestra dentro de «Descuento».
+  **Seña y vuelto (26/11, igual que sistema-update)**: bajo los pagos de
+  Nueva venta, tildes «Abonó seña» y «Dio vuelto». La seña es un `Pago` más
+  con `sena: true` (solo medios con caja; suma a lo cobrado y su ingreso de
+  caja lleva «Seña · Venta V-…»). El vuelto es `Venta.vuelto` (`VueltoVenta`,
+  columna `ventas.vuelto jsonb`, `20261126160000_ventas_vuelto.sql`): medio +
+  caja + monto (pesos si la caja es ARS, snapshot `montoArs`); cobrado =
+  Σ pagos − vuelto (`cobradoNeto`, `calcularRestante(total, pagos, vuelto)`,
+  `errorVuelto`, `lib/ventas.ts`), y genera un **egreso** en esa caja con
+  `venta_id` (se borra con «Borrar movimientos de caja»). El server toma
+  medio/moneda de la caja (`vueltoDeCaja`). «Ingresos por medio de pago»
+  (Analíticas y resumen mensual) usa `montosPorMedio` para restarlo. No hay
+  todavía vínculo seña de un Pedido (Agenda) → venta: si la seña ya entró
+  por un pedido, no volver a tildarla en la venta (se duplicaría en caja).
   **Carrito «Vender desde el stock» (26/11)**: botón 🛒 (`BotonCarrito`) en
   cada celular/notebook `disponible` de Inventario (vista Agrupada y
   Unidades, tabla y mobile); el carrito vive en `sessionStorage`

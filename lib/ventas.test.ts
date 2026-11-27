@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { MEDIOS_CAJA, MEDIOS_VENTA } from "@/lib/status";
 import {
+  cobradoNeto,
+  errorVuelto,
+  montosPorMedio,
   resolverVendedor,
   calcularMargenPct,
   calcularRestante,
@@ -529,5 +532,74 @@ describe("preciosConDiferencia (faltante de cobro aceptado)", () => {
 
   it("pagos de más no generan diferencia", () => {
     expect(preciosConDiferencia(items, 0, 1200).diferenciaUsd).toBe(0);
+  });
+});
+
+describe("seña y vuelto (reportes Mundo Phone)", () => {
+  const base = {
+    clienteNombre: "Ana",
+    items: [{ detalle: "iPhone 13", precioUsd: 850 }],
+    totalPrecio: 850,
+  };
+
+  it("el vuelto se resta de lo cobrado", () => {
+    expect(cobradoNeto([{ montoUsd: 1000 }], 150)).toBe(850);
+    expect(calcularRestante(850, [{ montoUsd: 1000 }], 150)).toBe(0);
+    expect(calcularRestante(850, [{ montoUsd: 1000 }])).toBe(-150);
+  });
+
+  it("pagar de más con vuelto que cierra es confirmable", () => {
+    expect(
+      motivoNoConfirmable({
+        ...base,
+        pagos: [{ montoUsd: 1000, medio: "dolares" }],
+        vuelto: { montoUsd: 150, cajaId: "c1" },
+      }),
+    ).toBeNull();
+  });
+
+  it("vuelto sin monto, sin caja o mayor a lo pagado bloquea", () => {
+    const pagos = [{ montoUsd: 850, medio: "dolares" as const }];
+    expect(motivoNoConfirmable({ ...base, pagos, vuelto: { montoUsd: 0, cajaId: "c1" } })).toBe(
+      "Completá el monto del vuelto",
+    );
+    expect(motivoNoConfirmable({ ...base, pagos, vuelto: { montoUsd: 10 } })).toBe(
+      "Elegí de qué caja sale el vuelto",
+    );
+    expect(errorVuelto({ montoUsd: 900, cajaId: "c1" }, pagos)).toBe(
+      "El vuelto no puede superar lo que pagó el cliente",
+    );
+  });
+
+  it("la seña suma como un pago y pide monto", () => {
+    expect(
+      motivoNoConfirmable({
+        ...base,
+        pagos: [
+          { montoUsd: 100, medio: "dolares", sena: true },
+          { montoUsd: 750, medio: "transferencia" },
+        ],
+      }),
+    ).toBeNull();
+    expect(
+      motivoNoConfirmable({
+        ...base,
+        pagos: [
+          { montoUsd: 0, medio: "dolares", sena: true },
+          { montoUsd: 850, medio: "transferencia" },
+        ],
+      }),
+    ).toBe("Completá el monto de la seña");
+  });
+
+  it("montosPorMedio resta el vuelto de su medio", () => {
+    const r = montosPorMedio({
+      pagos: [{ medio: "dolares", montoUsd: 1000, caja: "usd" }],
+      vuelto: { medio: "pesos", cajaId: "c1", caja: "ars", montoUsd: 150, montoArs: 219750 },
+    });
+    expect(r).toEqual([
+      { medio: "dolares", montoUsd: 1000 },
+      { medio: "pesos", montoUsd: -150 },
+    ]);
   });
 });

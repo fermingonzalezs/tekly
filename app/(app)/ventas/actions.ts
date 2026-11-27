@@ -41,6 +41,8 @@ export async function createVentaAction(input: {
   /** Ignorados: `createVenta` recalcula total y margen. */
   totalUsd?: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
+  /** Vuelto entregado: caja + monto en U$ (medio y moneda los pone la caja). */
+  vuelto?: { cajaId: string; montoUsd: number };
   /** Faltante de cobro aceptado en el cartel «¿Seguro…?» (U$). */
   diferenciaAceptadaUsd?: number;
   margenPct?: number;
@@ -113,6 +115,7 @@ export async function createVentaAction(input: {
     ajusteUsd: input.ajusteUsd ?? 0,
     regalo: input.regalo,
     pagos: input.pagos,
+    vuelto: input.vuelto,
     diferenciaAceptadaUsd: input.diferenciaAceptadaUsd ?? 0,
     tipo: input.tipo,
     dolarVenta: input.dolarVenta,

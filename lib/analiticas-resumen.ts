@@ -57,6 +57,7 @@ import {
   categoriaDe,
   margenPonderado,
   resumenPorModalidad,
+  montosPorMedio,
   type ResumenModalidad,
   type Rubro,
 } from "@/lib/ventas";
@@ -417,7 +418,7 @@ export function resumenFinanzas(
   const porMedio = agrupar(
     Object.entries(
       ventasFiltradas
-        .flatMap((v) => v.pagos)
+        .flatMap((v) => montosPorMedio(v))
         .reduce<Record<string, number>>((a, p) => {
           a[p.medio] = (a[p.medio] ?? 0) + p.montoUsd;
           return a;

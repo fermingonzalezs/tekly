@@ -51,10 +51,54 @@ export function calcularMargenPct(totalPrecio: number, totalCosto: number): numb
 }
 
 /** Lo que falta (positivo) o sobra (negativo) para cubrir el total con los
- * pagos cargados hasta ahora. Redondeado a centavos. */
-export function calcularRestante(totalPrecio: number, pagos: PagoDraft[]): number {
+ * pagos cargados hasta ahora, descontado el vuelto que se le devolvió al
+ * cliente (Σ pagos − vuelto = cobrado). Redondeado a centavos. */
+export function calcularRestante(
+  totalPrecio: number,
+  pagos: PagoDraft[],
+  vueltoUsd = 0,
+): number {
+  return Math.round((totalPrecio - cobradoNeto(pagos, vueltoUsd)) * 100) / 100;
+}
+
+/** Lo que realmente quedó de la venta: Σ pagos − vuelto (U$, sin recargo). */
+export function cobradoNeto(pagos: PagoDraft[], vueltoUsd = 0): number {
   const pagado = pagos.reduce((a, p) => a + p.montoUsd, 0);
-  return Math.round((totalPrecio - pagado) * 100) / 100;
+  return Math.round((pagado - Math.max(0, vueltoUsd)) * 100) / 100;
+}
+
+/** Valida el vuelto de una venta: monto > 0 y no más que lo pagado (no se
+ * puede devolver más de lo que entró). `null` = válido o sin vuelto. */
+export function errorVuelto(
+  vuelto: { montoUsd: number; cajaId?: string } | undefined,
+  pagos: PagoDraft[],
+): string | null {
+  if (!vuelto) return null;
+  if (!Number.isFinite(vuelto.montoUsd) || vuelto.montoUsd <= 0)
+    return "Completá el monto del vuelto";
+  if (!vuelto.cajaId) return "Elegí de qué caja sale el vuelto";
+  const pagado = pagos.reduce((a, p) => a + p.montoUsd, 0);
+  if (vuelto.montoUsd > pagado + 0.005) return "El vuelto no puede superar lo que pagó el cliente";
+  return null;
+}
+
+/** Montos por medio de una venta con el vuelto restado de su medio (para
+ * «Ingresos por medio de pago»: lo que se devolvió no es ingreso). */
+export function montosPorMedio(
+  v: Pick<Venta, "pagos" | "vuelto">,
+): { medio: MedioPagoVenta; montoUsd: number }[] {
+  const out: { medio: MedioPagoVenta; montoUsd: number }[] = v.pagos.map((p) => ({
+    medio: p.medio,
+    montoUsd: p.montoUsd,
+  }));
+  if (v.vuelto) out.push({ medio: v.vuelto.medio, montoUsd: -v.vuelto.montoUsd });
+  return out;
+}
+
+/** Texto del monto del vuelto ya guardado (mismo criterio que
+ * `montoPagoLabel`: el snapshot en pesos, nunca recalculado). */
+export function montoVueltoLabel(v: NonNullable<Venta["vuelto"]>): string {
+  return v.montoArs !== undefined ? fmtArs(v.montoArs) : fmtUsd(v.montoUsd);
 }
 
 /** Ajusta el último pago para que la suma cierre exacto con el total
@@ -320,7 +364,9 @@ export type MotivoInput = {
   tiendaNueva?: string;
   clienteNombre: string;
   items: { detalle?: string; precioUsd: number; regalo?: boolean }[];
-  pagos: { montoUsd: number; medio: MedioPagoVenta; canjeEquipo?: string }[];
+  pagos: { montoUsd: number; medio: MedioPagoVenta; canjeEquipo?: string; sena?: boolean }[];
+  /** Vuelto entregado (tilde «Dio vuelto»); omitido = sin vuelto. */
+  vuelto?: { montoUsd: number; cajaId?: string };
   /** Ajuste firmado sobre el total: >0 descuenta, <0 recarga. Con
    * `subtotalUsd` se valida antes de conciliar los pagos. */
   ajusteUsd?: number;
@@ -363,7 +409,10 @@ export function motivoNoConfirmable(i: MotivoInput): string | null {
     if (err) return err;
   }
 
-  const restante = calcularRestante(i.totalPrecio, i.pagos);
+  if (i.pagos.some((p) => p.sena && p.montoUsd <= 0)) return "Completá el monto de la seña";
+  const errVuelto = errorVuelto(i.vuelto, i.pagos);
+  if (errVuelto) return errVuelto;
+  const restante = calcularRestante(i.totalPrecio, i.pagos, i.vuelto?.montoUsd ?? 0);
   if (restante > 0.005 && !i.permitirFaltante) return `Faltan ${fmtUsd(restante)} por cobrar`;
   if (restante < -0.005) return `Sobran ${fmtUsd(Math.abs(restante))}`;
   if (i.pagos.some((p) => p.medio === "canje" && !(p.canjeEquipo ?? "").trim()))

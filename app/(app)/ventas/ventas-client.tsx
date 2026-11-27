@@ -54,6 +54,8 @@ import {
   calcularRestante,
   errorAjuste,
   saldarUltimoPago,
+  cobradoNeto,
+  montoVueltoLabel,
   montoConRecargo,
   montoPagoLabel,
   margenVenta,
@@ -284,6 +286,8 @@ export type CrearVentaInput = {
   /** Solo para la UI/demo: el server recalcula total y margen. */
   totalUsd: number;
   pagos: (Pago & { canje?: CanjeEquipo })[];
+  /** Vuelto entregado (caja + U$); el server lee medio/moneda de la caja. */
+  vuelto?: { cajaId: string; montoUsd: number };
   /** Faltante de cobro aceptado en el cartel «¿Seguro…?» (U$, 0 = completo). */
   diferenciaAceptadaUsd?: number;
   margenPct: number;
@@ -642,11 +646,22 @@ export function VentasClient({
                 />
                 <ReciboLineas
                   titulo="Forma de pago"
-                  lineas={recibo.venta.pagos.map((p) => ({
-                    detalle: medioPagoCfg[p.medio].label,
-                    montoUsd: p.montoUsd,
-                    montoLabel: montoPagoLabel(p),
-                  }))}
+                  lineas={[
+                    ...recibo.venta.pagos.map((p) => ({
+                      detalle: (p.sena ? "Seña · " : "") + medioPagoCfg[p.medio].label,
+                      montoUsd: p.montoUsd,
+                      montoLabel: montoPagoLabel(p),
+                    })),
+                    ...(recibo.venta.vuelto
+                      ? [
+                          {
+                            detalle: "Vuelto · " + medioPagoCfg[recibo.venta.vuelto.medio].label,
+                            montoUsd: -recibo.venta.vuelto.montoUsd,
+                            montoLabel: "−" + montoVueltoLabel(recibo.venta.vuelto),
+                          },
+                        ]
+                      : []),
+                  ]}
                 />
               </>
             ),
@@ -1800,7 +1815,7 @@ function VentaDetalle({
     },
   ];
   const m = margenVenta(venta.items);
-  const totalCobrado = venta.pagos.reduce((a, p) => a + p.montoUsd, 0);
+  const totalCobrado = cobradoNeto(venta.pagos, venta.vuelto?.montoUsd ?? 0);
 
   return (
     <div className="space-y-4">
@@ -2012,6 +2027,11 @@ function VentaDetalle({
                     />
                     {medioPagoCfg[p.medio].label}
                   </span>
+                  {p.sena && (
+                    <span className="rounded-md bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">
+                      Seña
+                    </span>
+                  )}
                   {p.medio !== "canje" && (
                     <span className="text-xs text-neutral-500">
                       {cajaLabel(p, cajas)}
@@ -2063,6 +2083,32 @@ function VentaDetalle({
               )}
             </div>
           ))}
+          {venta.vuelto && (
+            <div className="py-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="rounded-md bg-neutral-200 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-700">
+                    Vuelto
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700">
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        dotClass[medioPagoCfg[venta.vuelto.medio].tone],
+                      )}
+                    />
+                    {medioPagoCfg[venta.vuelto.medio].label}
+                  </span>
+                  <span className="text-xs text-neutral-500">
+                    {cajas.find((c) => c.id === venta.vuelto?.cajaId)?.nombre ?? "—"}
+                  </span>
+                </div>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-red-500">
+                  −{montoVueltoLabel(venta.vuelto)}
+                </span>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between py-2">
             <span className="text-sm font-semibold uppercase tracking-wide text-neutral-900">
               Total cobrado
@@ -2173,6 +2219,7 @@ function RentabilidadEnVivo({
   );
 }
 type DraftPago = Pago & { _k: string; canje?: CanjeEquipo };
+type DraftVuelto = { medio: MedioPago; cajaId: string; caja: "usd" | "ars"; montoUsd: number };
 
 type CatItem = {
   key: string;
@@ -2642,6 +2689,8 @@ function NuevaVentaDialog({
       montoUsd: 0,
     } as DraftPago,
   ]);
+  // Vuelto que se le dio al cliente (tilde «Dio vuelto»): sale de una caja.
+  const [vuelto, setVuelto] = useState<DraftVuelto | null>(null);
   // Descuento sobre el total: monto fijo (U$) o porcentaje. Solo descuenta.
   const [descuentoTipo, setDescuentoTipo] = useState<"usd" | "pct">("usd");
   const [descuentoValor, setDescuentoValor] = useState("");
@@ -2691,7 +2740,8 @@ function NuevaVentaDialog({
       items.flatMap((i) => (i.regalo ? (i.repuestos ?? []).map((r) => "r:" + r.repuestoId) : [])),
     )
     .filter(Boolean);
-  const restante = calcularRestante(totalPrecio, pagosEfectivos);
+  const vueltoEfectivo = ventaRegalo ? null : vuelto;
+  const restante = calcularRestante(totalPrecio, pagosEfectivos, vueltoEfectivo?.montoUsd ?? 0);
   const clienteNombre = cliente?.nombre ?? "";
 
   const motivo = motivoNoConfirmable({
@@ -2705,7 +2755,9 @@ function NuevaVentaDialog({
       montoUsd: p.montoUsd,
       medio: p.medio,
       canjeEquipo: p.canje?.modelo,
+      sena: p.sena,
     })),
+    vuelto: vueltoEfectivo ?? undefined,
     subtotalUsd: subtotalPrecio,
     ajusteUsd: ajustePedido,
     totalPrecio,
@@ -2825,6 +2877,32 @@ function NuevaVentaDialog({
     });
   const saldar = () => setPagos((p) => saldarUltimoPago(p, restante));
 
+  // ── Seña y vuelto (reportes de Mundo Phone, igual que sistema-update) ──
+  // Medios con caja (sin canje ni cuenta corriente): la seña entra a una
+  // caja y el vuelto sale de una.
+  const mediosCaja = MEDIOS_CAJA.filter((m) => cajasDeMedio(m).length > 0);
+  const pagoSena = pagos.find((p) => p.sena);
+  const toggleSena = (on: boolean) =>
+    setPagos((p) => {
+      if (!on) {
+        const resto = p.filter((x) => !x.sena);
+        return resto.length > 0 ? resto : p.map((x) => ({ ...x, sena: undefined }));
+      }
+      const caja = cajasActivas.find((c) => c.medioPago !== "canje");
+      if (!caja) return p;
+      // La seña va primera: es lo que el cliente dejó antes.
+      return [
+        { _k: rid(), ...destinoPago(caja.id), montoUsd: 0, sena: true } as DraftPago,
+        ...p,
+      ];
+    });
+  const vueltoDeMedio = (medio: MedioPago, montoUsd: number): DraftVuelto | null => {
+    const caja = cajasDeMedio(medio)[0];
+    return caja ? { medio, cajaId: caja.id, caja: caja.moneda, montoUsd } : null;
+  };
+  const toggleVuelto = (on: boolean, montoUsd = 0) =>
+    setVuelto(on && mediosCaja[0] ? vueltoDeMedio(mediosCaja[0], montoUsd) : null);
+
   function submit() {
     if (!cliente || cliente.tipo === "libre") return;
     setErrorCrear(null);
@@ -2849,6 +2927,9 @@ function NuevaVentaDialog({
           ajusteUsd: ajusteAplicado,
           totalUsd: totalPrecio,
           pagos: pagosEfectivos.map(({ _k, ...p }) => p),
+          vuelto: vueltoEfectivo
+            ? { cajaId: vueltoEfectivo.cajaId, montoUsd: vueltoEfectivo.montoUsd }
+            : undefined,
           diferenciaAceptadaUsd: diferenciaPendiente,
           margenPct: Math.round(margenPct * 10) / 10,
           tipo: items.some((i) => i.origen === "celular" || i.origen === "notebook")
@@ -3184,6 +3265,11 @@ function NuevaVentaDialog({
                       className="overflow-x-auto rounded-lg border border-neutral-200"
                     >
                       <div className="flex min-w-max items-center justify-center gap-2 p-2">
+                        {p.sena && (
+                          <span className="shrink-0 rounded-md bg-accent-soft px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent">
+                            Seña
+                          </span>
+                        )}
                         <Select
                           value={p.medio}
                           onChange={(e) => {
@@ -3194,12 +3280,12 @@ function NuevaVentaDialog({
                           className="w-40 shrink-0 !text-center ![text-align-last:center]"
                           aria-label="Medio de pago"
                         >
-                          {!modoDemo && (
+                          {!modoDemo && !p.sena && (
                             <option value="cuenta_corriente">
                               {medioPagoCfg.cuenta_corriente.emoji} Cuenta corriente
                             </option>
                           )}
-                          {mediosDisponibles.map((m) => (
+                          {(p.sena ? mediosCaja : mediosDisponibles).map((m) => (
                             <option key={m} value={m}>
                               {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
                             </option>
@@ -3238,8 +3324,8 @@ function NuevaVentaDialog({
                             <input
                               type="text"
                               inputMode="numeric"
-                              placeholder="Cobrado $"
-                              aria-label="Monto cobrado en pesos"
+                              placeholder={p.sena ? "Seña $" : "Cobrado $"}
+                              aria-label={p.sena ? "Monto de la seña en pesos" : "Monto cobrado en pesos"}
                               className="min-w-0 flex-1 !text-center tabular-nums outline-none"
                               value={
                                 p.montoUsd ? `$${fmtNum(Math.round(p.montoUsd * dolarVenta))}` : ""
@@ -3260,8 +3346,16 @@ function NuevaVentaDialog({
                             className="w-32 shrink-0 !text-center tabular-nums"
                             type="text"
                             inputMode="numeric"
-                            placeholder={p.medio === "canje" ? "Precio del equipo" : "Cobrado U$"}
-                            aria-label={p.medio === "canje" ? "Precio del equipo en canje" : "Monto cobrado en dólares"}
+                            placeholder={
+                              p.medio === "canje" ? "Precio del equipo" : p.sena ? "Seña U$" : "Cobrado U$"
+                            }
+                            aria-label={
+                              p.medio === "canje"
+                                ? "Precio del equipo en canje"
+                                : p.sena
+                                  ? "Monto de la seña en dólares"
+                                  : "Monto cobrado en dólares"
+                            }
                             value={p.montoUsd ? `U$${fmtNum(Math.round(p.montoUsd))}` : ""}
                             // Canje: el monto es el precio de compra del equipo, se carga en su modal.
                             readOnly={p.medio === "canje"}
@@ -3298,19 +3392,129 @@ function NuevaVentaDialog({
                           </span>
                         )}
                         <IconButton
-                          aria-label="Quitar medio de pago"
+                          aria-label={p.sena ? "Quitar la seña" : "Quitar medio de pago"}
                           icon={Trash2}
                           variant="danger-ghost"
                           size="lg"
                           className="shrink-0"
-                          onClick={() => rmPago(p._k)}
+                          onClick={() => (p.sena ? toggleSena(false) : rmPago(p._k))}
                           disabled={pagos.length === 1}
                         />
                       </div>
                     </div>
                   );
                 })}
+                {vuelto && (
+                  <div className="overflow-x-auto rounded-lg border border-dashed border-neutral-300 bg-neutral-50/70">
+                    <div className="flex min-w-max items-center justify-center gap-2 p-2">
+                      <span className="shrink-0 rounded-md bg-neutral-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-700">
+                        Vuelto
+                      </span>
+                      <Select
+                        value={vuelto.medio}
+                        onChange={(e) => {
+                          const v = vueltoDeMedio(e.target.value as MedioPago, vuelto.montoUsd);
+                          if (v) setVuelto(v);
+                        }}
+                        className="w-40 shrink-0 !text-center ![text-align-last:center]"
+                        aria-label="Medio del vuelto"
+                      >
+                        {mediosCaja.map((m) => (
+                          <option key={m} value={m}>
+                            {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
+                          </option>
+                        ))}
+                      </Select>
+                      <Select
+                        value={vuelto.cajaId}
+                        onChange={(e) => {
+                          const caja = cajasDeMedio(vuelto.medio).find((c) => c.id === e.target.value);
+                          if (caja) setVuelto({ ...vuelto, cajaId: caja.id, caja: caja.moneda });
+                        }}
+                        className="w-32 shrink-0 !text-center ![text-align-last:center]"
+                        aria-label="Caja de la que sale el vuelto"
+                      >
+                        {cajasDeMedio(vuelto.medio).map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre} · {c.moneda === "ars" ? "$" : "U$"}
+                          </option>
+                        ))}
+                      </Select>
+                      {vuelto.caja === "ars" ? (
+                        <div className="flex h-9 w-52 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 text-sm transition-colors focus-within:border-accent">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Vuelto $"
+                            aria-label="Vuelto en pesos"
+                            className="min-w-0 flex-1 !text-center tabular-nums outline-none"
+                            value={
+                              vuelto.montoUsd
+                                ? `$${fmtNum(Math.round(vuelto.montoUsd * dolarVenta))}`
+                                : ""
+                            }
+                            onChange={(e) => {
+                              const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
+                              setVuelto({ ...vuelto, montoUsd: raw / dolarVenta });
+                            }}
+                          />
+                          {vuelto.montoUsd > 0 && (
+                            <span className="shrink-0 whitespace-nowrap text-[11px] text-neutral-500">
+                              ≈ {fmtUsd(vuelto.montoUsd)}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <Input
+                          className="w-32 shrink-0 !text-center tabular-nums"
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="Vuelto U$"
+                          aria-label="Vuelto en dólares"
+                          value={vuelto.montoUsd ? `U$${fmtNum(Math.round(vuelto.montoUsd))}` : ""}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value.replace(/\D/g, "")) || 0;
+                            setVuelto({ ...vuelto, montoUsd: raw });
+                          }}
+                        />
+                      )}
+                      <IconButton
+                        aria-label="Quitar el vuelto"
+                        icon={Trash2}
+                        variant="danger-ghost"
+                        size="lg"
+                        className="shrink-0"
+                        onClick={() => toggleVuelto(false)}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {!modoDemo && mediosCaja.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                  <label className="inline-flex items-center gap-2 text-[13px] font-medium text-neutral-700">
+                    <input
+                      type="checkbox"
+                      checked={!!pagoSena}
+                      onChange={(e) => toggleSena(e.target.checked)}
+                      className="h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+                    />
+                    Abonó seña
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-[13px] font-medium text-neutral-700">
+                    <input
+                      type="checkbox"
+                      checked={!!vuelto}
+                      onChange={(e) =>
+                        toggleVuelto(e.target.checked, restante < 0 ? Math.abs(restante) : 0)
+                      }
+                      className="h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
+                    />
+                    Dio vuelto
+                  </label>
+                </div>
+              )}
 
               <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
                 <button
