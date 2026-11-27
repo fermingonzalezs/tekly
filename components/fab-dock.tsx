@@ -17,9 +17,12 @@ import { cn } from "@/lib/utils";
 const CLICKEABLE =
   'button, a[href], input, select, textarea, label, summary, [role="button"], [role="tab"], [role="checkbox"]';
 
-/** Corrimiento del dock cuando se aparta: media píldora más el margen
- * (`right-6`), así queda a la vista la mitad de los botones. */
-const APARTADO = "translateX(calc(50% + 1.5rem))";
+/** Margen del dock con el costado derecho (px), en reposo. */
+const MARGEN = 12;
+
+/** Corrimiento cuando se aparta: un cuarto de la píldora más el margen, así
+ * queda pegado al costado con tres cuartos de los botones a la vista. */
+const APARTADO = `translateX(calc(25% + ${MARGEN}px))`;
 
 /** Botones flotantes de la app, en una sola píldora vertical abajo a la
  * derecha: "Reportar un problema" (chico, arriba) y "Buscar o crear" (el
@@ -29,12 +32,12 @@ const APARTADO = "translateX(calc(50% + 1.5rem))";
  * mobile: ahí compite con los demás controles fixed (nav, toasts).
  *
  * Se aparta solo (sin botón de ocultar) hacia la derecha, dejando a la vista
- * la mitad de los botones:
+ * tres cuartos de los botones, pegado al costado:
  * - mientras se scrollea hacia abajo (vuelve al scrollear para arriba);
  * - cuando quedaría encima de algo clickeable de la página (un botón, un
  *   link, un input): se mide con `elementsFromPoint` sobre su lugar al
  *   scrollear, al cambiar el tamaño de la ventana o el contenido.
- * Pasar el mouse por la mitad que queda a la vista (o enfocarlo con Tab) lo trae de
+ * Pasar el mouse por lo que queda a la vista (o enfocarlo con Tab) lo trae de
  * vuelta, y Ctrl K abre el buscador siempre. */
 export function FabDock({ roles }: { roles: Rol[] }) {
   const [paletaAbierta, setPaletaAbierta] = useState(false);
@@ -57,8 +60,8 @@ export function FabDock({ roles }: { roles: Rol[] }) {
     if (!dock || !zona) return;
     const ancho = dock.offsetWidth;
     const alto = dock.offsetHeight;
-    // `bottom-6 right-6` = 24px del borde.
-    const derecha = window.innerWidth - 24;
+    // `bottom-6` = 24px de abajo; `MARGEN` del costado.
+    const derecha = window.innerWidth - MARGEN;
     const abajo = window.innerHeight - 24;
     const izquierda = derecha - ancho;
     const arriba = abajo - alto;
@@ -130,7 +133,7 @@ export function FabDock({ roles }: { roles: Rol[] }) {
   return (
     <>
       {/* Zona de hover = el dock + el margen hasta el borde: al traerlo desde
-          la mitad que queda a la vista, el mouse sigue adentro y no parpadea. */}
+          lo que queda a la vista, el mouse sigue adentro y no parpadea. */}
       <div
         ref={zonaRef}
         onMouseEnter={() => setEncima(true)}
@@ -140,7 +143,8 @@ export function FabDock({ roles }: { roles: Rol[] }) {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null))
             setEncima(false);
         }}
-        className="fixed bottom-6 right-0 z-40 pr-6"
+        style={{ paddingRight: MARGEN }}
+        className="fixed bottom-6 right-0 z-40"
       >
         <div
           ref={dockRef}
