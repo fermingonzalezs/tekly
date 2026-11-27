@@ -17,8 +17,9 @@ import { cn } from "@/lib/utils";
 const CLICKEABLE =
   'button, a[href], input, select, textarea, label, summary, [role="button"], [role="tab"], [role="checkbox"]';
 
-/** Cuánto del dock queda asomando en el borde cuando se aparta (px). */
-const ASOMA = 14;
+/** Corrimiento del dock cuando se aparta: media píldora más el margen
+ * (`right-6`), así queda a la vista la mitad de los botones. */
+const APARTADO = "translateX(calc(50% + 1.5rem))";
 
 /** Botones flotantes de la app, en una sola píldora vertical abajo a la
  * derecha: "Reportar un problema" (chico, arriba) y "Buscar o crear" (el
@@ -27,13 +28,13 @@ const ASOMA = 14;
  * context y pintarían debajo de otros fixed z-50. El reporte se oculta en
  * mobile: ahí compite con los demás controles fixed (nav, toasts).
  *
- * Se aparta solo (sin botón de ocultar), dejando asomar un borde contra la
- * derecha de la pantalla:
+ * Se aparta solo (sin botón de ocultar) hacia la derecha, dejando a la vista
+ * la mitad de los botones:
  * - mientras se scrollea hacia abajo (vuelve al scrollear para arriba);
  * - cuando quedaría encima de algo clickeable de la página (un botón, un
  *   link, un input): se mide con `elementsFromPoint` sobre su lugar al
  *   scrollear, al cambiar el tamaño de la ventana o el contenido.
- * Pasar el mouse por el borde que asoma (o enfocarlo con Tab) lo trae de
+ * Pasar el mouse por la mitad que queda a la vista (o enfocarlo con Tab) lo trae de
  * vuelta, y Ctrl K abre el buscador siempre. */
 export function FabDock({ roles }: { roles: Rol[] }) {
   const [paletaAbierta, setPaletaAbierta] = useState(false);
@@ -129,7 +130,7 @@ export function FabDock({ roles }: { roles: Rol[] }) {
   return (
     <>
       {/* Zona de hover = el dock + el margen hasta el borde: al traerlo desde
-          el borde que asoma, el mouse sigue adentro y no parpadea. */}
+          la mitad que queda a la vista, el mouse sigue adentro y no parpadea. */}
       <div
         ref={zonaRef}
         onMouseEnter={() => setEncima(true)}
@@ -145,7 +146,7 @@ export function FabDock({ roles }: { roles: Rol[] }) {
           ref={dockRef}
           style={
             apartado
-              ? { transform: `translateX(calc(100% + 1.5rem - ${ASOMA}px))` }
+              ? { transform: APARTADO }
               : undefined
           }
           className={cn(
