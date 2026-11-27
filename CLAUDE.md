@@ -1615,8 +1615,10 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `descuentoSinDiferencia` separa el descuento propio para mostrarlo; el
   detalle muestra «Diferencia sin cobrar» y la lista «−U$ X sin cobrar». El
   recibo del cliente la muestra dentro de «Descuento».
-  **Seña y vuelto (26/11, igual que sistema-update)**: bajo los pagos de
-  Nueva venta, tildes «Abonó seña» y «Dio vuelto». La seña es un `Pago` más
+  **Seña y vuelto (26/11, igual que sistema-update)**: cada pago de Nueva
+  venta lleva su etiqueta («Método 1», «Método 2»…) y debajo van siempre
+  las filas «Seña» y «Vuelto» (vacías en «Sin seña»/«Sin vuelto» hasta
+  elegir un medio, `FilaPagoVacia`/`EtiquetaFilaPago`). La seña es un `Pago` más
   con `sena: true` (solo medios con caja; suma a lo cobrado y su ingreso de
   caja lleva «Seña · Venta V-…»). El vuelto es `Venta.vuelto` (`VueltoVenta`,
   columna `ventas.vuelto jsonb`, `20261126160000_ventas_vuelto.sql`): medio +

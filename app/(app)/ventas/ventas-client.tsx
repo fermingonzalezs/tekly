@@ -2221,6 +2221,82 @@ function RentabilidadEnVivo({
 type DraftPago = Pago & { _k: string; canje?: CanjeEquipo };
 type DraftVuelto = { medio: MedioPago; cajaId: string; caja: "usd" | "ars"; montoUsd: number };
 
+type TonoFilaPago = "metodo" | "sena" | "vuelto";
+const TONO_FILA_PAGO: Record<TonoFilaPago, string> = {
+  metodo: "bg-neutral-100 text-neutral-700",
+  sena: "bg-accent-soft text-accent",
+  vuelto: "bg-neutral-200 text-neutral-700",
+};
+
+/** Etiqueta al inicio de cada fila del bloque «Pago» (Método N / Seña /
+ * Vuelto). Ancho fijo para que las filas queden alineadas. */
+function EtiquetaFilaPago({ tono, children }: { tono: TonoFilaPago; children: string }) {
+  return (
+    <span
+      className={cn(
+        "w-[5.5rem] shrink-0 rounded-md px-2 py-1 text-center text-[11px] font-semibold uppercase tracking-wider",
+        TONO_FILA_PAGO[tono],
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** Fila de Seña / Vuelto sin cargar: siempre a la vista para que se vea que
+ * existe; elegir un medio la habilita (caja y monto quedan en «—»). */
+function FilaPagoVacia({
+  etiqueta,
+  tono,
+  vacio,
+  medios,
+  onMedio,
+}: {
+  etiqueta: string;
+  tono: TonoFilaPago;
+  vacio: string;
+  medios: MedioPago[];
+  onMedio: (medio: MedioPago | "") => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-dashed border-neutral-200">
+      <div className="flex min-w-max items-center justify-center gap-2 p-2">
+        <EtiquetaFilaPago tono={tono}>{etiqueta}</EtiquetaFilaPago>
+        <Select
+          value=""
+          onChange={(e) => onMedio(e.target.value as MedioPago | "")}
+          className="w-40 shrink-0 !text-center ![text-align-last:center]"
+          aria-label={`Medio de ${etiqueta.toLowerCase()}`}
+          disabled={medios.length === 0}
+        >
+          <option value="">{vacio}</option>
+          {medios.map((m) => (
+            <option key={m} value={m}>
+              {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value=""
+          disabled
+          className="w-32 shrink-0 !text-center ![text-align-last:center]"
+          aria-label={`Caja de ${etiqueta.toLowerCase()}`}
+        >
+          <option value="">—</option>
+        </Select>
+        <Input
+          disabled
+          className="w-32 shrink-0 !text-center"
+          placeholder="—"
+          aria-label={`Monto de ${etiqueta.toLowerCase()}`}
+        />
+        {/* Lugar del botón de quitar, para que las columnas no se corran. */}
+        <span className="w-10 shrink-0" />
+      </div>
+    </div>
+  );
+}
+
 type CatItem = {
   key: string;
   origen: Exclude<Origen, "libre">;
@@ -2689,7 +2765,7 @@ function NuevaVentaDialog({
       montoUsd: 0,
     } as DraftPago,
   ]);
-  // Vuelto que se le dio al cliente (tilde «Dio vuelto»): sale de una caja.
+  // Vuelto que se le dio al cliente (fila «Vuelto», siempre visible): sale de una caja.
   const [vuelto, setVuelto] = useState<DraftVuelto | null>(null);
   // Descuento sobre el total: monto fijo (U$) o porcentaje. Solo descuenta.
   const [descuentoTipo, setDescuentoTipo] = useState<"usd" | "pct">("usd");
@@ -2882,26 +2958,27 @@ function NuevaVentaDialog({
   // caja y el vuelto sale de una.
   const mediosCaja = MEDIOS_CAJA.filter((m) => cajasDeMedio(m).length > 0);
   const pagoSena = pagos.find((p) => p.sena);
-  const toggleSena = (on: boolean) =>
+  const pagosNormales = pagos.filter((p) => !p.sena);
+  // Fila «Seña» (siempre visible): «Sin seña» la saca; elegir un medio la
+  // agrega o le cambia el medio.
+  const elegirMedioSena = (medio: MedioPago | "") =>
     setPagos((p) => {
-      if (!on) {
-        const resto = p.filter((x) => !x.sena);
-        return resto.length > 0 ? resto : p.map((x) => ({ ...x, sena: undefined }));
-      }
-      const caja = cajasActivas.find((c) => c.medioPago !== "canje");
-      if (!caja) return p;
-      // La seña va primera: es lo que el cliente dejó antes.
-      return [
-        { _k: rid(), ...destinoPago(caja.id), montoUsd: 0, sena: true } as DraftPago,
-        ...p,
-      ];
+      if (!medio) return p.filter((x) => !x.sena);
+      if (p.some((x) => x.sena))
+        return p.map((x) => (x.sena ? { ...x, ...medioAPago(medio), canje: undefined } : x));
+      return [...p, { _k: rid(), ...medioAPago(medio), montoUsd: 0, sena: true } as DraftPago];
     });
   const vueltoDeMedio = (medio: MedioPago, montoUsd: number): DraftVuelto | null => {
     const caja = cajasDeMedio(medio)[0];
     return caja ? { medio, cajaId: caja.id, caja: caja.moneda, montoUsd } : null;
   };
-  const toggleVuelto = (on: boolean, montoUsd = 0) =>
-    setVuelto(on && mediosCaja[0] ? vueltoDeMedio(mediosCaja[0], montoUsd) : null);
+  // Fila «Vuelto» (siempre visible): arranca con lo que sobra, si sobra algo.
+  const elegirMedioVuelto = (medio: MedioPago | "") =>
+    setVuelto((v) =>
+      medio
+        ? vueltoDeMedio(medio, v?.montoUsd ?? (restante < 0 ? Math.abs(restante) : 0))
+        : null,
+    );
 
   function submit() {
     if (!cliente || cliente.tipo === "libre") return;
@@ -3253,7 +3330,7 @@ function NuevaVentaDialog({
           ) : (
           <>
               <div className="space-y-2">
-                {pagos.map((p) => {
+                {[...pagosNormales, ...(pagoSena ? [pagoSena] : [])].map((p, idx) => {
                   const recargoPct = p.recargoPct ?? 0;
                   const cajasMedio =
                     p.medio !== "cuenta_corriente" && p.medio !== "canje"
@@ -3265,21 +3342,22 @@ function NuevaVentaDialog({
                       className="overflow-x-auto rounded-lg border border-neutral-200"
                     >
                       <div className="flex min-w-max items-center justify-center gap-2 p-2">
-                        {p.sena && (
-                          <span className="shrink-0 rounded-md bg-accent-soft px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent">
-                            Seña
-                          </span>
-                        )}
+                        <EtiquetaFilaPago tono={p.sena ? "sena" : "metodo"}>
+                          {p.sena ? "Seña" : `Método ${idx + 1}`}
+                        </EtiquetaFilaPago>
                         <Select
                           value={p.medio}
                           onChange={(e) => {
-                            const medio = e.target.value as MedioPagoVenta;
+                            const medio = e.target.value as MedioPagoVenta | "";
+                            if (p.sena) return elegirMedioSena(medio as MedioPago | "");
+                            if (!medio) return;
                             updPago(p._k, { ...medioAPago(medio), canje: undefined });
                             if (medio === "canje") setCanjeModalKey(p._k);
                           }}
                           className="w-40 shrink-0 !text-center ![text-align-last:center]"
-                          aria-label="Medio de pago"
+                          aria-label={p.sena ? "Medio de la seña" : `Medio del método ${idx + 1}`}
                         >
+                          {p.sena && <option value="">Sin seña</option>}
                           {!modoDemo && !p.sena && (
                             <option value="cuenta_corriente">
                               {medioPagoCfg.cuenta_corriente.emoji} Cuenta corriente
@@ -3392,33 +3470,48 @@ function NuevaVentaDialog({
                           </span>
                         )}
                         <IconButton
-                          aria-label={p.sena ? "Quitar la seña" : "Quitar medio de pago"}
+                          aria-label={p.sena ? "Quitar la seña" : `Quitar el método ${idx + 1}`}
                           icon={Trash2}
                           variant="danger-ghost"
                           size="lg"
                           className="shrink-0"
-                          onClick={() => (p.sena ? toggleSena(false) : rmPago(p._k))}
-                          disabled={pagos.length === 1}
+                          onClick={() => (p.sena ? elegirMedioSena("") : rmPago(p._k))}
+                          disabled={!p.sena && pagosNormales.length === 1}
                         />
                       </div>
                     </div>
                   );
                 })}
+                {/* Seña y vuelto siempre a la vista: vacías hasta elegir un medio. */}
+                {!modoDemo && !pagoSena && (
+                  <FilaPagoVacia
+                    etiqueta="Seña"
+                    tono="sena"
+                    vacio="Sin seña"
+                    medios={mediosCaja}
+                    onMedio={elegirMedioSena}
+                  />
+                )}
+                {!modoDemo && !vuelto && (
+                  <FilaPagoVacia
+                    etiqueta="Vuelto"
+                    tono="vuelto"
+                    vacio="Sin vuelto"
+                    medios={mediosCaja}
+                    onMedio={elegirMedioVuelto}
+                  />
+                )}
                 {vuelto && (
-                  <div className="overflow-x-auto rounded-lg border border-dashed border-neutral-300 bg-neutral-50/70">
+                  <div className="overflow-x-auto rounded-lg border border-neutral-200">
                     <div className="flex min-w-max items-center justify-center gap-2 p-2">
-                      <span className="shrink-0 rounded-md bg-neutral-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-neutral-700">
-                        Vuelto
-                      </span>
+                      <EtiquetaFilaPago tono="vuelto">Vuelto</EtiquetaFilaPago>
                       <Select
                         value={vuelto.medio}
-                        onChange={(e) => {
-                          const v = vueltoDeMedio(e.target.value as MedioPago, vuelto.montoUsd);
-                          if (v) setVuelto(v);
-                        }}
+                        onChange={(e) => elegirMedioVuelto(e.target.value as MedioPago | "")}
                         className="w-40 shrink-0 !text-center ![text-align-last:center]"
                         aria-label="Medio del vuelto"
                       >
+                        <option value="">Sin vuelto</option>
                         {mediosCaja.map((m) => (
                           <option key={m} value={m}>
                             {medioPagoCfg[m].emoji} {medioPagoCfg[m].label}
@@ -3484,37 +3577,12 @@ function NuevaVentaDialog({
                         variant="danger-ghost"
                         size="lg"
                         className="shrink-0"
-                        onClick={() => toggleVuelto(false)}
+                        onClick={() => elegirMedioVuelto("")}
                       />
                     </div>
                   </div>
                 )}
               </div>
-
-              {!modoDemo && mediosCaja.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-                  <label className="inline-flex items-center gap-2 text-[13px] font-medium text-neutral-700">
-                    <input
-                      type="checkbox"
-                      checked={!!pagoSena}
-                      onChange={(e) => toggleSena(e.target.checked)}
-                      className="h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
-                    />
-                    Abonó seña
-                  </label>
-                  <label className="inline-flex items-center gap-2 text-[13px] font-medium text-neutral-700">
-                    <input
-                      type="checkbox"
-                      checked={!!vuelto}
-                      onChange={(e) =>
-                        toggleVuelto(e.target.checked, restante < 0 ? Math.abs(restante) : 0)
-                      }
-                      className="h-4 w-4 rounded border-neutral-300 text-accent focus:ring-accent"
-                    />
-                    Dio vuelto
-                  </label>
-                </div>
-              )}
 
               <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
                 <button
