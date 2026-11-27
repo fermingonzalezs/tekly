@@ -1662,8 +1662,10 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   (`tekly:carrito-venta:v1`, store `useSyncExternalStore` en
   `components/ventas/carrito-venta.tsx`; lógica pura en `lib/carrito-venta.ts`,
   con test) y se abre desde el botón 🛒 del `FabDock` (píldora flotante abajo
-  a la derecha; se aparta sola al scrollear hacia abajo y se oculta a mano con
-  su flecha, dejando una pestaña en el borde — `tekly:ui:fab-dock`), junto a la lupa
+  a la derecha; se aparta **sola**, dejando asomar un borde, mientras se
+  scrollea hacia abajo o cuando quedaría encima de algo clickeable de la
+  página — `elementsFromPoint` sobre su lugar —; el mouse sobre el borde la
+  trae de vuelta, sin botón de ocultar), junto a la lupa
   (`PanelCarrito`, con contador). «Pasar a la venta» →
   `/ventas?accion=nueva-venta&carrito=1`: `VentasClient` filtra lo que sigue
   disponible (`filtrarDisponibles`, avisa lo que quedó afuera) y lo pasa como

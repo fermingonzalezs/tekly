@@ -1,15 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Bug, ChevronLeft, ChevronRight, Search, ShoppingCart } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { Bug, Search, ShoppingCart } from "lucide-react";
 import { IconButton } from "@/components/ui/button";
 import { CommandPalette } from "@/components/command-palette/command-palette";
 import { ReportarBugFab } from "@/components/reportar-bug-fab";
-import { PanelCarrito, useCarritoVenta } from "@/components/ventas/carrito-venta";
+import {
+  PanelCarrito,
+  useCarritoVenta,
+} from "@/components/ventas/carrito-venta";
 import type { Rol } from "@/lib/auth/types";
 import { cn } from "@/lib/utils";
 
-const CLAVE_OCULTO = "tekly:ui:fab-dock";
+/** Lo que cuenta como «algo clickeable» de la página que el dock taparía. */
+const CLICKEABLE =
+  'button, a[href], input, select, textarea, label, summary, [role="button"], [role="tab"], [role="checkbox"]';
+
+/** Cuánto del dock queda asomando en el borde cuando se aparta (px). */
+const ASOMA = 14;
 
 /** Botones flotantes de la app, en una sola píldora vertical abajo a la
  * derecha: "Reportar un problema" (chico, arriba) y "Buscar o crear" (el
@@ -18,39 +27,68 @@ const CLAVE_OCULTO = "tekly:ui:fab-dock";
  * context y pintarían debajo de otros fixed z-50. El reporte se oculta en
  * mobile: ahí compite con los demás controles fixed (nav, toasts).
  *
- * Como tapa botones de la página que caen abajo a la derecha, se aparta:
- * - a mano, con la flecha de arriba: queda una pestaña chica pegada al borde
- *   (persistido en `localStorage`, `tekly:ui:fab-dock`); Ctrl K sigue
- *   abriendo el buscador igual.
- * - solo, mientras se scrollea hacia abajo (vuelve al scrollear para arriba).
- */
+ * Se aparta solo (sin botón de ocultar), dejando asomar un borde contra la
+ * derecha de la pantalla:
+ * - mientras se scrollea hacia abajo (vuelve al scrollear para arriba);
+ * - cuando quedaría encima de algo clickeable de la página (un botón, un
+ *   link, un input): se mide con `elementsFromPoint` sobre su lugar al
+ *   scrollear, al cambiar el tamaño de la ventana o el contenido.
+ * Pasar el mouse por el borde que asoma (o enfocarlo con Tab) lo trae de
+ * vuelta, y Ctrl K abre el buscador siempre. */
 export function FabDock({ roles }: { roles: Rol[] }) {
   const [paletaAbierta, setPaletaAbierta] = useState(false);
   const [bugAbierto, setBugAbierto] = useState(false);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
   const { carrito } = useCarritoVenta();
-  const [oculto, setOculto] = useState(false);
   const [bajando, setBajando] = useState(false);
+  const [tapa, setTapa] = useState(false);
+  const [encima, setEncima] = useState(false);
   const ultimoScroll = useRef(0);
   const dockRef = useRef<HTMLDivElement>(null);
+  const zonaRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
 
-  // Oculto a mano = fuera del orden de foco (`inert` como atributo: React 18
-  // no lo maneja como prop booleana).
-  useEffect(() => {
-    dockRef.current?.toggleAttribute("inert", oculto);
-  }, [oculto]);
-
-  useEffect(() => {
-    try {
-      setOculto(localStorage.getItem(CLAVE_OCULTO) === "1");
-    } catch {
-      // sin localStorage: queda visible.
+  /** ¿Hay algo clickeable de la página debajo del lugar del dock? Mide sobre
+   * su posición normal (sin el corrimiento), con una grilla de puntos. */
+  const medir = useCallback(() => {
+    const dock = dockRef.current;
+    const zona = zonaRef.current;
+    if (!dock || !zona) return;
+    const ancho = dock.offsetWidth;
+    const alto = dock.offsetHeight;
+    // `bottom-6 right-6` = 24px del borde.
+    const derecha = window.innerWidth - 24;
+    const abajo = window.innerHeight - 24;
+    const izquierda = derecha - ancho;
+    const arriba = abajo - alto;
+    let hay = false;
+    for (const fx of [0.15, 0.5, 0.85]) {
+      for (const fy of [0.05, 0.3, 0.55, 0.8, 0.97]) {
+        const x = izquierda + ancho * fx;
+        const y = arriba + alto * fy;
+        for (const el of document.elementsFromPoint(x, y)) {
+          if (zona.contains(el)) continue;
+          if (el.closest(CLICKEABLE)) {
+            hay = true;
+            break;
+          }
+        }
+        if (hay) break;
+      }
+      if (hay) break;
     }
+    setTapa(hay);
   }, []);
 
   useEffect(() => {
+    let frame = 0;
+    const programar = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(medir);
+    };
     ultimoScroll.current = window.scrollY;
     function onScroll() {
+      programar();
       const y = window.scrollY;
       const delta = y - ultimoScroll.current;
       // Umbral chico para que un temblor del trackpad no lo haga parpadear.
@@ -58,96 +96,116 @@ export function FabDock({ roles }: { roles: Rol[] }) {
       setBajando(delta > 0 && y > 40);
       ultimoScroll.current = y;
     }
+    // Cambios de contenido (tablas que cargan, tabs, dialogs): con un poco
+    // de espera para no medir en cada mutación.
+    let espera: ReturnType<typeof setTimeout> | undefined;
+    const observer = new MutationObserver(() => {
+      clearTimeout(espera);
+      espera = setTimeout(programar, 250);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    window.addEventListener("resize", programar);
+    programar();
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(espera);
+      observer.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", programar);
+    };
+  }, [medir]);
 
-  function cambiarOculto(valor: boolean) {
-    setOculto(valor);
-    try {
-      localStorage.setItem(CLAVE_OCULTO, valor ? "1" : "0");
-    } catch {
-      // idem
-    }
-  }
+  // Otra página: arranca visible y se vuelve a medir.
+  useEffect(() => {
+    setBajando(false);
+    const t = setTimeout(medir, 300);
+    return () => clearTimeout(t);
+  }, [pathname, medir]);
 
-  // El carrito abierto lo mantiene a la vista (el panel se ancla a él).
-  const apartado = !carritoAbierto && (oculto || bajando);
+  // El carrito abierto o el mouse/foco encima lo mantienen a la vista.
+  const apartado = !carritoAbierto && !encima && (bajando || tapa);
 
   return (
     <>
-      {oculto && (
-        <button
-          type="button"
-          aria-label="Mostrar buscador y botones flotantes"
-          title="Mostrar buscador (Ctrl K)"
-          onClick={() => cambiarOculto(false)}
-          className="fixed bottom-8 right-0 z-40 grid h-11 w-6 place-items-center rounded-l-lg border border-r-0 border-neutral-200 bg-white text-neutral-500 shadow-md transition-colors duration-150 hover:bg-accent-soft hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-        >
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        </button>
-      )}
+      {/* Zona de hover = el dock + el margen hasta el borde: al traerlo desde
+          el borde que asoma, el mouse sigue adentro y no parpadea. */}
       <div
-        aria-hidden={oculto || undefined}
-        ref={dockRef}
-        className={cn(
-          "fixed bottom-6 right-6 z-40 flex flex-col items-center gap-1 rounded-full border border-neutral-200 bg-white p-1.5 shadow-lg transition-transform duration-200 ease-out",
-          apartado && "pointer-events-none translate-x-[calc(100%+2rem)]",
-        )}
+        ref={zonaRef}
+        onMouseEnter={() => setEncima(true)}
+        onMouseLeave={() => setEncima(false)}
+        onFocus={() => setEncima(true)}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+            setEncima(false);
+        }}
+        className="fixed bottom-6 right-0 z-40 pr-6"
       >
-        <IconButton
-          aria-label="Ocultar buscador y botones flotantes"
-          title="Ocultar (Ctrl K sigue abriendo el buscador)"
-          icon={ChevronRight}
-          variant="ghost"
-          size="sm"
-          onClick={() => cambiarOculto(true)}
-        />
-        <IconButton
-          aria-label="Reportar un problema"
-          title="Reportar un problema"
-          icon={Bug}
-          variant="ghost"
-          size="lg"
-          className="hidden md:grid"
-          onClick={() => setBugAbierto(true)}
-        />
-        {/* Carrito «Vender desde el stock» (se llena con 🛒 en Inventario). */}
-        <span className="relative">
+        <div
+          ref={dockRef}
+          style={
+            apartado
+              ? { transform: `translateX(calc(100% + 1.5rem - ${ASOMA}px))` }
+              : undefined
+          }
+          className={cn(
+            "flex flex-col items-center gap-1 rounded-full border border-neutral-200 bg-white p-1.5 shadow-lg transition-[transform,opacity] duration-200 ease-out",
+            apartado && "opacity-70",
+          )}
+        >
           <IconButton
-            aria-label={`Venta en armado${carrito.length ? ` (${carrito.length})` : ""}`}
-            title="Venta en armado"
-            icon={ShoppingCart}
+            aria-label="Reportar un problema"
+            title="Reportar un problema"
+            icon={Bug}
             variant="ghost"
             size="lg"
-            aria-expanded={carritoAbierto}
-            // El panel se cierra con un mousedown afuera: sin frenarlo acá,
-            // tocar el botón con el panel abierto lo cerraba y reabría.
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={() => setCarritoAbierto((v) => !v)}
+            className="hidden md:grid"
+            onClick={() => setBugAbierto(true)}
           />
-          {carrito.length > 0 && (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-semibold tabular-nums text-white"
-            >
-              {carrito.length}
-            </span>
-          )}
-        </span>
-        <IconButton
-          aria-label="Buscar o crear"
-          title="Buscar o crear (Ctrl K)"
-          icon={Search}
-          variant="primary"
-          size="xl"
-          onClick={() => setPaletaAbierta(true)}
-        />
+          {/* Carrito «Vender desde el stock» (se llena con 🛒 en Inventario). */}
+          <span className="relative">
+            <IconButton
+              aria-label={`Venta en armado${carrito.length ? ` (${carrito.length})` : ""}`}
+              title="Venta en armado"
+              icon={ShoppingCart}
+              variant="ghost"
+              size="lg"
+              aria-expanded={carritoAbierto}
+              // El panel se cierra con un mousedown afuera: sin frenarlo acá,
+              // tocar el botón con el panel abierto lo cerraba y reabría.
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setCarritoAbierto((v) => !v)}
+            />
+            {carrito.length > 0 && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-semibold tabular-nums text-white"
+              >
+                {carrito.length}
+              </span>
+            )}
+          </span>
+          <IconButton
+            aria-label="Buscar o crear"
+            title="Buscar o crear (Ctrl K)"
+            icon={Search}
+            variant="primary"
+            size="xl"
+            onClick={() => setPaletaAbierta(true)}
+          />
+        </div>
       </div>
 
-      <PanelCarrito open={carritoAbierto} onClose={() => setCarritoAbierto(false)} />
+      <PanelCarrito
+        open={carritoAbierto}
+        onClose={() => setCarritoAbierto(false)}
+      />
       <ReportarBugFab open={bugAbierto} onOpenChange={setBugAbierto} />
-      <CommandPalette roles={roles} open={paletaAbierta} onOpenChange={setPaletaAbierta} />
+      <CommandPalette
+        roles={roles}
+        open={paletaAbierta}
+        onOpenChange={setPaletaAbierta}
+      />
     </>
   );
 }
