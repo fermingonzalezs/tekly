@@ -261,8 +261,9 @@ export function InventarioClient({
   const [otros, setOtros] = useState<OtroItem[]>(initialOtros);
   const [variantes, setVariantes] = useState<Variante[]>(initialVariantes);
 
-  // Vista de Celulares: agrupada por grupo › variante (default) o la tabla
-  // plana de unidades. Persistida por sección en `localStorage`.
+  // Vista de Celulares/Notebooks: agrupada por grupo › variante o la tabla
+  // plana de unidades. Siempre abre agrupada (por variantes); el toggle no
+  // se persiste entre visitas.
   const [vistaCelulares, setVistaCelulares] = useState<"agrupado" | "unidades">("agrupado");
   const [vistaNotebooks, setVistaNotebooks] = useState<"agrupado" | "unidades">("agrupado");
   const [verVariantesDesactivadas, setVerVariantesDesactivadas] = useState(false);
@@ -272,33 +273,12 @@ export function InventarioClient({
   const [varianteEliminando, setVarianteEliminando] = useState<Variante | null>(null);
   const [errorEliminarVariante, setErrorEliminarVariante] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      const guardada = localStorage.getItem("tekly:ui:inventario-celulares-vista");
-      if (guardada === "unidades" || guardada === "agrupado") setVistaCelulares(guardada);
-      const guardadaNb = localStorage.getItem("tekly:ui:inventario-notebooks-vista");
-      if (guardadaNb === "unidades" || guardadaNb === "agrupado") setVistaNotebooks(guardadaNb);
-    } catch {
-      // sin localStorage (modo privado): se queda con el default.
-    }
-  }, []);
-
   function cambiarVistaNotebooks(vista: "agrupado" | "unidades") {
     setVistaNotebooks(vista);
-    try {
-      localStorage.setItem("tekly:ui:inventario-notebooks-vista", vista);
-    } catch {
-      // sin localStorage: queda en memoria.
-    }
   }
 
   function cambiarVistaCelulares(vista: "agrupado" | "unidades") {
     setVistaCelulares(vista);
-    try {
-      localStorage.setItem("tekly:ui:inventario-celulares-vista", vista);
-    } catch {
-      // idem
-    }
   }
 
   // Tras editar/unir/borrar una variante se llama `router.refresh()`: los

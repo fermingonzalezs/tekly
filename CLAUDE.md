@@ -1418,7 +1418,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   `condicionSku`; la clave sí lleva el grado), stock/rango de precio, `cruzoMinimo`;
   con test). Inventario → Celulares abre en vista **Agrupada** (grupo ›
   variante › unidad, `components/inventario/variantes-tabla.tsx`, toggle
-  «Agrupado / Unidades» persistido en `localStorage`; los grupos arrancan
+  «Agrupado / Unidades», siempre abre en Agrupado — no se persiste; los grupos arrancan
   **plegados**, y abiertos si hay búsqueda/filtro; «Disponibles» del grupo
   y de cada variante se tiñen: rojo sin stock, ámbar si alguna variante
   activa está bajo su `stock_minimo`); herramientas:
@@ -1453,8 +1453,7 @@ Para migrar una sección que sigue en mock, o agregar una completamente nueva:
   variante (tabla de unidades, `item_type` de movimientos); `listVariantes`
   trae solo celulares salvo `categoria` (`"todas"` en Inventario, Ventas y
   Configuración). `SelectorVariante`/`VarianteDialog`/`VariantesTabla`
-  reciben `categoria`; Notebooks también abre **Agrupada** (toggle propio,
-  `tekly:ui:inventario-notebooks-vista`), la importación pide la variante
+  reciben `categoria`; Notebooks también abre **Agrupada** (toggle propio, no persistido), la importación pide la variante
   por fila y Nueva venta avisa `low_stock` también por notebooks.
   `variante_id` de celulares **y** notebooks sigue nullable hasta aplicar
   `20261124200000_variantes_not_null.sql` (después del deploy).
